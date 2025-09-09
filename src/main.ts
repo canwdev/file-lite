@@ -7,12 +7,12 @@ import {serveStatic} from '@hono/node-server/serve-static'
 import {Hono} from 'hono'
 // import {cors} from 'hono/cors'
 import getPort, {portNumbers} from 'get-port'
-import path from 'path'
-import {filesRouter} from '@/routes/files.ts'
+import Path from 'path'
+import {filesRouter} from '@/routes/files/index.ts'
 
 const startServer = async () => {
   const app = new Hono()
-  app.use('/*', serveStatic({root: path.join(process.cwd(), './frontend')}))
+  app.use('/*', serveStatic({root: Path.join(process.cwd(), './frontend')}))
   // app.use('/api/*', cors())
   app.route('/api/files', filesRouter)
 
