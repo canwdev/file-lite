@@ -1,0 +1,22 @@
+{
+  "name": "file-lite",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "build": "bun build --target=node --minify --outdir=dist ./src/main.ts",
+    "prettier": "bunx prettier . --write"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.17.1",
+    "get-port": "^7.1.0",
+    "hono": "^4.8.7"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}
