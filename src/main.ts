@@ -1,32 +1,22 @@
-// import {serve} from 'bun'
-// import { serveStatic } from 'hono/bun'
-import {serve} from '@hono/node-server'
-import {serveStatic} from '@hono/node-server/serve-static'
-// import {getConnInfo} from '@hono/node-server/conninfo'
-// import {ipRestriction} from 'hono/ip-restriction'
-import {Hono} from 'hono'
-// import {cors} from 'hono/cors'
 import getPort, {portNumbers} from 'get-port'
-import Path from 'path'
 import {filesRouter} from '@/routes/files/index.ts'
+import express from 'express'
+import path from 'path'
 
 const startServer = async () => {
-  const app = new Hono()
-  app.use('/*', serveStatic({root: Path.join(process.cwd(), './frontend')}))
-  // app.use('/api/*', cors())
-  app.route('/api/files', filesRouter)
+  const app = express()
+  app.use(express.json())
+  app.use(express.urlencoded({extended: true}))
+
+  // 配置静态资源服务
+  app.use('/', express.static(path.resolve(process.cwd(), './frontend'), {}))
+  app.use('/api/files', filesRouter)
 
   const port = await getPort({port: portNumbers(3100, 4100)})
 
-  const server = serve({
-    port: port,
-    hostname: '127.0.0.1',
-    fetch: app.fetch,
+  app.listen(port, '127.0.0.1', () => {
+    console.log(`Server is running at http://${host}:${port}`)
   })
-  const url = `http://127.0.0.1:${port}`
-  return {port, server, url}
+  const host = '127.0.0.1'
 }
-
-const {url} = await startServer()
-
-console.log(`Running on: ${url}`)
+await startServer()

@@ -1,11 +1,11 @@
 import Path from 'path'
 import {IDrive, IEntry} from '@/routes/files/types.ts'
-import fs from 'fs/promises'
-import {Context} from 'hono'
+import fs from 'node:fs/promises'
 import mime from 'mime-types'
 import nodeDiskInfo from 'node-disk-info'
-import os from 'os'
-import {createReadStream} from 'fs'
+import os from 'node:os'
+import {createReadStream, Stats} from 'node:fs'
+import {Request, Response} from 'express'
 
 // 检查文件是否存在
 const checkValidPath = async (path: string) => {
@@ -20,7 +20,7 @@ const checkValidPath = async (path: string) => {
   }
 }
 
-export const getDrivers = async (c: Context) => {
+export const getDrivers = async (req: Request, res: Response) => {
   const results: IDrive[] = [
     {
       label: 'Home',
@@ -36,78 +36,84 @@ export const getDrivers = async (c: Context) => {
       total: drive.blocks,
     })),
   )
-  return c.json(results)
+  return res.json(results)
 }
-
 // 列出文件夹内容
-export const getFiles = async (c: Context) => {
-  const {path} = c.req.query()
+export const getFiles = async (req: Request, res: Response) => {
+  const {path} = req.query
+
+  if (typeof path !== 'string') {
+    // 确保 path 是 string 类型
+    return res.status(400).json({error: 'Path must be a string'})
+  }
+
   const valid = await checkValidPath(path || '')
   if (!valid) {
-    return c.json({error: 'Path not found'}, 400)
+    return res.status(400).json({error: 'Path not found'})
   }
-  const stats = await fs.stat(path)
-  if (!stats.isDirectory()) {
-    return c.json({error: 'Path is not a directory'}, 400)
-  }
-  const files = await fs.readdir(path)
 
-  const results: IEntry[] = []
-  for (const entryName of files) {
-    const entryPath = Path.join(path, entryName)
-    let stat: fs.Stats | null = null
-    let error: string | null = null
-    try {
-      stat = await fs.stat(entryPath)
-    } catch (err) {
-      stat = null
-      error = String(err)
+  try {
+    const stats = await fs.stat(path)
+    if (!stats.isDirectory()) {
+      return res.status(400).json({error: 'Path is not a directory'})
     }
-    const isDirectory = stat?.isDirectory() || false
-    const ext = Path.extname(entryName)
-    results.push({
-      name: entryName,
-      ext: ext,
-      isDirectory,
-      hidden: entryName.startsWith('.'),
-      lastModified: stat?.ctimeMs || 0,
-      birthtime: stat?.birthtimeMs || 0,
-      size: isDirectory ? null : stat?.size,
-      error,
-      // stat,
-      // mimeType: isDirectory ? null : mime.contentType(ext) || '',
-    })
+
+    const files = await fs.readdir(path)
+
+    const results: IEntry[] = []
+    for (const entryName of files) {
+      const entryPath = Path.join(path, entryName)
+      let stat: Stats | null = null
+      let error: string | null = null
+      try {
+        stat = await fs.stat(entryPath)
+      } catch (err) {
+        stat = null
+        error = String(err)
+      }
+      const isDirectory = stat?.isDirectory() || false
+      const ext = Path.extname(entryName)
+      results.push({
+        name: entryName,
+        ext: ext,
+        isDirectory,
+        hidden: entryName.startsWith('.'),
+        lastModified: stat?.ctimeMs || 0,
+        birthtime: stat?.birthtimeMs || 0,
+        size: isDirectory ? null : stat?.size || 0,
+        error,
+      })
+    }
+    return res.json(results)
+  } catch (error: any) {
+    console.error('Error in getFiles:', error)
+    return res.status(500).json({error: 'Internal Server Error'}) // 统一的错误处理
   }
-  return c.json(results)
 }
 
-export const getFileStream = async (c: Context) => {
-  const {path} = c.req.query()
+// 获取文件流
+export const getFileStream = async (req: Request, res: Response) => {
+  const {path} = req.query
+
+  if (typeof path !== 'string') {
+    // 确保 path 是 string 类型
+    return res.status(400).json({error: 'Path must be a string'})
+  }
+
   const valid = await checkValidPath(path || '')
   if (!valid) {
-    return c.json({error: 'Path not found'}, 400)
+    return res.status(400).json({error: 'Path not found'})
   }
-  const stats = await fs.stat(path)
-  if (!stats.isFile()) {
-    return c.json({error: 'Path is not a file'}, 400)
+
+  try {
+    const stats = await fs.stat(path)
+    if (!stats.isFile()) {
+      return res.status(400).json({error: 'Path is not a file'})
+    }
+
+    res.sendFile(path)
+  } catch (error: any) {
+    console.error('Error in getFileStream:', error)
+    return res.status(500).json({error: 'Internal Server Error'}) // 统一的错误处理
   }
-  // 对比express和nest是否支持分片请求
-  const stream = createReadStream(path)
-
-  const mimeType = mime.contentType(Path.extname(path)) || ''
-  // Set the correct header so the browser knows what to expect.
-  c.header('Content-Type', mimeType)
-  c.header('Content-Length', stats.size.toString())
-  c.header('Accept-Ranges', 'bytes')
-  c.header('Last-Modified', stats.mtime.toUTCString())
-  c.header('ETag', `"${stats.size}-${stats.mtime.getTime()}"`)
-  // c.header('Cache-Control', 'public, max-age=31536000')
-  c.header('Content-Disposition', `attachment; filename="${encodeURI(Path.basename(path))}"`)
-  c.header('Content-Transfer-Encoding', 'binary')
-  c.header('Connection', 'keep-alive')
-  c.header('Pragma', 'public')
-
-  // Hono's adapter for Node.js will pipe the Node.js Readable stream
-  // into the HTTP response.
-  return c.body(stream)
 }
