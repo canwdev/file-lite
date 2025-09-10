@@ -6,6 +6,7 @@ import os from 'node:os'
 import {Stats} from 'node:fs'
 import {Request, Response} from 'express'
 import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
+import Archiver from 'archiver'
 
 // 安全检查：确保访问路径不超出基础目录
 function isPathSafe(path: string): boolean {
@@ -86,25 +87,6 @@ export const getFiles = async (req: Request, res: Response) => {
     })
   }
   return res.json(results)
-}
-
-// 获取文件流
-export const getFileStream = async (req: Request, res: Response) => {
-  const {path} = req.query as {path: string}
-
-  if (!isPathSafe(path)) {
-    return res.status(400).json({message: 'Path not safe'})
-  }
-  if (!(await isExist(path))) {
-    return res.status(400).json({message: 'Path not found'})
-  }
-
-  const stats = await fs.stat(path)
-  if (!stats.isFile()) {
-    return res.status(400).json({message: 'Path is not a file'})
-  }
-
-  res.sendFile(path)
 }
 
 // 创建目录
@@ -224,4 +206,112 @@ export const deletePath = async (req: Request, res: Response) => {
   }
   await fs.rm(path, {recursive: true})
   return res.json({path})
+}
+
+// 获取文件流
+export const getFileStream = async (req: Request, res: Response) => {
+  const {path} = req.query as {path: string}
+
+  if (!isPathSafe(path)) {
+    return res.status(400).json({message: 'Path not safe'})
+  }
+  if (!(await isExist(path))) {
+    return res.status(400).json({message: 'Path not found'})
+  }
+
+  const stats = await fs.stat(path)
+  if (!stats.isFile()) {
+    return res.status(400).json({message: 'Path is not a file'})
+  }
+
+  res.sendFile(path)
+}
+
+// 多文件下载, eg: http://127.0.0.1:3100/api/files/download?path=D%3A%5CTEST
+const downloadMultiFiles = async (paths: string[], res: Response) => {
+  let downloadName = `download.zip`
+  // console.log(paths)
+
+  if (paths.length === 0) {
+    return res.status(400).json({message: 'no file to download'})
+  }
+  if (paths.length === 1) {
+    // 获取文件的父文件夹路径
+    const name = Path.basename(paths[0] as string)
+    if (name) {
+      downloadName = name
+    }
+  } else if (paths[0]) {
+    // 获取文件的父文件夹路径
+    const name = Path.basename(Path.dirname(paths[0]))
+    if (name) {
+      // 获取父文件夹的名称
+      downloadName = name
+    }
+  }
+  // console.log(downloadName)
+
+  const archive = Archiver('zip', {
+    zlib: {level: 9},
+  })
+
+  for (let i = 0; i < paths.length; i++) {
+    const path = paths[i] as string
+    if (!(await isExist(path))) {
+      throw new Error(`[getRecursiveFlatPaths] Path ${path} not exist!`)
+    }
+    const stat = await fs.stat(path)
+    if (!stat.isDirectory()) {
+      // console.log('add file', path)
+      archive.file(path, {name: Path.basename(path)})
+    } else {
+      // console.log('add dir', path)
+      const children = await fs.readdir(path)
+      if (children.length) {
+        archive.directory(path, Path.basename(path))
+      } else {
+        // 空文件夹
+        archive.append(null, {name: Path.basename(path) + '/'})
+      }
+    }
+  }
+
+  res.header(
+    'Content-Disposition',
+    `attachment; filename="${encodeURIComponent(downloadName)}.zip"`,
+  )
+  archive.pipe(res)
+  archive.finalize()
+}
+
+// 下载文件, eg: http://127.0.0.1:3100/api/files/download?path=D%3A%5CDownloads%5Cvideos%5Cpopacademy%20institution%20music%20concert_1.mp4
+export const downloadPath = async (req: Request, res: Response) => {
+  const {path, paths} = req.query as {path: string; paths: string[]}
+
+  // console.log(req.query)
+  if (!path && (!paths || paths.length === 0)) {
+    return res.status(400).json({message: 'path(s) is empty'})
+  }
+
+  if (path) {
+    // 单文件下载
+    if (!isPathSafe(path)) {
+      return res.status(400).json({message: 'Path not safe'})
+    }
+    if (!(await isExist(path))) {
+      return res.status(400).json({message: 'Path not found'})
+    }
+
+    const stats = await fs.stat(path)
+    if (stats.isFile()) {
+      return res.download(path, Path.basename(path), {
+        // 允许隐藏文件，否则隐藏文件会下载失败
+        dotfiles: 'allow',
+      })
+    }
+    return await downloadMultiFiles([path], res)
+  }
+
+  // 多文件下载
+  return await downloadMultiFiles(paths, res)
 }
