@@ -6,8 +6,7 @@ import {Request, Response} from 'express'
 import nodeDiskInfo from 'node-disk-info'
 import Archiver from 'archiver'
 import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
-
-// --- 辅助函数 (Helpers) ---
+import multer from 'multer'
 
 /**
  * 安全检查：确保访问路径不超出基础目录
@@ -15,6 +14,10 @@ import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
  * @returns 是否安全
  */
 function isPathSafe(path: string): boolean {
+  // 处理空路径
+  if (!path) {
+    return false
+  }
   // 如果未配置安全基础目录，则默认所有路径都安全
   if (!SAFE_ABS_BASE_DIR) {
     return true
@@ -317,3 +320,40 @@ export const downloadPath = async (req: Request, res: Response) => {
     return res.status(500).json({message: err.message || 'Download failed'})
   }
 }
+
+// 存储引擎配置
+export const multerUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (req, file, cb) => {
+      const path = req.query.path || ''
+      let dest = ''
+      try {
+        if (path) {
+          // 确保目录安全
+          if (!isPathSafe(req.query.path as string)) {
+            return cb(new Error(`Path is not safe: ${path}`))
+          }
+          dest = path
+        } else {
+          dest = Path.join(process.cwd(), 'data/uploads')
+        }
+        console.log('upload dest', dest)
+        // 确保目录存在
+        await fs.mkdir(dest, {recursive: true})
+        cb(null, dest)
+      } catch (error) {
+        cb(error)
+      }
+    },
+    filename: (req, file, cb) => {
+      // console.log('upload file', file)
+      // 如果文件名包含非 UTF-8 字符，尝试进行转码
+      try {
+        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
+      } catch (error) {
+        console.warn('Failed to decode filename, using original name', file.originalname)
+      }
+      cb(null, file.originalname)
+    },
+  }),
+})
