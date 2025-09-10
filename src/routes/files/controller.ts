@@ -1,15 +1,21 @@
 import Path from 'path'
 import {IDrive, IEntry} from '@/routes/files/types.ts'
 import fs from 'node:fs/promises'
-import nodeDiskInfo from 'node-disk-info'
 import os from 'node:os'
-import {Stats} from 'node:fs'
 import {Request, Response} from 'express'
-import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
+import nodeDiskInfo from 'node-disk-info'
 import Archiver from 'archiver'
+import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
 
-// 安全检查：确保访问路径不超出基础目录
+// --- 辅助函数 (Helpers) ---
+
+/**
+ * 安全检查：确保访问路径不超出基础目录
+ * @param path - 待检查的路径
+ * @returns 是否安全
+ */
 function isPathSafe(path: string): boolean {
+  // 如果未配置安全基础目录，则默认所有路径都安全
   if (!SAFE_ABS_BASE_DIR) {
     return true
   }
@@ -17,151 +23,155 @@ function isPathSafe(path: string): boolean {
   return resolvedPath.startsWith(SAFE_ABS_BASE_DIR)
 }
 
-const isExist = async (path: string) => {
+/**
+ * 检查路径是否存在
+ * @param path - 待检查的路径
+ * @returns 路径是否存在
+ */
+const isExist = async (path: string): Promise<boolean> => {
   try {
     await fs.access(path)
     return true
-  } catch (err) {
+  } catch {
     return false
   }
 }
 
+// --- 路由处理函数 (Route Handlers) ---
+
 export const getDrivers = async (req: Request, res: Response) => {
-  const results: IDrive[] = [
-    {
-      label: 'Home',
-      path: os.homedir(),
-    },
-  ]
+  const homeDrive: IDrive = {
+    label: 'Home',
+    path: os.homedir(),
+  }
+
   const drives = await nodeDiskInfo.getDiskInfo()
-  results.push(
-    ...drives.map((drive) => ({
-      label: drive.mounted,
-      path: drive.mounted,
-      free: drive.available,
-      total: drive.blocks,
-    })),
-  )
-  return res.json(results)
+  const otherDrives: IDrive[] = drives.map((drive) => ({
+    label: drive.mounted,
+    path: drive.mounted,
+    free: drive.available,
+    total: drive.blocks,
+  }))
+
+  return res.json([homeDrive, ...otherDrives])
 }
-// 列出文件夹内容
+
 export const getFiles = async (req: Request, res: Response) => {
   const {path} = req.query as {path: string}
 
   if (!isPathSafe(path)) {
-    return res.status(400).json({message: 'Path not safe'})
+    return res.status(400).json({message: 'Path is not safe'})
   }
   if (!(await isExist(path))) {
-    return res.status(400).json({message: 'Path not found'})
+    return res.status(404).json({message: 'Path not found'})
   }
 
-  const stats = await fs.stat(path)
-  if (!stats.isDirectory()) {
-    return res.status(400).json({message: 'Path is not a directory'})
-  }
-
-  const files = await fs.readdir(path)
-
-  const results: IEntry[] = []
-  for (const entryName of files) {
-    const entryPath = Path.join(path, entryName)
-    let stat: Stats | null = null
-    let error: string | null = null
-    try {
-      stat = await fs.stat(entryPath)
-    } catch (err) {
-      stat = null
-      error = String(err)
+  try {
+    const stats = await fs.stat(path)
+    if (!stats.isDirectory()) {
+      return res.status(400).json({message: 'Path is not a directory'})
     }
-    const isDirectory = stat?.isDirectory() || false
-    const ext = Path.extname(entryName)
-    results.push({
-      name: entryName,
-      ext: ext,
-      isDirectory,
-      hidden: entryName.startsWith('.'),
-      lastModified: stat?.ctimeMs || 0,
-      birthtime: stat?.birthtimeMs || 0,
-      size: isDirectory ? null : stat?.size || 0,
-      error,
-    })
+
+    const files = await fs.readdir(path)
+
+    // 使用 Promise.all 并发获取所有文件/目录的 stat 信息，提高性能
+    const results: IEntry[] = await Promise.all(
+      files.map(async (entryName): Promise<IEntry> => {
+        const entryPath = Path.join(path, entryName)
+        try {
+          const stat = await fs.stat(entryPath)
+          const isDirectory = stat.isDirectory()
+          return {
+            name: entryName,
+            ext: isDirectory ? '' : Path.extname(entryName),
+            isDirectory,
+            hidden: entryName.startsWith('.'),
+            lastModified: stat.ctimeMs,
+            birthtime: stat.birthtimeMs,
+            size: isDirectory ? null : stat.size,
+            error: null,
+          }
+        } catch (err: any) {
+          // 如果获取某个文件信息失败，记录错误，但不中断整个请求
+          return {
+            name: entryName,
+            ext: Path.extname(entryName),
+            isDirectory: false,
+            hidden: entryName.startsWith('.'),
+            lastModified: 0,
+            birthtime: 0,
+            size: 0,
+            error: err.message || String(err),
+          }
+        }
+      }),
+    )
+    return res.json(results)
+  } catch (err: any) {
+    return res.status(500).json({message: err.message || 'Failed to read directory'})
   }
-  return res.json(results)
 }
 
-// 创建目录
 export const createDirectory = async (req: Request, res: Response) => {
   const {path} = req.body as {path: string}
 
   if (!isPathSafe(path)) {
-    return res.status(400).json({message: 'Path not safe'})
+    return res.status(400).json({message: 'Path is not safe'})
   }
 
   if (await isExist(path)) {
     return res.json({existed: true, path})
   }
+
   await fs.mkdir(path, {recursive: true})
-  return res.json({path})
+  return res.status(201).json({path}) // 使用 201 Created 状态码更符合 RESTful 风格
 }
 
-// 重命名路径
 export const renamePath = async (req: Request, res: Response) => {
   const {fromPath, toPath} = req.body as {fromPath: string; toPath: string}
 
   if (!fromPath || !toPath) {
-    return res.status(400).json({message: 'fromPath or toPath is empty'})
+    return res.status(400).json({message: 'fromPath or toPath is required'})
   }
-
   if (fromPath === toPath) {
-    return res.status(400).json({message: 'fromPath and toPath are same'})
+    return res.status(400).json({message: 'Paths cannot be the same'})
   }
-
-  if (!isPathSafe(fromPath)) {
-    return res.status(400).json({message: 'fromPath not safe'})
-  }
-  if (!isPathSafe(toPath)) {
-    return res.status(400).json({message: 'toPath not safe'})
+  if (!isPathSafe(fromPath) || !isPathSafe(toPath)) {
+    return res.status(400).json({message: 'A specified path is not safe'})
   }
   if (!(await isExist(fromPath))) {
-    return res.status(400).json({message: 'fromPath not found'})
+    return res.status(404).json({message: 'Source path not found'})
   }
   if (await isExist(toPath)) {
-    return res.status(400).json({message: 'toPath existed'})
+    return res.status(409).json({message: 'Destination path already exists'}) // 409 Conflict 更合适
   }
+
   await fs.rename(fromPath, toPath)
   return res.json({path: toPath})
 }
 
-const copyEntry = async (fromPath: string, toPath: string, isMove = false) => {
-  if (!isPathSafe(fromPath)) {
-    throw new Error(`fromPath is not safe: ${fromPath}`)
-  }
-  if (!isPathSafe(toPath)) {
-    throw new Error(`toPath is not safe: ${toPath}`)
+/**
+ * 内部函数：复制或移动单个条目
+ */
+const copyEntry = async (fromPath: string, toDir: string, isMove = false) => {
+  if (!isPathSafe(fromPath) || !isPathSafe(toDir)) {
+    throw new Error(`Path is not safe. From: ${fromPath}, To: ${toDir}`)
   }
   if (!(await isExist(fromPath))) {
-    throw new Error(`fromPath: ${fromPath} is not exist!`)
+    throw new Error(`Source path does not exist: ${fromPath}`)
   }
-  // 目标路径也需要加上文件名
-  toPath = Path.join(toPath, Path.basename(fromPath))
 
+  const toPath = Path.join(toDir, Path.basename(fromPath))
   if (await isExist(toPath)) {
-    throw new Error(`toPath: ${toPath} is exist!`)
+    throw new Error(`Destination path already exists: ${toPath}`)
   }
-  // console.log({
-  //   fromPath,
-  //   toPath,
-  //   isMove,
-  // })
-  await fs.cp(fromPath, toPath, {
-    recursive: true,
-  })
+
+  await fs.cp(fromPath, toPath, {recursive: true})
   if (isMove) {
-    await fs.rm(fromPath, {recursive: true})
+    await fs.rm(fromPath, {recursive: true, force: true})
   }
 }
 
-// 复制粘贴路径
 export const copyPastePath = async (req: Request, res: Response) => {
   const {
     fromPaths,
@@ -170,53 +180,50 @@ export const copyPastePath = async (req: Request, res: Response) => {
   } = req.body as {fromPaths: string[]; toPath: string; isMove?: boolean}
 
   try {
-    for (let i = 0; i < fromPaths.length; i++) {
-      const path = fromPaths[i] as string
-      await copyEntry(path, toPath, isMove)
-    }
+    // 使用 Promise.all 并发处理所有复制/移动操作
+    await Promise.all(fromPaths.map((path) => copyEntry(path, toPath, isMove)))
     return res.json({path: toPath})
-  } catch (err) {
-    return res.status(400).json({message: String(err)})
+  } catch (err: any) {
+    return res.status(400).json({message: err.message || 'Operation failed'})
   }
 }
 
-// 删除路径
 export const deletePath = async (req: Request, res: Response) => {
   const {path} = req.body as {path: string | string[]}
+  // 统一处理，将 string 转为 array，以复用逻辑
+  const pathsToDelete = Array.isArray(path) ? path : [path]
 
-  if (Array.isArray(path)) {
-    for (let i = 0; i < path.length; i++) {
-      const p = path[i] as string
-      if (!isPathSafe(p)) {
-        return res.status(400).json({message: `Path not safe: ${p}`})
-      }
-      if (!(await isExist(p))) {
-        return res.status(400).json({message: `Path not found: ${p}`})
-      }
-      await fs.rm(p, {recursive: true})
-    }
+  try {
+    // 使用 Promise.all 并发执行所有删除前检查
+    await Promise.all(
+      pathsToDelete.map(async (p) => {
+        if (!isPathSafe(p)) {
+          throw new Error(`Path is not safe: ${p}`)
+        }
+        if (!(await isExist(p))) {
+          // 如果允许不存在的路径直接跳过，可以不抛出错误
+          throw new Error(`Path not found: ${p}`)
+        }
+      }),
+    )
+
+    // 同样并发执行删除操作
+    await Promise.all(pathsToDelete.map((p) => fs.rm(p, {recursive: true, force: true})))
+
     return res.json({path})
+  } catch (err: any) {
+    return res.status(400).json({message: err.message || 'Deletion failed'})
   }
-
-  if (!isPathSafe(path)) {
-    return res.status(400).json({message: 'Path not safe'})
-  }
-  if (!(await isExist(path))) {
-    return res.status(400).json({message: 'Path not found'})
-  }
-  await fs.rm(path, {recursive: true})
-  return res.json({path})
 }
 
-// 获取文件流
 export const getFileStream = async (req: Request, res: Response) => {
   const {path} = req.query as {path: string}
 
   if (!isPathSafe(path)) {
-    return res.status(400).json({message: 'Path not safe'})
+    return res.status(400).json({message: 'Path is not safe'})
   }
   if (!(await isExist(path))) {
-    return res.status(400).json({message: 'Path not found'})
+    return res.status(404).json({message: 'Path not found'})
   }
 
   const stats = await fs.stat(path)
@@ -224,94 +231,89 @@ export const getFileStream = async (req: Request, res: Response) => {
     return res.status(400).json({message: 'Path is not a file'})
   }
 
-  res.sendFile(path)
+  // res.sendFile 会自动处理流、头部等，是最佳实践
+  res.sendFile(Path.resolve(path))
 }
 
-// 多文件下载, eg: http://127.0.0.1:3100/api/files/download?path=D%3A%5CTEST
 const downloadMultiFiles = async (paths: string[], res: Response) => {
-  let downloadName = `download.zip`
-  // console.log(paths)
-
   if (paths.length === 0) {
-    return res.status(400).json({message: 'no file to download'})
+    return res.status(400).json({message: 'No files to download'})
   }
-  if (paths.length === 1) {
-    // 获取文件的父文件夹路径
-    const name = Path.basename(paths[0] as string)
-    if (name) {
-      downloadName = name
-    }
-  } else if (paths[0]) {
-    // 获取文件的父文件夹路径
-    const name = Path.basename(Path.dirname(paths[0]))
-    if (name) {
-      // 获取父文件夹的名称
-      downloadName = name
-    }
+
+  // 优化下载文件名的确定逻辑
+  let downloadName = ''
+  if (paths.length === 1 && paths[0]) {
+    downloadName = Path.basename(paths[0])
+  } else if (paths.length > 1 && paths[0]) {
+    downloadName = Path.basename(Path.dirname(paths[0]))
   }
-  // console.log(downloadName)
-
-  const archive = Archiver('zip', {
-    zlib: {level: 9},
-  })
-
-  for (let i = 0; i < paths.length; i++) {
-    const path = paths[i] as string
-    if (!(await isExist(path))) {
-      throw new Error(`[getRecursiveFlatPaths] Path ${path} not exist!`)
-    }
-    const stat = await fs.stat(path)
-    if (!stat.isDirectory()) {
-      // console.log('add file', path)
-      archive.file(path, {name: Path.basename(path)})
-    } else {
-      // console.log('add dir', path)
-      const children = await fs.readdir(path)
-      if (children.length) {
-        archive.directory(path, Path.basename(path))
-      } else {
-        // 空文件夹
-        archive.append(null, {name: Path.basename(path) + '/'})
-      }
-    }
+  if (!downloadName) {
+    downloadName = 'download'
   }
 
   res.header(
     'Content-Disposition',
     `attachment; filename="${encodeURIComponent(downloadName)}.zip"`,
   )
+
+  const archive = Archiver('zip', {zlib: {level: 9}})
   archive.pipe(res)
-  archive.finalize()
+
+  // 监听错误事件
+  archive.on('error', (err) => {
+    // 确保在出错时能正确结束响应
+    res.status(500).send({error: err.message})
+  })
+
+  // 这里的循环是向 Archiver 添加任务，是同步的，Archiver 内部会异步处理
+  for (const path of paths) {
+    if (await isExist(path)) {
+      const stat = await fs.stat(path)
+      const entryName = Path.basename(path)
+      if (stat.isDirectory()) {
+        archive.directory(path, entryName)
+      } else {
+        archive.file(path, {name: entryName})
+      }
+    }
+  }
+
+  await archive.finalize()
 }
 
-// 下载文件, eg: http://127.0.0.1:3100/api/files/download?path=D%3A%5CDownloads%5Cvideos%5Cpopacademy%20institution%20music%20concert_1.mp4
 export const downloadPath = async (req: Request, res: Response) => {
-  const {path, paths} = req.query as {path: string; paths: string[]}
+  const {path, paths} = req.query as {path?: string; paths?: string[]}
+  // 统一输入为 pathsToDownload 数组
+  const pathsToDownload = path ? [path] : paths || []
 
-  // console.log(req.query)
-  if (!path && (!paths || paths.length === 0)) {
-    return res.status(400).json({message: 'path(s) is empty'})
+  if (pathsToDownload.length === 0) {
+    return res.status(400).json({message: 'path(s) parameter is required'})
   }
 
-  if (path) {
-    // 单文件下载
-    if (!isPathSafe(path)) {
-      return res.status(400).json({message: 'Path not safe'})
+  // 验证所有路径的安全性
+  for (const p of pathsToDownload) {
+    if (!isPathSafe(p)) {
+      return res.status(400).json({message: `Path is not safe: ${p}`})
     }
-    if (!(await isExist(path))) {
-      return res.status(400).json({message: 'Path not found'})
-    }
-
-    const stats = await fs.stat(path)
-    if (stats.isFile()) {
-      return res.download(path, Path.basename(path), {
-        // 允许隐藏文件，否则隐藏文件会下载失败
-        dotfiles: 'allow',
-      })
-    }
-    return await downloadMultiFiles([path], res)
   }
 
-  // 多文件下载
-  return await downloadMultiFiles(paths, res)
+  try {
+    // 单个文件下载的特殊处理
+    if (pathsToDownload.length === 1) {
+      const singlePath = pathsToDownload[0] as string
+      if (!(await isExist(singlePath))) {
+        return res.status(404).json({message: 'Path not found'})
+      }
+      const stats = await fs.stat(singlePath)
+      if (stats.isFile()) {
+        // 对于单个文件，直接使用 res.download
+        return res.download(singlePath, Path.basename(singlePath), {dotfiles: 'allow'})
+      }
+    }
+
+    // 多个文件或单个目录，都走压缩下载逻辑
+    return await downloadMultiFiles(pathsToDownload, res)
+  } catch (err: any) {
+    return res.status(500).json({message: err.message || 'Download failed'})
+  }
 }
