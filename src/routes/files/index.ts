@@ -13,7 +13,7 @@ import {
 
 const filesRouter = express.Router()
 
-filesRouter.get('/drivers', getDrivers)
+filesRouter.get('/drives', getDrivers)
 filesRouter.get('/list', getFiles)
 filesRouter.post('/create-dir', createDirectory)
 filesRouter.post('/rename', renamePath)

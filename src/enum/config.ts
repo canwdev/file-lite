@@ -61,7 +61,7 @@ function S4() {
   return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
 }
 
-export const authPassword = config.password ? config.password : S4()
-console.log(`auth=${authPassword}`)
+export const authToken = config.password ? config.password : S4()
+console.log(`auth=${authToken}`)
 
 export {config}
