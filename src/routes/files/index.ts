@@ -1,7 +1,7 @@
-import {Hono} from 'hono'
+import express from 'express'
 import {getDrivers, getFiles, getFileStream} from '@/routes/files/controller'
 
-const filesRouter = new Hono()
+const filesRouter = express.Router()
 
 filesRouter.get('/drivers', getDrivers)
 filesRouter.get('/list', getFiles)
