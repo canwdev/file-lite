@@ -2,7 +2,7 @@ import getPort, {portNumbers} from 'get-port'
 import express from 'express'
 import path from 'path'
 import os from 'os'
-import {authPassword, config} from './enum/config'
+import {authToken, config} from './enum/config'
 import morgan from 'morgan'
 import router from '@/routes'
 
@@ -51,7 +51,8 @@ const startServer = async () => {
   const host = config.host || process.env.HOST || '0.0.0.0'
   app.listen(port, host, () => {
     console.log(``)
-    printServerRunningOn(host, port, `?auth=${authPassword}`)
+    printServerRunningOn(host, port, `?auth=${authToken}`)
+    console.log(``)
   })
 }
 await startServer()
