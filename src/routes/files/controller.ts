@@ -149,3 +149,79 @@ export const renamePath = async (req: Request, res: Response) => {
   await fs.rename(fromPath, toPath)
   return res.json({path: toPath})
 }
+
+const copyEntry = async (fromPath: string, toPath: string, isMove = false) => {
+  if (!isPathSafe(fromPath)) {
+    throw new Error(`fromPath is not safe: ${fromPath}`)
+  }
+  if (!isPathSafe(toPath)) {
+    throw new Error(`toPath is not safe: ${toPath}`)
+  }
+  if (!(await isExist(fromPath))) {
+    throw new Error(`fromPath: ${fromPath} is not exist!`)
+  }
+  // 目标路径也需要加上文件名
+  toPath = Path.join(toPath, Path.basename(fromPath))
+
+  if (await isExist(toPath)) {
+    throw new Error(`toPath: ${toPath} is exist!`)
+  }
+  // console.log({
+  //   fromPath,
+  //   toPath,
+  //   isMove,
+  // })
+  await fs.cp(fromPath, toPath, {
+    recursive: true,
+  })
+  if (isMove) {
+    await fs.rm(fromPath, {recursive: true})
+  }
+}
+
+// 复制粘贴路径
+export const copyPastePath = async (req: Request, res: Response) => {
+  const {
+    fromPaths,
+    toPath,
+    isMove = false,
+  } = req.body as {fromPaths: string[]; toPath: string; isMove?: boolean}
+
+  try {
+    for (let i = 0; i < fromPaths.length; i++) {
+      const path = fromPaths[i] as string
+      await copyEntry(path, toPath, isMove)
+    }
+    return res.json({path: toPath})
+  } catch (err) {
+    return res.status(400).json({message: String(err)})
+  }
+}
+
+// 删除路径
+export const deletePath = async (req: Request, res: Response) => {
+  const {path} = req.body as {path: string | string[]}
+
+  if (Array.isArray(path)) {
+    for (let i = 0; i < path.length; i++) {
+      const p = path[i] as string
+      if (!isPathSafe(p)) {
+        return res.status(400).json({message: `Path not safe: ${p}`})
+      }
+      if (!(await isExist(p))) {
+        return res.status(400).json({message: `Path not found: ${p}`})
+      }
+      await fs.rm(p, {recursive: true})
+    }
+    return res.json({path})
+  }
+
+  if (!isPathSafe(path)) {
+    return res.status(400).json({message: 'Path not safe'})
+  }
+  if (!(await isExist(path))) {
+    return res.status(400).json({message: 'Path not found'})
+  }
+  await fs.rm(path, {recursive: true})
+  return res.json({path})
+}

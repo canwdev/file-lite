@@ -1,6 +1,8 @@
 import express from 'express'
 import {
+  copyPastePath,
   createDirectory,
+  deletePath,
   getDrivers,
   getFiles,
   getFileStream,
@@ -14,5 +16,7 @@ filesRouter.get('/list', getFiles)
 filesRouter.get('/stream', getFileStream)
 filesRouter.post('/create-dir', createDirectory)
 filesRouter.post('/rename', renamePath)
+filesRouter.post('/copy-paste', copyPastePath)
+filesRouter.post('/delete', deletePath)
 
 export {filesRouter}
