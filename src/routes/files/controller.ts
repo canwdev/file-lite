@@ -1,10 +1,9 @@
 import Path from 'path'
 import {IDrive, IEntry} from '@/routes/files/types.ts'
 import fs from 'node:fs/promises'
-import mime from 'mime-types'
 import nodeDiskInfo from 'node-disk-info'
 import os from 'node:os'
-import {createReadStream, Stats} from 'node:fs'
+import {Stats} from 'node:fs'
 import {Request, Response} from 'express'
 
 // 检查文件是否存在
