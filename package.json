@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch run src/main.ts",
-    "build": "bun build --target=node --minify --outfile=dist/main.mjs ./src/main.ts",
+    "build": "bun build --target=node --minify --outfile=dist/file-lite.min.mjs ./src/main.ts",
     "prettier": "bunx prettier . --write"
   },
   "peerDependencies": {
