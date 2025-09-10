@@ -27,4 +27,4 @@ filesRouter.post('/upload-file', multerUpload.single('file'), (req, res) => {
   res.status(200).send({message: 'File uploaded successfully!'})
 })
 
-export {filesRouter}
+export default filesRouter

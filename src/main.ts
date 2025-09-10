@@ -1,9 +1,10 @@
 import getPort, {portNumbers} from 'get-port'
-import {filesRouter} from '@/routes/files/index.ts'
 import express from 'express'
 import path from 'path'
-import {errorHandler} from '@/middlewares/error-handler.ts'
 import os from 'os'
+import {authPassword, config} from './enum/config'
+import morgan from 'morgan'
+import router from '@/routes'
 
 const printServerRunningOn = (host, port, params = '') => {
   const ifaces = os.networkInterfaces()
@@ -37,13 +38,20 @@ const startServer = async () => {
 
   // 配置静态资源服务
   app.use('/', express.static(path.resolve(process.cwd(), './frontend'), {}))
-  app.use('/api/files', filesRouter)
-  app.use(errorHandler)
 
-  const port = Number(process.env.PORT || (await getPort({port: portNumbers(3100, 4100)})))
-  const host = process.env.HOST || '0.0.0.0'
+  if (config.enableLog) {
+    app.use(morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url'))
+  }
+  // 路由配置
+  app.use('/api', router)
+
+  const port = Number(
+    config.port || process.env.PORT || (await getPort({port: portNumbers(3100, 4100)})),
+  )
+  const host = config.host || process.env.HOST || '0.0.0.0'
   app.listen(port, host, () => {
-    printServerRunningOn(host, port)
+    console.log(``)
+    printServerRunningOn(host, port, `?auth=${authPassword}`)
   })
 }
 await startServer()
