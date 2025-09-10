@@ -3,6 +3,32 @@ import {filesRouter} from '@/routes/files/index.ts'
 import express from 'express'
 import path from 'path'
 import {errorHandler} from '@/middlewares/error-handler.ts'
+import os from 'os'
+
+const printServerRunningOn = (host, port, params = '') => {
+  const ifaces = os.networkInterfaces()
+  const protocol = 'http://'
+  const localhostUrl = protocol + '127.0.0.1' + ':' + port
+
+  console.log(`Listening on: ${host}:${port}\n${localhostUrl}${params}`)
+  const urls: string[] = []
+  if (host === '0.0.0.0') {
+    Object.keys(ifaces).forEach((dev) => {
+      ifaces[dev].forEach((details) => {
+        if (details.family === 'IPv4') {
+          const url = protocol + details.address + ':' + port + params
+          urls.push(url)
+        }
+      })
+    })
+    console.log(`Available on:\n${urls.join('\n')}`)
+  }
+
+  return {
+    localhostUrl,
+    urls,
+  }
+}
 
 const startServer = async () => {
   const app = express()
@@ -14,11 +40,10 @@ const startServer = async () => {
   app.use('/api/files', filesRouter)
   app.use(errorHandler)
 
-  const port = await getPort({port: portNumbers(3100, 4100)})
-
-  app.listen(port, '127.0.0.1', () => {
-    console.log(`Server is running at http://${host}:${port}`)
+  const port = Number(process.env.PORT || (await getPort({port: portNumbers(3100, 4100)})))
+  const host = process.env.HOST || '0.0.0.0'
+  app.listen(port, host, () => {
+    printServerRunningOn(host, port)
   })
-  const host = '127.0.0.1'
 }
 await startServer()

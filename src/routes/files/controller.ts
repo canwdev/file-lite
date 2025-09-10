@@ -5,7 +5,7 @@ import os from 'node:os'
 import {Request, Response} from 'express'
 import nodeDiskInfo from 'node-disk-info'
 import Archiver from 'archiver'
-import {SAFE_ABS_BASE_DIR, normalizePath} from '@/enum/config.ts'
+import {SAFE_BASE_DIR, normalizePath, DATA_BASE_DIR} from '@/enum/config.ts'
 import multer from 'multer'
 
 /**
@@ -19,11 +19,11 @@ function isPathSafe(path: string): boolean {
     return false
   }
   // 如果未配置安全基础目录，则默认所有路径都安全
-  if (!SAFE_ABS_BASE_DIR) {
+  if (!SAFE_BASE_DIR) {
     return true
   }
-  const resolvedPath = normalizePath(Path.resolve(SAFE_ABS_BASE_DIR, path))
-  return resolvedPath.startsWith(SAFE_ABS_BASE_DIR)
+  const resolvedPath = normalizePath(Path.resolve(SAFE_BASE_DIR, path))
+  return resolvedPath.startsWith(SAFE_BASE_DIR)
 }
 
 /**
@@ -335,7 +335,7 @@ export const multerUpload = multer({
           }
           dest = path
         } else {
-          dest = Path.join(process.cwd(), 'data/uploads')
+          dest = Path.join(process.cwd(), `${DATA_BASE_DIR}/uploads`)
         }
         console.log('upload dest', dest)
         // 确保目录存在
