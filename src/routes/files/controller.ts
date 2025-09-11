@@ -1,5 +1,5 @@
 import Path from 'path'
-import {IDrive, IEntry} from '@/routes/files/types.ts'
+import {IDrive, IEntry} from '@/types/server.ts'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import {Request, Response} from 'express'
@@ -7,6 +7,7 @@ import nodeDiskInfo from 'node-disk-info'
 import Archiver from 'archiver'
 import {SAFE_BASE_DIR, normalizePath, DATA_BASE_DIR} from '@/enum/config.ts'
 import multer from 'multer'
+import * as console from 'node:console'
 
 /**
  * 安全检查：确保访问路径不超出基础目录
@@ -22,8 +23,13 @@ function isPathSafe(path: string): boolean {
   if (!SAFE_BASE_DIR) {
     return true
   }
-  const resolvedPath = normalizePath(Path.resolve(SAFE_BASE_DIR, path))
-  return resolvedPath.startsWith(SAFE_BASE_DIR)
+  const safeBaseDir = SAFE_BASE_DIR
+  const resolvedPath = normalizePath(path)
+  const isSafe = resolvedPath.startsWith(safeBaseDir)
+  if (!isSafe) {
+    console.error('unsafe', {resolvedPath, safeBaseDir})
+  }
+  return isSafe
 }
 
 /**
@@ -43,6 +49,15 @@ const isExist = async (path: string): Promise<boolean> => {
 // --- 路由处理函数 (Route Handlers) ---
 
 export const getDrivers = async (req: Request, res: Response) => {
+  if (SAFE_BASE_DIR) {
+    res.json([
+      {
+        label: SAFE_BASE_DIR,
+        path: SAFE_BASE_DIR,
+      },
+    ])
+    return
+  }
   const homeDrive: IDrive = {
     label: 'Home',
     path: os.homedir(),
@@ -285,6 +300,7 @@ const downloadMultiFiles = async (paths: string[], res: Response) => {
 }
 
 export const downloadPath = async (req: Request, res: Response) => {
+  console.log(req.query)
   const {path, paths} = req.query as {path?: string; paths?: string[]}
   // 统一输入为 pathsToDownload 数组
   const pathsToDownload = path ? [path] : paths || []
@@ -333,13 +349,15 @@ export const multerUpload = multer({
           if (!isPathSafe(req.query.path as string)) {
             return cb(new Error(`Path is not safe: ${path}`))
           }
-          dest = path
+          dest = Path.dirname(path)
         } else {
           dest = Path.join(process.cwd(), `${DATA_BASE_DIR}/uploads`)
         }
         console.log('upload dest', dest)
         // 确保目录存在
-        await fs.mkdir(dest, {recursive: true})
+        if (!(await isExist(dest))) {
+          await fs.mkdir(dest, {recursive: true})
+        }
         cb(null, dest)
       } catch (error) {
         cb(error)
