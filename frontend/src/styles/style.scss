@@ -10,6 +10,7 @@
   -webkit-text-size-adjust: 100%;
 
   --os-taskbar-height: 44px;
+  --primary-rgb: 83, 173, 228;
 }
 
 body {
@@ -135,7 +136,7 @@ html, body, #app {
 }
 
 .selection-area {
-  background: var(--vgo-primary)_opacity;
+  background: var(--vgo-primary-opacity);
   border: 1px solid var(--vgo-primary);
 }
 
