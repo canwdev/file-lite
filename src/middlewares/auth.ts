@@ -7,7 +7,6 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     return
   }
   const token = req.headers['authorization'] || req.query.auth
-  console.log(token)
   if (token !== authToken) {
     res.status(401).json({message: 'authorization failed'})
     return

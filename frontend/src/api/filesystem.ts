@@ -1,8 +1,11 @@
 import Service from '@/utils/service'
 import {API_PROXY_BASE} from '@/enum'
+import {authToken} from '@/store'
+import qs from 'qs'
 
+const baseURL = API_PROXY_BASE + '/api/files'
 const service = Service({
-  baseURL: API_PROXY_BASE + '/api/files',
+  baseURL,
 })
 
 export const fsWebApi = {
@@ -11,8 +14,8 @@ export const fsWebApi = {
   },
   getList(params: any = {}) {
     const {path} = params
-    return service.post('/list', {
-      path,
+    return service.get('/list', {
+      params: {path},
     })
   },
   getStream(params) {
@@ -42,10 +45,12 @@ export const fsWebApi = {
   deleteEntry(params) {
     return service.post('/delete', params)
   },
-  downloadEntry(params) {
-    return service.get('/download', {params})
-  },
-  createShareLink(params) {
-    return service.post('/create-share-link', params)
+  getDownloadUrl(paths: string[]) {
+    if (paths.length === 1) {
+      return baseURL + `/download?path=${paths[0]}&auth=${authToken.value}`
+    }
+
+    const query = qs.stringify({paths, auth: authToken.value}, {arrayFormat: 'repeat'})
+    return baseURL + `/download?${query}`
   },
 }

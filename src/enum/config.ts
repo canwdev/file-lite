@@ -52,7 +52,9 @@ if (!fs.existsSync(CONFIG_FILE)) {
 }
 
 // 安全的绝对路径，如果访问范围超出该目录会报错，设置为空字符串不检查。
-export const SAFE_BASE_DIR = config.safeBaseDir ? Path.resolve(config.safeBaseDir) : ''
+export const SAFE_BASE_DIR = config.safeBaseDir
+  ? normalizePath(Path.resolve(config.safeBaseDir))
+  : ''
 if (SAFE_BASE_DIR) {
   console.log(`SAFE_BASE_DIR=${SAFE_BASE_DIR}`)
 }
