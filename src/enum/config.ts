@@ -43,7 +43,7 @@ const getInitConfig = (): IConfig => {
     port: '',
     noAuth: false,
     password: '',
-    safeBaseDir: '',
+    safeBaseDir: './public',
     enableLog: true,
     sslKey: '',
     sslCert: '',
@@ -65,6 +65,9 @@ export const SAFE_BASE_DIR = config.safeBaseDir
   ? normalizePath(Path.resolve(config.safeBaseDir))
   : ''
 if (SAFE_BASE_DIR) {
+  if (!fs.existsSync(SAFE_BASE_DIR)) {
+    fs.mkdirSync(SAFE_BASE_DIR, {recursive: true})
+  }
   console.log(`SAFE_BASE_DIR=${SAFE_BASE_DIR}`)
 }
 

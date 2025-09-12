@@ -388,18 +388,20 @@ defineExpose({
           </div>
         </div>
 
-        <FileListItem
-          class="selectable"
-          :item="item"
-          v-for="item in filteredFiles"
-          :key="item.name"
-          :data-name="item.name"
-          :active="selectedItemsSet.has(item)"
-          :show-checkbox="allowMultipleSelection"
-          @open="(i) => emit('open', i)"
-          @select="toggleSelect"
-          @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
-        />
+        <div class="file-list-content">
+          <FileListItem
+            class="selectable"
+            :item="item"
+            v-for="item in filteredFiles"
+            :key="item.name"
+            :data-name="item.name"
+            :active="selectedItemsSet.has(item)"
+            :show-checkbox="allowMultipleSelection"
+            @open="(i) => emit('open', i)"
+            @select="toggleSelect"
+            @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
+          />
+        </div>
       </div>
       <div v-else class="explorer-grid-view">
         <FileGridItem
@@ -468,6 +470,10 @@ defineExpose({
     border-radius: 0;
     border-bottom: 1px solid var(--vgo-color-border);
 
+    @media screen and (max-width: $mq_mobile_width) {
+      justify-content: flex-end;
+    }
+
     .action-group {
       display: flex;
       gap: 4px;
@@ -484,6 +490,7 @@ defineExpose({
         font-size: 20px;
         border: none;
         padding: 2px 4px;
+        border-radius: 4px;
 
         .icon-small-abs {
           font-size: 12px;
@@ -496,6 +503,9 @@ defineExpose({
         &:hover,
         &:focus {
           background-color: var(--vgo-primary-opacity);
+        }
+        &:disabled {
+          background-color: transparent;
         }
       }
       .action-button-wrap {
@@ -515,6 +525,7 @@ defineExpose({
   }
 
   .explorer-content {
+    padding: 0 2px;
     flex: 1;
     overflow: auto;
     user-select: none;
@@ -525,7 +536,6 @@ defineExpose({
     .file-list-header {
       font-weight: 500;
       text-transform: capitalize;
-      border-bottom: 1px solid var(--vgo-color-border);
       border-left: 0;
       border-right: 0;
       position: sticky;
@@ -533,6 +543,9 @@ defineExpose({
       z-index: 1;
 
       .list-col {
+        & + .list-col {
+          border-left: 1px solid var(--vgo-color-border);
+        }
         padding: 4px 5px !important;
         font-size: 14px;
         &:hover {
@@ -542,6 +555,10 @@ defineExpose({
           transform: scale(1.5);
         }
       }
+    }
+
+    .file-list-content {
+      margin-top: 2px;
     }
 
     :deep(.file-list-row) {
@@ -613,6 +630,7 @@ defineExpose({
     font-size: 12px;
 
     .mdi {
+      display: flex;
       transform: scale(1.2);
     }
   }

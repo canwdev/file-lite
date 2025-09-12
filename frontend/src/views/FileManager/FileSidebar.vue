@@ -13,7 +13,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  width: '160px',
+  width: '130px',
 })
 
 const {currentPath} = toRefs(props)

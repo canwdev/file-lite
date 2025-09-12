@@ -53,10 +53,19 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
   display: flex;
   text-align: unset;
   width: 100%;
-  border-bottom: 1px solid var(--vgo-color-border);
   padding-top: 4px;
   padding-bottom: 4px;
   cursor: default;
+
+  @media screen and (max-width: $mq_mobile_width) {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  &:nth-child(2n) {
+    background-color: rgba(234, 234, 234, 0.47);
+  }
+
   &:hover {
     transition: background-color 0s;
     background-color: var(--vgo-primary-opacity);
@@ -89,6 +98,8 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
   }
 
   .list-col {
+    display: flex;
+    line-height: 1;
     &.c-filename {
       .themed-icon {
         width: 18px;
