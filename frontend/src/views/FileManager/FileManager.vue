@@ -158,7 +158,7 @@ defineExpose({
 <template>
   <div ref="rootRef" class="explorer-wrap">
     <div v-if="!contentOnly" class="explorer-header vgo-panel">
-      <div class="nav-address">
+      <div class="nav-address-bar">
         <div class="nav-wrap">
           <button
             :disabled="backHistory.length <= 1"
@@ -292,12 +292,18 @@ defineExpose({
       border-radius: 0;
     }
 
-    .nav-address {
+    .nav-address-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 4px;
+
+      @media screen and (max-width: $mq_mobile_width) {
+        flex-direction: column-reverse;
+        align-items: flex-end;
+      }
+
       .btn-action {
         padding: 4px;
         display: flex;
@@ -316,6 +322,9 @@ defineExpose({
         flex: 1;
         gap: 4px;
         font-size: 14px;
+        @media screen and (max-width: $mq_mobile_width) {
+          width: 100%;
+        }
 
         .input-addr {
           flex: 1;
