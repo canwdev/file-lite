@@ -31,7 +31,7 @@ const getPathNormalized = (path) => {
   return path
 }
 
-const handleRefresh = async () => {
+const loadDrives = async () => {
   try {
     isLoading.value = true
 
@@ -50,7 +50,7 @@ const handleRefresh = async () => {
   }
 }
 onMounted(() => {
-  handleRefresh()
+  loadDrives()
 })
 
 const openFirstDrive = () => {
@@ -93,7 +93,7 @@ Storage: ${bytesToSize(item.free)} / ${bytesToSize(item.total)}
 }
 
 defineExpose({
-  handleRefresh,
+  loadDrives,
   openFirstDrive,
 })
 </script>

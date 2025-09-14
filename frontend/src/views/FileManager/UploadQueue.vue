@@ -218,11 +218,11 @@ const mockList = () => {
     },
   ]
 }
-onMounted(() => {
-  if (isDev) {
-    mockList()
-  }
-})
+// onMounted(() => {
+//   if (isDev) {
+//     mockList()
+//   }
+// })
 
 const successNum = computed(() => {
   return listData.value.filter((i) => i.status === 'success').length
@@ -252,7 +252,7 @@ defineExpose({
 <template>
   <ViewPortWindow
     v-model:visible="isVisible"
-    :show-close="false"
+    :show-close="!taskQueueRef?.executing?.length"
     :init-win-options="{
       width: '360px',
     }"

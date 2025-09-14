@@ -250,7 +250,12 @@ export const getFileStream = async (req: Request, res: Response) => {
   }
 
   // res.sendFile 会自动处理流、头部等，是最佳实践
-  res.sendFile(Path.resolve(path), {dotfiles: 'allow'})
+  res.sendFile(Path.resolve(path), {
+    headers: {
+      'Content-Disposition': `inline; filename="${encodeURIComponent(Path.basename(path))}"`,
+    },
+    dotfiles: 'allow',
+  })
 }
 
 const downloadMultiFiles = async (paths: string[], res: Response) => {
