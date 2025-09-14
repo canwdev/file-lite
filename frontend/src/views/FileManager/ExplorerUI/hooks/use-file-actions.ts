@@ -1,7 +1,7 @@
 import moment from 'moment/moment'
 import {fsWebApi} from '@/api/filesystem'
 import {generateTextFile, normalizePath} from '../../utils'
-import {IEntry, SortType} from '@server/types/server'
+import {IEntry} from '@server/types/server'
 import {QuickOptionItem} from '@canwdev/vgo-ui/src/components/QuickOptions/enum'
 import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 
@@ -84,9 +84,13 @@ export const useFileActions = ({
       return
     }
     window.$dialog
-      .confirm(`确认删除？此操作不可撤销`, 'Confirm Delete', {
-        type: 'warning',
-      })
+      .confirm(
+        `Are you sure to delete ${selectedPaths.value.length} items? This action can not be undone.`,
+        'Confirm Delete',
+        {
+          type: 'warning',
+        },
+      )
       .then(() => {
         doDeleteSelected()
       })

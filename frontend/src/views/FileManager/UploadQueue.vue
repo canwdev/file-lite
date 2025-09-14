@@ -2,24 +2,69 @@
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/index.vue'
 import {TaskItem, TaskQueue} from '@/utils/task-queue'
 import {fsWebApi} from '@/api/filesystem'
-
 import {bytesToSize} from '@/utils'
+import {isDev} from '@/enum'
 
-const emit = defineEmits(['complete'])
+const props = withDefaults(
+  defineProps<{
+    autoClose?: boolean
+  }>(),
+  {
+    autoClose: false,
+  },
+)
+const emit = defineEmits(['allDone', 'singleDone'])
 
-const listData = ref<any[]>([])
+interface IBatchFile {
+  file: File
+  // 绝对路径
+  path: string
+  filename?: string
+}
+
+interface IUploadItem extends IBatchFile {
+  // 上传任务的序号
+  index: number
+  // 上传进度(0-1)
+  progress: number
+  // 上传状态
+  status: 'success' | 'failed' | 'pending' | 'transferring'
+  // 上传失败时的错误信息
+  message: string
+  // 上传过程中的abort对象
+  abortObj?: {abort: () => void}
+  // 上传成功后返回的结果
+  result?: any
+  speedInfo?: {
+    loaded: number
+    total: number
+    rate: number
+    bytes: number
+  }
+}
+
+const listData = ref<IUploadItem[]>([])
 const isVisible = ref(false)
-
-const abortController = shallowRef<any>(new AbortController())
+const uploadIndex = ref(0)
 
 watch(isVisible, (val) => {
   if (!val) {
-    abortController.value.abort()
+    uploadIndex.value = 0
+    cancelAll()
     listData.value = []
-    taskQueueRef.value.removeAllTask()
-    abortController.value = null
   }
 })
+
+const cancelAll = () => {
+  taskQueueRef.value.removeAllTask()
+  listData.value.forEach((i) => {
+    if (i.status === 'pending' || i.status === 'transferring' || i.abortObj) {
+      i.abortObj?.abort()
+      i.status = 'failed'
+      i.message = 'Cancelled'
+    }
+  })
+}
 
 const taskHandler = (task: TaskItem) => {
   const {data} = task
@@ -27,6 +72,18 @@ const taskHandler = (task: TaskItem) => {
   return new Promise(async (resolve, reject) => {
     try {
       const {path, file} = data
+
+      const abortController = new AbortController()
+      data.status = 'transferring'
+      data.abortObj = {
+        abort: async () => {
+          abortController.abort()
+          // 由于后端无法获得取消事件，并且存在文件残留，需要手动删除
+          await fsWebApi.deleteEntry({path})
+        },
+      }
+      data.message = `Uploading`
+
       await fsWebApi.uploadFile(
         {
           path,
@@ -36,20 +93,26 @@ const taskHandler = (task: TaskItem) => {
           onUploadProgress(event) {
             // console.log(event)
             data.progress = event.progress
-            data.loaded = event.loaded
-            data.total = event.total
-            data.rate = event.rate
-            data.bytes = event.bytes
+            data.speedInfo = {
+              loaded: event.loaded,
+              total: event.total,
+              rate: event.rate,
+              bytes: event.bytes,
+            }
           },
-          signal: abortController.value.signal,
+          signal: abortController.signal,
         },
       )
-      data.success = true
+      data.status = 'success'
+      data.abortObj = undefined
+      data.message = 'Success'
+      emit('singleDone', data)
       resolve(data)
     } catch (e: any) {
-      console.error(e.message)
-      data.failed = true
-      data.reason = e.message
+      console.error(e)
+      data.status = 'failed'
+      data.message = e.message
+      data.abortObj = undefined
       reject(e)
     }
   })
@@ -58,11 +121,17 @@ const taskHandler = (task: TaskItem) => {
 const taskQueueRef = ref()
 onMounted(() => {
   taskQueueRef.value = new TaskQueue({
-    concurrent: 2,
+    concurrent: 5,
     taskHandler,
   })
   taskQueueRef.value.on('allDone', () => {
-    emit('complete')
+    emit('allDone', listData.value)
+    if (props.autoClose) {
+      const hasError = listData.value.some((i) => i.status === 'failed')
+      if (!hasError) {
+        isVisible.value = false
+      }
+    }
   })
 })
 onBeforeUnmount(() => {
@@ -70,60 +139,227 @@ onBeforeUnmount(() => {
   taskQueueRef.value = []
 })
 
-const addTask = (data) => {
+const addTask = (data: IBatchFile, position: number = -1) => {
   data = {
     ...data,
+    index: ++uploadIndex.value,
     progress: 0,
-    loaded: 0,
-    total: 0,
-    rate: 0,
-    bytes: 0,
-    success: false,
-    failed: false,
-    reason: '',
+    status: 'pending',
+    message: 'Waiting',
+  } as IUploadItem
+  if (position !== -1) {
+    listData.value.splice(position, 0, data as IUploadItem)
+  } else {
+    listData.value.push(data as IUploadItem)
   }
-  if (!abortController.value) {
-    abortController.value = new AbortController()
-  }
-  listData.value.push(data)
   taskQueueRef.value.addTask(data)
   isVisible.value = true
+}
+const addTasks = (data: IBatchFile[]) => {
+  data.forEach((i) => {
+    addTask(i)
+  })
+}
+
+const handleRetry = (item: IUploadItem, index: number) => {
+  listData.value.splice(index, 1)
+  addTask(item, index)
+}
+
+const mockList = () => {
+  isVisible.value = true
+  listData.value = [
+    {
+      index: 1,
+      path: 'D:/TEST/test1_long_long_long_long_long_long.png',
+      filename: 'test1_long_long_long_long_long_long.png',
+      file: new File([], 'test1.png'),
+      progress: 0.5,
+      status: 'transferring',
+      message: 'Uploading',
+      abortObj: {
+        abort: () => {
+          console.log('abort')
+        },
+      },
+      speedInfo: {
+        loaded: 1000000,
+        total: 2000000,
+        rate: 1000000,
+        bytes: 1000000,
+      },
+    },
+    {
+      index: 2,
+      path: 'D:/TEST/test1.png',
+      filename: 'test1.png',
+      file: new File([], 'test1.png'),
+      progress: 1,
+      status: 'success',
+      message: '',
+    },
+    {
+      index: 3,
+      path: 'D:/TEST/test2.png',
+      filename: 'test2.png',
+      file: new File([], 'test1.png'),
+      progress: 0.6,
+      status: 'failed',
+      message: 'Test: Failed',
+    },
+    {
+      index: 4,
+      path: 'D:/TEST/test1_long_long_long_long_long_long.png',
+      filename: 'test1_long_long_long_long_long_long.png',
+      file: new File([], 'test2.png'),
+      progress: 0,
+      status: 'pending',
+      message: 'Waiting',
+    },
+  ]
+}
+onMounted(() => {
+  if (isDev) {
+    mockList()
+  }
+})
+
+const successNum = computed(() => {
+  return listData.value.filter((i) => i.status === 'success').length
+})
+const transferringNum = computed(() => {
+  return listData.value.filter((i) => i.status === 'transferring').length
+})
+const errorNum = computed(() => {
+  return listData.value.filter((i) => i.status === 'failed').length
+})
+const totalProgress = computed(() => {
+  return (successNum.value / listData.value.length) * 100
+})
+const clearFailed = () => {
+  listData.value = listData.value.filter((i) => i.status !== 'failed')
+}
+const clearSuccess = () => {
+  listData.value = listData.value.filter((i) => i.status !== 'success')
 }
 
 defineExpose({
   addTask,
+  addTasks,
 })
 </script>
 
 <template>
-  <ViewPortWindow v-model:visible="isVisible">
-    <template #titleBarLeft>[{{ taskQueueRef?.tasks?.length }}] Upload Files</template>
-
-    <div class="upload-wrap">
-      <div
-        v-for="(item, index) in listData"
-        :class="{failed: item.failed}"
-        :key="index"
-        class="upload-item"
+  <ViewPortWindow
+    v-model:visible="isVisible"
+    :show-close="false"
+    :init-win-options="{
+      width: '360px',
+    }"
+    wid="file_lite_upload_dialog"
+  >
+    <template #titleBarLeft>
+      ({{ successNum }}/{{ listData.length }})
+      <span v-if="listData.length"
+        >{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span
       >
-        <span style="font-size: 20px" :title="item.reason">
-          <template v-if="item.success">✅</template>
-          <template v-else-if="item.failed">⛔</template>
-          <template v-else-if="item.progress > 0">🔄</template>
-          <template v-else>⏸️</template>
-        </span>
-        <div class="upload-content">
-          <div class="upload-title text-overflow" :title="item.path">{{ item.name }}</div>
-          <div v-if="item.progress > 0" class="upload-status font-code">
-            Progress: <span>{{ (item.progress * 100).toFixed(0) }}%</span> |
-            {{ bytesToSize(item.loaded) }}/{{ bytesToSize(item.total) }}
-            <br />
-            Speed: {{ bytesToSize(item.rate) }}/s <br />
-          </div>
+      <span v-if="transferringNum">| Uploading {{ transferringNum }} </span>
+      <span v-if="errorNum">| Failed {{ errorNum }} </span>
+    </template>
 
-          <div class="volume-bar">
-            <div :style="{width: item.progress * 100 + '%'}" class="volume-value"></div>
+    <div class="batch-upload-wrapper">
+      <div class="total-progress volume-bar">
+        <div :style="{width: totalProgress + '%'}" class="volume-value"></div>
+      </div>
+
+      <div class="upload-list">
+        <div
+          v-for="(item, index) in listData"
+          :class="{failed: item.status === 'failed'}"
+          :key="item.index"
+          class="upload-item"
+        >
+          <div class="index-text">#{{ item.index }}</div>
+          <div class="upload-status" :title="item.message">
+            <template v-if="item.status === 'success'">
+              <span class="mdi mdi-check-bold" style="color: #4caf50" title="成功"></span>
+            </template>
+            <template v-else-if="item.status === 'failed'">
+              <span class="mdi mdi-alert" style="color: #f44336" title="失败"></span>
+            </template>
+            <template v-else-if="item.status === 'transferring'">
+              <span
+                class="mdi mdi-upload-circle-outline"
+                style="color: #03a9f4"
+                title="Uploading"
+              ></span>
+            </template>
+            <template v-else-if="item.status === 'pending'">
+              <span class="mdi mdi-progress-upload" style="color: #ffc107" title="Waiting"></span>
+            </template>
           </div>
+          <div class="upload-content">
+            <div class="upload-info-wrapper">
+              <div class="flex-cols" style="flex: 1; gap: 4px; overflow: hidden">
+                <div class="upload-title" :title="item.path">
+                  <template v-if="item.filename">
+                    {{ item.filename }}
+                  </template>
+                  <template v-else>
+                    {{ item.path }}
+                  </template>
+                </div>
+                <div class="upload-info">
+                  <div class="progress-text">
+                    <template v-if="item.progress > 0">
+                      <span>{{ (item.progress * 100).toFixed(0) }}%</span>
+                    </template>
+                  </div>
+                  <div class="message-text text-overflow" :title="item.message">
+                    {{ item.message }}
+                  </div>
+                </div>
+              </div>
+              <button class="vgo-button" v-if="item.abortObj" @click="item.abortObj.abort()">
+                Cancel
+              </button>
+              <button
+                class="vgo-button"
+                v-if="item.status === 'failed'"
+                @click="handleRetry(item, index)"
+              >
+                Retry
+              </button>
+            </div>
+
+            <div class="volume-bar">
+              <div :style="{width: item.progress * 100 + '%'}" class="volume-value"></div>
+            </div>
+
+            <div
+              v-if="item.speedInfo && item.status === 'transferring'"
+              class="speed-info-wrapper flex-row-center-gap"
+            >
+              <div>
+                {{ bytesToSize(item.speedInfo.loaded) }}/{{ bytesToSize(item.speedInfo.total) }}
+              </div>
+              <div>{{ bytesToSize(item.speedInfo.rate) }}/s</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="upload-control">
+        <div class="flex-row-center-gap">
+          <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">Clear Failed</button>
+          <button v-if="successNum > 0" class="vgo-button" @click="clearSuccess">
+            Clear Success
+          </button>
+        </div>
+        <div class="flex-row-center-gap">
+          <button v-if="taskQueueRef?.executing?.length" class="vgo-button" @click="cancelAll">
+            Cancel All
+          </button>
+          <button v-else class="vgo-button primary" @click="isVisible = false">Close</button>
         </div>
       </div>
     </div>
@@ -131,57 +367,136 @@ defineExpose({
 </template>
 
 <style scoped lang="scss">
-.upload-wrap {
+.batch-upload-wrapper {
   height: 100%;
-  overflow: auto;
-  box-sizing: border-box;
-  .upload-item {
-    padding: 10px;
+  display: flex;
+  flex-direction: column;
+  button {
+    font-size: 12px;
+    height: fit-content;
+    flex-shrink: 0;
+  }
+
+  .upload-control {
+    padding: 8px;
     display: flex;
-    gap: 8px;
     align-items: center;
-    &:hover {
-      background-color: var(--vgo-color-hover);
-    }
-    .upload-content {
-      flex: 1;
-    }
-    .upload-title {
-      font-size: 12px;
-    }
-    .upload-status {
-      font-size: 12px;
-      span {
-        color: var(--vgo-primary);
-      }
-    }
+    justify-content: space-between;
+    gap: 8px;
+    border-top: var(--vgo-color-border);
+  }
 
-    .volume-bar {
-      margin-top: 4px;
-      overflow: hidden;
-      height: 4px;
-      width: 100%;
+  .upload-list {
+    height: 500px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+    .upload-item {
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
       position: relative;
-      background-color: var(--vgo-color-border);
-
-      .volume-value {
+      .index-text {
         position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 0%;
-        background-color: var(--vgo-primary);
-        transition: all 0.3s;
+        top: 4px;
+        left: 4px;
+        font-size: 12px;
       }
-    }
 
-    &.failed {
+      &:nth-child(even) {
+        background-color: rgba(0, 0, 0, 0.03);
+      }
+
+      &:hover {
+        background-color: var(--vgo-color-hover);
+      }
+
+      .upload-status {
+        font-size: 28px;
+      }
+
+      .upload-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow: hidden;
+
+        .upload-info-wrapper {
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 8px;
+          align-items: flex-start;
+          justify-content: space-between;
+        }
+      }
+      .upload-title {
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+      .upload-info {
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+
+        & > div {
+          overflow: hidden;
+        }
+        .progress-text {
+          font-weight: bold;
+        }
+        .message-text {
+          flex: 1;
+          text-align: right;
+          opacity: 0.5;
+        }
+      }
+
+      .speed-info-wrapper {
+        justify-content: space-between;
+        font-size: 12px;
+        opacity: 0.5;
+      }
+
       .volume-bar {
-        .volume-value {
-          background-color: #f44336;
+        border-radius: 100px;
+      }
+
+      &.failed {
+        .volume-bar {
+          .volume-value {
+            background-color: #f44336;
+          }
         }
       }
     }
+  }
+
+  .volume-bar {
+    overflow: hidden;
+    height: 4px;
+    width: 100%;
+    position: relative;
+    background-color: #d6d6d6;
+
+    .volume-value {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      background-color: #4caf50;
+      transition: all 0.3s;
+    }
+  }
+
+  .total-progress {
+    width: 100%;
+    flex-shrink: 0;
   }
 }
 </style>

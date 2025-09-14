@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import {IEntry, SortType} from '@server/types/server'
+import {IEntry} from '@server/types/server'
 import FileListItem from './FileListItem.vue'
 import {useVModel} from '@vueuse/core'
 import FileGridItem from './FileGridItem.vue'
-import QuickOptions from '@canwdev/vgo-ui/src/components/QuickOptions/index.vue'
 import QuickContextMenu from '@canwdev/vgo-ui/src/components/QuickOptions/QuickContextMenu.vue'
 import UploadQueue from '../UploadQueue.vue'
 import {useCopyPaste} from './hooks/use-copy-paste'
@@ -442,7 +441,7 @@ defineExpose({
       </button>
     </div>
 
-    <UploadQueue ref="uploadQueueRef" @complete="emit('refresh')" />
+    <UploadQueue ref="uploadQueueRef" @allDone="emit('refresh')" />
   </div>
 </template>
 
