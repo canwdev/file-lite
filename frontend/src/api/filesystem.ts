@@ -53,4 +53,7 @@ export const fsWebApi = {
     const query = qs.stringify({paths, auth: authToken.value}, {arrayFormat: 'repeat'})
     return baseURL + `/download?${query}`
   },
+  getStreamUrl(path: string) {
+    return baseURL + `/stream?path=${path}&auth=${authToken.value}`
+  },
 }

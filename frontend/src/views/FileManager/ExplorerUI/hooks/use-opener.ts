@@ -10,7 +10,7 @@ export const useOpener = (basePath, isLoading) => {
   const openFileNewTab = async (item: IEntry) => {
     try {
       isLoading.value = true
-      const url = fsWebApi.getDownloadUrl([normalizePath(basePath.value + '/' + item.name)])
+      const url = fsWebApi.getStreamUrl(normalizePath(basePath.value + '/' + item.name))
       window.open(url)
     } finally {
       isLoading.value = false

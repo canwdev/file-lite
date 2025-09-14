@@ -6,7 +6,7 @@ import {IEntry} from '@server/types/server'
 
 export const useNavigation = ({getListFn}) => {
   const files = ref<IEntry[]>([])
-  const basePath = ref('/')
+  const basePath = useStorage(LsKeys.NAV_PATH, '/')
   const basePathNormalized = computed(() => {
     let path = normalizePath(basePath.value)
     if (!/\/$/gi.test(path)) {

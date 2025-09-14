@@ -6,13 +6,8 @@ import {getLastDirName, normalizePath, toggleArrayElement} from './utils'
 import {useNavigation} from './ExplorerUI/hooks/use-navigation'
 import {IEntry} from '@server/types/server'
 
-type AppParams = {
-  path: string
-}
-
 const props = withDefaults(
   defineProps<{
-    appParams?: AppParams
     // 是否文件(夹)选择器
     selectFileMode?: 'file' | 'folder'
     // 文件选择器允许多选
@@ -57,28 +52,12 @@ const {
   },
 })
 
-// 应用启动传参
-watch(
-  () => props.appParams,
-  () => {
-    if (!props.appParams) {
-      return
-    }
-    const {path} = props.appParams
-    if (path) {
-      handleOpenPath(path)
-    }
-  },
-  {immediate: true},
-)
-
 const fileSidebarRef = ref()
 onMounted(async () => {
   if (fileSidebarRef.value) {
-    await fileSidebarRef.value.handleRefresh()
-    if (!props.appParams?.path) {
-      fileSidebarRef.value.openFirstDrive()
-    }
+    await fileSidebarRef.value.loadDrives()
+    // fileSidebarRef.value.openFirstDrive()
+    handleRefresh()
   }
 })
 
@@ -358,6 +337,7 @@ defineExpose({
     display: inline-flex;
     cursor: pointer;
     font-size: 18px;
+    border-radius: 4px;
     &:disabled {
       cursor: not-allowed;
     }
