@@ -47,7 +47,7 @@ const Service = (config: any) => {
       const message = error.message
       const {response} = error || {}
 
-      if (response.status == 401) {
+      if (response?.status == 401) {
         console.log('[401] Authorization token 失效')
         authToken.value = ''
       }

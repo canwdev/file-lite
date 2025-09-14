@@ -11,7 +11,7 @@ export const useTransfer = ({basePath, isLoading, selectedItems}) => {
     // @ts-ignore
     for (const file of files) {
       uploadQueueRef.value.addTask({
-        name: file.name,
+        filename: file.name,
         path: normalizePath(basePath.value + '/' + file.name),
         file,
       })
@@ -39,7 +39,7 @@ export const useTransfer = ({basePath, isLoading, selectedItems}) => {
         // console.log('File:', {path, file})
 
         uploadQueueRef.value.addTask({
-          name: file.name,
+          filename: file.name,
           path: normalizePath(basePath.value + '/' + path + file.name),
           file,
         })
@@ -64,7 +64,7 @@ export const useTransfer = ({basePath, isLoading, selectedItems}) => {
       // console.warn('normal file', item)
 
       uploadQueueRef.value.addTask({
-        name: item.name,
+        filename: item.name,
         path: normalizePath(basePath.value + '/' + item.webkitRelativePath),
         file: item,
       })
