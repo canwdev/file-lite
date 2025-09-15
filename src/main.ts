@@ -17,7 +17,7 @@ const printServerRunningOn = ({protocol = 'http:', host, port, params = ''}) => 
   const urls: string[] = []
   if (host === '0.0.0.0') {
     Object.keys(ifaces).forEach((dev) => {
-      ifaces[dev].forEach((details) => {
+      ifaces[dev]?.forEach((details) => {
         if (details.family === 'IPv4') {
           const url = protocol + '//' + details.address + ':' + port + params
           urls.push(url)

@@ -1,4 +1,4 @@
-export const normalizePath = (path) => {
+export const normalizePath = (path: string) => {
   return path.replace(/\\/gi, '/').replace(/\/+/gi, '/')
 }
 
@@ -12,7 +12,7 @@ export const toggleArrayElement = (arr: any[], value: any) => {
   return arr
 }
 
-export const getLastDirName = (path) => {
+export const getLastDirName = (path: string) => {
   path = path.replace(/\/$/gi, '')
   return path.split('/').pop()
 }

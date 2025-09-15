@@ -2,8 +2,17 @@ import {useDropZone, useFileDialog} from '@vueuse/core'
 import {normalizePath} from '../../utils'
 import {fsWebApi} from '@/api/filesystem'
 import {downloadUrl} from '@/utils'
+import {IEntry} from '@server/types/server'
 
-export const useTransfer = ({basePath, isLoading, selectedItems}) => {
+export const useTransfer = ({
+  basePath,
+  isLoading,
+  selectedItems,
+}: {
+  basePath: Ref<string>
+  isLoading: Ref<boolean>
+  selectedItems: Ref<IEntry[]>
+}) => {
   const uploadFiles = async (files: File[] | FileList | null) => {
     if (!files) {
       return
@@ -48,7 +57,7 @@ export const useTransfer = ({basePath, isLoading, selectedItems}) => {
       // console.log('Dir', item)
       // Get folder contents
       const dirReader = item.createReader()
-      dirReader.readEntries(function (entries) {
+      dirReader.readEntries((entries) => {
         for (let i = 0; i < entries.length; i++) {
           traverseFileTree(entries[i], path + item.name + '/')
         }

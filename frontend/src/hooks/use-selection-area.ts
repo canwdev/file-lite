@@ -6,6 +6,12 @@ export const useSelectionArea = ({
   onStop,
   toggleClass = 'active',
   selectables = ['.selectable'],
+}: {
+  containerRef: Ref<HTMLElement>
+  onStart: () => void
+  onStop: (stored: HTMLElement[]) => void
+  toggleClass?: string
+  selectables?: string[]
 }) => {
   const selectionRef = shallowRef()
   onMounted(() => {

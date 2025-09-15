@@ -1,4 +1,19 @@
-export const showInputPrompt = (options: any = {}): Promise<string> => {
+export const showInputPrompt = (
+  options: {
+    // 弹窗标题
+    title?: string
+    // 文本框预设内容
+    value?: string
+    // 文本框占位符
+    placeholder?: string
+    // 返回错误字符串表示错误，否则校验成功
+    validateFn?: (val: string) => string | void
+    // 文本框类型
+    type?: 'text' | 'number'
+    // 是否允许空
+    allowEmpty?: boolean
+  } = {},
+): Promise<string> => {
   const {
     // 弹窗标题
     title = '',
@@ -19,7 +34,7 @@ export const showInputPrompt = (options: any = {}): Promise<string> => {
       .prompt(placeholder, title, {
         inputType: type,
         inputValue: value,
-        inputValidator: (val) => {
+        inputValidator: (val: string) => {
           if (!allowEmpty && val === '') {
             return 'input value is required'
           }

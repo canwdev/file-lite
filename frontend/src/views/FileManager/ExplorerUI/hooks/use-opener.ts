@@ -1,12 +1,8 @@
 import {IEntry} from '@server/types/server'
 import {fsWebApi} from '@/api/filesystem'
 import {normalizePath} from '../../utils'
-import {isSupportedMediaFormat, regSupportedTextFormat, shortcutFilenameReg} from '@/utils/is'
 
-export const useOpener = (basePath, isLoading) => {
-  const openFileFile = async (item: IEntry) => {
-    await fsWebApi.getStream({path: normalizePath(basePath.value + '/' + item.name)})
-  }
+export const useOpener = (basePath: Ref<string>, isLoading: Ref<boolean>) => {
   const openFileNewTab = async (item: IEntry) => {
     try {
       isLoading.value = true
@@ -18,15 +14,6 @@ export const useOpener = (basePath, isLoading) => {
   }
 
   const openFile = async (item: IEntry, list: IEntry[]) => {
-    // if (isSupportedMediaFormat(item.name)) {
-    //   systemStore.createTaskById('os.media-player', {item, list, basePath: basePath.value})
-    //   return
-    // }
-    //
-    // if (regSupportedTextFormat.test(item.name)) {
-    //   systemStore.createTaskById('os.text-editor', {item, basePath: basePath.value})
-    //   return
-    // }
     await openFileNewTab(item)
   }
 

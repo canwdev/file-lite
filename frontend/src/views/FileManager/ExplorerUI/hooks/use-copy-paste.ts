@@ -1,10 +1,25 @@
 import {fsWebApi} from '@/api/filesystem'
 import explorerBus, {ExplorerEvents} from '../../utils/bus'
-const explorerStore = reactive({
+
+const explorerStore = reactive<{
+  cutPaths: string[]
+  copyPaths: string[]
+}>({
   cutPaths: [],
   copyPaths: [],
 })
-export const useCopyPaste = ({selectedPaths, basePath, isLoading, emit}) => {
+
+export const useCopyPaste = ({
+  selectedPaths,
+  basePath,
+  isLoading,
+  emit,
+}: {
+  selectedPaths: Ref<string[]>
+  basePath: Ref<string>
+  isLoading: Ref<boolean>
+  emit: any
+}) => {
   const enablePaste = computed(() => {
     return explorerStore.cutPaths.length > 0 || explorerStore.copyPaths.length > 0
   })

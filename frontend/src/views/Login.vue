@@ -1,12 +1,11 @@
 <script lang="ts" setup>
-import {authToken} from '@/store'
-const route = useRoute()
+import { authToken } from '@/store'
 const router = useRouter()
 
 const authTokenInput = ref('')
 const confirmAuthToken = async () => {
   authToken.value = authTokenInput.value
-  await router.push({path: '/'})
+  await router.push({ path: '/' })
 }
 watch(authToken, (newVal) => {
   if (newVal) {
@@ -24,16 +23,8 @@ onMounted(() => {
     <div class="vgo-panel">
       <div class="login-title">Login</div>
       <div class="flex-row-center-gap">
-        <el-input
-          ref="inputRef"
-          type="password"
-          clearable
-          show-password
-          v-model="authTokenInput"
-          placeholder="Input auth token"
-          @keyup.enter="confirmAuthToken"
-          style="width: 200px"
-        />
+        <el-input ref="inputRef" type="password" clearable show-password v-model="authTokenInput"
+          placeholder="Input auth token" @keyup.enter="confirmAuthToken" style="width: 200px" />
         <el-button @click="confirmAuthToken" type="primary">OK</el-button>
       </div>
     </div>
@@ -47,6 +38,7 @@ onMounted(() => {
   height: 100%;
   overflow: auto;
   box-sizing: border-box;
+
   .vgo-panel {
     padding: 40px 50px 50px;
     gap: 10px;
@@ -55,6 +47,7 @@ onMounted(() => {
     margin-right: auto;
     width: fit-content;
   }
+
   .login-title {
     font-size: 20px;
     font-weight: bold;

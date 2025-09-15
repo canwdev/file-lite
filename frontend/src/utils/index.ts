@@ -12,7 +12,7 @@ export const guid = () => {
  * 复制字符串到剪贴板操作（兼容新旧接口）
  * @param text 要复制的文本
  */
-export const copyToClipboard = (text): Promise<void> => {
+export const copyToClipboard = (text: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     // 如果支持 Clipboard API，就使用它
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -48,7 +48,7 @@ export const copyToClipboard = (text): Promise<void> => {
   })
 }
 
-export const copyWithToast = async (val, isShowVal = false) => {
+export const copyWithToast = async (val: string, isShowVal = false) => {
   if (!val) {
     return
   }
@@ -72,7 +72,7 @@ export const copyWithToast = async (val, isShowVal = false) => {
   window.$message.success(`Copied${showVal}`)
 }
 
-export const isCharacterKeyPress = (evt) => {
+export const isCharacterKeyPress = (evt: KeyboardEvent) => {
   if (typeof evt.which == 'undefined') {
     // This is IE, which only fires keypress events for printable keys
     return true
@@ -96,7 +96,7 @@ export function formatDate(d: any | number, format = 'YYYY-MM-DD HH:mm') {
   return moment(d).format(format)
 }
 
-export const formatTimeHMS = (ms) => {
+export const formatTimeHMS = (ms: number) => {
   const h = Math.round(ms / (60 * 60))
     .toString()
     .padStart(2, '0') //精确小时，用去余
@@ -119,7 +119,7 @@ export const formatSelectOptions = (list: string[]) => {
 }
 
 // 字节转换为可读的单位
-export const bytesToSize = (bytes, autoNo = '0 B') => {
+export const bytesToSize = (bytes: number, autoNo = '0 B') => {
   bytes = Number(bytes)
   if (Number.isNaN(bytes)) {
     return '-'
@@ -131,18 +131,18 @@ export const bytesToSize = (bytes, autoNo = '0 B') => {
   return Number(bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
 }
 
-export function getRandomInt(min, max) {
+export function getRandomInt(min: number, max: number) {
   min = Math.ceil(min)
   max = Math.floor(max)
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-export const sleep = (t) => {
+export const sleep = (t: number) => {
   return new Promise((resolve) => setTimeout(resolve, t))
 }
 
 // 文件对象转换为base64
-export function blobToBase64(blob): Promise<string> {
+export function blobToBase64(blob: Blob): Promise<string> {
   console.log('b', blob)
   return new Promise((resolve, reject) => {
     const fr = new FileReader()
@@ -154,13 +154,13 @@ export function blobToBase64(blob): Promise<string> {
   })
 }
 
-export const downloadUrl = (url: string, filename?) => {
+export const downloadUrl = (url: string, filename?: string) => {
   // 创建一个虚拟的 <a> 标签
   const a = document.createElement('a')
   // 设置 href 为文件的 URL
   a.href = url
   // 设置 download 属性，以指定下载时的文件名
-  a.download = filename
+  a.download = filename || 'download'
   // 将 <a> 标签添加到 DOM 中
   document.body.appendChild(a)
   // 模拟点击 <a> 标签以触发下载

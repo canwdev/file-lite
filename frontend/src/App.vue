@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ElMessage, ElMessageBox} from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 window.$message = ElMessage
 window.$dialog = ElMessageBox
 </script>
@@ -16,6 +16,7 @@ window.$dialog = ElMessageBox
   height: 100%;
   width: 100%;
 }
+
 .dark {
   .page-root {
     background-color: #303030;

@@ -17,6 +17,18 @@ export const useFileActions = ({
   selectedItemsSet,
   handleDownload,
   emit,
+}: {
+  isLoading: Ref<boolean>
+  selectedPaths: Ref<string[]>
+  basePath: Ref<string>
+  selectedItems: Ref<IEntry[]>
+  enablePaste: Ref<boolean>
+  handlePaste: () => Promise<void>
+  handleCut: () => void
+  handleCopy: () => void
+  selectedItemsSet: Ref<Set<IEntry>>
+  handleDownload: () => Promise<void>
+  emit: any
 }) => {
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -104,7 +116,7 @@ export const useFileActions = ({
         {
           label: 'Paste',
           iconClass: 'mdi mdi-content-paste',
-          props: {onClick: handlePaste},
+          props: {onClick: () => handlePaste()},
           disabled: !enablePaste.value,
         },
       ]
