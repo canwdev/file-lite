@@ -1,5 +1,5 @@
 import {useSelectionArea} from '@/hooks/use-selection-area'
-import {generateTextFile, normalizePath, toggleArrayElement} from '../../utils'
+import {normalizePath, toggleArrayElement} from '../../utils'
 import {IEntry} from '@server/types/server'
 
 export const useSelection = ({
@@ -7,6 +7,11 @@ export const useSelection = ({
   basePath,
   allowMultipleSelection,
   selectables = ['.selectable'],
+}: {
+  filteredFiles: Ref<IEntry[]>
+  basePath: Ref<string>
+  allowMultipleSelection: Ref<boolean>
+  selectables: string[]
 }) => {
   const selectedItems = ref<IEntry[]>([])
   const selectedItemsSet = computed(() => {
@@ -23,7 +28,7 @@ export const useSelection = ({
       selectedItems.value = []
     },
     onStop: (stored) => {
-      const map = {}
+      const map: Record<string, IEntry> = {}
       filteredFiles.value.forEach((i) => {
         map[i.name] = i
       })
@@ -61,7 +66,15 @@ export const useSelection = ({
     {immediate: true},
   )
 
-  const toggleSelect = ({item, event, toggle = false}) => {
+  const toggleSelect = ({
+    item,
+    event,
+    toggle = false,
+  }: {
+    item: IEntry
+    event: MouseEvent
+    toggle?: boolean
+  }) => {
     if (!allowMultipleSelection.value) {
       selectedItems.value = [item]
       return

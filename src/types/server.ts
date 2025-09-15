@@ -7,8 +7,6 @@ export interface IEntry {
   birthtime: number
   size: number | null
   error: string | null
-  // stat?: any
-  // mimeType?: string
 }
 
 export interface IDrive {

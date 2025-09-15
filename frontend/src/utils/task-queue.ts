@@ -57,7 +57,7 @@ export class TaskQueue extends EventEmitter {
   }
 
   // 添加任务
-  addTask(data) {
+  addTask(data: any) {
     const task = new TaskItem(data)
     const key = this.getTaskMapKey(task)
     this.taskMap[key] = task
@@ -65,8 +65,8 @@ export class TaskQueue extends EventEmitter {
     this.execute()
   }
 
-  addTasks(list) {
-    list.forEach((item) => this.addTask(item))
+  addTasks(dataList: any[]) {
+    dataList.forEach((data) => this.addTask(data))
   }
 
   execute() {
@@ -127,7 +127,7 @@ export class TaskQueue extends EventEmitter {
   }
 
   // 移除任务（在此前需要先取消该任务的Promise）
-  removeTask(task) {
+  removeTask(task: TaskItem) {
     const key = this.getTaskMapKey(task)
     delete this.taskMap[key]
 

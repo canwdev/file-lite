@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import {fsWebApi} from '@/api/filesystem'
-import {IDrive} from '@server/types/server'
-import {useStorage} from '@vueuse/core'
-import {LsKeys} from '@/enum'
-import {normalizePath} from '@/views/FileManager/utils'
-import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import {bytesToSize} from '@/utils'
+import { fsWebApi } from '@/api/filesystem'
+import { IDrive } from '@server/types/server'
+import { useStorage } from '@vueuse/core'
+import { LsKeys } from '@/enum'
+import { normalizePath } from '@/views/FileManager/utils'
+import { bytesToSize } from '@/utils'
 
 interface Props {
   width?: string
@@ -16,14 +15,14 @@ const props = withDefaults(defineProps<Props>(), {
   width: '130px',
 })
 
-const {currentPath} = toRefs(props)
+const { currentPath } = toRefs(props)
 
 const emit = defineEmits(['openDrive'])
 
 const isLoading = ref(false)
 const driveList = ref<IDrive[]>([])
 
-const getPathNormalized = (path) => {
+const getPathNormalized = (path: string) => {
   path = normalizePath(path)
   if (!/\/$/gi.test(path)) {
     path += '/'
@@ -35,7 +34,7 @@ const loadDrives = async () => {
   try {
     isLoading.value = true
 
-    const drives = (await fsWebApi.getDrives({})) as unknown as IDrive[]
+    const drives = (await fsWebApi.getDrives()) as unknown as IDrive[]
     driveList.value = drives.map((i) => {
       return {
         ...i,
@@ -74,18 +73,18 @@ const getIcon = (item: IDrive) => {
 
 const showSidebar = useStorage(LsKeys.EXPLORER_SHOW_SIDEBAR, true)
 
-const handleOpen = (item) => {
+const handleOpen = (item: IDrive) => {
   if (item.path !== currentPath.value) {
     emit('openDrive', item)
   }
 }
 
-const getTitle = (item) => {
+const getTitle = (item: IDrive) => {
   let txt = `Path: ${item.path}`
 
-  if (item.total) {
+  if (item.total && item.free) {
     txt += `
-Used: ${((item!.free / item.total) * 100).toFixed(0) + '%'}
+Used: ${((item.free / item.total) * 100).toFixed(0) + '%'}
 Storage: ${bytesToSize(item.free)} / ${bytesToSize(item.total)}
 `
   }
@@ -99,12 +98,8 @@ defineExpose({
 </script>
 
 <template>
-  <div class="explorer-file-sidebar" :style="{width: showSidebar ? width : '0'}">
-    <button
-      class="btn-toggle btn-no-style"
-      :class="{_folded: !showSidebar}"
-      @click="showSidebar = !showSidebar"
-    >
+  <div class="explorer-file-sidebar" :style="{ width: showSidebar ? width : '0' }">
+    <button class="btn-toggle btn-no-style" :class="{ _folded: !showSidebar }" @click="showSidebar = !showSidebar">
       <span v-if="!showSidebar" class="mdi mdi-chevron-right"></span>
       <span v-else class="mdi mdi-chevron-left"></span>
     </button>
@@ -112,24 +107,15 @@ defineExpose({
     <slot></slot>
 
     <div class="file-sidebar-content">
-      <button
-        class="drive-item btn-no-style"
-        v-for="(item, index) in driveList"
-        :key="index"
-        :title="getTitle(item)"
-        :class="{active: item.path === currentPath}"
-        @click="handleOpen(item)"
-      >
+      <button class="drive-item btn-no-style" v-for="(item, index) in driveList" :key="index" :title="getTitle(item)"
+        :class="{ active: item.path === currentPath }" @click="handleOpen(item)">
         <span class="drive-icon">
           <span :class="['mdi', getIcon(item)]" />
         </span>
         <span class="drive-content">
           <span class="drive-title text-overflow">{{ item.label }}</span>
-          <span v-if="item.total" class="volume-bar">
-            <span
-              :style="{width: (item!.free / item.total) * 100 + '%'}"
-              class="volume-value"
-            ></span>
+          <span v-if="item.total && item.free" class="volume-bar">
+            <span :style="{ width: (item.free / item.total) * 100 + '%' }" class="volume-value"></span>
           </span>
         </span>
       </button>
@@ -155,15 +141,18 @@ defineExpose({
     opacity: 0.3;
     transition: all 1s;
     z-index: 10;
+
     &._folded {
       right: -20px;
     }
+
     &:hover {
       opacity: 1;
     }
-    span {
-    }
+
+    span {}
   }
+
   .file-sidebar-content {
     flex: 1;
     overflow: auto;
@@ -199,14 +188,17 @@ defineExpose({
       .mdi {
         font-size: 20px;
       }
+
       i {
         display: flex;
       }
+
       img {
         width: 100%;
         height: 100%;
       }
     }
+
     .drive-content {
       flex: 1;
       overflow: hidden;
@@ -215,7 +207,8 @@ defineExpose({
     &:hover {
       background-color: var(--vgo-color-hover);
     }
-    & + .drive-item {
+
+    &+.drive-item {
       border-top: 1px solid var(--vgo-color-border);
     }
 

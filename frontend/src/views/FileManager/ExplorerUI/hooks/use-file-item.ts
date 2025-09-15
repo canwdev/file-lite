@@ -1,7 +1,8 @@
 import {bytesToSize, formatDate} from '@/utils'
 import {getFileIconClass} from '@/views/FileManager/ExplorerUI/file-icons'
+import {IEntry} from '@server/types/server'
 
-export const useFileItem = (props) => {
+export const useFileItem = (props: {item: IEntry}) => {
   const {item} = toRefs(props)
 
   const iconClass = computed(() => {
@@ -11,7 +12,6 @@ export const useFileItem = (props) => {
   const titleDesc = computed(() => {
     return `Name: ${item.value.name}
 Size: ${bytesToSize(item.value.size)}
-Type: ${item.value.mimeType || '-'}
 Last Modified: ${formatDate(item.value.lastModified, 'YYYY-MM-DD HH:mm:ss')}
 Created: ${formatDate(item.value.birthtime, 'YYYY-MM-DD HH:mm:ss')}
 `

@@ -3,8 +3,9 @@ import {sortMethodMap} from '../../utils/sort'
 import {SortType} from '@server/types/server'
 import {LsKeys} from '@/enum'
 import {useStorage} from '@vueuse/core'
+import {IEntry} from '@server/types/server'
 
-export const useLayoutSort = (files) => {
+export const useLayoutSort = (files: Ref<IEntry[]>) => {
   const isGridView = ref(false)
   const sortMode = ref(SortType.default)
 

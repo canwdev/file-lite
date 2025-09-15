@@ -1,10 +1,10 @@
 export default class EventEmitter {
-  private events: any[]
+  private events: {[key: string]: Array<(data: any) => void>}
   constructor() {
-    this.events = []
+    this.events = {}
   }
 
-  on(name, fn) {
+  on(name: string, fn: (data: any) => void) {
     if (this.events[name]) {
       this.events[name].push(fn)
     } else {
@@ -13,8 +13,8 @@ export default class EventEmitter {
     return this
   }
 
-  once(name, fn) {
-    const onceFn = (data) => {
+  once(name: string, fn: (data: any) => void) {
+    const onceFn = (data: any) => {
       fn(data)
       this.off(name, onceFn)
     }
@@ -22,12 +22,12 @@ export default class EventEmitter {
     return this
   }
 
-  emit(name, data?) {
+  emit(name: string, data?: any) {
     ;(this.events[name] || []).forEach((fn) => fn(data))
     return this
   }
 
-  off(name, fn) {
+  off(name: string, fn: (data: any) => void) {
     const fns = this.events[name]
     if (!fns) {
       return

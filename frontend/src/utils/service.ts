@@ -1,7 +1,15 @@
 import axios from 'axios'
 import {authToken} from '@/store'
 
-const Service = (config: any) => {
+const Service = (config: {
+  baseURL: string
+  withCredentials?: boolean
+  timeout?: number
+  headers?: any
+  isAuth?: boolean
+  isToast?: boolean
+  isRawResponse?: boolean
+}) => {
   const {
     baseURL,
     withCredentials = false,

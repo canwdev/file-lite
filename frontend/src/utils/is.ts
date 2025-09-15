@@ -12,7 +12,7 @@ export const regSupportedTextFormat =
 export const regSupportedImageFormat = /\.(jpg|jpeg|png|gif|webp|svg)$/i
 export const regSupportedVideoFormat = /\.(mp4|webm|mov)$/i
 export const regSupportedAudioFormat = /\.(mp3|wav|ogg|flac|opus)$/i
-export const isSupportedMediaFormat = (name) =>
+export const isSupportedMediaFormat = (name: string) =>
   regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
 
 /**
@@ -20,18 +20,18 @@ export const isSupportedMediaFormat = (name) =>
  * @param url
  * @returns {boolean}
  */
-export function isOutLink(url) {
+export function isOutLink(url: string) {
   return /^(https?:|mailto:|tel:|[a-zA-Z]{4,}:)/.test(url)
 }
 
-export function isBase64Image(str) {
+export function isBase64Image(str: string) {
   return /^data:image\/([a-zA-Z]*);base64,/.test(str)
 }
 
-export function isSrcHttpUrl(url) {
+export function isSrcHttpUrl(url: string) {
   return /^(https?:)/gi.test(url)
 }
 
-export function isUrlImage(url) {
+export function isUrlImage(url: string) {
   return /\.(?:jpg|jpeg|jfif|pjpeg|pjp|gif|apng|png|webp|svg|avif)$/gi.test(url)
 }

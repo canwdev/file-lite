@@ -4,7 +4,7 @@ import {LsKeys} from '@/enum'
 import {useOpener} from './use-opener'
 import {IEntry} from '@server/types/server'
 
-export const useNavigation = ({getListFn}) => {
+export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>}) => {
   const files = ref<IEntry[]>([])
   const basePath = useStorage(LsKeys.NAV_PATH, '/')
   const basePathNormalized = computed(() => {
@@ -91,7 +91,7 @@ export const useNavigation = ({getListFn}) => {
     await handleOpenPath(path)
   }
 
-  const handleOpenPath = async (path, updateHistory = true) => {
+  const handleOpenPath = async (path: string, updateHistory = true) => {
     basePath.value = path
     filterText.value = ''
     await handleRefresh()

@@ -1,6 +1,6 @@
 <script lang="ts" setup="">
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/index.vue'
-import FileManager from '@/views/FileManager/index.vue'
+import FileManager from '@/views/FileManager/FileManager.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -17,7 +17,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits(['handleSelect'])
-const {selectFileMode, multiple} = toRefs(props)
+const { selectFileMode, multiple } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
@@ -51,27 +51,17 @@ defineExpose({
       {{ actionLabel }}
     </button>
 
-    <ViewPortWindow
-      v-model:visible="isShowFileSelectWindow"
-      init-center
-      :init-win-options="{
-        width: '500px',
-        height: '500px',
-      }"
-    >
+    <ViewPortWindow v-model:visible="isShowFileSelectWindow" init-center :init-win-options="{
+      width: '500px',
+      height: '500px',
+    }">
       <template #titleBarLeft>{{ actionLabel }}</template>
-      <FileManager
-        v-if="isShowFileSelectWindow"
-        :selectFileMode="selectFileMode"
-        :multiple="multiple"
-        @cancelSelect="isShowFileSelectWindow = false"
-        @handleSelect="handleSelect"
-      />
+      <FileManager v-if="isShowFileSelectWindow" :selectFileMode="selectFileMode" :multiple="multiple"
+        @cancelSelect="isShowFileSelectWindow = false" @handleSelect="handleSelect" />
     </ViewPortWindow>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.file-selector {
-}
+.file-selector {}
 </style>
