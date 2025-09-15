@@ -7,7 +7,7 @@ import morgan from 'morgan'
 import router from '@/routes'
 import https from 'https'
 import fs from 'fs'
-import Path from 'node:path'
+import fallback from 'express-history-api-fallback'
 
 const printServerRunningOn = ({protocol = 'http:', host, port, params = ''}) => {
   const ifaces = os.networkInterfaces()
@@ -39,13 +39,15 @@ const startServer = async () => {
   app.use(express.urlencoded({extended: true}))
 
   // 配置静态资源服务
-  app.use('/', express.static(path.resolve(process.cwd(), './frontend'), {}))
+  const frontendRoot = path.resolve(process.cwd(), './frontend')
+  app.use('/', express.static(frontendRoot))
 
   if (config.enableLog) {
     app.use(morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url'))
   }
   // 路由配置
   app.use('/api', router)
+  app.use(fallback('index.html', {root: frontendRoot}))
 
   const port = Number(
     config.port || process.env.PORT || (await getPort({port: portNumbers(3100, 4100)})),
@@ -53,8 +55,8 @@ const startServer = async () => {
   const host = config.host || process.env.HOST || '0.0.0.0'
   if (config.sslKey && config.sslCert) {
     const options = {
-      key: fs.readFileSync(Path.resolve(DATA_BASE_DIR, config.sslKey)),
-      cert: fs.readFileSync(Path.resolve(DATA_BASE_DIR, config.sslCert)),
+      key: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslKey)),
+      cert: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslCert)),
     }
     https.createServer(options, app).listen(port, host, () => {
       console.log(``)
