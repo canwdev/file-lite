@@ -18,9 +18,6 @@ export const fsWebApi = {
       params: {path},
     })
   },
-  getStream(params) {
-    return service.get('/stream', {params})
-  },
   createDir(params) {
     return service.post('/create-dir', params)
   },
@@ -57,3 +54,6 @@ export const fsWebApi = {
     return baseURL + `/stream?path=${path}&auth=${authToken.value}`
   },
 }
+
+window.$fsWebApi = fsWebApi
+console.log('window.$fsWebApi available')

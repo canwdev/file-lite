@@ -13,6 +13,15 @@ const router = createRouter({
         title: `FileLite`,
       },
     },
+    // 404
+    {
+      path: '/:pathMatch(.*)*',
+      name: '404',
+      component: () => import('@/views/NotFound.vue'),
+      meta: {
+        title: `404`,
+      },
+    },
   ],
 })
 
