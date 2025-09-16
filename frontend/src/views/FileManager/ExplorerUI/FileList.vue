@@ -352,7 +352,7 @@ defineExpose({
       </button>
     </div>
 
-    <UploadQueue ref="uploadQueueRef" @allDone="emit('refresh')" />
+    <UploadQueue ref="uploadQueueRef" @allDone="emit('refresh')" auto-close />
   </div>
 </template>
 
