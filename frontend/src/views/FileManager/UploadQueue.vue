@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/index.vue'
-import {TaskItem, TaskQueue} from '@/utils/task-queue'
-import {fsWebApi} from '@/api/filesystem'
-import {bytesToSize} from '@/utils'
-import {isDev} from '@/enum'
+import { TaskItem, TaskQueue } from '@/utils/task-queue'
+import { fsWebApi } from '@/api/filesystem'
+import { bytesToSize } from '@/utils'
+import { isDev } from '@/enum'
 
 const props = withDefaults(
   defineProps<{
@@ -32,7 +32,7 @@ interface IUploadItem extends IBatchFile {
   // 上传失败时的错误信息
   message: string
   // 上传过程中的abort对象
-  abortObj?: {abort: () => void}
+  abortObj?: { abort: () => void }
   // 上传成功后返回的结果
   result?: any
   speedInfo?: {
@@ -67,11 +67,11 @@ const cancelAll = () => {
 }
 
 const taskHandler = (task: TaskItem) => {
-  const {data} = task
+  const { data } = task
   // console.log('--- taskHandler', task, data)
   return new Promise(async (resolve, reject) => {
     try {
-      const {path, file} = data
+      const { path, file } = data
 
       const abortController = new AbortController()
       data.status = 'transferring'
@@ -79,7 +79,7 @@ const taskHandler = (task: TaskItem) => {
         abort: async () => {
           abortController.abort()
           // 由于后端无法获得取消事件，并且存在文件残留，需要手动删除
-          await fsWebApi.deleteEntry({path})
+          await fsWebApi.deleteEntry({ path })
         },
       }
       data.message = `Uploading`
@@ -250,35 +250,24 @@ defineExpose({
 </script>
 
 <template>
-  <ViewPortWindow
-    v-model:visible="isVisible"
-    :show-close="!taskQueueRef?.executing?.length"
-    :init-win-options="{
-      width: '360px',
-    }"
-    wid="file_lite_upload_dialog"
-  >
+  <ViewPortWindow v-model:visible="isVisible" :show-close="!taskQueueRef?.executing?.length" :init-win-options="{
+    width: '360px',
+  }" wid="file_lite_upload_dialog">
     <template #titleBarLeft>
       ({{ successNum }}/{{ listData.length }})
-      <span v-if="listData.length"
-        >{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span
-      >
+      <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
       <span v-if="transferringNum">| Uploading {{ transferringNum }} </span>
       <span v-if="errorNum">| Failed {{ errorNum }} </span>
     </template>
 
     <div class="batch-upload-wrapper">
       <div class="total-progress volume-bar">
-        <div :style="{width: totalProgress + '%'}" class="volume-value"></div>
+        <div :style="{ width: totalProgress + '%' }" class="volume-value"></div>
       </div>
 
       <div class="upload-list">
-        <div
-          v-for="(item, index) in listData"
-          :class="{failed: item.status === 'failed'}"
-          :key="item.index"
-          class="upload-item"
-        >
+        <div v-for="(item, index) in listData" :class="{ failed: item.status === 'failed' }" :key="item.index"
+          class="upload-item">
           <div class="index-text">#{{ item.index }}</div>
           <div class="upload-status" :title="item.message">
             <template v-if="item.status === 'success'">
@@ -288,11 +277,7 @@ defineExpose({
               <span class="mdi mdi-alert" style="color: #f44336" title="失败"></span>
             </template>
             <template v-else-if="item.status === 'transferring'">
-              <span
-                class="mdi mdi-upload-circle-outline"
-                style="color: #03a9f4"
-                title="Uploading"
-              ></span>
+              <span class="mdi mdi-upload-circle-outline" style="color: #03a9f4" title="Uploading"></span>
             </template>
             <template v-else-if="item.status === 'pending'">
               <span class="mdi mdi-progress-upload" style="color: #ffc107" title="Waiting"></span>
@@ -323,23 +308,16 @@ defineExpose({
               <button class="vgo-button" v-if="item.abortObj" @click="item.abortObj.abort()">
                 Cancel
               </button>
-              <button
-                class="vgo-button"
-                v-if="item.status === 'failed'"
-                @click="handleRetry(item, index)"
-              >
+              <button class="vgo-button" v-if="item.status === 'failed'" @click="handleRetry(item, index)">
                 Retry
               </button>
             </div>
 
             <div class="volume-bar">
-              <div :style="{width: item.progress * 100 + '%'}" class="volume-value"></div>
+              <div :style="{ width: item.progress * 100 + '%' }" class="volume-value"></div>
             </div>
 
-            <div
-              v-if="item.speedInfo && item.status === 'transferring'"
-              class="speed-info-wrapper flex-row-center-gap"
-            >
+            <div v-if="item.speedInfo && item.status === 'transferring'" class="speed-info-wrapper flex-row-center-gap">
               <div>
                 {{ bytesToSize(item.speedInfo.loaded) }}/{{ bytesToSize(item.speedInfo.total) }}
               </div>
@@ -371,6 +349,7 @@ defineExpose({
   height: 100%;
   display: flex;
   flex-direction: column;
+
   button {
     font-size: 12px;
     height: fit-content;
@@ -391,12 +370,14 @@ defineExpose({
     overflow-x: hidden;
     overflow-y: auto;
     box-sizing: border-box;
+
     .upload-item {
       padding: 10px;
       display: flex;
       gap: 8px;
       align-items: center;
       position: relative;
+
       .index-text {
         position: absolute;
         top: 4px;
@@ -431,24 +412,28 @@ defineExpose({
           justify-content: space-between;
         }
       }
+
       .upload-title {
         font-size: 12px;
         font-weight: 500;
         line-height: 1.2;
         word-break: break-word;
       }
+
       .upload-info {
         font-size: 12px;
         display: flex;
         justify-content: space-between;
         gap: 8px;
 
-        & > div {
+        &>div {
           overflow: hidden;
         }
+
         .progress-text {
           font-weight: bold;
         }
+
         .message-text {
           flex: 1;
           text-align: right;
