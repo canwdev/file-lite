@@ -1,15 +1,15 @@
-import {QuickOptionItem} from '@canwdev/vgo-ui/src/components/QuickOptions/enum'
 import {sortMethodMap} from '../../utils/sort'
 import {SortType} from '@server/types/server'
 import {LsKeys} from '@/enum'
 import {useStorage} from '@vueuse/core'
 import {IEntry} from '@server/types/server'
+import {MenuItem} from '@imengyu/vue3-context-menu'
 
 export const useLayoutSort = (files: Ref<IEntry[]>) => {
   const isGridView = ref(false)
   const sortMode = ref(SortType.default)
 
-  const sortOptions = computed((): QuickOptionItem[] => {
+  const sortOptions = computed((): MenuItem[] => {
     return [
       {label: 'Default', value: SortType.default},
       {label: 'Name ▲', value: SortType.name},
@@ -25,11 +25,9 @@ export const useLayoutSort = (files: Ref<IEntry[]>) => {
     ].map((i) => {
       return {
         label: i.label,
-        props: {
-          class: sortMode.value === i.value ? 'active' : '',
-          onClick: () => {
-            sortMode.value = i.value
-          },
+        icon: sortMode.value === i.value ? 'mdi mdi-check' : '',
+        onClick: () => {
+          sortMode.value = i.value
         },
       }
     })

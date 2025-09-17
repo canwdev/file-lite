@@ -2,7 +2,7 @@
 import FileSidebar from './FileSidebar.vue'
 import { fsWebApi } from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
-import { getLastDirName, normalizePath, toggleArrayElement } from './utils'
+import { getLastDirName } from './utils'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import { IEntry } from '@server/types/server'
 
@@ -106,17 +106,18 @@ const rootRef = ref()
 const inputAddrRef = ref()
 const searchInputRef = ref()
 const handleShortcutKey = (event) => {
+  // console.log('handleShortcutKey', event)
   const key = event.key?.toLowerCase()
   if (event.altKey) {
     if (key === 'a') {
       if (inputAddrRef.value) {
         inputAddrRef.value.focus()
       }
-    } else if (key === 'f') {
+    } else if (key === 's') {
       if (searchInputRef.value) {
         searchInputRef.value.focus()
       }
-    } else if (key === 's') {
+    } else if (key === 'd') {
       toggleStar()
     } else if (event.key === 'ArrowUp') {
       goUp()
@@ -129,13 +130,10 @@ const handleShortcutKey = (event) => {
   fileListRef.value.handleShortcutKey(event)
 }
 
-defineExpose({
-  handleShortcutKey,
-})
 </script>
 
 <template>
-  <div ref="rootRef" class="explorer-wrap">
+  <div ref="rootRef" class="explorer-wrap" @keydown="handleShortcutKey" tabindex="0">
     <div v-if="!contentOnly" class="explorer-header vgo-panel">
       <div class="nav-address-bar">
         <div class="nav-wrap">
