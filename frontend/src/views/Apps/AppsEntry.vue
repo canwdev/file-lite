@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { appsStoreState } from './apps-store';
-import TextEditor from './TextEditor.vue';
+import { Apps } from './apps';
 
 
 const handleExit = () => {
@@ -27,7 +27,7 @@ watch(() => appsStoreState.isShowApp, (newVal) => {
       <div class="font-code">{{ appsStoreState.absPath }}</div>
     </div>
     <div class="app-container">
-      <TextEditor :abs-path="appsStoreState.absPath" @exit="handleExit" />
+      <component :is="Apps[appsStoreState.appName]" :abs-path="appsStoreState.absPath" @exit="handleExit" />
     </div>
   </div>
 </template>

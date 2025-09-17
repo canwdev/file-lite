@@ -73,7 +73,7 @@ const getIcon = (item: IDrive) => {
 
 const showSidebar = useStorage(LsKeys.EXPLORER_SHOW_SIDEBAR, true)
 
-const handleOpen = (item: IDrive) => {
+const openDrive = (item: IDrive) => {
   if (item.path !== currentPath.value) {
     emit('openDrive', item)
   }
@@ -108,7 +108,7 @@ defineExpose({
 
     <div class="file-sidebar-content">
       <button class="drive-item btn-no-style" v-for="(item, index) in driveList" :key="index" :title="getTitle(item)"
-        :class="{ active: item.path === currentPath }" @click="handleOpen(item)">
+        :class="{ active: item.path === currentPath }" @click="openDrive(item)">
         <span class="drive-icon">
           <span :class="['mdi', getIcon(item)]" />
         </span>

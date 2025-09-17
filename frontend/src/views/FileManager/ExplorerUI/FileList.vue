@@ -108,7 +108,7 @@ const {
   emit,
 })
 
-const updateOptionsFn = () => {
+const getMenuOptions = () => {
   let contextMenuOptions: MenuItem[] = []
   if (selectedItems.value.length) {
     contextMenuOptions = ctxMenuOptions.value
@@ -157,10 +157,10 @@ const updateOptionsFn = () => {
 }
 
 const updateMenuOptions = (item: IEntry | null, event: MouseEvent) => {
-  handleShowCtxMenu(item, event, updateOptionsFn)
+  handleShowCtxMenu(item, event, getMenuOptions)
 }
 const updateMenuOptions2 = (event: MouseEvent) => {
-  handleShowCtxMenu(null, event, updateOptionsFn)
+  handleShowCtxMenu(null, event, getMenuOptions)
 }
 
 const handleShortcutKey = (event) => {

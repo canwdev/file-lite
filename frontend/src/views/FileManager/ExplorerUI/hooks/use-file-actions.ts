@@ -4,6 +4,7 @@ import {generateTextFile, normalizePath} from '../../utils'
 import {IEntry} from '@server/types/server'
 import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
+import {OpenWithEnum} from '@/views/Apps/apps'
 
 export const useFileActions = ({
   isLoading,
@@ -122,15 +123,55 @@ export const useFileActions = ({
       ]
     }
     const isSingle = selectedItems.value.length === 1
+    const isFile = isSingle && !selectedItems.value[0].isDirectory
     // @ts-ignore
     return [
       isSingle && {
         label: 'Open',
-        icon: 'mdi mdi-open-in-app',
         onClick: () => {
-          return emit('open', selectedItems.value[0])
+          return emit('open', {
+            item: selectedItems.value[0],
+          })
         },
       },
+      isSingle &&
+        isFile && {
+          label: 'Open With',
+          icon: 'mdi mdi-open-in-app',
+          children: [
+            {
+              label: 'Browser',
+              icon: 'mdi mdi-open-in-new',
+              onClick: () => {
+                emit('open', {
+                  item: selectedItems.value[0],
+                  openWith: OpenWithEnum.Browser,
+                })
+              },
+            },
+            {
+              label: 'Share',
+              icon: 'mdi mdi-share-variant',
+              onClick: () => {
+                emit('open', {
+                  item: selectedItems.value[0],
+                  openWith: OpenWithEnum.Share,
+                })
+              },
+              divided: true,
+            },
+            {
+              label: 'Text Editor',
+              icon: 'mdi mdi-text-box-outline',
+              onClick: () => {
+                emit('open', {
+                  item: selectedItems.value[0],
+                  openWith: OpenWithEnum.TextEditor,
+                })
+              },
+            },
+          ],
+        },
       {label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true},
       {label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut},
       {label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true},
@@ -146,7 +187,7 @@ export const useFileActions = ({
   const handleShowCtxMenu = (
     item: IEntry | null,
     event: MouseEvent,
-    updateOptionsFn: () => MenuItem[],
+    getMenuOptions: () => MenuItem[],
   ) => {
     if (!item) {
       selectedItems.value = []
@@ -161,7 +202,7 @@ export const useFileActions = ({
       x: event.x,
       y: event.y,
       theme: 'flat',
-      items: updateOptionsFn(),
+      items: getMenuOptions(),
     })
   }
 

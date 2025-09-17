@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {IEntry} from '@server/types/server'
+import { IEntry } from '@server/types/server'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import {useFileItem} from './hooks/use-file-item'
+import { useFileItem } from './hooks/use-file-item'
 
 const emit = defineEmits(['open', 'select'])
 
@@ -12,28 +12,17 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {})
 
-const {iconClass, titleDesc, nameDisplay} = useFileItem(props)
+const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 </script>
 
 <template>
-  <button
-    class="file-grid-item btn-no-style"
-    :class="{active, hidden: item.hidden}"
-    @click.stop="$emit('select', {item, event: $event})"
-    @keyup.enter="$emit('open', item)"
-    @dblclick.stop="$emit('open', item)"
-    :title="titleDesc"
-  >
-    <input
-      v-if="showCheckbox"
-      class="file-checkbox"
-      type="checkbox"
-      :checked="active"
-      @click.stop="$emit('select', {item, event: $event, toggle: true})"
-      @dblclick.stop
-    />
+  <button class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
+    @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
+    @dblclick.stop="$emit('open', { item })" :title="titleDesc">
+    <input v-if="showCheckbox" class="file-checkbox" type="checkbox" :checked="active"
+      @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop />
     <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" />
-    <span class="desktop-icon-name" @click.stop="$emit('open', item)" @dblclick.stop>{{
+    <span class="desktop-icon-name" @click.stop="$emit('open', { item })" @dblclick.stop>{{
       nameDisplay
     }}</span>
   </button>
@@ -56,14 +45,17 @@ const {iconClass, titleDesc, nameDisplay} = useFileItem(props)
     outline: 1px dashed currentColor;
     outline-offset: -1px;
   }
+
   &:hover {
     background-color: rgba(224, 224, 224, 0.3);
+
     .file-checkbox {
       visibility: visible;
     }
   }
+
   &.hidden {
-    & > * {
+    &>* {
       opacity: 0.6;
     }
   }
@@ -71,6 +63,7 @@ const {iconClass, titleDesc, nameDisplay} = useFileItem(props)
   &.active {
     background-color: var(--vgo-primary-opacity);
     outline: 1px solid var(--vgo-primary);
+
     .file-checkbox {
       visibility: visible;
     }
@@ -88,6 +81,7 @@ const {iconClass, titleDesc, nameDisplay} = useFileItem(props)
     width: 48px;
     height: 48px;
     pointer-events: none;
+
     ::v-deep(.themed-icon-class) {
       font-size: 48px;
     }
