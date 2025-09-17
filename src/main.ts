@@ -1,37 +1,14 @@
 import getPort, {portNumbers} from 'get-port'
 import express from 'express'
 import path from 'path'
-import os from 'os'
 import {authToken, config, DATA_BASE_DIR} from './enum/config'
 import morgan from 'morgan'
 import router from '@/routes'
 import https from 'https'
 import fs from 'fs'
 import fallback from 'express-history-api-fallback'
-
-const printServerRunningOn = ({protocol = 'http:', host, port, params = ''}) => {
-  const ifaces = os.networkInterfaces()
-  const localhostUrl = protocol + '//' + '127.0.0.1' + ':' + port
-
-  console.log(`Listening on: ${host}:${port}\n${localhostUrl}${params}`)
-  const urls: string[] = []
-  if (host === '0.0.0.0') {
-    Object.keys(ifaces).forEach((dev) => {
-      ifaces[dev]?.forEach((details) => {
-        if (details.family === 'IPv4') {
-          const url = protocol + '//' + details.address + ':' + port + params
-          urls.push(url)
-        }
-      })
-    })
-    console.log(`Available on:\n${urls.join('\n')}`)
-  }
-
-  return {
-    localhostUrl,
-    urls,
-  }
-}
+import {opener, printServerRunningOn} from './utils'
+import {registerShortcuts} from './utils/shortcut'
 
 const startServer = async () => {
   const app = express()
@@ -55,21 +32,50 @@ const startServer = async () => {
   const host = config.host || process.env.HOST || '0.0.0.0'
 
   const isHttps = config.sslKey && config.sslCert
-  const listenCallback = () => {
-    console.log(``)
-    const {localhostUrl, urls} = printServerRunningOn({
-      protocol: isHttps ? 'https:' : 'http:',
-      host,
-      port,
-      params: `?auth=${authToken}`,
+  const listenCallback = async () => {
+    let urlIpSelector: string
+    const printUrls = () => {
+      console.log(``)
+      const {localhostUrl, urls} = printServerRunningOn({
+        protocol: isHttps ? 'https:' : 'http:',
+        host,
+        port,
+        params: `?auth=${authToken}`,
+      })
+      console.log(`IP Selector:`)
+      urlIpSelector = `${localhostUrl}/ip?urls=${btoa(JSON.stringify(urls))}`
+      console.log(urlIpSelector)
+    }
+    printUrls()
+    await registerShortcuts({
+      shortcuts: [
+        {
+          key: 'o',
+          desc: 'Open IP Selector',
+          callback: async () => {
+            await opener(urlIpSelector)
+          },
+        },
+        {
+          key: 'p',
+          desc: 'Print URLs',
+          callback: () => {
+            printUrls()
+          },
+        },
+        {
+          key: 'q',
+          desc: 'Exit',
+          callback: () => {
+            process.exit(0)
+          },
+        },
+      ],
     })
-    console.log(`IP Selector:`)
-    console.log(`${localhostUrl}/ip?urls=${btoa(JSON.stringify(urls))}`)
-    console.log(``)
-    console.log(``)
   }
 
   if (isHttps) {
+    console.log(`HTTPS enabled`)
     const options = {
       key: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslKey)),
       cert: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslCert)),
