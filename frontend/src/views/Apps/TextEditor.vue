@@ -1,9 +1,9 @@
 <script lang="ts" setup="">
-import { QuickOptionItem } from '@canwdev/vgo-ui/src/components/QuickOptions/enum'
 import { useUnSavedChanges } from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
 import { generateTextFile } from '@/views/FileManager/utils'
 import { fsWebApi } from '@/api/filesystem'
-import QuickMenuStrip from '@canwdev/vgo-ui/src/components/QuickOptions/QuickMenuStrip.vue'
+import { MenuBarOptions, MenuBar } from '@imengyu/vue3-context-menu';
+
 
 
 const props = withDefaults(
@@ -15,6 +15,7 @@ const props = withDefaults(
 const emit = defineEmits(['exit'])
 const { absPath } = toRefs(props)
 
+const editRef = ref<HTMLTextAreaElement>()
 const editContent = ref('')
 const { isChanged } = useUnSavedChanges()
 watch(editContent, () => {
@@ -45,6 +46,10 @@ watch(() => props.absPath, (path) => {
 
 onMounted(() => {
   openFile()
+
+  setTimeout(() => {
+    editRef.value?.focus()
+  })
 })
 
 const handleSaveFile = async () => {
@@ -64,22 +69,18 @@ const handleSaveFile = async () => {
 }
 
 
-const menuOptions = computed((): QuickOptionItem[] => {
-  return [
-    {
-      label: `Save ${isChanged.value ? '*' : ''}`,
-      props: {
+const menuOptions = computed((): MenuBarOptions => {
+  return {
+    // theme: 'flat',
+    items: [
+      {
+        label: `Save${isChanged.value ? '*' : ''}`,
         onClick() {
           handleSaveFile()
         },
       },
-    },
-
-    { split: true },
-
-    {
-      label: 'Exit',
-      props: {
+      {
+        label: 'Exit',
         onClick() {
           if (isChanged.value) {
             if (!confirm('Changes not save, continue to exit?')) {
@@ -89,15 +90,15 @@ const menuOptions = computed((): QuickOptionItem[] => {
           emit('exit')
         },
       },
-    },
-  ]
+    ]
+  }
 })
 </script>
 
 <template>
   <div class="text-editor-wrap" ref="rootRef">
-    <QuickMenuStrip :options="menuOptions" />
-    <textarea v-model="editContent" class="vgo-input font-code text-editor-textarea" />
+    <MenuBar :options="menuOptions" />
+    <textarea ref="editRef" v-model="editContent" class="vgo-input font-code text-editor-textarea" />
   </div>
 </template>
 
@@ -112,8 +113,10 @@ const menuOptions = computed((): QuickOptionItem[] => {
   padding: 8px;
   padding-top: 0;
 
-  .quick-menu-strip {
-    border-bottom: 0;
+  .mx-menu-bar {
+    padding: 4px 0;
+    box-shadow: none;
+    flex: unset;
   }
 
   .text-editor-textarea {

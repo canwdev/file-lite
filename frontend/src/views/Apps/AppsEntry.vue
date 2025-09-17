@@ -8,10 +8,21 @@ const handleExit = () => {
   appsStoreState.absPath = ''
 }
 
+
+const rootRef = ref()
+watch(() => appsStoreState.isShowApp, (newVal) => {
+  if (newVal) {
+    setTimeout(() => {
+      console.log('appsEntry focus', rootRef.value)
+      rootRef.value?.focus()
+    })
+  }
+})
+
 </script>
 
 <template>
-  <div class="apps-entry-wrapper vgo-bg" v-if="appsStoreState.isShowApp">
+  <div ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0" v-if="appsStoreState.isShowApp">
     <div class="title-bar">
       <div class="font-code">{{ appsStoreState.absPath }}</div>
     </div>

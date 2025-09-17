@@ -3,7 +3,6 @@ import { IEntry } from '@server/types/server'
 import FileListItem from './FileListItem.vue'
 import { useVModel } from '@vueuse/core'
 import FileGridItem from './FileGridItem.vue'
-import QuickContextMenu from '@canwdev/vgo-ui/src/components/QuickOptions/QuickContextMenu.vue'
 import UploadQueue from '../UploadQueue.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
@@ -11,8 +10,8 @@ import { useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
 import { useFileActions } from './hooks/use-file-actions'
 import { useTransfer } from './hooks/use-transfer'
-import { QuickOptionItem } from '@canwdev/vgo-ui/src/components/QuickOptions/enum'
 import { bytesToSize } from '@/utils'
+import { MenuItem } from '@imengyu/vue3-context-menu'
 
 const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
 
@@ -27,20 +26,14 @@ const props = withDefaults(
     multiple?: boolean
     contentOnly?: boolean
     gridView?: boolean
-    moreOptions?: QuickOptionItem[]
     // 设置 selectables 防止跨层级选择
     selectables?: string[]
   }>(),
   {
-    moreOptions() {
-      return []
-    },
-    selectables() {
-      return ['.explorer-list-wrap .selectable']
-    },
+    selectables: () => ['.explorer-list-wrap .selectable'],
   },
 )
-const { basePath, files, selectFileMode, multiple, moreOptions } = toRefs(props)
+const { basePath, files, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -99,7 +92,6 @@ const {
   handleRename,
   confirmDelete,
   ctxMenuOptions,
-  ctxMenuRef,
   handleShowCtxMenu,
   enableAction,
 } = useFileActions({
@@ -116,77 +108,60 @@ const {
   emit,
 })
 
-const contextMenuOptions = ref<QuickOptionItem[]>([])
-
 const updateOptionsFn = () => {
+  let contextMenuOptions: MenuItem[] = []
   if (selectedItems.value.length) {
-    contextMenuOptions.value = ctxMenuOptions.value
+    contextMenuOptions = ctxMenuOptions.value
   } else {
-    contextMenuOptions.value = [
+    contextMenuOptions = [
       {
         label: 'Create Document',
-        iconClass: 'mdi mdi-file-document-plus-outline',
-        props: {
-          onClick() {
-            handleCreateFile()
-          },
+        icon: 'mdi mdi-file-document-plus-outline',
+        onClick() {
+          handleCreateFile()
         },
       },
       {
         label: 'Create Folder',
-        iconClass: 'mdi mdi-folder-plus-outline',
-        props: {
-          onClick() {
-            handleCreateFolder()
-          },
+        icon: 'mdi mdi-folder-plus-outline',
+        onClick() {
+          handleCreateFolder()
         },
+        divided: true,
       },
-      { split: true },
       {
         label: 'Upload Files...',
-        iconClass: 'mdi mdi-file-upload-outline',
-        props: {
-          onClick() {
-            selectUploadFiles()
-          },
+        icon: 'mdi mdi-file-upload-outline',
+        onClick() {
+          selectUploadFiles()
         },
       },
       {
         label: 'Upload Folder...',
-        iconClass: 'mdi mdi-folder-upload-outline',
-        props: {
-          onClick() {
-            selectUploadFolder()
-          },
+        icon: 'mdi mdi-folder-upload-outline',
+        onClick() {
+          selectUploadFolder()
         },
+        divided: true,
       },
-      { split: true },
       {
         label: 'Sort',
-        iconClass: 'mdi mdi-sort-alphabetical-variant',
+        icon: 'mdi mdi-sort-alphabetical-variant',
         children: sortOptions.value,
+        divided: true,
       },
-      { split: true },
       ...ctxMenuOptions.value,
-      ...moreOptions.value,
     ]
   }
+  return contextMenuOptions
 }
 
 const updateMenuOptions = (item: IEntry | null, event: MouseEvent) => {
   handleShowCtxMenu(item, event, updateOptionsFn)
 }
 const updateMenuOptions2 = (event: MouseEvent) => {
-  ctxMenuRef.value.isShow = false
-
-  updateOptionsFn()
-
-  nextTick(() => {
-    ctxMenuRef.value.showMenuByElement(event.target, 'bottom', true)
-  })
+  handleShowCtxMenu(null, event, updateOptionsFn)
 }
-
-const sortOptionsMenuRef = ref()
 
 const handleShortcutKey = (event) => {
   event.preventDefault()
@@ -281,12 +256,7 @@ defineExpose({
             <span class="mdi mdi-eye-off-outline"></span>
           </template>
         </button>
-        <div class="action-button-wrap">
-          <button class="btn-action btn-no-style" title="Toggle Sort"
-            @click="sortOptionsMenuRef.showMenuByElement($event.target, 'bottom', true)">
-            <span class="mdi mdi-sort-alphabetical-variant"></span>
-          </button>
-        </div>
+
 
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
           <button class="btn-action btn-no-style" @click="toggleSelectAll" title="Toggle Select All (ctrl+a)">
@@ -300,9 +270,6 @@ defineExpose({
       </div>
     </div>
 
-    <template v-if="!contentOnly">
-      <QuickContextMenu ref="sortOptionsMenuRef" :options="sortOptions" />
-    </template>
 
     <div ref="explorerContentRef" class="explorer-content" @click="selectedItems = []"
       @contextmenu.prevent.stop="updateMenuOptions(null, $event)">
@@ -332,7 +299,6 @@ defineExpose({
           @contextmenu.prevent.stop="updateMenuOptions(item, $event)" />
       </div>
 
-      <QuickContextMenu :options="contextMenuOptions" ref="ctxMenuRef" />
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar">
       <span>

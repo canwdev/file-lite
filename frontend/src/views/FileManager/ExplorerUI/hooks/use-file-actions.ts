@@ -2,8 +2,8 @@ import moment from 'moment/moment'
 import {fsWebApi} from '@/api/filesystem'
 import {generateTextFile, normalizePath} from '../../utils'
 import {IEntry} from '@server/types/server'
-import {QuickOptionItem} from '@canwdev/vgo-ui/src/components/QuickOptions/enum'
 import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
+import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
 
 export const useFileActions = ({
   isLoading,
@@ -109,14 +109,14 @@ export const useFileActions = ({
       .catch()
   }
 
-  const ctxMenuOptions = computed((): QuickOptionItem[] => {
+  const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
-        {label: 'Refresh', iconClass: 'mdi mdi-refresh', props: {onClick: () => emit('refresh')}},
+        {label: 'Refresh', icon: 'mdi mdi-refresh', onClick: () => emit('refresh')},
         {
           label: 'Paste',
-          iconClass: 'mdi mdi-content-paste',
-          props: {onClick: () => handlePaste()},
+          icon: 'mdi mdi-content-paste',
+          onClick: () => handlePaste(),
           disabled: !enablePaste.value,
         },
       ]
@@ -126,32 +126,27 @@ export const useFileActions = ({
     return [
       isSingle && {
         label: 'Open',
-        iconClass: 'mdi mdi-open-in-app',
-        props: {
-          onClick: () => {
-            return emit('open', selectedItems.value[0])
-          },
+        icon: 'mdi mdi-open-in-app',
+        onClick: () => {
+          return emit('open', selectedItems.value[0])
         },
       },
-      {label: 'Download', iconClass: 'mdi mdi-download', props: {onClick: handleDownload}},
-      {split: true},
-      {label: 'Cut', iconClass: 'mdi mdi-content-cut', props: {onClick: handleCut}},
-      {label: 'Copy', iconClass: 'mdi mdi-content-copy', props: {onClick: handleCopy}},
-      {split: true},
-      isSingle && {label: 'Rename', iconClass: 'mdi mdi-rename', props: {onClick: handleRename}},
+      {label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true},
+      {label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut},
+      {label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true},
+      isSingle && {label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename},
       {
         label: 'Delete',
-        iconClass: 'mdi mdi-delete-forever-outline',
-        props: {onClick: confirmDelete},
+        icon: 'mdi mdi-delete-forever-outline',
+        onClick: confirmDelete,
       },
     ].filter(Boolean)
   })
-  const ctxMenuRef = ref()
 
   const handleShowCtxMenu = (
     item: IEntry | null,
     event: MouseEvent,
-    updateOptionsFn: () => void,
+    updateOptionsFn: () => MenuItem[],
   ) => {
     if (!item) {
       selectedItems.value = []
@@ -160,12 +155,13 @@ export const useFileActions = ({
         selectedItems.value = [item]
       }
     }
-    ctxMenuRef.value.isShow = false
 
-    updateOptionsFn()
-
-    nextTick(() => {
-      ctxMenuRef.value.showMenu(event)
+    //show your menu
+    ContextMenu.showContextMenu({
+      x: event.x,
+      y: event.y,
+      theme: 'flat',
+      items: updateOptionsFn(),
     })
   }
 
@@ -179,7 +175,6 @@ export const useFileActions = ({
     doDeleteSelected,
     confirmDelete,
     ctxMenuOptions,
-    ctxMenuRef,
     handleShowCtxMenu,
     enableAction,
   }

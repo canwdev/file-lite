@@ -165,3 +165,12 @@ html, body, #app {
     background: transparent;
   }
 }
+
+
+// @imengyu/vue3-context-menu 样式覆盖
+.mx-context-menu.flat {
+  border-radius: 8px !important;
+  .mx-context-menu-item {
+    padding: 8px 12px!important;
+  }
+}
