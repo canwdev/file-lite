@@ -3,6 +3,7 @@ import {useStorage} from '@vueuse/core'
 import {LsKeys} from '@/enum'
 import {useOpener} from './use-opener'
 import {IEntry} from '@server/types/server'
+import {OpenWithEnum} from '@/views/Apps/apps'
 
 export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>}) => {
   const files = ref<IEntry[]>([])
@@ -102,13 +103,19 @@ export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>})
   const {openFile} = useOpener(basePath, isLoading)
 
   // 打开文件或文件夹
-  const handleOpen = async (item: IEntry) => {
+  const handleOpen = async ({item, openWith}: {item: IEntry; openWith?: OpenWithEnum}) => {
     const path = normalizePath(basePath.value + '/' + item.name)
     if (item.isDirectory) {
       await handleOpenPath(path)
       return
     } else {
-      openFile(item, filteredFiles.value)
+      openFile(
+        {
+          item,
+          openWith,
+        },
+        filteredFiles.value,
+      )
     }
   }
 

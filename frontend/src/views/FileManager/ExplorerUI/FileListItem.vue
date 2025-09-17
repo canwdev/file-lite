@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {bytesToSize, formatDate} from '@/utils'
-import {IEntry} from '@server/types/server'
-import {useFileItem} from './hooks/use-file-item'
+import { bytesToSize, formatDate } from '@/utils'
+import { IEntry } from '@server/types/server'
+import { useFileItem } from './hooks/use-file-item'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 
 const emit = defineEmits(['open', 'select'])
@@ -13,31 +13,20 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {})
 
-const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
+const { iconClass, titleDesc, extDisplay, nameDisplay } = useFileItem(props)
 </script>
 
 <template>
-  <button
-    class="btn-no-style file-list-item file-list-row"
-    :class="{active, hidden: item.hidden}"
-    @click.stop="$emit('select', {item, event: $event})"
-    @keyup.enter="$emit('open', item)"
-    @dblclick.stop="$emit('open', item)"
-    :title="titleDesc"
-  >
+  <button class="btn-no-style file-list-item file-list-row" :class="{ active, hidden: item.hidden }"
+    @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
+    @dblclick.stop="$emit('open', { item })" :title="titleDesc">
     <div class="list-col c-checkbox">
-      <input
-        v-if="showCheckbox"
-        class="file-checkbox"
-        type="checkbox"
-        :checked="active"
-        @click.stop="$emit('select', {item, event: $event, toggle: true})"
-        @dblclick.stop
-      />
+      <input v-if="showCheckbox" class="file-checkbox" type="checkbox" :checked="active"
+        @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop />
     </div>
     <span class="list-col c-filename">
       <ThemedIcon :icon-class="iconClass" />
-      <span class="text-overflow filename-text" @click.stop="$emit('open', item)" @dblclick.stop>
+      <span class="text-overflow filename-text" @click.stop="$emit('open', { item })" @dblclick.stop>
         {{ nameDisplay }}
       </span>
     </span>
@@ -69,10 +58,12 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
   &:hover {
     transition: background-color 0s;
     background-color: var(--vgo-primary-opacity);
+
     .file-checkbox {
       visibility: visible;
     }
   }
+
   &.hidden {
     .filename-text {
       opacity: 0.6;
@@ -83,10 +74,12 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
     background-color: var(--vgo-primary-opacity);
     outline: 1px solid var(--vgo-primary);
     outline-offset: -1px;
+
     .file-checkbox {
       visibility: visible;
     }
   }
+
   &:focus {
     outline: 1px solid var(--vgo-primary);
     outline-offset: -1px;
@@ -100,11 +93,13 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
   .list-col {
     display: flex;
     line-height: 1;
+
     &.c-filename {
       .themed-icon {
         width: 18px;
         height: 18px;
       }
+
       .filename-text {
         font-size: 12px;
         line-height: 1.2;

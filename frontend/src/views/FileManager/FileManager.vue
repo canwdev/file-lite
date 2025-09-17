@@ -5,6 +5,7 @@ import FileList from './ExplorerUI/FileList.vue'
 import { getLastDirName } from './utils'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import { IEntry } from '@server/types/server'
+import { OpenWithEnum } from '../Apps/apps'
 
 const props = withDefaults(
   defineProps<{
@@ -61,12 +62,21 @@ onMounted(async () => {
   }
 })
 
-const handleOpenWrap = (item: IEntry) => {
+const handleFileListOpen = ({
+  item,
+  openWith
+}: {
+  item: IEntry,
+  openWith?: OpenWithEnum
+}) => {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
     emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
     return
   }
-  return handleOpen(item)
+  return handleOpen({
+    item,
+    openWith
+  })
 }
 
 const fileListRef = ref()
@@ -83,7 +93,7 @@ const handleSelect = () => {
   let items = fileListRef.value.selectedItems
   // 打开文件夹
   if (isSelectAFolder.value) {
-    handleOpen(items[0])
+    handleOpen({ item: items[0] })
     return
   }
   if (selectFileMode.value === 'folder') {
@@ -186,7 +196,7 @@ const handleShortcutKey = (event) => {
           </div>
         </div>
       </FileSidebar>
-      <FileList ref="fileListRef" v-model:is-loading="isLoading" :files="filteredFiles" @open="handleOpenWrap"
+      <FileList ref="fileListRef" v-model:is-loading="isLoading" :files="filteredFiles" @open="handleFileListOpen"
         @refresh="handleRefresh" :base-path="basePathNormalized" :selectFileMode="selectFileMode" :multiple="multiple"
         :content-only="contentOnly" />
     </div>
