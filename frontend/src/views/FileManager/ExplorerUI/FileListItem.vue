@@ -45,6 +45,7 @@ const { iconClass, titleDesc, extDisplay, nameDisplay } = useFileItem(props)
   padding-top: 4px;
   padding-bottom: 4px;
   cursor: default;
+  border-radius: 4px;
 
   @media screen and (max-width: $mq_mobile_width) {
     padding-top: 8px;

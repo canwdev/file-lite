@@ -17,18 +17,20 @@ const { absPath } = toRefs(props)
 
 const editRef = ref<HTMLTextAreaElement>()
 const editContent = ref('')
+const isLoading = ref(false)
 const { isChanged } = useUnSavedChanges()
 watch(editContent, () => {
   isChanged.value = true
 })
 
 const openFile = async () => {
-  console.log('open file', absPath.value)
-  editContent.value = ''
-  if (!absPath.value) {
-    return
-  }
   try {
+    isLoading.value = true
+    console.log('open file', absPath.value)
+    editContent.value = ''
+    if (!absPath.value) {
+      return
+    }
     const res = await fsWebApi.stream(absPath.value)
     editContent.value = res as unknown as string
     setTimeout(() => {
@@ -36,6 +38,8 @@ const openFile = async () => {
     })
   } catch (error) {
     console.error('open file failed', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -52,20 +56,32 @@ onMounted(() => {
   })
 })
 
+const isSaving = ref(false)
 const handleSaveFile = async () => {
-  if (!absPath.value) {
-    throw new Error('absPath not exist!')
+  if (isSaving.value) {
+    return
   }
+  try {
+    isSaving.value = true
 
-  const idx = absPath.value.lastIndexOf('/') + 1
-  const filename = absPath.value.slice(idx)
-  await fsWebApi.uploadFile({
-    path: absPath.value,
-    file: generateTextFile(editContent.value, filename),
-  })
-  setTimeout(() => {
-    isChanged.value = false
-  })
+    if (!absPath.value) {
+      throw new Error('absPath not exist!')
+    }
+
+    const idx = absPath.value.lastIndexOf('/') + 1
+    const filename = absPath.value.slice(idx)
+    await fsWebApi.uploadFile({
+      path: absPath.value,
+      file: generateTextFile(editContent.value, filename),
+    })
+    setTimeout(() => {
+      isChanged.value = false
+    })
+  } catch (error) {
+    console.error('save file failed', error)
+  } finally {
+    isSaving.value = false
+  }
 }
 
 
@@ -77,6 +93,18 @@ const menuOptions = computed((): MenuBarOptions => {
         label: `Save${isChanged.value ? '*' : ''}`,
         onClick() {
           handleSaveFile()
+        },
+      },
+      {
+        label: `Reload`,
+        disabled: isChanged.value,
+        onClick() {
+          if (isChanged.value) {
+            if (!confirm('Changes not save, continue to reload?')) {
+              return
+            }
+          }
+          openFile()
         },
       },
       {
@@ -93,12 +121,26 @@ const menuOptions = computed((): MenuBarOptions => {
     ]
   }
 })
+
+const handleShortcutKey = (event: KeyboardEvent) => {
+  const key = event.key?.toLowerCase()
+  if (event.ctrlKey) {
+    if (key === 's') {
+      event.preventDefault()
+      handleSaveFile()
+    }
+  }
+}
 </script>
 
 <template>
-  <div class="text-editor-wrap" ref="rootRef">
+  <div class="text-editor-wrap" ref="rootRef" v-loading="isSaving || isLoading" tabindex="0"
+    @keydown="handleShortcutKey">
     <MenuBar :options="menuOptions" />
-    <textarea ref="editRef" v-model="editContent" class="vgo-input font-code text-editor-textarea" />
+    <div v-if="isLoading" class="loading-wrapper">
+      Loading...
+    </div>
+    <textarea v-else ref="editRef" v-model="editContent" class="vgo-input font-code text-editor-textarea" />
   </div>
 </template>
 
@@ -122,6 +164,14 @@ const menuOptions = computed((): MenuBarOptions => {
   .text-editor-textarea {
     width: 100%;
     flex: 1;
+  }
+
+  .loading-wrapper {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 </style>

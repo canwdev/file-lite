@@ -39,6 +39,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
   padding: 8px 2px;
   box-sizing: border-box;
   position: relative;
+  border-radius: 4px;
 
   &:active,
   &:focus {
