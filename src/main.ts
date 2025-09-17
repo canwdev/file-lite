@@ -54,19 +54,22 @@ const startServer = async () => {
   )
   const host = config.host || process.env.HOST || '0.0.0.0'
 
+  const isHttps = config.sslKey && config.sslCert
   const listenCallback = () => {
     console.log(``)
     const {localhostUrl, urls} = printServerRunningOn({
-      protocol: 'http:',
+      protocol: isHttps ? 'https:' : 'http:',
       host,
       port,
       params: `?auth=${authToken}`,
     })
     console.log(`IP Selector:`)
     console.log(`${localhostUrl}/ip?urls=${btoa(JSON.stringify(urls))}`)
+    console.log(``)
+    console.log(``)
   }
 
-  if (config.sslKey && config.sslCert) {
+  if (isHttps) {
     const options = {
       key: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslKey)),
       cert: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslCert)),
