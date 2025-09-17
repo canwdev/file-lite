@@ -4,8 +4,6 @@ import { generateTextFile } from '@/views/FileManager/utils'
 import { fsWebApi } from '@/api/filesystem'
 import { MenuBarOptions, MenuBar } from '@imengyu/vue3-context-menu';
 
-
-
 const props = withDefaults(
   defineProps<{
     absPath: string
@@ -31,8 +29,11 @@ const openFile = async () => {
     if (!absPath.value) {
       return
     }
-    const res = await fsWebApi.stream(absPath.value)
-    editContent.value = res as unknown as string
+    let data = await fsWebApi.stream(absPath.value, {
+      // 以纯文本读取文件
+      responseType: 'text',
+    })
+    editContent.value = data as unknown as string
     setTimeout(() => {
       isChanged.value = false
     })
