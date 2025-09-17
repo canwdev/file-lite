@@ -7,10 +7,19 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'FileLite',
+      name: 'HomeView',
       component: FileLite,
       meta: {
         title: `FileLite`,
+      },
+    },
+    {
+      path: '/ip',
+      name: 'IpChooserView',
+      component: () => import('@/views/IpChooser.vue'),
+      meta: {
+        title: 'IP Address',
+        skipLogin: true,
       },
     },
     // 404

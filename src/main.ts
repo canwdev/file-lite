@@ -53,32 +53,27 @@ const startServer = async () => {
     config.port || process.env.PORT || (await getPort({port: portNumbers(3100, 4100)})),
   )
   const host = config.host || process.env.HOST || '0.0.0.0'
+
+  const listenCallback = () => {
+    console.log(``)
+    const {localhostUrl, urls} = printServerRunningOn({
+      protocol: 'http:',
+      host,
+      port,
+      params: `?auth=${authToken}`,
+    })
+    console.log(`IP Selector:`)
+    console.log(`${localhostUrl}/ip?urls=${btoa(JSON.stringify(urls))}`)
+  }
+
   if (config.sslKey && config.sslCert) {
     const options = {
       key: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslKey)),
       cert: fs.readFileSync(path.resolve(DATA_BASE_DIR, config.sslCert)),
     }
-    https.createServer(options, app).listen(port, host, () => {
-      console.log(``)
-      printServerRunningOn({
-        protocol: 'https:',
-        host,
-        port,
-        params: `?auth=${authToken}`,
-      })
-      console.log(``)
-    })
+    https.createServer(options, app).listen(port, host, listenCallback)
   } else {
-    app.listen(port, host, () => {
-      console.log(``)
-      printServerRunningOn({
-        protocol: 'http:',
-        host,
-        port,
-        params: `?auth=${authToken}`,
-      })
-      console.log(``)
-    })
+    app.listen(port, host, listenCallback)
   }
 }
 await startServer()

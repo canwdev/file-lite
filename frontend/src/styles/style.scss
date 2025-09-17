@@ -3,12 +3,6 @@
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-
   --os-taskbar-height: 44px;
   --primary-rgb: 83, 173, 228;
 }
@@ -16,6 +10,7 @@
 body {
   margin: 0;
   accent-color: var(--vgo-primary);
+  touch-action: manipulation; // disable ios double tap zoom
 
   a {
     color: var(--vgo-primary);
@@ -28,7 +23,7 @@ html, body, #app {
 }
 
 .font-code {
-  font-family: 'Victor Mono Regular', 'Cascadia Code', '等距更纱黑体 SC', 'Monaco', 'Fira Code Medium', Consolas, 'Courier New', monospace;
+  font-family: 'Maple Mono NF', 'Cascadia Code', '等距更纱黑体 SC', 'Monaco', 'Fira Code Medium', Consolas, 'Courier New', monospace;
 }
 
 .font-emoji {
