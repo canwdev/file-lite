@@ -38,7 +38,7 @@ router.beforeEach(async (to, from, next) => {
   const query = {...to.query}
 
   if (query.auth) {
-    console.log(query)
+    // console.log(query)
     authToken.value = query.auth as string
     delete query.auth
     return next({

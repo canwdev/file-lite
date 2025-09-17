@@ -40,7 +40,7 @@ export class TaskQueue extends EventEmitter {
       ((task) => {
         return new Promise((resolve) => {
           setTimeout(() => {
-            console.log(task)
+            // console.log(task)
             resolve(task)
           }, 1000)
         })

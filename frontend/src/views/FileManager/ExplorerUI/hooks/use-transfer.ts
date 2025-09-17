@@ -110,9 +110,9 @@ export const useTransfer = ({
         paths.push(normalizePath(basePath.value + '/' + item.name))
       }
 
-      console.log(paths)
+      // console.log(paths)
       const url = fsWebApi.getDownloadUrl(paths)
-      console.log(url)
+      // console.log(url)
       downloadUrl(url)
     } finally {
       isLoading.value = false

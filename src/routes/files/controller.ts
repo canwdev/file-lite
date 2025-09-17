@@ -305,7 +305,7 @@ const downloadMultiFiles = async (paths: string[], res: Response) => {
 }
 
 export const downloadPath = async (req: Request, res: Response) => {
-  console.log(req.query)
+  // console.log(req.query)
   const {path, paths} = req.query as {path?: string; paths?: string[]}
   // 统一输入为 pathsToDownload 数组
   const pathsToDownload = path ? [path] : paths || []

@@ -143,7 +143,7 @@ export const sleep = (t: number) => {
 
 // 文件对象转换为base64
 export function blobToBase64(blob: Blob): Promise<string> {
-  console.log('b', blob)
+  // console.log('b', blob)
   return new Promise((resolve, reject) => {
     const fr = new FileReader()
     fr.onload = (e) => {
