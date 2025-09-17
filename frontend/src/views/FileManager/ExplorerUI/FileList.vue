@@ -11,7 +11,7 @@ import { useSelection } from './hooks/use-selection'
 import { useFileActions } from './hooks/use-file-actions'
 import { useTransfer } from './hooks/use-transfer'
 import { bytesToSize } from '@/utils'
-import { MenuItem } from '@imengyu/vue3-context-menu'
+import ContextMenu, { MenuItem } from '@imengyu/vue3-context-menu'
 
 const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
 
@@ -160,7 +160,12 @@ const updateMenuOptions = (item: IEntry | null, event: MouseEvent) => {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
 const updateMenuOptions2 = (event: MouseEvent) => {
-  handleShowCtxMenu(null, event, getMenuOptions)
+  ContextMenu.showContextMenu({
+    x: event.x,
+    y: event.y,
+    theme: 'flat',
+    items: getMenuOptions(),
+  })
 }
 
 const handleShortcutKey = (event) => {

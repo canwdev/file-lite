@@ -197,7 +197,6 @@ export const useFileActions = ({
       }
     }
 
-    //show your menu
     ContextMenu.showContextMenu({
       x: event.x,
       y: event.y,
