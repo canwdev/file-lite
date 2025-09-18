@@ -12,8 +12,6 @@ export const regSupportedTextFormat =
 export const regSupportedImageFormat = /\.(jpg|jpeg|png|gif|webp|svg)$/i
 export const regSupportedVideoFormat = /\.(mp4|webm|ogg|mov)$/i
 export const regSupportedAudioFormat = /\.(mp3|wav|ogg|flac|opus)$/i
-export const isSupportedMediaFormat = (name: string) =>
-  regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
 
 /**
  * 是否外部链接

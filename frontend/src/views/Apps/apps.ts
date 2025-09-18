@@ -5,6 +5,7 @@ export enum OpenWithEnum {
   Share = 'Share',
   TextEditor = 'TextEditor',
   MediaPlayer = 'MediaPlayer',
+  ImageViewer = 'ImageViewer',
 }
 
 export const AppList = [
@@ -13,6 +14,12 @@ export const AppList = [
     openWith: OpenWithEnum.TextEditor,
     icon: 'mdi mdi-text-box-outline',
     component: defineAsyncComponent(() => import('./TextEditor.vue')),
+  },
+  {
+    name: 'Image Viewer',
+    openWith: OpenWithEnum.ImageViewer,
+    icon: 'mdi mdi-image-outline',
+    component: defineAsyncComponent(() => import('./ImageViewer.vue')),
   },
   {
     name: 'Media Player',
