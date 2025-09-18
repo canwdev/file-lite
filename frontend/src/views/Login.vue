@@ -1,17 +1,22 @@
 <script lang="ts" setup>
 import { authToken } from '@/store'
 const router = useRouter()
+const route = useRoute()
 
 const authTokenInput = ref('')
 const confirmAuthToken = async () => {
   authToken.value = authTokenInput.value
-  await router.push({ path: '/' })
+  if (route.query.redirect) {
+    await router.push({ path: route.query.redirect as string })
+  } else {
+    await router.push({ path: '/' })
+  }
 }
 watch(authToken, (newVal) => {
   if (newVal) {
     authTokenInput.value = newVal
   }
-})
+}, { immediate: true })
 const inputRef = ref<HTMLInputElement>()
 onMounted(() => {
   inputRef.value?.focus()
@@ -19,7 +24,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="!authToken" class="auth-wrapper">
+  <div class="auth-wrapper">
     <div class="vgo-panel">
       <div class="login-title">Login</div>
       <div class="flex-row-center-gap">

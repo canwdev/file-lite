@@ -6,6 +6,7 @@ import { getLastDirName } from './utils'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import { IEntry } from '@server/types/server'
 import { OpenWithEnum } from '../Apps/apps'
+import ContextMenu from '@imengyu/vue3-context-menu'
 
 const props = withDefaults(
   defineProps<{
@@ -140,6 +141,25 @@ const handleShortcutKey = (event) => {
   fileListRef.value.handleShortcutKey(event)
 }
 
+const showMenu = (event: MouseEvent) => {
+  const button = event.target?.closest('button') as HTMLElement
+  const rect = button?.getBoundingClientRect()
+
+  ContextMenu.showContextMenu({
+    x: rect?.right || event.x,
+    y: rect?.top || event.y,
+    theme: 'flat',
+    items: [
+      {
+        label: 'Logout',
+        icon: 'mdi mdi-logout',
+        onClick: () => {
+          window.$logout()
+        }
+      }
+    ],
+  })
+}
 </script>
 
 <template>
@@ -176,6 +196,10 @@ const handleShortcutKey = (event) => {
 
           <input ref="searchInputRef" placeholder="Filter name" v-model="filterText" @keyup.esc="filterText = ''"
             class="input-filter vgo-input" title="Filter bar (alt+f)" />
+
+          <button class="btn-action btn-no-style" title="Menu" @click="showMenu">
+            <span class="mdi mdi-menu"></span>
+          </button>
         </div>
       </div>
     </div>

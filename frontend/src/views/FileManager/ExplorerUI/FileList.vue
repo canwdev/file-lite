@@ -160,9 +160,11 @@ const updateMenuOptions = (item: IEntry | null, event: MouseEvent) => {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
 const updateMenuOptions2 = (event: MouseEvent) => {
+  const button = event.target?.closest('button') as HTMLElement
+  const rect = button?.getBoundingClientRect()
   ContextMenu.showContextMenu({
-    x: event.x,
-    y: event.y,
+    x: rect?.right || event.x,
+    y: rect?.top || event.y,
     theme: 'flat',
     items: getMenuOptions(),
   })
@@ -270,7 +272,7 @@ defineExpose({
         </template>
 
         <button class="btn-action btn-no-style" @click="updateMenuOptions2($event)" title="Menu (ctrl+m)">
-          <span class="mdi mdi-menu"></span>
+          <span class="mdi mdi-dots-vertical"></span>
         </button>
       </div>
     </div>

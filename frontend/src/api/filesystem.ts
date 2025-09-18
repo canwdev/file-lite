@@ -9,6 +9,9 @@ const service = Service({
 })
 
 export const fsWebApi = {
+  auth() {
+    return service.get('/auth')
+  },
   getDrives() {
     return service.get('/drives')
   },
@@ -57,7 +60,7 @@ export const fsWebApi = {
     })
   },
   getStreamUrl(path: string) {
-    return baseURL + `/stream?path=${path}&auth=${authToken.value}`
+    return baseURL + `/stream?path=${encodeURIComponent(path)}&auth=${authToken.value}`
   },
 }
 

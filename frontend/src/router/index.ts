@@ -1,6 +1,7 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import FileLite from '@/views/FileLite.vue'
 import {authToken} from '@/store'
+import {fsWebApi} from '@/api/filesystem'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -11,6 +12,15 @@ const router = createRouter({
       component: FileLite,
       meta: {
         title: `FileLite`,
+      },
+    },
+    {
+      path: '/login',
+      name: 'LoginView',
+      component: () => import('@/views/Login.vue'),
+      meta: {
+        title: 'Login',
+        skipLogin: true,
       },
     },
     {
@@ -43,6 +53,21 @@ router.beforeEach(async (to, from, next) => {
     delete query.auth
     return next({
       query: query,
+    })
+  }
+  if (to.meta.skipLogin) {
+    return next()
+  }
+  try {
+    // throw new Error('test')
+    await fsWebApi.auth()
+  } catch (error) {
+    console.error(error)
+    return next({
+      name: 'LoginView',
+      query: {
+        redirect: to.fullPath,
+      },
     })
   }
   return next()

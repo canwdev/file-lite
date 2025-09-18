@@ -331,7 +331,9 @@ export const downloadPath = async (req: Request, res: Response) => {
       const stats = await fs.stat(singlePath)
       if (stats.isFile()) {
         // 对于单个文件，直接使用 res.download
-        return res.download(singlePath, Path.basename(singlePath), {dotfiles: 'allow'})
+        return res.download(singlePath, Path.basename(singlePath), {
+          dotfiles: 'allow',
+        })
       }
     }
 
