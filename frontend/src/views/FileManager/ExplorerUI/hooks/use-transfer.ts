@@ -107,12 +107,13 @@ export const useTransfer = ({
       const paths: string[] = []
       for (const itemsKey in selectedItems.value) {
         const item = selectedItems.value[itemsKey]
-        paths.push(normalizePath(basePath.value + '/' + item.name))
+        paths.push(encodeURIComponent(normalizePath(basePath.value + '/' + item.name)))
       }
 
       // console.log(paths)
       const url = fsWebApi.getDownloadUrl(paths)
       // console.log(url)
+      // window.open(url)
       downloadUrl(url)
     } finally {
       isLoading.value = false

@@ -33,6 +33,10 @@ const Service = (config: {
     (config) => {
       // window.$loadingBar.start()
       if (isAuth) {
+        if (!authToken.value) {
+          window.$logout()
+          throw new Error('No auth token')
+        }
         config.headers.Authorization = authToken.value
       }
 
@@ -57,7 +61,7 @@ const Service = (config: {
 
       if (response?.status == 401) {
         console.log('[401] Authorization token 失效')
-        authToken.value = ''
+        window.$logout()
       }
 
       // extract backend message

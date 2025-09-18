@@ -2,14 +2,14 @@ import rateLimit from 'express-rate-limit'
 
 // https://express-rate-limit.mintlify.app/reference/configuration
 export const authLimiter = rateLimit({
-  // 限制时间窗口：1 小时 (60 分钟 * 60 秒 * 1000 毫秒)
-  windowMs: 60 * 60 * 1000,
+  // 限制时间窗口：5 分钟 (5 * 60 秒 * 1000 毫秒)
+  windowMs: 5 * 60 * 1000,
 
   // 每个 IP 在一个窗口期内最多允许 5 次请求
   limit: 5,
 
   // 当达到限制时返回的提示信息
-  message: 'Auth failed, too many requests, please try again after 1 hour.',
+  message: 'Auth failed, too many requests, please try again after 5 minutes.',
   handler: (req, res, next, options) =>
     res.status(options.statusCode).send({
       message: options.message,

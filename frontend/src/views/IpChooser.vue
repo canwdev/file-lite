@@ -27,10 +27,11 @@ const handleGo = (url: string) => {
 }
 const autoSelectUrl = () => {
   let hostname = location.hostname
-  if (!hostname || hostname === 'localhost') {
-    hostname = '127.0.0.1'
+
+  let index = hostUrls.value.findIndex(url => url.includes(hostname))
+  if (index === -1) {
+    index = hostUrls.value.findIndex(url => url.includes('127.0.0.1'))
   }
-  const index = hostUrls.value.findIndex(url => url.includes(hostname))
   if (index !== -1) {
     currentUrl.value = hostUrls.value[index]
   }
@@ -157,11 +158,13 @@ const autoSelectUrl = () => {
         gap: 2px;
 
         .qr-img {
-          width: 256px;
-          height: 256px;
+          max-width: 256px;
+          width: 100%;
+          height: auto;
           display: flex;
           margin: 0 auto;
           border-radius: 4px;
+          image-rendering: pixelated;
         }
 
         .url-text {

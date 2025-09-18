@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { authToken } from './store'
 window.$message = ElMessage
 window.$dialog = ElMessageBox
+
+const router = useRouter()
+
+window.$logout = () => {
+  authToken.value = ''
+  router.push({ name: 'LoginView' })
+}
 </script>
 
 <template>

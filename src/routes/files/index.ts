@@ -13,6 +13,9 @@ import {
 
 const filesRouter = express.Router()
 
+filesRouter.get('/auth', (req, res) => {
+  res.status(200).send({})
+})
 filesRouter.get('/drives', getDrivers)
 filesRouter.get('/list', getFiles)
 filesRouter.post('/create-dir', createDirectory)

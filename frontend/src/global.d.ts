@@ -5,5 +5,6 @@ declare global {
   interface Window {
     $message: SFCInstallWithContext<Message>
     $dialog: SFCInstallWithContext<ElMessageBox>
+    $logout: () => void
   }
 }
