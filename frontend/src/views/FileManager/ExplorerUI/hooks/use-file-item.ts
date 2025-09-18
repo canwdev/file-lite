@@ -11,7 +11,7 @@ export const useFileItem = (props: {item: IEntry}) => {
 
   const titleDesc = computed(() => {
     return `Name: ${item.value.name}
-Size: ${bytesToSize(item.value.size)}
+Size: ${item.value.size === null ? '-' : bytesToSize(item.value.size)}
 Last Modified: ${formatDate(item.value.lastModified, 'YYYY-MM-DD HH:mm:ss')}
 Created: ${formatDate(item.value.birthtime, 'YYYY-MM-DD HH:mm:ss')}
 `

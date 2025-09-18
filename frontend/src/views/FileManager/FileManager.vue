@@ -58,8 +58,11 @@ const fileSidebarRef = ref()
 onMounted(async () => {
   if (fileSidebarRef.value) {
     await fileSidebarRef.value.loadDrives()
-    // fileSidebarRef.value.openFirstDrive()
-    handleRefresh()
+    if (basePath.value) {
+      handleRefresh()
+    } else {
+      fileSidebarRef.value.openFirstDrive()
+    }
   }
 })
 
@@ -270,7 +273,7 @@ const showMenu = (event: MouseEvent) => {
 
       @media screen and (max-width: $mq_mobile_width) {
         flex-direction: column-reverse;
-        align-items: flex-end;
+        align-items: center;
       }
 
       .btn-action {
@@ -324,6 +327,7 @@ const showMenu = (event: MouseEvent) => {
     flex: 1;
     overflow: auto;
     display: flex;
+
   }
 
   .btn-action {
