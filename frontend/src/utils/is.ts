@@ -10,7 +10,7 @@ export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus|aiff?|dsd)$/
 export const regSupportedTextFormat =
   /\.(txt|csv|md|log|lock|ini|conf|config|json|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|cs|rb|go|php|html|htm|hta|xml|yaml|css|scss|sass|styl|less|vue)$/i
 export const regSupportedImageFormat = /\.(jpg|jpeg|png|gif|webp|svg)$/i
-export const regSupportedVideoFormat = /\.(mp4|webm|mov)$/i
+export const regSupportedVideoFormat = /\.(mp4|webm|ogg|mov)$/i
 export const regSupportedAudioFormat = /\.(mp3|wav|ogg|flac|opus)$/i
 export const isSupportedMediaFormat = (name: string) =>
   regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
