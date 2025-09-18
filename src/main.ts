@@ -85,4 +85,4 @@ const startServer = async () => {
     app.listen(port, host, listenCallback)
   }
 }
-await startServer()
+startServer()
