@@ -1,17 +1,18 @@
 <script lang="ts" setup="">
 import {fsWebApi} from '@/api/filesystem.ts'
+import {AppParams} from '@/views/Apps/apps.ts'
 
 const props = withDefaults(
   defineProps<{
-    absPath: string
+    appParams: AppParams
   }>(),
   {},
 )
 const emit = defineEmits([])
-const {absPath} = toRefs(props)
+const {appParams} = toRefs(props)
 
 const mediaSrc = computed(() => {
-  return fsWebApi.getStreamUrl(absPath.value)
+  return fsWebApi.getStreamUrl(appParams.value?.absPath)
 })
 </script>
 

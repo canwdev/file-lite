@@ -1,13 +1,14 @@
-import {OpenWithEnum} from './apps'
+import {AppParams, OpenWithEnum} from './apps'
+import {IEntry} from '@server/types/server.ts'
 
 type AppsStore = {
   isShowApp: boolean
-  absPath: string
   appName: OpenWithEnum
+  appParams: null | AppParams
 }
 
 export const appsStoreState = reactive<AppsStore>({
   isShowApp: false,
-  absPath: '',
   appName: OpenWithEnum.TextEditor,
+  appParams: null,
 })
