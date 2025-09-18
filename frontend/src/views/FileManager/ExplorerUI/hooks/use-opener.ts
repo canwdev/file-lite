@@ -1,7 +1,12 @@
 import {IEntry} from '@server/types/server'
 import {fsWebApi} from '@/api/filesystem'
 import {normalizePath} from '../../utils'
-import {isSupportedMediaFormat, regSupportedImageFormat, regSupportedTextFormat} from '@/utils/is'
+import {
+  regSupportedAudioFormat,
+  regSupportedImageFormat,
+  regSupportedTextFormat,
+  regSupportedVideoFormat,
+} from '@/utils/is'
 import {appsStoreState} from '@/views/Apps/apps-store'
 import {OpenWithEnum} from '@/views/Apps/apps'
 
@@ -55,8 +60,12 @@ export const useOpener = (basePath: Ref<string>, isLoading: Ref<boolean>) => {
       openApp(OpenWithEnum.ImageViewer)
       return
     }
-    if (isSupportedMediaFormat(item.name)) {
+    if (regSupportedAudioFormat.test(item.name)) {
       openApp(OpenWithEnum.MediaPlayer)
+      return
+    }
+    if (regSupportedVideoFormat.test(item.name)) {
+      openApp(OpenWithEnum.VideoPlayer)
       return
     }
     window.open(getStreamUrl(item))
