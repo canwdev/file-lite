@@ -1,33 +1,38 @@
 <script setup lang="ts">
-import { appsStoreState } from './apps-store';
-import { Apps } from './apps';
-
+import {appsStoreState} from './apps-store'
+import {Apps} from './apps'
 
 const handleExit = () => {
   appsStoreState.isShowApp = false
   appsStoreState.absPath = ''
 }
 
-
 const rootRef = ref()
-watch(() => appsStoreState.isShowApp, (newVal) => {
-  if (newVal) {
-    setTimeout(() => {
-      console.log('appsEntry focus', rootRef.value)
-      rootRef.value?.focus()
-    })
-  }
-})
-
+watch(
+  () => appsStoreState.isShowApp,
+  (newVal) => {
+    if (newVal) {
+      setTimeout(() => {
+        console.log('appsEntry focus', rootRef.value)
+        rootRef.value?.focus()
+      })
+    }
+  },
+)
 </script>
 
 <template>
   <div ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0" v-if="appsStoreState.isShowApp">
     <div class="title-bar">
       <div class="font-code">{{ appsStoreState.absPath }}</div>
+      <button @click="handleExit" class="btn-no-style mdi mdi-close"></button>
     </div>
     <div class="app-container">
-      <component :is="Apps[appsStoreState.appName]" :abs-path="appsStoreState.absPath" @exit="handleExit" />
+      <component
+        :is="Apps[appsStoreState.appName]"
+        :abs-path="appsStoreState.absPath"
+        @exit="handleExit"
+      />
     </div>
   </div>
 </template>
@@ -50,7 +55,6 @@ watch(() => appsStoreState.isShowApp, (newVal) => {
     justify-content: space-between;
     gap: 8px;
     font-size: 14px;
-    background: linear-gradient(to bottom, var(--vgo-primary-opacity) 0%, transparent 100%);
     font-weight: 500;
     border-radius: 0 0 8px 8px;
     padding: 0 10px;

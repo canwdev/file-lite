@@ -4,7 +4,7 @@ import {generateTextFile, normalizePath} from '../../utils'
 import {IEntry} from '@server/types/server'
 import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
-import {OpenWithEnum} from '@/views/Apps/apps'
+import {AppList, OpenWithEnum} from '@/views/Apps/apps'
 
 export const useFileActions = ({
   isLoading,
@@ -160,16 +160,16 @@ export const useFileActions = ({
               },
               divided: true,
             },
-            {
-              label: 'Text Editor',
-              icon: 'mdi mdi-text-box-outline',
+            ...AppList.map((app) => ({
+              label: app.name,
+              icon: app.icon,
               onClick: () => {
                 emit('open', {
                   item: selectedItems.value[0],
-                  openWith: OpenWithEnum.TextEditor,
+                  openWith: app.openWith,
                 })
               },
-            },
+            })),
           ],
         },
       {label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true},

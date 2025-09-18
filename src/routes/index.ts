@@ -1,12 +1,13 @@
 import express from 'express'
 import filesRouter from './files/index'
-import {authMiddleware} from '@/middlewares/auth.ts'
+import {authLimiter, authMiddleware} from '@/middlewares/auth.ts'
 import {errorHandler} from '@/middlewares/error-handler.ts'
 import {PKG_NAME, VERSION} from '@/enum/version.ts'
-import {authLimiter} from '@/middlewares/auth-limiter'
+import {limiter} from '@/middlewares/limiter.ts'
 
 const router = express.Router()
 
+router.use(limiter)
 router.get('/', (req, res) => {
   res.json({
     name: PKG_NAME,
