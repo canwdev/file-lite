@@ -354,7 +354,7 @@ defineExpose({
     border-bottom: 1px solid var(--vgo-color-border);
 
     @media screen and (max-width: $mq_mobile_width) {
-      justify-content: flex-end;
+      justify-content: center;
     }
 
     .action-group {
