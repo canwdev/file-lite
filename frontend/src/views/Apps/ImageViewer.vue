@@ -4,13 +4,8 @@ import {fsWebApi} from '@/api/filesystem.ts'
 const props = withDefaults(
   defineProps<{
     absPath: string
-    controls?: boolean
-    autoplay?: boolean
   }>(),
-  {
-    controls: true,
-    autoplay: true,
-  },
+  {},
 )
 const emit = defineEmits([])
 const {absPath} = toRefs(props)
@@ -21,19 +16,27 @@ const mediaSrc = computed(() => {
 </script>
 
 <template>
-  <div class="media-player">
-    <video :src="mediaSrc" :controls="controls" :autoplay="autoplay"></video>
+  <div class="image-viewer">
+    <img :src="mediaSrc" />
   </div>
 </template>
 
 <style lang="scss" scoped>
-.media-player {
+.image-viewer {
   width: 100%;
   height: 100%;
-  background-color: #1c1c1c;
   overflow: hidden;
 
-  video {
+  background: #212121;
+  background-image:
+    linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
+    linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black);
+  background-size: 60px 60px;
+  background-position:
+    0 0,
+    30px 30px;
+
+  img {
     width: 100%;
     height: 100%;
     object-fit: contain;
