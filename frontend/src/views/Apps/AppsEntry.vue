@@ -4,7 +4,7 @@ import {Apps} from './apps'
 
 const handleExit = () => {
   appsStoreState.isShowApp = false
-  appsStoreState.absPath = ''
+  appsStoreState.appParams = null
 }
 
 const rootRef = ref()
@@ -24,13 +24,15 @@ watch(
 <template>
   <div ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0" v-if="appsStoreState.isShowApp">
     <div class="title-bar">
-      <div class="font-code">{{ appsStoreState.absPath }}</div>
+      <div class="font-code">{{ appsStoreState.appParams?.absPath }}</div>
       <button @click="handleExit" class="btn-no-style mdi mdi-close"></button>
     </div>
+
+    <!--<pre>{{ appsStoreState }}</pre>-->
     <div class="app-container">
       <component
         :is="Apps[appsStoreState.appName]"
-        :abs-path="appsStoreState.absPath"
+        :appParams="appsStoreState.appParams"
         @exit="handleExit"
       />
     </div>
@@ -47,6 +49,7 @@ watch(
   z-index: 100;
   display: flex;
   flex-direction: column;
+  outline: none;
 
   .title-bar {
     min-height: 30px;

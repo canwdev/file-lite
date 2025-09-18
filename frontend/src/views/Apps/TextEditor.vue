@@ -1,22 +1,26 @@
 <script lang="ts" setup="">
-import { useUnSavedChanges } from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
-import { generateTextFile } from '@/views/FileManager/utils'
-import { fsWebApi } from '@/api/filesystem'
-import { MenuBarOptions, MenuBar } from '@imengyu/vue3-context-menu';
+import {useUnSavedChanges} from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
+import {generateTextFile} from '@/views/FileManager/utils'
+import {fsWebApi} from '@/api/filesystem'
+import {MenuBarOptions, MenuBar} from '@imengyu/vue3-context-menu'
+import {AppParams} from '@/views/Apps/apps.ts'
 
 const props = withDefaults(
   defineProps<{
-    absPath: string
+    appParams: AppParams
   }>(),
   {},
 )
 const emit = defineEmits(['exit'])
-const { absPath } = toRefs(props)
+const {appParams} = toRefs(props)
+const absPath = computed(() => {
+  return appParams.value?.absPath
+})
 
 const editRef = ref<HTMLTextAreaElement>()
 const editContent = ref('')
 const isLoading = ref(false)
-const { isChanged } = useUnSavedChanges()
+const {isChanged} = useUnSavedChanges()
 watch(editContent, () => {
   isChanged.value = true
 })
@@ -44,10 +48,13 @@ const openFile = async () => {
   }
 }
 
-watch(() => props.absPath, (path) => {
-  absPath.value = path
-  openFile()
-})
+watch(
+  () => props.absPath,
+  (path) => {
+    absPath.value = path
+    openFile()
+  },
+)
 
 onMounted(() => {
   openFile()
@@ -85,7 +92,6 @@ const handleSaveFile = async () => {
   }
 }
 
-
 const menuOptions = computed((): MenuBarOptions => {
   return {
     // theme: 'flat',
@@ -119,7 +125,7 @@ const menuOptions = computed((): MenuBarOptions => {
           emit('exit')
         },
       },
-    ]
+    ],
   }
 })
 
@@ -135,13 +141,21 @@ const handleShortcutKey = (event: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="text-editor-wrap" ref="rootRef" v-loading="isSaving || isLoading" tabindex="0"
-    @keydown="handleShortcutKey">
+  <div
+    class="text-editor-wrap"
+    ref="rootRef"
+    v-loading="isSaving || isLoading"
+    tabindex="0"
+    @keydown="handleShortcutKey"
+  >
     <MenuBar :options="menuOptions" />
-    <div v-if="isLoading" class="loading-wrapper">
-      Loading...
-    </div>
-    <textarea v-else ref="editRef" v-model="editContent" class="vgo-input font-code text-editor-textarea" />
+    <div v-if="isLoading" class="loading-wrapper">Loading...</div>
+    <textarea
+      v-else
+      ref="editRef"
+      v-model="editContent"
+      class="vgo-input font-code text-editor-textarea"
+    />
   </div>
 </template>
 

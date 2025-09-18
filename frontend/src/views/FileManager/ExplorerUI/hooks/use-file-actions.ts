@@ -37,7 +37,7 @@ export const useFileActions = ({
         name ||
         (await showInputPrompt({
           title: 'Create File',
-          value: `file_${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
+          value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
         }))
       isLoading.value = true
       await fsWebApi.uploadFile({
@@ -53,7 +53,7 @@ export const useFileActions = ({
     try {
       const name = await showInputPrompt({
         title: 'Create Folder',
-        value: `folder_${moment(new Date()).format('YYYYMMDD_HHmmss')}`,
+        value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}`,
       })
       isLoading.value = true
       await fsWebApi.createDir({path: normalizePath(basePath.value + '/' + name)})

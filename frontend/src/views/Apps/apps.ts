@@ -1,11 +1,20 @@
 import {defineAsyncComponent} from 'vue'
+import {IEntry} from '@server/types/server.ts'
 
 export enum OpenWithEnum {
   Browser = 'Browser',
   Share = 'Share',
   TextEditor = 'TextEditor',
-  MediaPlayer = 'MediaPlayer',
+  VideoPlayer = 'VideoPlayer',
   ImageViewer = 'ImageViewer',
+  MediaPlayer = 'MediaPlayer',
+}
+
+export type AppParams = {
+  absPath: string
+  item: IEntry
+  basePath: string
+  list: IEntry[]
 }
 
 export const AppList = [
@@ -22,10 +31,16 @@ export const AppList = [
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
   },
   {
-    name: 'Media Player',
-    openWith: OpenWithEnum.MediaPlayer,
+    name: 'Video Player',
+    openWith: OpenWithEnum.VideoPlayer,
     icon: 'mdi mdi-play',
-    component: defineAsyncComponent(() => import('./MediaPlayer.vue')),
+    component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
+  },
+  {
+    name: 'Music Player',
+    openWith: OpenWithEnum.MediaPlayer,
+    icon: 'mdi mdi-music-circle',
+    component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
   },
 ]
 

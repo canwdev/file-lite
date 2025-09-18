@@ -60,6 +60,9 @@ export const fsWebApi = {
     })
   },
   getStreamUrl(path: string) {
+    if (!path) {
+      return ''
+    }
     return baseURL + `/stream?path=${encodeURIComponent(path)}&auth=${authToken.value}`
   },
 }
