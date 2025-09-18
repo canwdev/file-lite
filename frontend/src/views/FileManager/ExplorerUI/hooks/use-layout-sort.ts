@@ -32,7 +32,9 @@ export const useLayoutSort = (files: Ref<IEntry[]>) => {
       }
     })
   })
-  const showHidden = useStorage(LsKeys.SHOW_HIDDEN_FILES, false)
+  const showHidden = useStorage(LsKeys.SHOW_HIDDEN_FILES, false, localStorage, {
+    listenToStorageChanges: false,
+  })
   const filteredFiles = computed(() => {
     return files.value
       .filter((item) => {

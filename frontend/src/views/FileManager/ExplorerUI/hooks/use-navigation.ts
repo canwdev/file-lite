@@ -7,7 +7,9 @@ import {OpenWithEnum} from '@/views/Apps/apps'
 
 export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>}) => {
   const files = ref<IEntry[]>([])
-  const basePath = useStorage(LsKeys.NAV_PATH, '')
+  const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
+    listenToStorageChanges: false,
+  })
   const basePathNormalized = computed(() => {
     let path = normalizePath(basePath.value)
     if (!/\/$/gi.test(path)) {
