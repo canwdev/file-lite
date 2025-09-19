@@ -43,7 +43,7 @@ const getInitConfig = (): IConfig => {
     port: '',
     noAuth: false,
     password: '',
-    safeBaseDir: './public',
+    safeBaseDir: './data/public',
     enableLog: true,
     sslKey: '',
     sslCert: '',
