@@ -15,12 +15,7 @@ router.get('/', (req, res) => {
     timestamp: Date.now(),
   })
 })
-router.use(
-  '/files',
-  // 关键：将两个中间件以数组形式传入，限制器在前！
-  [authLimiter, authMiddleware],
-  filesRouter,
-)
+router.use('/files', authMiddleware, filesRouter)
 router.use(errorHandler)
 
 export default router

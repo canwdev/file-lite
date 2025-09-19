@@ -12,6 +12,7 @@ import {registerShortcuts} from './utils/shortcut'
 
 const startServer = async () => {
   const app = express()
+  app.set('trust proxy', 1)
   app.use(express.json())
   app.use(express.urlencoded({extended: true}))
 
@@ -20,7 +21,13 @@ const startServer = async () => {
   app.use('/', express.static(frontendRoot))
 
   if (config.enableLog) {
-    app.use(morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url'))
+    app.use(
+      morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url', {
+        skip: function (req, res) {
+          return res.statusCode < 400
+        },
+      }),
+    )
   }
   // 路由配置
   app.use('/api', router)
