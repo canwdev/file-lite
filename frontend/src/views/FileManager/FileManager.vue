@@ -211,8 +211,7 @@ const showMenu = (event: MouseEvent) => {
         :current-path="basePath">
         <div v-if="starList.length" class="file-sidebar-content star-list">
           <div v-for="(path, index) in starList" :key="path">
-            <button @click="handleOpenPath(path)" class="drive-item btn-no-style" :title="path"
-              @contextmenu.prevent="() => starList.splice(index, 1)">
+            <button @click="handleOpenPath(path)" class="drive-item btn-no-style" :title="path">
               <span class="drive-icon">
                 <span class="mdi mdi-star"></span>
               </span>
