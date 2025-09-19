@@ -7,7 +7,7 @@ import router from '@/routes'
 import https from 'https'
 import fs from 'fs'
 import fallback from 'express-history-api-fallback'
-import {opener, printServerRunningOn} from './utils'
+import {opener, printServerRunningOn} from './utils/server-utils.ts'
 import {registerShortcuts} from './utils/shortcut'
 
 const startServer = async () => {

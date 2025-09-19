@@ -13,13 +13,10 @@ const printShortcuts = async (
   printCallback?: () => Promise<void>,
 ) => {
   console.log('\nShortcuts:')
-  shortcuts.forEach((item) => {
-    if (item.split) {
-      console.log('')
-      return
-    }
-    console.log(`  ${item.key} + Enter: ${item.desc}`)
-  })
+  for (const {key, desc, split} of shortcuts) {
+    const line = split ? '' : `  ${key} + Enter: ${desc}`
+    console.log(line)
+  }
   if (printCallback) {
     await printCallback()
   } else {
