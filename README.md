@@ -28,4 +28,4 @@ node file-lite.min.mjs
 - 配置文件路径：`./data/config.json`
 - 配置文档：[IConfig](./src/enum/config.ts)
 - 支持的环境变量示例 [.env.development](.env.development)
-- [SSL安全证书](./docs/ssl.md)
+- [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
