@@ -1,5 +1,7 @@
 # File Lite
 
+中文 | [English](./README-en.md)
+
 Web 文件管理器，技术栈 Express.js + TypeScript + Vue 3
 
 ![screenshot](docs/screenshot.webp)
