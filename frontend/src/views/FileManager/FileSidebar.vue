@@ -85,9 +85,10 @@ const getTitle = (item: IDrive) => {
   let txt = `Path: ${item.path}`
 
   if (item.total && item.free) {
+    const used = item.total - item.free
     txt += `
-Used: ${((item.free / item.total) * 100).toFixed(0) + '%'}
-Storage: ${bytesToSize(item.free)} / ${bytesToSize(item.total)}
+Used: ${bytesToSize(used)}/${bytesToSize(item.total)} (${((used / item.total) * 100).toFixed(0) + '%'})
+Available: ${bytesToSize(item.free)}
 `
   }
   return txt
@@ -113,6 +114,14 @@ defineExpose({
     <slot></slot>
 
     <div class="file-sidebar-content">
+      <div class="file-sidebar-content-top">
+        <span>Storage</span>
+        <button
+          class="btn-no-style mdi mdi-reload"
+          :disabled="isLoading"
+          @click="loadDrives"
+        ></button>
+      </div>
       <button
         class="drive-item btn-no-style"
         v-for="(item, index) in driveList"
@@ -128,7 +137,7 @@ defineExpose({
           <span class="drive-title text-overflow">{{ item.label }}</span>
           <span v-if="item.total && item.free" class="volume-bar">
             <span
-              :style="{width: (item.free / item.total) * 100 + '%'}"
+              :style="{width: ((item.total - item.free) / item.total) * 100 + '%'}"
               class="volume-value"
             ></span>
           </span>
@@ -172,6 +181,16 @@ defineExpose({
   .file-sidebar-content {
     flex: 1;
     overflow: auto;
+
+    .file-sidebar-content-top {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px;
+      font-size: 12px;
+      opacity: 0.5;
+    }
   }
 
   .drive-item {
