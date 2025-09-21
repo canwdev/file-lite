@@ -5,8 +5,8 @@ import {execFile, ChildProcess} from 'child_process'
  * 打印服务器运行地址信息。
  */
 export const printServerRunningOn = ({protocol = 'http:', host, port, params = ''}) => {
-  const localhostUrl = `${protocol}//127.0.0.1:${port}${params}`
-  console.log(`Listening on: ${host}:${port}\n${localhostUrl}`)
+  const localhostUrl = `${protocol}//127.0.0.1:${port}`
+  console.log(`Listening on: ${host}:${port}\n${localhostUrl}${params}`)
 
   let urls: string[] = []
 
