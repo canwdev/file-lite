@@ -2,6 +2,7 @@ import {createRouter, createWebHistory} from 'vue-router'
 import FileLite from '@/views/FileLite.vue'
 import {authToken} from '@/store'
 import {fsWebApi} from '@/api/filesystem'
+import {VERSION} from '@server/enum/version.ts'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,9 +11,7 @@ const router = createRouter({
       path: '/',
       name: 'HomeView',
       component: FileLite,
-      meta: {
-        title: `FileLite`,
-      },
+      meta: {},
     },
     {
       path: '/login',
@@ -28,14 +27,14 @@ const router = createRouter({
       name: 'IpChooserView',
       component: () => import('@/views/IpChooser.vue'),
       meta: {
-        title: 'IP Address',
+        title: 'IP Chooser',
         skipLogin: true,
       },
     },
     // 404
     {
       path: '/:pathMatch(.*)*',
-      name: '404',
+      name: 'Page404',
       component: () => import('@/views/NotFound.vue'),
       meta: {
         title: `404`,
@@ -71,6 +70,10 @@ router.beforeEach(async (to, from, next) => {
     })
   }
   return next()
+})
+
+router.afterEach((to, from) => {
+  document.title = `${to.meta?.title ? `${to.meta?.title} - ` : ''}File Lite v${VERSION}`
 })
 
 export default router

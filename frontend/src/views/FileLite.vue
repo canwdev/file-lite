@@ -3,6 +3,7 @@ import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import {contextMenuTheme, ThemeMode, themeMode} from '@/hooks/use-global-theme.ts'
+import {PKG_NAME, VERSION} from '@server/enum/version.ts'
 
 const showMenu = (event: MouseEvent) => {
   const button = event.target?.closest('button') as HTMLElement
@@ -24,6 +25,13 @@ const showMenu = (event: MouseEvent) => {
           } else {
             themeMode.value = ThemeMode.Light
           }
+        },
+      },
+      {
+        label: `${PKG_NAME} v${VERSION}`,
+        icon: 'mdi mdi-github',
+        onClick: () => {
+          window.open('https://github.com/canwdev/file-lite', '_blank')
         },
       },
       {
