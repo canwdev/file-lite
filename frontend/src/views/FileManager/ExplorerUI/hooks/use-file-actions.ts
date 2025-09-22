@@ -5,6 +5,7 @@ import {IEntry} from '@server/types/server'
 import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
 import {AppList, OpenWithEnum} from '@/views/Apps/apps'
+import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
 
 export const useFileActions = ({
   isLoading,
@@ -200,7 +201,7 @@ export const useFileActions = ({
     ContextMenu.showContextMenu({
       x: event.x,
       y: event.y,
-      theme: 'flat',
+      theme: contextMenuTheme.value,
       items: getMenuOptions(),
     })
   }

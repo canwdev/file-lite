@@ -170,63 +170,63 @@ const handleRetry = (item: IUploadItem, index: number) => {
   addTask(item, index)
 }
 
-const mockList = () => {
-  isVisible.value = true
-  listData.value = [
-    {
-      index: 1,
-      path: 'D:/TEST/test1_long_long_long_long_long_long.png',
-      filename: 'test1_long_long_long_long_long_long.png',
-      file: new File([], 'test1.png'),
-      progress: 0.5,
-      status: 'transferring',
-      message: 'Uploading',
-      abortObj: {
-        abort: () => {
-          console.log('abort')
-        },
-      },
-      speedInfo: {
-        loaded: 1000000,
-        total: 2000000,
-        rate: 1000000,
-        bytes: 1000000,
-      },
-    },
-    {
-      index: 2,
-      path: 'D:/TEST/test1.png',
-      filename: 'test1.png',
-      file: new File([], 'test1.png'),
-      progress: 1,
-      status: 'success',
-      message: '',
-    },
-    {
-      index: 3,
-      path: 'D:/TEST/test2.png',
-      filename: 'test2.png',
-      file: new File([], 'test1.png'),
-      progress: 0.6,
-      status: 'failed',
-      message: 'Test: Failed',
-    },
-    {
-      index: 4,
-      path: 'D:/TEST/test1_long_long_long_long_long_long.png',
-      filename: 'test1_long_long_long_long_long_long.png',
-      file: new File([], 'test2.png'),
-      progress: 0,
-      status: 'pending',
-      message: 'Waiting',
-    },
-  ]
-}
-onMounted(() => {
-  if (isDev) {
-    mockList()
-  }
-})
+// onMounted(() => {
+//   if (isDev) {
+//     const mockList = () => {
+//       isVisible.value = true
+//       listData.value = [
+//         {
+//           index: 1,
+//           path: 'D:/TEST/test1_long_long_long_long_long_long.png',
+//           filename: 'test1_long_long_long_long_long_long.png',
+//           file: new File([], 'test1.png'),
+//           progress: 0.5,
+//           status: 'transferring',
+//           message: 'Uploading',
+//           abortObj: {
+//             abort: () => {
+//               console.log('abort')
+//             },
+//           },
+//           speedInfo: {
+//             loaded: 1000000,
+//             total: 2000000,
+//             rate: 1000000,
+//             bytes: 1000000,
+//           },
+//         },
+//         {
+//           index: 2,
+//           path: 'D:/TEST/test1.png',
+//           filename: 'test1.png',
+//           file: new File([], 'test1.png'),
+//           progress: 1,
+//           status: 'success',
+//           message: '',
+//         },
+//         {
+//           index: 3,
+//           path: 'D:/TEST/test2.png',
+//           filename: 'test2.png',
+//           file: new File([], 'test1.png'),
+//           progress: 0.6,
+//           status: 'failed',
+//           message: 'Test: Failed',
+//         },
+//         {
+//           index: 4,
+//           path: 'D:/TEST/test1_long_long_long_long_long_long.png',
+//           filename: 'test1_long_long_long_long_long_long.png',
+//           file: new File([], 'test2.png'),
+//           progress: 0,
+//           status: 'pending',
+//           message: 'Waiting',
+//         },
+//       ]
+//     }
+//     mockList()
+//   }
+// })
 
 const successNum = computed(() => {
   return listData.value.filter((i) => i.status === 'success').length

@@ -4,6 +4,7 @@ import {generateTextFile} from '@/views/FileManager/utils'
 import {fsWebApi} from '@/api/filesystem'
 import {MenuBarOptions, MenuBar} from '@imengyu/vue3-context-menu'
 import {AppParams} from '@/views/Apps/apps.ts'
+import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
 
 const props = withDefaults(
   defineProps<{
@@ -94,7 +95,7 @@ const handleSaveFile = async () => {
 
 const menuOptions = computed((): MenuBarOptions => {
   return {
-    // theme: 'flat',
+    theme: contextMenuTheme.value,
     items: [
       {
         label: `Save${isChanged.value ? '*' : ''}`,

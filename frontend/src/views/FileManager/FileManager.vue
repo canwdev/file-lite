@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import FileSidebar from './FileSidebar.vue'
-import { fsWebApi } from '@/api/filesystem'
+import {fsWebApi} from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
-import { getLastDirName } from './utils'
-import { useNavigation } from './ExplorerUI/hooks/use-navigation'
-import { IEntry } from '@server/types/server'
-import { OpenWithEnum } from '../Apps/apps'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import {getLastDirName} from './utils'
+import {useNavigation} from './ExplorerUI/hooks/use-navigation'
+import {IEntry} from '@server/types/server'
+import {OpenWithEnum} from '../Apps/apps'
 
 const props = withDefaults(
   defineProps<{
@@ -23,7 +22,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits(['handleSelect', 'cancelSelect'])
-const { selectFileMode, multiple } = toRefs(props)
+const {selectFileMode, multiple} = toRefs(props)
 
 const {
   isLoading,
@@ -66,20 +65,14 @@ onMounted(async () => {
   }
 })
 
-const handleFileListOpen = ({
-  item,
-  openWith
-}: {
-  item: IEntry,
-  openWith?: OpenWithEnum
-}) => {
+const handleFileListOpen = ({item, openWith}: {item: IEntry; openWith?: OpenWithEnum}) => {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
-    emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
+    emit('handleSelect', {items: [item], item, basePath: fileListRef.value.basePath})
     return
   }
   return handleOpen({
     item,
-    openWith
+    openWith,
   })
 }
 
@@ -97,11 +90,11 @@ const handleSelect = () => {
   let items = fileListRef.value.selectedItems
   // 打开文件夹
   if (isSelectAFolder.value) {
-    handleOpen({ item: items[0] })
+    handleOpen({item: items[0]})
     return
   }
   if (selectFileMode.value === 'folder') {
-    emit('handleSelect', { basePath: fileListRef.value.basePath })
+    emit('handleSelect', {basePath: fileListRef.value.basePath})
   }
   if (!items.length) {
     return
@@ -111,7 +104,7 @@ const handleSelect = () => {
     if (!items.length) {
       return
     }
-    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
+    emit('handleSelect', {items, item: items[0], basePath: fileListRef.value.basePath})
     return
   }
 }
@@ -143,26 +136,6 @@ const handleShortcutKey = (event) => {
   }
   fileListRef.value.handleShortcutKey(event)
 }
-
-const showMenu = (event: MouseEvent) => {
-  const button = event.target?.closest('button') as HTMLElement
-  const rect = button?.getBoundingClientRect()
-
-  ContextMenu.showContextMenu({
-    x: rect?.right || event.x,
-    y: rect?.top || event.y,
-    theme: 'flat',
-    items: [
-      {
-        label: 'Logout',
-        icon: 'mdi mdi-logout',
-        onClick: () => {
-          window.$logout()
-        }
-      }
-    ],
-  })
-}
 </script>
 
 <template>
@@ -170,15 +143,28 @@ const showMenu = (event: MouseEvent) => {
     <div v-if="!contentOnly" class="explorer-header vgo-panel">
       <div class="nav-address-bar">
         <div class="nav-wrap">
-          <button :disabled="backHistory.length <= 1" class="btn-action btn-no-style" @click="goBack"
-            title="Back (alt+left)">
+          <button
+            :disabled="backHistory.length <= 1"
+            class="btn-action btn-no-style"
+            @click="goBack"
+            title="Back (alt+left)"
+          >
             <span class="mdi mdi-arrow-left"></span>
           </button>
-          <button :disabled="forwardHistory.length <= 0" class="btn-action btn-no-style" @click="goForward"
-            title="Forward (alt+right)">
+          <button
+            :disabled="forwardHistory.length <= 0"
+            class="btn-action btn-no-style"
+            @click="goForward"
+            title="Forward (alt+right)"
+          >
             <span class="mdi mdi-arrow-right"></span>
           </button>
-          <button class="btn-action btn-no-style" :disabled="!allowUp" @click="goUp" title="Up (alt+up)">
+          <button
+            class="btn-action btn-no-style"
+            :disabled="!allowUp"
+            @click="goUp"
+            title="Up (alt+up)"
+          >
             <span class="mdi mdi-arrow-up"></span>
           </button>
           <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="handleRefresh">
@@ -186,8 +172,15 @@ const showMenu = (event: MouseEvent) => {
           </button>
         </div>
         <div class="input-wrap" @keydown.stop>
-          <input ref="inputAddrRef" placeholder="Path" v-model="basePath" class="input-addr vgo-input"
-            @keyup.enter="handleRefresh" @change="handleRefresh" title="Address bar (alt+a)" />
+          <input
+            ref="inputAddrRef"
+            placeholder="Path"
+            v-model="basePath"
+            class="input-addr vgo-input"
+            @keyup.enter="handleRefresh"
+            @change="handleRefresh"
+            title="Address bar (alt+a)"
+          />
           <button class="btn-no-style btn-action" @click="toggleStar" title="Toggle Star (alt+s)">
             <template v-if="isStared">
               <span class="mdi mdi-star"></span>
@@ -197,18 +190,26 @@ const showMenu = (event: MouseEvent) => {
             </template>
           </button>
 
-          <input ref="searchInputRef" placeholder="Filter name" v-model="filterText" @keyup.esc="filterText = ''"
-            class="input-filter vgo-input" title="Filter bar (alt+f)" />
+          <input
+            ref="searchInputRef"
+            placeholder="Filter name"
+            v-model="filterText"
+            @keyup.esc="filterText = ''"
+            class="input-filter vgo-input"
+            title="Filter bar (alt+f)"
+          />
 
-          <button class="btn-action btn-no-style" title="Menu" @click="showMenu">
-            <span class="mdi mdi-menu"></span>
-          </button>
+          <slot name="headerRight"></slot>
         </div>
       </div>
     </div>
     <div class="explorer-content-wrap scrollbar-mini">
-      <FileSidebar ref="fileSidebarRef" v-if="!contentOnly" @openDrive="(i) => handleOpenPath(i.path)"
-        :current-path="basePath">
+      <FileSidebar
+        ref="fileSidebarRef"
+        v-if="!contentOnly"
+        @openDrive="(i) => handleOpenPath(i.path)"
+        :current-path="basePath"
+      >
         <div v-if="starList.length" class="file-sidebar-content star-list">
           <div v-for="(path, index) in starList" :key="path">
             <button @click="handleOpenPath(path)" class="drive-item btn-no-style" :title="path">
@@ -222,9 +223,17 @@ const showMenu = (event: MouseEvent) => {
           </div>
         </div>
       </FileSidebar>
-      <FileList ref="fileListRef" v-model:is-loading="isLoading" :files="filteredFiles" @open="handleFileListOpen"
-        @refresh="handleRefresh" :base-path="basePathNormalized" :selectFileMode="selectFileMode" :multiple="multiple"
-        :content-only="contentOnly" />
+      <FileList
+        ref="fileListRef"
+        v-model:is-loading="isLoading"
+        :files="filteredFiles"
+        @open="handleFileListOpen"
+        @refresh="handleRefresh"
+        :base-path="basePathNormalized"
+        :selectFileMode="selectFileMode"
+        :multiple="multiple"
+        :content-only="contentOnly"
+      />
     </div>
 
     <!--文件选择器-->
@@ -326,7 +335,6 @@ const showMenu = (event: MouseEvent) => {
     flex: 1;
     overflow: auto;
     display: flex;
-
   }
 
   .btn-action {

@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { useQRCode } from '@vueuse/integrations/useQRCode'
-import { copyWithToast } from '@/utils'
+import {useQRCode} from '@vueuse/integrations/useQRCode'
+import {copyWithToast} from '@/utils'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
 const route = useRoute()
 
-watch(() => route.query.urls, (newVal) => {
-  if (newVal) {
-    hostUrls.value = JSON.parse(atob(route.query.urls as string))
-  } else {
-    hostUrls.value = [location.href]
-  }
-  setTimeout(() => {
-    autoSelectUrl()
-  });
-}, { immediate: true })
+watch(
+  () => route.query.urls,
+  (newVal) => {
+    if (newVal) {
+      hostUrls.value = JSON.parse(atob(route.query.urls as string))
+    } else {
+      hostUrls.value = [location.href]
+    }
+    setTimeout(() => {
+      autoSelectUrl()
+    })
+  },
+  {immediate: true},
+)
 
 const qrcode = useQRCode(currentUrl, {
   errorCorrectionLevel: 'H',
@@ -28,9 +32,9 @@ const handleGo = (url: string) => {
 const autoSelectUrl = () => {
   let hostname = location.hostname
 
-  let index = hostUrls.value.findIndex(url => url.includes(hostname))
+  let index = hostUrls.value.findIndex((url) => url.includes(hostname))
   if (index === -1) {
-    index = hostUrls.value.findIndex(url => url.includes('127.0.0.1'))
+    index = hostUrls.value.findIndex((url) => url.includes('127.0.0.1'))
   }
   if (index !== -1) {
     currentUrl.value = hostUrls.value[index]
@@ -41,8 +45,8 @@ const autoSelectUrl = () => {
 <template>
   <div class="ip-chooser">
     <div class="ip-title">
-      <RouterLink :to="{ name: 'HomeView' }">
-        <span class="mdi mdi-home" style="font-size: 26px;"></span>
+      <RouterLink :to="{name: 'HomeView'}">
+        <span class="mdi mdi-home" style="font-size: 26px"></span>
       </RouterLink>
     </div>
     <!-- <div class="ip-title">
@@ -51,8 +55,12 @@ const autoSelectUrl = () => {
     </div> -->
     <div class="ip-chooser-main vgo-panel font-code">
       <div class="left-box">
-        <div v-for="url in hostUrls" @click="currentUrl = url" class="list-item"
-          :class="{ active: url === currentUrl }">
+        <div
+          v-for="url in hostUrls"
+          @click="currentUrl = url"
+          class="list-item"
+          :class="{active: url === currentUrl}"
+        >
           {{ url }}
 
           <div class="flex-row-center-gap">
@@ -88,7 +96,6 @@ const autoSelectUrl = () => {
     padding: 10px;
   }
 
-
   .ip-title {
     text-align: center;
     font-size: 16px;
@@ -118,7 +125,7 @@ const autoSelectUrl = () => {
         font-size: 14px;
 
         &:nth-child(2n) {
-          background-color: rgba(151, 151, 151, 0.055);
+          background-color: rgba(134, 134, 134, 0.1);
         }
 
         &:hover {
