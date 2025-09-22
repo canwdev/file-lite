@@ -20,29 +20,27 @@ node ./${jsName}
 `
 }
 
-const runCommand = ({command, args, cwd}) => {
+const run = (command: string, args: string[], cwd: string): Promise<void> => {
+  console.log(`\n> ${command} ${args.join(' ')}`) // 使用 > 符号，更像 shell 提示符
   return new Promise((resolve, reject) => {
-    console.log(`>>> Running: ${command} ${args.join(' ')}`)
-    // 用nodejs执行，流式输出
-    const bunProcess = spawn(command, args, {
-      cwd,
-    })
-
-    bunProcess.stdout.on('data', (data) => {
-      console.log(`${data}`)
-    })
-    bunProcess.stderr.on('data', (data) => {
-      console.error(`${data}`)
-    })
-    bunProcess.on('close', (code) => {
-      console.log(`exited with code ${code}`)
-      if (code === 0) {
-        resolve(code)
-      } else {
-        reject(`stderr: ${code}`)
-      }
-    })
+    spawn(command, args, {cwd, stdio: 'inherit'})
+      .on('close', (code) => {
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(new Error(`Command failed with exit code: ${code}`))
+        }
+      })
+      .on('error', reject)
   })
+}
+
+const runInDir = async (title: string, cwd: string, commands: string[]) => {
+  console.log(`\n--- ${title} ---`)
+  for (const cmdStr of commands) {
+    const [command, ...args] = cmdStr.split(' ')
+    await run(command as string, args, cwd)
+  }
 }
 
 const createArchive = (fromPath, distName) => {
@@ -67,35 +65,23 @@ const createArchive = (fromPath, distName) => {
 }
 
 const build = async () => {
-  const buildPath = __dirname
+  const builderPath = __dirname
 
-  const distDir = path.resolve(buildPath, '../dist')
+  const distDir = path.resolve(builderPath, '../dist')
+  const backendPath = path.join(builderPath, '../')
+  const frontendPath = path.join(builderPath, '../frontend')
 
-  await fs.rm(distDir, {recursive: true})
+  // 1. 清理旧的构建产物
+  await fs.rm(distDir, {recursive: true, force: true})
+  console.log('Cleaned dist directory.')
 
-  console.log('\n>>> Building backend...')
-  await runCommand({
-    command: 'bun',
-    args: ['i'],
-    cwd: buildPath,
-  })
-  await runCommand({
-    command: 'bun',
-    args: ['run', 'build'],
-    cwd: buildPath,
-  })
-
-  console.log('\n>>> Building frontend, please wait...')
-  await runCommand({
-    command: 'bun',
-    args: ['i'],
-    cwd: path.join(buildPath, '../frontend'),
-  })
-  await runCommand({
-    command: 'bun',
-    args: ['run', 'frontend:build'],
-    cwd: path.join(buildPath, '../frontend'),
-  })
+  // 2. 构建后端
+  await runInDir('Building backend...', backendPath, ['bun i', 'bun run build'])
+  // 3. 构建前端
+  await runInDir('Building frontend, please wait...', frontendPath, [
+    'bun i',
+    'bun run frontend:build',
+  ])
 
   const batPath = path.join(distDir, 'file-lite.bat')
   await fs.writeFile(batPath, await generateStartBat('file-lite.min.mjs'))
@@ -108,7 +94,7 @@ const build = async () => {
   await createArchive(distDir, `file-lite-v${VERSION}`)
 
   console.log(`>>> Update package.json version: ${VERSION}`)
-  const pkgPath = path.join(buildPath, '../package.json')
+  const pkgPath = path.join(builderPath, '../package.json')
   const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'))
   pkg.version = VERSION
   await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2))
