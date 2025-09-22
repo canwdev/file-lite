@@ -48,7 +48,7 @@ const isCurrent = computed(() => {
   border-radius: 4px;
 
   &:nth-child(2n) {
-    background-color: rgba(234, 234, 234, 0.47);
+    background-color: rgba(134, 134, 134, 0.1);
   }
   &:hover {
     background-color: var(--vgo-primary-opacity);

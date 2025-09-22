@@ -12,6 +12,7 @@ import {useFileActions} from './hooks/use-file-actions'
 import {useTransfer} from './hooks/use-transfer'
 import {bytesToSize} from '@/utils'
 import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
+import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
 
 const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
 
@@ -165,7 +166,7 @@ const updateMenuOptions2 = (event: MouseEvent) => {
   ContextMenu.showContextMenu({
     x: rect?.right || event.x,
     y: rect?.top || event.y,
-    theme: 'flat',
+    theme: contextMenuTheme.value,
     items: getMenuOptions(),
   })
 }
