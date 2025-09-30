@@ -49,7 +49,6 @@ const isCurrent = computed(() => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  border-radius: 4px;
 
   &:nth-child(2n) {
     background-color: rgba(134, 134, 134, 0.1);
@@ -60,7 +59,7 @@ const isCurrent = computed(() => {
   &.active {
     background-color: var(--vgo-primary-opacity);
     outline: 1px solid var(--vgo-primary);
-    outline-offset: -1px;
+    outline-offset: -2px;
   }
 
   .item-left {
