@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import type { IDrive } from '@server/types/server'
-import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
-import { LsKeys } from '@/enum'
 import { bytesToSize } from '@/utils'
 import { normalizePath } from '@/views/FileManager/utils'
 
 interface Props {
-  width?: string
   currentPath?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  width: '130px',
 })
 
 const emit = defineEmits(['openDrive'])
@@ -73,10 +69,6 @@ function getIcon(item: IDrive) {
   return 'mdi-harddisk'
 }
 
-const showSidebar = useStorage(LsKeys.EXPLORER_SHOW_SIDEBAR, true, localStorage, {
-  listenToStorageChanges: false,
-})
-
 function openDrive(item: IDrive) {
   if (item.path !== currentPath.value) {
     emit('openDrive', item)
@@ -103,16 +95,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="explorer-file-sidebar" :style="{ width: showSidebar ? width : '0' }">
-    <button
-      class="btn-toggle btn-no-style"
-      :class="{ _folded: !showSidebar }"
-      @click="showSidebar = !showSidebar"
-    >
-      <span v-if="!showSidebar" class="mdi mdi-chevron-right" />
-      <span v-else class="mdi mdi-chevron-left" />
-    </button>
-
+  <div class="explorer-file-sidebar">
     <slot />
 
     <div class="file-sidebar-content">
@@ -153,32 +136,10 @@ defineExpose({
 .explorer-file-sidebar {
   //width: 180px;
   height: 100%;
-  border-right: 1px solid var(--vgo-color-border);
   position: relative;
   display: flex;
   gap: 8px;
   flex-direction: column;
-
-  .btn-toggle {
-    position: absolute;
-    right: 0px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0.3;
-    transition: all 1s;
-    z-index: 10;
-
-    &._folded {
-      right: -20px;
-    }
-
-    &:hover {
-      opacity: 1;
-    }
-
-    span {
-    }
-  }
 
   .file-sidebar-content {
     flex: 1;
