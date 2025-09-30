@@ -171,7 +171,7 @@ defineExpose({
     }
 
     &:focus {
-      outline: 1px solid var(--vgo-primary);
+      outline: 1px dashed var(--vgo-primary);
       outline-offset: -1px;
     }
 

@@ -17,17 +17,29 @@ function showMenu(event: MouseEvent) {
       {
         label: `Theme: ${themeMode.value}`,
         icon: 'mdi mdi-theme-light-dark',
-        onClick: () => {
-          if (themeMode.value === ThemeMode.Auto) {
-            themeMode.value = ThemeMode.Dark
-          }
-          else if (themeMode.value === ThemeMode.Light) {
-            themeMode.value = ThemeMode.Auto
-          }
-          else {
-            themeMode.value = ThemeMode.Light
-          }
-        },
+        children: [
+          {
+            label: ThemeMode.Auto,
+            onClick: () => {
+              themeMode.value = ThemeMode.Auto
+            },
+          },
+          {
+            label: ThemeMode.Light,
+            onClick: () => {
+              themeMode.value = ThemeMode.Light
+            },
+          },
+          {
+            label: ThemeMode.Dark,
+            onClick: () => {
+              themeMode.value = ThemeMode.Dark
+            },
+          },
+        ].map(item => ({
+          ...item,
+          icon: item.label === themeMode.value ? `mdi mdi-check` : '',
+        })),
       },
       {
         label: `${PKG_NAME} v${VERSION}`,

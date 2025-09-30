@@ -277,6 +277,7 @@ function handleShortcutKey(event) {
   }
 
   .explorer-header {
+    min-height: 38px;
     &.vgo-panel {
       padding: 4px;
       border: none;
@@ -324,12 +325,14 @@ function handleShortcutKey(event) {
           flex: 1;
           line-height: 1;
           padding: 4px 8px;
+          height: 26px;
         }
 
         .input-filter {
           width: 200px;
           line-height: 1;
           padding: 4px 8px;
+          height: 26px;
 
           @media screen and (max-width: $mq_mobile_width) {
             width: 100px;

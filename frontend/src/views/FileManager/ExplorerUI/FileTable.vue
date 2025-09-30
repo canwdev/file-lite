@@ -3,8 +3,6 @@ import type { IEntry } from '@server/types/server.ts'
 import VueRender from '@canwdev/vgo-ui/src/components/VueRender.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-// ----------------- 类型定义 -----------------
-
 // 表头列配置接口
 export interface Column {
   key: string
@@ -30,24 +28,23 @@ const props = withDefaults(
     }) => void
     rowContextmenu?: (row: any, event: MouseEvent) => void
   }>(),
-  {
-  },
+  {},
 )
 
 const emit = defineEmits(['update:selectedRows', 'open'])
 
 const { selectedRows, data } = toRefs(props)
 
-// ----------------- 内部状态 -----------------
-
-watch(selectedRows, (newSet) => {
-  mSelectedRows.value = new Set(newSet)
-}, { deep: true })
+watch(
+  selectedRows,
+  (newSet) => {
+    mSelectedRows.value = new Set(newSet)
+  },
+  { deep: true },
+)
 
 const mSelectedRows = ref(new Set())
 const columnWidths = ref<Record<string, number>>({})
-
-// ----------------- 侦听器和生命周期 -----------------
 
 // 监听 props.columns 的变化，初始化列宽
 watch(
@@ -64,19 +61,18 @@ watch(
   { immediate: true, deep: true },
 )
 
-// ----------------- 计算属性 -----------------
-
 // "全选" 复选框的状态
 const isAllSelected = computed(() => {
-  return data.value.length > 0 && data.value.every(row => mSelectedRows.value.has(row))
+  return (
+    data.value.length > 0
+    && data.value.every(row => mSelectedRows.value.has(row))
+  )
 })
 
 // "全选" 复选框的半选状态
 const isIndeterminate = computed(() => {
   return mSelectedRows.value.size > 0 && !isAllSelected.value
 })
-
-// ----------------- 方法 -----------------
 
 // 获取嵌套属性值，例如 'user.name'
 function getRowValue(row: any, column: Column) {
@@ -185,16 +181,19 @@ onBeforeUnmount(() => {
 <template>
   <div class="file-table-wrapper">
     <table>
-      <thead>
+      <thead class="vgo-bg">
         <tr>
           <!-- 多选列 -->
-          <th class="checkbox-col" :style="{ width: '30px' }">
-            <input
-              type="checkbox"
-              :checked="isAllSelected"
-              :indeterminate="isIndeterminate"
-              @click.stop="toggleAllSelection"
-            >
+          <th
+            class="checkbox-col clickable" :style="{ width: '30px' }"
+            @click.stop="toggleAllSelection"
+          >
+            <span
+              class="checkbox mdi" :class="[
+                isIndeterminate ? 'mdi-checkbox-intermediate'
+                : isAllSelected ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
+              ]"
+            />
           </th>
           <!-- 数据列 -->
           <th
@@ -202,7 +201,9 @@ onBeforeUnmount(() => {
             :key="column.key"
             :style="getColumnStyle(column)"
             :class="{ clickable: !!column.columnClick }"
-            @click="column.columnClick ? column.columnClick(column, $event) : () => {}"
+            @click="
+              column.columnClick ? column.columnClick(column, $event) : () => {}
+            "
           >
             <div class="header-cell">
               <span>{{ column.label }}</span>
@@ -223,7 +224,8 @@ onBeforeUnmount(() => {
       </thead>
       <tbody>
         <tr
-          v-for="(row, index) in data" :key="row.id || index"
+          v-for="(row, index) in data"
+          :key="row.id || index"
           class="table-row selectable"
           :class="{ active: mSelectedRows.has(row) }"
           :title="getTooltip ? getTooltip(row) : ''"
@@ -231,21 +233,32 @@ onBeforeUnmount(() => {
           @click.stop="toggleRowSelection(row, $event)"
           @keyup.enter="$emit('open', row)"
           @dblclick.stop="$emit('open', row)"
-          @contextmenu.prevent.stop="rowContextmenu ? rowContextmenu(row, $event) : () => {}"
+          @contextmenu.prevent.stop="
+            rowContextmenu ? rowContextmenu(row, $event) : () => {}
+          "
         >
-          <td class="checkbox-col">
-            <input
-              class="checkbox"
-              type="checkbox"
-              :checked="mSelectedRows.has(row)"
-              @click.stop="toggleRowSelection(row, $event, true)"
-              @dblclick.stop
-            >
+          <td
+            class="checkbox-col"
+            @click.stop="toggleRowSelection(row, $event, true)"
+          >
+            <span
+              class="checkbox checkbox-auto-hidden mdi" :class="[
+                mSelectedRows.has(row) ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
+              ]"
+            />
           </td>
-          <td v-for="column in columns" :key="column.key" :style="getColumnStyle(column)">
+          <td
+            v-for="column in columns"
+            :key="column.key"
+            :style="getColumnStyle(column)"
+          >
             <!-- 你可以使用插槽来自定义单元格内容 -->
             <slot :name="`cell-${column.key}`" :row="row" :column="column">
-              <VueRender v-if="column.render" :render-fn="column.render" :params="row" />
+              <VueRender
+                v-if="column.render"
+                :render-fn="column.render"
+                :params="row"
+              />
               <template v-else>
                 {{ getRowValue(row, column) }}
               </template>
@@ -259,7 +272,6 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .file-table-wrapper {
-  overflow-x: auto;
   table {
     width: 500px;
     border-collapse: collapse;
@@ -268,24 +280,26 @@ onBeforeUnmount(() => {
 
   th,
   td {
-    padding: 4px 8px;
+    padding: 8px 8px;
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     @media screen and (max-width: $mq_mobile_width) {
-      padding-top: 8px;
-      padding-bottom: 8px;
+      padding: 10px 8px;
     }
   }
 
   thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   th {
     position: relative;
-    border-bottom: 1px solid var(--vgo-color-border);
     &.clickable {
+      cursor: pointer;
       &:hover {
         background-color: rgba(134, 134, 134, 0.1);
       }
@@ -303,7 +317,7 @@ onBeforeUnmount(() => {
       transition: background-color 0s;
       background-color: var(--vgo-primary-opacity);
 
-      .checkbox {
+      .checkbox-auto-hidden {
         visibility: visible;
       }
     }
@@ -312,14 +326,18 @@ onBeforeUnmount(() => {
       outline: 1px solid var(--vgo-primary);
       outline-offset: -1px;
 
-      .checkbox {
+      .checkbox-auto-hidden {
         visibility: visible;
       }
     }
   }
 
-  .checkbox {
+  .checkbox-auto-hidden {
     visibility: hidden;
+    vertical-align: middle;
+    @media screen and (max-width: $mq_mobile_width) {
+      visibility: visible;
+    }
   }
 
   .header-cell {
@@ -327,6 +345,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
+    font-size: 14px;
   }
 
   .sort-icon span {
@@ -363,6 +382,12 @@ onBeforeUnmount(() => {
 
   .checkbox-col {
     text-align: center;
+    text-overflow: unset;
+    .mdi {
+      font-size: 14px;
+      vertical-align: middle;
+      cursor: pointer;
+    }
   }
 }
 </style>
