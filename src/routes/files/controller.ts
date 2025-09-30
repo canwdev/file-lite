@@ -8,6 +8,7 @@ import Archiver from 'archiver'
 import {SAFE_BASE_DIR, normalizePath, DATA_BASE_DIR} from '@/enum/config.ts'
 import multer from 'multer'
 import * as console from 'node:console'
+import {sanitize} from '@/utils/sanitize-filename.ts'
 
 /**
  * 安全检查：确保访问路径不超出基础目录
@@ -250,9 +251,10 @@ export const getFileStream = async (req: Request, res: Response) => {
   }
 
   // res.sendFile 会自动处理流、头部等，是最佳实践
+  const filename = encodeURIComponent(sanitize(Path.basename(path)))
   res.sendFile(Path.resolve(path), {
     headers: {
-      'Content-Disposition': `inline; filename="${encodeURIComponent(Path.basename(path))}"`,
+      'Content-Disposition': `inline; filename="${filename}"`,
     },
     dotfiles: 'allow',
   })
@@ -274,10 +276,9 @@ const downloadMultiFiles = async (paths: string[], res: Response) => {
     downloadName = 'download'
   }
 
-  res.header(
-    'Content-Disposition',
-    `attachment; filename="${encodeURIComponent(downloadName)}.zip"`,
-  )
+  const filename = encodeURIComponent(sanitize(downloadName))
+  // console.log(downloadName, filename)
+  res.header('Content-Disposition', `attachment; filename="${filename}.zip"`)
 
   const archive = Archiver('zip', {zlib: {level: 9}})
   archive.pipe(res)
@@ -294,7 +295,19 @@ const downloadMultiFiles = async (paths: string[], res: Response) => {
       const stat = await fs.stat(path)
       const entryName = Path.basename(path)
       if (stat.isDirectory()) {
-        archive.directory(path, entryName)
+        // 检查目录是否为空
+        const filesInDir = await fs.readdir(path)
+
+        if (filesInDir.length === 0) {
+          // 如果目录为空，使用 append 添加一个空目录条目
+          // 关键：name 必须以 '/' 结尾
+          // console.log(`Adding empty directory: ${entryName}/`);
+          archive.append(null, {name: `${entryName}/`})
+        } else {
+          // 如果目录不为空，则使用 directory 添加整个目录的内容
+          // console.log(`Adding non-empty directory: ${entryName}`);
+          archive.directory(path, entryName)
+        }
       } else {
         archive.file(path, {name: entryName})
       }
@@ -308,12 +321,12 @@ export const downloadPath = async (req: Request, res: Response) => {
   // console.log(req.query)
   const {path, paths} = req.query as {path?: string; paths?: string[]}
   // 统一输入为 pathsToDownload 数组
-  const pathsToDownload = path ? [path] : paths || []
+  const pathsToDownload = (path ? [path] : paths || []).map((p) => decodeURIComponent(p))
 
   if (pathsToDownload.length === 0) {
     return res.status(400).json({message: 'path(s) parameter is required'})
   }
-
+  // console.log('pathsToDownload', pathsToDownload)
   // 验证所有路径的安全性
   for (const p of pathsToDownload) {
     if (!isPathSafe(p)) {
@@ -331,7 +344,9 @@ export const downloadPath = async (req: Request, res: Response) => {
       const stats = await fs.stat(singlePath)
       if (stats.isFile()) {
         // 对于单个文件，直接使用 res.download
-        return res.download(singlePath, Path.basename(singlePath), {
+        const filename = encodeURIComponent(sanitize(Path.basename(singlePath)))
+        // console.log('single', filename)
+        return res.download(singlePath, filename, {
           dotfiles: 'allow',
         })
       }
