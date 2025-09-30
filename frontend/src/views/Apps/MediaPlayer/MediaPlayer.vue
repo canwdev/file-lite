@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import FoldableSidebarLayout from '@canwdev/vgo-ui/src/components/Layouts/FoldableSidebarLayout.vue'
 import { guid } from '@/utils'
 import { isSupportedMediaFormat } from '@/utils/is'
 import MusicControl from './MusicControl.vue'
@@ -49,16 +48,16 @@ watch(
 <template>
   <div class="media-player-wrap">
     <div class="music-above">
-      <FoldableSidebarLayout>
-        <template #sidebar>
+      <el-splitter lazy>
+        <el-splitter-panel size="230px" collapsible>
           <MusicPlaylist />
-        </template>
-        <template #default>
+        </el-splitter-panel>
+        <el-splitter-panel collapsible>
           <div class="media-detail">
             <PlayerCore />
           </div>
-        </template>
-      </FoldableSidebarLayout>
+        </el-splitter-panel>
+      </el-splitter>
     </div>
     <div class="music-below">
       <MusicControl />
@@ -76,6 +75,7 @@ watch(
     overflow: hidden;
   }
   .media-detail {
+    overflow: hidden;
     height: 100%;
   }
   .music-below {

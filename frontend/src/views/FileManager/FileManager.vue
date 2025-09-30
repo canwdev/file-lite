@@ -209,36 +209,42 @@ function handleShortcutKey(event) {
       </div>
     </div>
     <div class="explorer-content-wrap scrollbar-mini">
-      <FileSidebar
-        v-if="!contentOnly"
-        ref="fileSidebarRef"
-        :current-path="basePath"
-        @open-drive="(i) => handleOpenPath(i.path)"
-      >
-        <div v-if="starList.length" class="file-sidebar-content star-list">
-          <div v-for="(path,) in starList" :key="path">
-            <button class="drive-item btn-no-style" :title="path" @click="handleOpenPath(path)">
-              <span class="drive-icon">
-                <span class="mdi mdi-star" />
-              </span>
-              <span class="drive-content">
-                <span class="drive-title text-overflow"> {{ getLastDirName(path) }}</span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </FileSidebar>
-      <FileList
-        ref="fileListRef"
-        v-model:is-loading="isLoading"
-        :files="filteredFiles"
-        :base-path="basePathNormalized"
-        :select-file-mode="selectFileMode"
-        :multiple="multiple"
-        :content-only="contentOnly"
-        @open="handleFileListOpen"
-        @refresh="handleRefresh"
-      />
+      <el-splitter lazy>
+        <el-splitter-panel size="130px" collapsible>
+          <FileSidebar
+            v-if="!contentOnly"
+            ref="fileSidebarRef"
+            :current-path="basePath"
+            @open-drive="(i) => handleOpenPath(i.path)"
+          >
+            <div v-if="starList.length" class="file-sidebar-content star-list">
+              <div v-for="(path,) in starList" :key="path">
+                <button class="drive-item btn-no-style" :title="path" @click="handleOpenPath(path)">
+                  <span class="drive-icon">
+                    <span class="mdi mdi-star" />
+                  </span>
+                  <span class="drive-content">
+                    <span class="drive-title text-overflow"> {{ getLastDirName(path) }}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </FileSidebar>
+        </el-splitter-panel>
+        <el-splitter-panel>
+          <FileList
+            ref="fileListRef"
+            v-model:is-loading="isLoading"
+            :files="filteredFiles"
+            :base-path="basePathNormalized"
+            :select-file-mode="selectFileMode"
+            :multiple="multiple"
+            :content-only="contentOnly"
+            @open="handleFileListOpen"
+            @refresh="handleRefresh"
+          />
+        </el-splitter-panel>
+      </el-splitter>
     </div>
 
     <!-- 文件选择器 -->
