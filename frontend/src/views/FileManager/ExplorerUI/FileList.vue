@@ -4,8 +4,9 @@ import type { IEntry } from '@server/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useVModel } from '@vueuse/core'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
-import { bytesToSize, formatDate } from '@/utils'
-import FileTable from '@/views/FileManager/components/FileTable.vue'
+import { bytesToSize } from '@/utils'
+import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
+import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import UploadQueue from '../UploadQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import FileGridItem from './FileGridItem.vue'
@@ -60,10 +61,14 @@ const {
   selectedItems,
   explorerContentRef,
   toggleSelect,
-  isAllSelected,
   toggleSelectAll,
   selectedPaths,
-} = useSelection({ filteredFiles, basePath, allowMultipleSelection, selectables: props.selectables })
+} = useSelection({
+  filteredFiles,
+  basePath,
+  allowMultipleSelection,
+  selectables: props.selectables,
+})
 
 // 复制粘贴功能
 const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
@@ -176,45 +181,44 @@ function updateMenuOptions2(event: MouseEvent) {
 }
 
 function handleShortcutKey(event) {
-  event.preventDefault()
   const key = event.key?.toLowerCase()
   const isCtrlOrMeta = event.ctrlKey || event.metaKey
-  if (isCtrlOrMeta) {
+  if (isCtrlOrMeta && !event.shiftKey) {
     if (key === 'r') {
+      event.preventDefault()
       emit('refresh')
     }
     else if (key === 'a') {
+      event.preventDefault()
       toggleSelectAll()
     }
     else if (key === 'x') {
+      event.preventDefault()
       handleCut()
     }
     else if (key === 'c') {
+      event.preventDefault()
       handleCopy()
     }
     else if (key === 'v') {
+      event.preventDefault()
       handlePaste()
     }
     else if (key === 'h') {
+      event.preventDefault()
       showHidden.value = !showHidden.value
     }
     else if (key === 'm') {
+      event.preventDefault()
       updateMenuOptions(null, event)
     }
   }
   else {
     if (key === 'delete') {
+      event.preventDefault()
       confirmDelete()
     }
   }
-}
-
-function getTooltip(row: IEntry) {
-  return `Name: ${row.name}
-Size: ${row.size === null ? '-' : bytesToSize(row.size)}
-Last Modified: ${formatDate(row.lastModified, 'YYYY-MM-DD HH:mm:ss')}
-Created: ${formatDate(row.birthtime, 'YYYY-MM-DD HH:mm:ss')}
-`
 }
 
 defineExpose({
@@ -226,18 +230,33 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="dropZoneRef" :class="{ isOverDropZone }" class="explorer-list-wrap" @contextmenu.prevent>
+  <div
+    ref="dropZoneRef"
+    :class="{ isOverDropZone }"
+    class="explorer-list-wrap"
+    @contextmenu.prevent
+  >
     <transition name="fade">
       <div v-if="isLoading" class="os-loading-container _absolute">
-        Loading...
+        <div class="vgo-panel">
+          Loading...
+        </div>
       </div>
     </transition>
     <div v-if="!contentOnly" class="explorer-actions vgo-panel">
       <div class="action-group">
-        <button class="btn-action btn-no-style" title="Create Document" @click="handleCreateFile()">
+        <button
+          class="btn-action btn-no-style"
+          title="Create Document"
+          @click="handleCreateFile()"
+        >
           <span class="mdi mdi-file-document-plus-outline" />
         </button>
-        <button class="btn-action btn-no-style" title="Create Folder" @click="handleCreateFolder()">
+        <button
+          class="btn-action btn-no-style"
+          title="Create Folder"
+          @click="handleCreateFolder()"
+        >
           <span class="mdi mdi-folder-plus-outline" />
         </button>
 
@@ -264,7 +283,7 @@ defineExpose({
             title="Download"
             @click="handleDownload"
           >
-            <span class="mdi mdi-file-download-outline" />
+            <span class="mdi mdi-download" />
           </button>
 
           <div class="split-line" />
@@ -357,7 +376,7 @@ defineExpose({
           v-model:selected-rows="selectedItemsSet"
           :columns="tableColumns"
           :data="filteredFiles"
-          :get-tooltip="row => getTooltip(row)"
+          :get-tooltip="(row) => getTooltip(row)"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
           @open="(row) => emit('open', { item: row })"
@@ -382,7 +401,8 @@ defineExpose({
       <span>
         {{ filteredFiles.length }} Item(s)
         <template v-if="selectedItems.length">
-          | {{ selectedItems.length }} item(s) selected | {{ bytesToSize(selectedItemsSize) }}
+          | {{ selectedItems.length }} item(s) selected |
+          {{ bytesToSize(selectedItemsSize) }}
         </template>
       </span>
 
@@ -429,13 +449,16 @@ defineExpose({
     border-bottom: 1px solid var(--vgo-color-border);
 
     @media screen and (max-width: $mq_mobile_width) {
-      justify-content: center;
+      justify-content: flex-end;
     }
 
     .action-group {
       display: flex;
       gap: 4px;
       flex-wrap: wrap;
+      @media screen and (max-width: $mq_mobile_width) {
+        justify-content: flex-end;
+      }
 
       .split-line {
         border-right: 1px solid var(--vgo-color-border);
@@ -491,6 +514,7 @@ defineExpose({
     flex: 1;
     overflow: auto;
     user-select: none;
+    position: relative;
   }
 
   .explorer-list-view {
@@ -526,6 +550,9 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 4px;
+    &.hidden {
+      opacity: 0.6;
+    }
     .themed-icon {
       width: fit-content;
       font-size: 16px;
@@ -534,6 +561,9 @@ defineExpose({
       cursor: pointer;
       &:hover {
         text-decoration: underline;
+      }
+      &.error {
+        color: #f44336;
       }
     }
   }

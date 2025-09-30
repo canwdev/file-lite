@@ -115,7 +115,6 @@ html, body, #app {
   align-items: center;
   justify-content: center;
   z-index: 20;
-
   &._absolute {
     position: absolute;
     top: 0;
@@ -127,6 +126,10 @@ html, body, #app {
     position: fixed;
     z-index: 200;
     background-color: rgba(134, 134, 134, 0.1);
+  }
+
+  .vgo-panel {
+    padding: 10px 20px;
   }
 }
 

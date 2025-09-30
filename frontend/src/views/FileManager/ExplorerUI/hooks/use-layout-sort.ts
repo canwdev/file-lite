@@ -1,5 +1,6 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@server/types/server'
+import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { SortType } from '@server/types/server'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
@@ -44,29 +45,51 @@ export function useLayoutSort(files: Ref<IEntry[]>, emit) {
         if (showHidden.value) {
           return true
         }
-        return !item.hidden
+        return !item.hidden && !item.error
       })
       .sort(sortMethodMap[sortMode.value])
   })
 
-  const tableColumns = computed((): Column[] => {
+  const tableColumns = computed(() => {
     return [
-      { key: 'name', label: 'Name', width: 200, render: (item: IEntry) => {
-        return h('div', { class: 'title-wrapper' }, [
-          h(ThemedIcon, {
-            iconClass: `mdi ${getFileIconClass(item)}`,
-          }),
-          h('span', {
-            class: 'title-text text-overflow',
-            onClick: (e) => {
-              e.stopPropagation()
-              emit('open', { item })
-            },
-          }, item.name),
-        ])
-      }, sortModes: [SortType.name, SortType.nameDesc] },
-      { key: 'ext', label: 'Ext', width: 50, formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''), sortModes: [SortType.extension, SortType.extensionDesc] },
-      { key: 'size', label: 'Size', width: 80, formatter: (item: IEntry) => item.size === null ? '-' : bytesToSize(item.size), sortModes: [SortType.size, SortType.sizeDesc],
+      {
+        key: 'name',
+        label: 'Name',
+        width: 200,
+        render: (item: IEntry) => {
+          return h('div', { class: `title-wrapper ${item.hidden ? 'hidden' : ''}` }, [
+            h(ThemedIcon, {
+              iconClass: `mdi ${getFileIconClass(item)}`,
+            }),
+            h(
+              'span',
+              {
+                class: `title-text text-overflow ${item.error ? 'error' : ''}`,
+                onClick: (e) => {
+                  e.stopPropagation()
+                  emit('open', { item })
+                },
+              },
+              item.name,
+            ),
+          ])
+        },
+        sortModes: [SortType.name, SortType.nameDesc],
+      },
+      {
+        key: 'ext',
+        label: 'Ext',
+        width: 70,
+        formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''),
+        sortModes: [SortType.extension, SortType.extensionDesc],
+      },
+      {
+        key: 'size',
+        label: 'Size',
+        width: 80,
+        formatter: (item: IEntry) =>
+          item.size === null ? '-' : bytesToSize(item.size),
+        sortModes: [SortType.size, SortType.sizeDesc],
       },
       {
         key: 'lastModified',
@@ -86,20 +109,27 @@ export function useLayoutSort(files: Ref<IEntry[]>, emit) {
       return {
         ...item,
         columnClick: () => {
-          const idx = (item.sortModes || []).findIndex((m: SortType) => m === sortMode.value)
+          const idx = (item.sortModes || []).findIndex(
+            (m: SortType) => m === sortMode.value,
+          )
           const nextMode = idx + 1
           sortMode.value = item.sortModes[nextMode] || SortType.default
         },
         columnRightRender: () => {
-          const idx = (item.sortModes || []).findIndex((m: SortType) => m === sortMode.value)
+          const idx = (item.sortModes || []).findIndex(
+            (m: SortType) => m === sortMode.value,
+          )
           const active = idx > -1
           const isDesc = idx > 0
           if (active) {
-            return h('span', { class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`, style: 'line-height: 1; transform: scale(1.4)' })
+            return h('span', {
+              class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`,
+              style: 'line-height: 1; transform: scale(1.4)',
+            })
           }
         },
       }
-    })
+    }) as Column[]
   })
   return {
     isGridView,
