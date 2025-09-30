@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
 .file-table-wrapper {
   overflow-x: auto;
   table {
-    //width: 100%;
+    width: 500px;
     border-collapse: collapse;
     table-layout: fixed; /* 关键属性，使宽度设置生效 */
   }
