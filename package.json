@@ -9,7 +9,8 @@
     "build:cjs": "bun build --target=node --format=cjs --outfile=dist/file-lite.min.cjs ./src/main.ts",
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
     "build:auto": "bun run ./docs/build.ts",
-    "prettier": "bunx prettier . --write"
+    "lint": "eslint src/**/*.{ts,tsx,vue} --fix",
+    "lint:frontend": "eslint frontend/**/*.{ts,tsx,vue} --fix"
   },
   "peerDependencies": {
     "typescript": "^5.9.2"
@@ -28,6 +29,9 @@
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.3",
-    "prettier": "3.6.2"
+    "prettier": "3.6.2",
+    "@antfu/eslint-config": "^5.4.1",
+    "eslint": "^9.36.0",
+    "eslint-plugin-format": "^1.0.1"
   }
 }
