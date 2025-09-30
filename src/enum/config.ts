@@ -1,10 +1,10 @@
+import * as console from 'node:console'
+import fs from 'node:fs'
 import Path from 'node:path'
 import * as process from 'node:process'
-import * as console from 'node:console'
-import fs from 'fs'
-import {PKG_NAME, VERSION} from '@/enum/version.ts'
+import { PKG_NAME, VERSION } from '@/enum/version.ts'
 
-type IConfig = {
+interface IConfig {
   // 监听地址，如果传入 127.0.0.1 则不允许外部设备访问，默认 '0.0.0.0'
   host: string
   // 监听端口，默认 '3100'
@@ -25,8 +25,8 @@ type IConfig = {
 
 console.log(`${PKG_NAME} version: ${VERSION}\n`)
 
-export const normalizePath = (p: string) => {
-  return p.replace(/\\/gi, '/').replace(/\/+/gi, '/')
+export function normalizePath(p: string) {
+  return p.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
 // 数据目录
@@ -35,9 +35,9 @@ export const DATA_BASE_DIR = process.env.ENV_DATA_BASE_DIR
   : Path.resolve(process.cwd(), 'data')
 console.log(`DATA_BASE_DIR=${DATA_BASE_DIR}`)
 
-fs.mkdirSync(DATA_BASE_DIR, {recursive: true})
+fs.mkdirSync(DATA_BASE_DIR, { recursive: true })
 
-const getInitConfig = (): IConfig => {
+function getInitConfig(): IConfig {
   return {
     host: '',
     port: '',
@@ -51,12 +51,14 @@ const getInitConfig = (): IConfig => {
 }
 
 const CONFIG_FILE = Path.resolve(DATA_BASE_DIR, 'config.json')
+// eslint-disable-next-line  import/no-mutable-exports
 let config: IConfig
 if (!fs.existsSync(CONFIG_FILE)) {
   const defaultConfig = getInitConfig()
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2))
   config = defaultConfig
-} else {
+}
+else {
   config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
 }
 
@@ -66,7 +68,7 @@ export const SAFE_BASE_DIR = config.safeBaseDir
   : ''
 if (SAFE_BASE_DIR) {
   if (!fs.existsSync(SAFE_BASE_DIR)) {
-    fs.mkdirSync(SAFE_BASE_DIR, {recursive: true})
+    fs.mkdirSync(SAFE_BASE_DIR, { recursive: true })
   }
   console.log(`SAFE_BASE_DIR=${SAFE_BASE_DIR}`)
 }
@@ -78,4 +80,4 @@ function S4() {
 export const authToken = config.password ? config.password : S4()
 console.log(`auth=${authToken}`)
 
-export {config}
+export { config }

@@ -1,5 +1,4 @@
 // https://github.com/parshap/node-sanitize-filename/blob/master/index.js
-
 /**
  * Replaces characters in strings that are illegal/unsafe for filenames.
  * Unsafe characters are either removed or replaced by a substitute set
@@ -22,17 +21,19 @@
  * Capped at 255 characters in length.
  * http://unix.stackexchange.com/questions/32795/what-is-the-maximum-allowed-filename-and-folder-size-with-ecryptfs
  *
- * @param  {String} input   Original filename
- * @param  {Object} options {replacement: String | Function }
- * @return {String}         Sanitized filename
+ * @param  {string} input   Original filename
+ * @param  {object} options {replacement: String | Function }
+ * @return {string}         Sanitized filename
  */
-const illegalRe = /[\/\?<>\\:\*\|"]/g
-const controlRe = /[\x00-\x1f\x80-\x9f]/g
+const illegalRe = /[/?<>\\:*|"]/g
+// eslint-disable-next-line no-control-regex
+const controlRe = /[\x00-\x1F\x80-\x9F]/g
 const reservedRe = /^\.+$/
-const windowsReservedRe = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i
-const windowsTrailingRe = /[\. ]+$/
+// eslint-disable-next-line regexp/no-unused-capturing-group
+const windowsReservedRe = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i
+const windowsTrailingRe = /[. ]+$/
 
-export const sanitize = (input: string, replacement = '_') => {
+export function sanitize(input: string, replacement = '_') {
   let sanitized = input
     .replace(illegalRe, replacement)
     .replace(controlRe, replacement)

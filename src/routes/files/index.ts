@@ -27,7 +27,7 @@ filesRouter.get('/stream', getFileStream)
 filesRouter.get('/download', downloadPath)
 filesRouter.post('/upload-file', multerUpload.single('file'), (req, res) => {
   // console.log(req.file)
-  res.status(200).send({message: 'File uploaded successfully!'})
+  res.status(200).send({ message: 'File uploaded successfully!' })
 })
 
 export default filesRouter

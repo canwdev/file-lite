@@ -8,7 +8,7 @@ export class IPRateLimiter {
   private readonly maxAttempts: number
   private readonly banDurationMs: number
 
-  constructor(options: {maxAttempts: number; banDurationMs: number}) {
+  constructor(options: { maxAttempts: number, banDurationMs: number }) {
     this.maxAttempts = options.maxAttempts
     this.banDurationMs = options.banDurationMs
   }
@@ -18,7 +18,7 @@ export class IPRateLimiter {
    * @param ip 要检查的IP地址
    * @returns 返回一个对象，指明IP是否被封禁以及剩余时间
    */
-  public check(ip: string): {isBanned: boolean; timeLeft?: number} {
+  public check(ip: string): { isBanned: boolean, timeLeft?: number } {
     const unbanTime = this.bannedIPs.get(ip)
 
     // 如果存在解封时间戳
@@ -27,15 +27,15 @@ export class IPRateLimiter {
       if (Date.now() > unbanTime) {
         this.bannedIPs.delete(ip) // 解封
         this.failureTracker.delete(ip) // 清除失败记录
-        return {isBanned: false}
+        return { isBanned: false }
       }
 
       // 仍在封禁期
       const timeLeft = Math.ceil((unbanTime - Date.now()) / 1000 / 60)
-      return {isBanned: true, timeLeft}
+      return { isBanned: true, timeLeft }
     }
 
-    return {isBanned: false}
+    return { isBanned: false }
   }
 
   /**

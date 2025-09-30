@@ -1,5 +1,5 @@
-import readline from 'readline'
 import process from 'node:process'
+import readline from 'node:readline'
 
 export interface IShortcuts {
   key?: string
@@ -8,27 +8,25 @@ export interface IShortcuts {
   split?: boolean
 }
 
-const printShortcuts = async (
-  shortcuts: IShortcuts[] = [],
-  printCallback?: () => Promise<void>,
-) => {
+async function printShortcuts(shortcuts: IShortcuts[] = [], printCallback?: () => Promise<void>) {
   console.log('\nShortcuts:')
-  for (const {key, desc, split} of shortcuts) {
+  for (const { key, desc, split } of shortcuts) {
     const line = split ? '' : `  ${key} + Enter: ${desc}`
     console.log(line)
   }
   if (printCallback) {
     await printCallback()
-  } else {
+  }
+  else {
     console.log('\n')
   }
 }
 
-export const registerShortcuts = async (options: {
+export async function registerShortcuts(options: {
   shortcuts: IShortcuts[]
   printCallback?: () => Promise<void>
-}) => {
-  const {shortcuts = [], printCallback} = options
+}) {
+  const { shortcuts = [], printCallback } = options
 
   // 创建readline接口
   const rl = readline.createInterface({
@@ -38,11 +36,12 @@ export const registerShortcuts = async (options: {
   rl.on('line', async (input) => {
     input = input.trim().toLowerCase()
     // console.log('onInput', input)
-    const shortcut = shortcuts.find((item) => item.key === input)
+    const shortcut = shortcuts.find(item => item.key === input)
     if (shortcut) {
       console.log(`\n  ${shortcut.desc}\n`)
       shortcut.callback && shortcut.callback()
-    } else {
+    }
+    else {
       console.log(`\n  Invalid shortcut: ${input}\n`)
       await printShortcuts(shortcuts, printCallback)
     }

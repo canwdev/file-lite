@@ -1,10 +1,12 @@
-import {networkInterfaces, release} from 'os'
-import {execFile, ChildProcess} from 'child_process'
+import type { ChildProcess } from 'node:child_process'
+import { execFile } from 'node:child_process'
+import { networkInterfaces, release } from 'node:os'
+import * as process from 'node:process'
 
 /**
  * 打印服务器运行地址信息。
  */
-export const printServerRunningOn = ({protocol = 'http:', host, port, params = ''}) => {
+export function printServerRunningOn({ protocol = 'http:', host, port, params = '' }) {
   const localhostUrl = `${protocol}//127.0.0.1:${port}`
   console.log(`Listening on: ${host}:${port}\n${localhostUrl}${params}`)
 
@@ -15,8 +17,8 @@ export const printServerRunningOn = ({protocol = 'http:', host, port, params = '
     const ifaces = networkInterfaces()
     urls = Object.values(ifaces)
       .flat() // 将多维数组扁平化为一维
-      .filter((details) => details?.family === 'IPv4' && details.address) // 筛选出 IPv4 地址
-      .map((details) => `${protocol}//${details!.address}:${port}${params}`) // 转换为 URL 字符串
+      .filter(details => details?.family === 'IPv4' && details.address) // 筛选出 IPv4 地址
+      .map(details => `${protocol}//${details!.address}:${port}${params}`) // 转换为 URL 字符串
 
     if (urls.length > 0) {
       console.log(`Available on:\n${urls.join('\n')}`)
@@ -40,7 +42,7 @@ export function opener(args: string | string[], options?: any, callback?: any): 
     platform = 'win32'
   }
 
-  const commandMap: {[key: string]: string} = {
+  const commandMap: { [key: string]: string } = {
     win32: 'cmd.exe',
     darwin: 'open',
   }
@@ -60,7 +62,8 @@ export function opener(args: string | string[], options?: any, callback?: any): 
     if (platform === 'win32') {
       // 在 Windows 上，自定义命令作为 `cmd.exe` 的参数
       finalArgs.unshift(options.command)
-    } else {
+    }
+    else {
       command = options.command
     }
   }
@@ -68,7 +71,7 @@ export function opener(args: string | string[], options?: any, callback?: any): 
   // 为 Windows 平台准备特定的参数
   if (platform === 'win32') {
     // 为 `start` 命令转义特殊字符
-    finalArgs = finalArgs.map((value) => value.replace(/[&^]/g, '^$&'))
+    finalArgs = finalArgs.map(value => value.replace(/[&^]/g, '^$&'))
     // 添加 `cmd.exe` 执行 `start` 命令所需的前缀参数
     finalArgs.unshift('/c', 'start', '""')
   }

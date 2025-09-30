@@ -1,9 +1,9 @@
 import express from 'express'
+import { PKG_NAME, VERSION } from '@/enum/version.ts'
+import { authMiddleware } from '@/middlewares/auth.ts'
+import { errorHandler } from '@/middlewares/error-handler.ts'
+import { limiter } from '@/middlewares/limiter.ts'
 import filesRouter from './files/index'
-import {authLimiter, authMiddleware} from '@/middlewares/auth.ts'
-import {errorHandler} from '@/middlewares/error-handler.ts'
-import {PKG_NAME, VERSION} from '@/enum/version.ts'
-import {limiter} from '@/middlewares/limiter.ts'
 
 const router = express.Router()
 

@@ -12,8 +12,8 @@ export const limiter = rateLimit({
   windowMs: 60 * 1000,
   // 每个 IP 在一个窗口期内最多允许 x 次请求
   limit: 1000,
-  message: {message: 'Too many requests, please try again later.'},
-  skip: (req, res) => {
+  message: { message: 'Too many requests, please try again later.' },
+  skip: (req) => {
     return skipPathMap[req.path] || false
   },
 })
