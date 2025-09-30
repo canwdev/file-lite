@@ -1,9 +1,9 @@
-import {bytesToSize, formatDate} from '@/utils'
-import {getFileIconClass} from '@/views/FileManager/ExplorerUI/file-icons'
-import {IEntry} from '@server/types/server'
+import type { IEntry } from '@server/types/server'
+import { bytesToSize, formatDate } from '@/utils'
+import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 
-export const useFileItem = (props: {item: IEntry}) => {
-  const {item} = toRefs(props)
+export function useFileItem(props: { item: IEntry }) {
+  const { item } = toRefs(props)
 
   const iconClass = computed(() => {
     return `mdi ${getFileIconClass(item.value)}`

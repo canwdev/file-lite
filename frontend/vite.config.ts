@@ -1,11 +1,11 @@
-import {fileURLToPath, URL} from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 
-import {defineConfig} from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
-import {ElementPlusResolver} from 'unplugin-vue-components/resolvers'
+import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -40,7 +40,7 @@ export default defineConfig({
       '/dev_proxy': {
         target: 'http://localhost:3111',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/dev_proxy/, ''),
+        rewrite: path => path.replace(/^\/dev_proxy/, ''),
         ws: true,
       },
     },

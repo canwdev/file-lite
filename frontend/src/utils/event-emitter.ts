@@ -1,5 +1,5 @@
 export default class EventEmitter {
-  private events: {[key: string]: Array<(data: any) => void>}
+  private events: { [key: string]: Array<(data: any) => void> }
   constructor() {
     this.events = {}
   }
@@ -7,7 +7,8 @@ export default class EventEmitter {
   on(name: string, fn: (data: any) => void) {
     if (this.events[name]) {
       this.events[name].push(fn)
-    } else {
+    }
+    else {
       this.events[name] = [fn]
     }
     return this
@@ -23,7 +24,7 @@ export default class EventEmitter {
   }
 
   emit(name: string, data?: any) {
-    ;(this.events[name] || []).forEach((fn) => fn(data))
+    ;(this.events[name] || []).forEach(fn => fn(data))
     return this
   }
 
@@ -33,11 +34,12 @@ export default class EventEmitter {
       return
     }
     if (fn) {
-      const index = fns.findIndex((f) => f === fn)
+      const index = fns.findIndex(f => f === fn)
       if (index > -1) {
         fns.splice(index, 1)
       }
-    } else {
+    }
+    else {
       delete this.events[name]
     }
     return this

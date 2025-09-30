@@ -1,18 +1,18 @@
-import {normalizePath, toggleArrayElement} from '../../utils'
-import {useStorage} from '@vueuse/core'
-import {LsKeys} from '@/enum'
-import {useOpener} from './use-opener'
-import {IEntry} from '@server/types/server'
-import {OpenWithEnum} from '@/views/Apps/apps'
+import type { IEntry } from '@server/types/server'
+import type { OpenWithEnum } from '@/views/Apps/apps'
+import { useStorage } from '@vueuse/core'
+import { LsKeys } from '@/enum'
+import { normalizePath, toggleArrayElement } from '../../utils'
+import { useOpener } from './use-opener'
 
-export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>}) => {
+export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]> }) {
   const files = ref<IEntry[]>([])
   const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
     listenToStorageChanges: false,
   })
   const basePathNormalized = computed(() => {
     let path = normalizePath(basePath.value)
-    if (!/\/$/gi.test(path)) {
+    if (!/\/$/.test(path)) {
       path += '/'
     }
     return path
@@ -28,10 +28,12 @@ export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>})
       }
 
       files.value = (await getListFn()) as unknown as IEntry[]
-    } catch (e) {
+    }
+    catch (e) {
       console.error(e)
       files.value = []
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -66,30 +68,31 @@ export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>})
 
   // 是否允许返回上一级
   const allowUp = computed(() => {
-    const arr = basePath.value.split('/').filter((i) => !!i)
+    const arr = basePath.value.split('/').filter(i => !!i)
     if (isUnix.value) {
       return arr.length > 0
-    } else {
+    }
+    else {
       return arr.length > 1
     }
   })
   // 检测以/开头的路径为unix路径
   const isUnix = computed(() => {
-    return /^\//g.test(basePath.value)
+    return /^\//.test(basePath.value)
   })
   const goUp = async () => {
     if (!allowUp.value) {
       return
     }
-    const arr = basePath.value.split('/').filter((i) => !!i)
+    const arr = basePath.value.split('/').filter(i => !!i)
     arr.pop()
     if (!arr.length && !isUnix.value) {
       await handleRefresh()
       return
     }
-    let path = arr.join('/') + '/'
+    let path = `${arr.join('/')}/`
     if (isUnix.value) {
-      path = '/' + path
+      path = `/${path}`
     }
     await handleOpenPath(path)
   }
@@ -102,15 +105,15 @@ export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>})
       addHistory(backHistory.value)
     }
   }
-  const {openFile} = useOpener(basePath, isLoading)
+  const { openFile } = useOpener(basePath, isLoading)
 
   // 打开文件或文件夹
-  const handleOpen = async ({item, openWith}: {item: IEntry; openWith?: OpenWithEnum}) => {
-    const path = normalizePath(basePath.value + '/' + item.name)
+  const handleOpen = async ({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) => {
+    const path = normalizePath(`${basePath.value}/${item.name}`)
     if (item.isDirectory) {
       await handleOpenPath(path)
-      return
-    } else {
+    }
+    else {
       openFile(
         {
           item,
@@ -132,7 +135,7 @@ export const useNavigation = ({getListFn}: {getListFn: () => Promise<IEntry[]>})
   const filterText = ref('')
   const filteredFiles = computed(() => {
     const search = filterText.value.toLowerCase()
-    return files.value.filter((item) => item.name.toLowerCase().includes(search))
+    return files.value.filter(item => item.name.toLowerCase().includes(search))
   })
 
   return {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import {useQRCode} from '@vueuse/integrations/useQRCode'
-import {copyWithToast} from '@/utils'
+import { useQRCode } from '@vueuse/integrations/useQRCode'
+import { copyWithToast } from '@/utils'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
@@ -11,14 +11,15 @@ watch(
   (newVal) => {
     if (newVal) {
       hostUrls.value = JSON.parse(atob(route.query.urls as string))
-    } else {
+    }
+    else {
       hostUrls.value = [location.href]
     }
     setTimeout(() => {
       autoSelectUrl()
     })
   },
-  {immediate: true},
+  { immediate: true },
 )
 
 const qrcode = useQRCode(currentUrl, {
@@ -26,15 +27,15 @@ const qrcode = useQRCode(currentUrl, {
   margin: 2,
 })
 
-const handleGo = (url: string) => {
+function handleGo(url: string) {
   location.href = url
 }
-const autoSelectUrl = () => {
-  let hostname = location.hostname
+function autoSelectUrl() {
+  const hostname = location.hostname
 
-  let index = hostUrls.value.findIndex((url) => url.includes(hostname))
+  let index = hostUrls.value.findIndex(url => url.includes(hostname))
   if (index === -1) {
-    index = hostUrls.value.findIndex((url) => url.includes('127.0.0.1'))
+    index = hostUrls.value.findIndex(url => url.includes('127.0.0.1'))
   }
   if (index !== -1) {
     currentUrl.value = hostUrls.value[index]
@@ -45,8 +46,8 @@ const autoSelectUrl = () => {
 <template>
   <div class="ip-chooser">
     <div class="ip-title">
-      <RouterLink :to="{name: 'HomeView'}">
-        <span class="mdi mdi-home" style="font-size: 26px"></span>
+      <RouterLink :to="{ name: 'HomeView' }">
+        <span class="mdi mdi-home" style="font-size: 26px" />
       </RouterLink>
     </div>
     <!-- <div class="ip-title">
@@ -57,27 +58,28 @@ const autoSelectUrl = () => {
       <div class="left-box">
         <div
           v-for="url in hostUrls"
-          @click="currentUrl = url"
+          :key="url"
           class="list-item"
-          :class="{active: url === currentUrl}"
+          :class="{ active: url === currentUrl }"
+          @click="currentUrl = url"
         >
           {{ url }}
 
           <div class="flex-row-center-gap">
             <button class="btn-go btn-no-style" @click="copyWithToast(url)">
-              <span class="mdi mdi-content-copy"></span>
+              <span class="mdi mdi-content-copy" />
             </button>
             <button class="btn-go btn-no-style" @click="handleGo(url)">
-              <span class="mdi mdi-open-in-new"></span>
+              <span class="mdi mdi-open-in-new" />
             </button>
           </div>
         </div>
       </div>
       <div class="right-box">
         <div class="qr-img-wrap">
-          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" />
+          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img">
           <div class="url-text">
-            <textarea class="vgo-input" v-model="currentUrl" placeholder="QR Code generator" />
+            <textarea v-model="currentUrl" class="vgo-input" placeholder="QR Code generator" />
           </div>
         </div>
       </div>

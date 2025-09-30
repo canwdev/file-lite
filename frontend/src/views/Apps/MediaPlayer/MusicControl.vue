@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import {formatTimeHMS} from '@/utils'
-import CoverMini from './CoverMini.vue'
 import Mousetrap from 'mousetrap'
-import {loopModeMap, LoopModeTypeValues, useMusicSettingsStore} from './utils/music-state'
-import {MusicEvents, useMediaStore} from './utils/media-store'
+import { formatTimeHMS } from '@/utils'
+import CoverMini from './CoverMini.vue'
 import Seekbar from './SeekBar.vue'
+import { MusicEvents, useMediaStore } from './utils/media-store'
+import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/music-state'
 
+defineEmits(['onCoverClick', 'onTitleClick'])
 // interface Props {}
 // const props = withDefaults(defineProps<Props>(), {})
 
@@ -18,8 +19,6 @@ const KEY_NEXT = ['right', 'pagedown', 'h', 'j']
 const KEY_UP = 'up'
 const KEY_DOWN = 'down'
 
-const emit = defineEmits(['onCoverClick', 'onTitleClick'])
-
 const mSettingsStore = useMusicSettingsStore()
 const mCurrentTime = ref(0)
 const isSeeking = ref(false)
@@ -27,26 +26,26 @@ const isDisabled = ref(false)
 
 const mousetrapRef = shallowRef()
 
-const togglePlay = (e) => {
+function togglePlay(e) {
   e.preventDefault()
   mediaStore.mediaBus.emit(MusicEvents.ACTION_TOGGLE_PLAY)
 }
-const previous = () => {
+function previous() {
   mediaStore.playPrev()
 }
-const next = () => {
+function next() {
   mediaStore.playNext()
 }
-const volumeUpFn = (e) => {
+function volumeUpFn(e) {
   e.preventDefault()
   mSettingsStore.volumeUp()
 }
-const volumeDownFn = (e) => {
+function volumeDownFn(e) {
   e.preventDefault()
   mSettingsStore.volumeDown()
 }
-const switchLoopMode = () => {
-  let index = LoopModeTypeValues.findIndex((i) => i === mSettingsStore.loopMode)
+function switchLoopMode() {
+  let index = LoopModeTypeValues.findIndex(i => i === mSettingsStore.loopMode)
   ++index
   if (index > LoopModeTypeValues.length - 1) {
     index = 0
@@ -57,11 +56,11 @@ const switchLoopMode = () => {
   }
 }
 
-const progressSeeking = (value) => {
+function progressSeeking(value) {
   isSeeking.value = true
   mCurrentTime.value = Number(value)
 }
-const progressChange = (value) => {
+function progressChange(value) {
   value = Number(value)
   mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, value)
   isSeeking.value = false
@@ -100,10 +99,10 @@ watch(
 
 const mediaItem = computed(() => mediaStore.mediaItem)
 
-const jumpForward = () => {
+function jumpForward() {
   mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, (mediaStore.currentTime += 5))
 }
-const jumpBackward = () => {
+function jumpBackward() {
   mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, (mediaStore.currentTime -= 5))
 }
 </script>
@@ -137,11 +136,11 @@ const jumpBackward = () => {
         <button
           :disabled="isDisabled"
           class="btn-action btn-no-style icon-wrap"
-          :title="`Previous`"
+          title="Previous"
           @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
-          <span class="mdi mdi-skip-previous"></span>
+          <span class="mdi mdi-skip-previous" />
         </button>
 
         <button
@@ -151,35 +150,37 @@ const jumpBackward = () => {
           @click="togglePlay"
         >
           <template v-if="mediaStore.paused">
-            <span class="mdi mdi-play"></span>
+            <span class="mdi mdi-play" />
           </template>
           <template v-else>
-            <span class="mdi mdi-pause"></span>
+            <span class="mdi mdi-pause" />
           </template>
         </button>
 
         <button
           :disabled="isDisabled"
           class="btn-action btn-no-style icon-wrap"
-          :title="`Next`"
+          title="Next"
           @click="next"
           @contextmenu.prevent="jumpForward"
         >
-          <span class="mdi mdi-skip-next"></span>
+          <span class="mdi mdi-skip-next" />
         </button>
 
         <el-popover placement="top" trigger="hover">
           <template #reference>
-            <button class="btn-action btn-no-style icon-wrap" :title="`Playback Speed`">
+            <button class="btn-action btn-no-style icon-wrap" title="Playback Speed">
               {{ mediaStore.playbackRate }}x
             </button>
           </template>
 
           <div class="flex-row-center-gap">
-            <button class="vgo-button" @click="mediaStore.playbackRate = Number(1)">Reset</button>
+            <button class="vgo-button" @click="mediaStore.playbackRate = Number(1)">
+              Reset
+            </button>
             <el-slider
-              style="width: 150px"
               v-model="mediaStore.playbackRate"
+              style="width: 150px"
               :max="2"
               :min="0.1"
               :step="0.1"
@@ -198,30 +199,30 @@ const jumpBackward = () => {
             class="material-icons"
             :class="currentLoopMode.className"
           >
-            <!--{{ currentLoopMode.icon }}-->
+            <!-- {{ currentLoopMode.icon }} -->
           </span>
           <span v-else>{{ currentLoopMode.i18nKey }}</span>
         </button>
 
         <el-popover placement="top" trigger="hover">
           <template #reference>
-            <button class="btn-action btn-no-style icon-wrap" :title="`Volume`">
+            <button class="btn-action btn-no-style icon-wrap" title="Volume">
               <template v-if="mSettingsStore.audioVolume > 0">
-                <span class="mdi mdi-volume-high"></span>
+                <span class="mdi mdi-volume-high" />
               </template>
               <template v-else>
-                <span class="mdi mdi-volume-variant-off"></span>
+                <span class="mdi mdi-volume-variant-off" />
               </template>
             </button>
           </template>
           <div style="display: flex; align-items: center; flex-direction: column">
             <el-slider
+              v-model="mSettingsStore.audioVolume"
               style="width: 100px"
               :max="100"
               :step="1"
               :min="0"
               :tooltip="false"
-              v-model="mSettingsStore.audioVolume"
             />
             <span style="font-size: 12px">{{ mSettingsStore.audioVolume }}</span>
           </div>

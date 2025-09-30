@@ -52,7 +52,8 @@ export default {
 
         if (deltaY > 0) {
           el.value = this.value - num
-        } else if (deltaY < 0) {
+        }
+        else if (deltaY < 0) {
           el.value = this.value + num
         }
         this.$emit('input', el.value)
@@ -63,8 +64,8 @@ export default {
 </script>
 
 <template>
-  <div class="tk-seekbar" :class="{vertical}">
-    <div v-if="!vertical" class="seekbar-fill" :style="'width:' + progress + '%'"></div>
+  <div class="tk-seekbar" :class="{ vertical }">
+    <div v-if="!vertical" class="seekbar-fill" :style="`width:${progress}%`" />
     <input
       ref="seekBar"
       type="range"
@@ -78,7 +79,7 @@ export default {
       @blur="handleBlur"
       @change="handleChange"
       @wheel="handleWheel"
-    />
+    >
   </div>
 </template>
 

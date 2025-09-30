@@ -1,6 +1,6 @@
 <script lang="ts" setup="">
-import {fsWebApi} from '@/api/filesystem.ts'
-import {AppParams} from '@/views/Apps/apps.ts'
+import type { AppParams } from '@/views/Apps/apps.ts'
+import { fsWebApi } from '@/api/filesystem.ts'
 
 const props = withDefaults(
   defineProps<{
@@ -13,8 +13,7 @@ const props = withDefaults(
     autoplay: true,
   },
 )
-const emit = defineEmits([])
-const {appParams} = toRefs(props)
+const { appParams } = toRefs(props)
 
 const mediaSrc = computed(() => {
   return fsWebApi.getStreamUrl(appParams.value?.absPath)
@@ -23,7 +22,7 @@ const mediaSrc = computed(() => {
 
 <template>
   <div class="media-player">
-    <video :src="mediaSrc" :controls="controls" :autoplay="autoplay"></video>
+    <video :src="mediaSrc" :controls="controls" :autoplay="autoplay" />
   </div>
 </template>
 

@@ -1,18 +1,18 @@
 import moment from 'moment/moment'
 
-export const guid = () => {
+export function guid() {
   function S4() {
     return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
   }
 
-  return S4() + S4() + '-' + S4() + '-' + S4() + '-' + S4() + '-' + S4() + S4() + S4()
+  return `${S4() + S4()}-${S4()}-${S4()}-${S4()}-${S4()}${S4()}${S4()}`
 }
 
 /**
  * 复制字符串到剪贴板操作（兼容新旧接口）
  * @param text 要复制的文本
  */
-export const copyToClipboard = (text: string): Promise<void> => {
+export function copyToClipboard(text: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // 如果支持 Clipboard API，就使用它
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -24,7 +24,8 @@ export const copyToClipboard = (text: string): Promise<void> => {
         .catch((error) => {
           reject(error)
         })
-    } else {
+    }
+    else {
       // 使用 document.execCommand 兼容旧 API
       const textarea = document.createElement('textarea')
       textarea.value = text
@@ -36,19 +37,22 @@ export const copyToClipboard = (text: string): Promise<void> => {
         const success = document.execCommand('copy')
         if (!success) {
           throw new Error('Unable to perform copy operation')
-        } else {
+        }
+        else {
           resolve()
         }
-      } catch (error) {
+      }
+      catch (error) {
         reject(error)
-      } finally {
+      }
+      finally {
         document.body.removeChild(textarea)
       }
     }
   })
 }
 
-export const copyWithToast = async (val: string, isShowVal = false) => {
+export async function copyWithToast(val: string, isShowVal = false) {
   if (!val) {
     return
   }
@@ -61,28 +65,16 @@ export const copyWithToast = async (val: string, isShowVal = false) => {
   let showVal = ''
   if (isShowVal) {
     if (val.length > 50) {
-      showVal = val.slice(0, 50) + '...'
-    } else {
+      showVal = `${val.slice(0, 50)}...`
+    }
+    else {
       showVal = val
     }
   }
   if (showVal) {
-    showVal = ': ' + showVal
+    showVal = `: ${showVal}`
   }
   window.$message.success(`Copied${showVal}`)
-}
-
-export const isCharacterKeyPress = (evt: KeyboardEvent) => {
-  if (typeof evt.which == 'undefined') {
-    // This is IE, which only fires keypress events for printable keys
-    return true
-  } else if (typeof evt.which == 'number' && evt.which > 0) {
-    // In other browsers except old versions of WebKit, evt.which is
-    // only greater than zero if the keypress is a printable key.
-    // We need to filter out backspace and ctrl/alt/meta key combinations
-    return !evt.ctrlKey && !evt.metaKey && !evt.altKey && evt.which != 8
-  }
-  return false
 }
 
 export function pad2Num(num: number, len = 2) {
@@ -96,20 +88,20 @@ export function formatDate(d: any | number, format = 'YYYY-MM-DD HH:mm') {
   return moment(d).format(format)
 }
 
-export const formatTimeHMS = (ms: number) => {
+export function formatTimeHMS(ms: number) {
   const h = Math.round(ms / (60 * 60))
     .toString()
-    .padStart(2, '0') //精确小时，用去余
+    .padStart(2, '0') // 精确小时，用去余
   const m = Math.round((ms / 60) % 60)
     .toString()
-    .padStart(2, '0') //剩余分钟就是用1小时等于60分钟进行趣余
+    .padStart(2, '0') // 剩余分钟就是用1小时等于60分钟进行趣余
   const s = Math.round(ms % 60)
     .toString()
     .padStart(2, '0')
-  return h + ':' + m + ':' + s
+  return `${h}:${m}:${s}`
 }
 
-export const formatSelectOptions = (list: string[]) => {
+export function formatSelectOptions(list: string[]) {
   return list.map((item) => {
     return {
       value: item,
@@ -119,16 +111,17 @@ export const formatSelectOptions = (list: string[]) => {
 }
 
 // 字节转换为可读的单位
-export const bytesToSize = (bytes: number, autoNo = '0 B') => {
+export function bytesToSize(bytes: number, autoNo = '0 B') {
   bytes = Number(bytes)
   if (Number.isNaN(bytes)) {
     return '-'
   }
-  if (bytes === 0) return autoNo
+  if (bytes === 0)
+    return autoNo
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Number(bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
+  return `${Number(bytes / k ** i).toFixed(2)} ${sizes[i]}`
 }
 
 export function getRandomInt(min: number, max: number) {
@@ -137,8 +130,8 @@ export function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-export const sleep = (t: number) => {
-  return new Promise((resolve) => setTimeout(resolve, t))
+export function sleep(t: number) {
+  return new Promise(resolve => setTimeout(resolve, t))
 }
 
 // 文件对象转换为base64
@@ -154,7 +147,7 @@ export function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-export const downloadUrl = (url: string, filename?: string) => {
+export function downloadUrl(url: string, filename?: string) {
   // 创建一个虚拟的 <a> 标签
   const a = document.createElement('a')
   // 设置 href 为文件的 URL

@@ -1,5 +1,5 @@
-import {fsWebApi} from '@/api/filesystem'
-import explorerBus, {ExplorerEvents} from '../../utils/bus'
+import { fsWebApi } from '@/api/filesystem'
+import explorerBus, { ExplorerEvents } from '../../utils/bus'
 
 const explorerStore = reactive<{
   cutPaths: string[]
@@ -9,7 +9,7 @@ const explorerStore = reactive<{
   copyPaths: [],
 })
 
-export const useCopyPaste = ({
+export function useCopyPaste({
   selectedPaths,
   basePath,
   isLoading,
@@ -19,7 +19,7 @@ export const useCopyPaste = ({
   basePath: Ref<string>
   isLoading: Ref<boolean>
   emit: any
-}) => {
+}) {
   const enablePaste = computed(() => {
     return explorerStore.cutPaths.length > 0 || explorerStore.copyPaths.length > 0
   })
@@ -40,9 +40,11 @@ export const useCopyPaste = ({
     if (explorerStore.cutPaths.length) {
       paths = explorerStore.cutPaths
       isMove = true
-    } else if (explorerStore.copyPaths.length) {
+    }
+    else if (explorerStore.copyPaths.length) {
       paths = explorerStore.copyPaths
-    } else {
+    }
+    else {
       return
     }
     // console.log(paths)
@@ -57,11 +59,13 @@ export const useCopyPaste = ({
       if (isMove) {
         explorerStore.cutPaths = []
         explorerBus.emit(ExplorerEvents.REFRESH)
-      } else {
+      }
+      else {
         explorerStore.copyPaths = []
         emit('refresh')
       }
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }

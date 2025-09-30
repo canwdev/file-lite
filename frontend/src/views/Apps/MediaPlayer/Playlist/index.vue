@@ -1,16 +1,14 @@
 <script setup lang="ts">
+import type { MediaItem } from '../utils/music-state'
 import PlaylistItem from '../Playlist/PlaylistItem.vue'
-import {MediaItem} from '../utils/music-state'
-import {IEntry} from '@server/types/server'
-import {isSupportedMediaFormat} from '@/utils/is'
-import {MusicEvents, useMediaStore} from '../utils/media-store'
+import { MusicEvents, useMediaStore } from '../utils/media-store'
 
 const storeId = inject('storeId')
 const mediaStore = useMediaStore(storeId.value)
 const filterText = ref('')
 
-const handleItemClick = (item: MediaItem) => {
-  const idx = mediaStore.playingList.findIndex((i) => i.guid === item.guid)
+function handleItemClick(item: MediaItem) {
+  const idx = mediaStore.playingList.findIndex(i => i.guid === item.guid)
   if (idx === -1) {
     console.error('idx not found!')
     return
@@ -27,50 +25,27 @@ const playlistFiltered = computed(() => {
     return mediaStore.playingList
   }
 
-  const reg = new RegExp(filterText.value, 'ig')
+  const reg = new RegExp(filterText.value, 'gi')
   return mediaStore.playingList.filter((item) => {
-    const title = item.titleDisplay
     return reg.test(item.titleDisplay) || reg.test(item.artistsAlbumDisplay)
   })
 })
-
-const handleSelect = (data) => {
-  const items = data.items as IEntry[] | undefined
-  const basePath = data.basePath as string
-  console.log('[handleSelect]', data)
-  if (!items) {
-    return
-  }
-
-  const medias = items
-    .map((i) => new MediaItem(i.name, basePath))
-    .filter((i) => {
-      return isSupportedMediaFormat(i.filename)
-    })
-
-  mediaStore.playFromList(medias, 0)
-}
 </script>
 
 <template>
   <div class="music-play-list">
     <div class="vgo-bg playlist-action-bar">
-      <input class="vgo-input" :placeholder="`Filter by name`" v-model="filterText" />
+      <input v-model="filterText" class="vgo-input" placeholder="Filter by name">
 
-      <span class="number-display"
-        >{{ mediaStore.playingIndex + 1 }} / {{ mediaStore.playingList.length }}</span
-      >
+      <span class="number-display">{{ mediaStore.playingIndex + 1 }} / {{ mediaStore.playingList.length }}</span>
     </div>
-    <!--<div class="flex-row-center-gap media-open-actions" v-if="!mediaStore.playingList.length">-->
-    <!--  <FileSelector select-file-mode="file" multiple @handleSelect="handleSelect" />-->
-    <!--</div>-->
     <div class="music-list">
       <PlaylistItem
         v-for="item in playlistFiltered"
         :key="item.guid"
         :item="item"
         @click="handleItemClick(item)"
-      ></PlaylistItem>
+      />
     </div>
   </div>
 </template>

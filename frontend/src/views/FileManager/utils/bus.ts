@@ -8,7 +8,7 @@ export const ExplorerEvents = {
   REFRESH: 'REFRESH',
 }
 
-export const useExplorerBusOn = (event: string, fn: any) => {
+export function useExplorerBusOn(event: string, fn: any) {
   onMounted(() => {
     explorerBus.on(event, fn)
   })

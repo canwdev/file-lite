@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import FileSidebar from './FileSidebar.vue'
-import {fsWebApi} from '@/api/filesystem'
+import type { IEntry } from '@server/types/server'
+import type { OpenWithEnum } from '../Apps/apps'
+import { fsWebApi } from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
-import {getLastDirName} from './utils'
-import {useNavigation} from './ExplorerUI/hooks/use-navigation'
-import {IEntry} from '@server/types/server'
-import {OpenWithEnum} from '../Apps/apps'
+import { useNavigation } from './ExplorerUI/hooks/use-navigation'
+import FileSidebar from './FileSidebar.vue'
+import { getLastDirName } from './utils'
 
 const props = withDefaults(
   defineProps<{
@@ -22,7 +22,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits(['handleSelect', 'cancelSelect'])
-const {selectFileMode, multiple} = toRefs(props)
+const { selectFileMode, multiple } = toRefs(props)
 
 const {
   isLoading,
@@ -59,15 +59,16 @@ onMounted(async () => {
     await fileSidebarRef.value.loadDrives()
     if (basePath.value) {
       handleRefresh()
-    } else {
+    }
+    else {
       fileSidebarRef.value.openFirstDrive()
     }
   }
 })
 
-const handleFileListOpen = ({item, openWith}: {item: IEntry; openWith?: OpenWithEnum}) => {
+function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
-    emit('handleSelect', {items: [item], item, basePath: fileListRef.value.basePath})
+    emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
     return
   }
   return handleOpen({
@@ -79,40 +80,39 @@ const handleFileListOpen = ({item, openWith}: {item: IEntry; openWith?: OpenWith
 const fileListRef = ref()
 // 是否选中了一个文件夹
 const isSelectAFolder = computed(() => {
-  let items = fileListRef.value.selectedItems
+  const items = fileListRef.value.selectedItems
   if (items.length !== 1) {
     return false
   }
   return items[0].isDirectory
 })
 // 处理选择操作
-const handleSelect = () => {
+function handleSelect() {
   let items = fileListRef.value.selectedItems
   // 打开文件夹
   if (isSelectAFolder.value) {
-    handleOpen({item: items[0]})
+    handleOpen({ item: items[0] })
     return
   }
   if (selectFileMode.value === 'folder') {
-    emit('handleSelect', {basePath: fileListRef.value.basePath})
+    emit('handleSelect', { basePath: fileListRef.value.basePath })
   }
   if (!items.length) {
     return
   }
   if (selectFileMode.value === 'file') {
-    items = items.filter((i) => !i.isDirectory)
+    items = items.filter(i => !i.isDirectory)
     if (!items.length) {
       return
     }
-    emit('handleSelect', {items, item: items[0], basePath: fileListRef.value.basePath})
-    return
+    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
   }
 }
 
 const rootRef = ref()
 const inputAddrRef = ref()
 const searchInputRef = ref()
-const handleShortcutKey = (event) => {
+function handleShortcutKey(event) {
   // console.log('handleShortcutKey', event)
   const key = event.key?.toLowerCase()
   if (event.altKey) {
@@ -120,17 +120,22 @@ const handleShortcutKey = (event) => {
       if (inputAddrRef.value) {
         inputAddrRef.value.focus()
       }
-    } else if (key === 's') {
+    }
+    else if (key === 's') {
       if (searchInputRef.value) {
         searchInputRef.value.focus()
       }
-    } else if (key === 'd') {
+    }
+    else if (key === 'd') {
       toggleStar()
-    } else if (event.key === 'ArrowUp') {
+    }
+    else if (event.key === 'ArrowUp') {
       goUp()
-    } else if (event.key === 'ArrowLeft') {
+    }
+    else if (event.key === 'ArrowLeft') {
       goBack()
-    } else if (event.key === 'ArrowRight') {
+    }
+    else if (event.key === 'ArrowRight') {
       goForward()
     }
   }
@@ -139,82 +144,82 @@ const handleShortcutKey = (event) => {
 </script>
 
 <template>
-  <div ref="rootRef" class="explorer-wrap" @keydown="handleShortcutKey" tabindex="0">
+  <div ref="rootRef" class="explorer-wrap" tabindex="0" @keydown="handleShortcutKey">
     <div v-if="!contentOnly" class="explorer-header vgo-panel">
       <div class="nav-address-bar">
         <div class="nav-wrap">
           <button
             :disabled="backHistory.length <= 1"
             class="btn-action btn-no-style"
-            @click="goBack"
             title="Back (alt+left)"
+            @click="goBack"
           >
-            <span class="mdi mdi-arrow-left"></span>
+            <span class="mdi mdi-arrow-left" />
           </button>
           <button
             :disabled="forwardHistory.length <= 0"
             class="btn-action btn-no-style"
-            @click="goForward"
             title="Forward (alt+right)"
+            @click="goForward"
           >
-            <span class="mdi mdi-arrow-right"></span>
+            <span class="mdi mdi-arrow-right" />
           </button>
           <button
             class="btn-action btn-no-style"
             :disabled="!allowUp"
-            @click="goUp"
             title="Up (alt+up)"
+            @click="goUp"
           >
-            <span class="mdi mdi-arrow-up"></span>
+            <span class="mdi mdi-arrow-up" />
           </button>
           <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="handleRefresh">
-            <span class="mdi mdi-refresh"></span>
+            <span class="mdi mdi-refresh" />
           </button>
         </div>
         <div class="input-wrap" @keydown.stop>
           <input
             ref="inputAddrRef"
-            placeholder="Path"
             v-model="basePath"
+            placeholder="Path"
             class="input-addr vgo-input"
+            title="Address bar (alt+a)"
             @keyup.enter="handleRefresh"
             @change="handleRefresh"
-            title="Address bar (alt+a)"
-          />
-          <button class="btn-no-style btn-action" @click="toggleStar" title="Toggle Star (alt+s)">
+          >
+          <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
             <template v-if="isStared">
-              <span class="mdi mdi-star"></span>
+              <span class="mdi mdi-star" />
             </template>
             <template v-else>
-              <span class="mdi mdi-star-outline"></span>
+              <span class="mdi mdi-star-outline" />
             </template>
           </button>
 
           <input
             ref="searchInputRef"
-            placeholder="Filter name"
             v-model="filterText"
-            @keyup.esc="filterText = ''"
+            placeholder="Filter name"
             class="input-filter vgo-input"
             title="Filter bar (alt+f)"
-          />
+            @keyup.esc="filterText = ''"
+          >
 
-          <slot name="headerRight"></slot>
+          <slot name="headerRight" />
         </div>
       </div>
     </div>
     <div class="explorer-content-wrap scrollbar-mini">
       <FileSidebar
-        ref="fileSidebarRef"
         v-if="!contentOnly"
-        @openDrive="(i) => handleOpenPath(i.path)"
+        ref="fileSidebarRef"
         :current-path="basePath"
+        @open-drive="(i) => handleOpenPath(i.path)"
       >
         <div v-if="starList.length" class="file-sidebar-content star-list">
-          <div v-for="(path, index) in starList" :key="path">
-            <button @click="handleOpenPath(path)" class="drive-item btn-no-style" :title="path">
+          <div v-for="(path,) in starList" :key="path">
+            <button class="drive-item btn-no-style" :title="path" @click="handleOpenPath(path)">
               <span class="drive-icon">
-                <span class="mdi mdi-star"></span>
+                <span class="mdi mdi-star" />
               </span>
               <span class="drive-content">
                 <span class="drive-title text-overflow"> {{ getLastDirName(path) }}</span>
@@ -227,21 +232,23 @@ const handleShortcutKey = (event) => {
         ref="fileListRef"
         v-model:is-loading="isLoading"
         :files="filteredFiles"
-        @open="handleFileListOpen"
-        @refresh="handleRefresh"
         :base-path="basePathNormalized"
-        :selectFileMode="selectFileMode"
+        :select-file-mode="selectFileMode"
         :multiple="multiple"
         :content-only="contentOnly"
+        @open="handleFileListOpen"
+        @refresh="handleRefresh"
       />
     </div>
 
-    <!--文件选择器-->
+    <!-- 文件选择器 -->
     <div v-if="selectFileMode && fileListRef" class="vgo-bg explorer-bottom-wrap">
       <button class="vgo-button primary" @click="handleSelect">
         {{ selectFileMode === 'file' || isSelectAFolder ? 'Open' : 'Select Folder' }}
       </button>
-      <button class="vgo-button" @click="$emit('cancelSelect')">Cancel</button>
+      <button class="vgo-button" @click="$emit('cancelSelect')">
+        Cancel
+      </button>
     </div>
   </div>
 </template>

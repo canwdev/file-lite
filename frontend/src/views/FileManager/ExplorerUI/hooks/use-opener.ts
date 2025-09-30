@@ -1,18 +1,18 @@
-import {IEntry} from '@server/types/server'
-import {fsWebApi} from '@/api/filesystem'
-import {normalizePath} from '../../utils'
+import type { IEntry } from '@server/types/server'
+import { fsWebApi } from '@/api/filesystem'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
   regSupportedTextFormat,
   regSupportedVideoFormat,
 } from '@/utils/is'
-import {appsStoreState} from '@/views/Apps/apps-store'
-import {OpenWithEnum} from '@/views/Apps/apps'
+import { OpenWithEnum } from '@/views/Apps/apps'
+import { appsStoreState } from '@/views/Apps/apps-store'
+import { normalizePath } from '../../utils'
 
-export const useOpener = (basePath: Ref<string>, isLoading: Ref<boolean>) => {
+export function useOpener(basePath: Ref<string>) {
   const getStreamUrl = (item: IEntry) => {
-    return fsWebApi.getStreamUrl(normalizePath(basePath.value + '/' + item.name))
+    return fsWebApi.getStreamUrl(normalizePath(`${basePath.value}/${item.name}`))
   }
 
   const openFile = async (
@@ -25,7 +25,7 @@ export const useOpener = (basePath: Ref<string>, isLoading: Ref<boolean>) => {
     },
     list: IEntry[],
   ) => {
-    const absPath = normalizePath(basePath.value + '/' + item.name)
+    const absPath = normalizePath(`${basePath.value}/${item.name}`)
     const openApp = (appName: OpenWithEnum) => {
       appsStoreState.appParams = {
         absPath,

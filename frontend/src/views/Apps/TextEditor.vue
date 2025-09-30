@@ -1,10 +1,11 @@
 <script lang="ts" setup="">
-import {useUnSavedChanges} from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
-import {generateTextFile} from '@/views/FileManager/utils'
-import {fsWebApi} from '@/api/filesystem'
-import {MenuBarOptions, MenuBar} from '@imengyu/vue3-context-menu'
-import {AppParams} from '@/views/Apps/apps.ts'
-import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
+import type { MenuBarOptions } from '@imengyu/vue3-context-menu'
+import type { AppParams } from '@/views/Apps/apps.ts'
+import { useUnSavedChanges } from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
+import { MenuBar } from '@imengyu/vue3-context-menu'
+import { fsWebApi } from '@/api/filesystem'
+import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { generateTextFile } from '@/views/FileManager/utils'
 
 const props = withDefaults(
   defineProps<{
@@ -13,7 +14,7 @@ const props = withDefaults(
   {},
 )
 const emit = defineEmits(['exit'])
-const {appParams} = toRefs(props)
+const { appParams } = toRefs(props)
 const absPath = computed(() => {
   return appParams.value?.absPath
 })
@@ -21,12 +22,12 @@ const absPath = computed(() => {
 const editRef = ref<HTMLTextAreaElement>()
 const editContent = ref('')
 const isLoading = ref(false)
-const {isChanged} = useUnSavedChanges()
+const { isChanged } = useUnSavedChanges()
 watch(editContent, () => {
   isChanged.value = true
 })
 
-const openFile = async () => {
+async function openFile() {
   try {
     isLoading.value = true
     console.log('open file', absPath.value)
@@ -34,7 +35,7 @@ const openFile = async () => {
     if (!absPath.value) {
       return
     }
-    let data = await fsWebApi.stream(absPath.value, {
+    const data = await fsWebApi.stream(absPath.value, {
       // 以纯文本读取文件
       responseType: 'text',
     })
@@ -42,9 +43,11 @@ const openFile = async () => {
     setTimeout(() => {
       isChanged.value = false
     })
-  } catch (error) {
+  }
+  catch (error) {
     console.error('open file failed', error)
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }
@@ -66,7 +69,7 @@ onMounted(() => {
 })
 
 const isSaving = ref(false)
-const handleSaveFile = async () => {
+async function handleSaveFile() {
   if (isSaving.value) {
     return
   }
@@ -86,9 +89,11 @@ const handleSaveFile = async () => {
     setTimeout(() => {
       isChanged.value = false
     })
-  } catch (error) {
+  }
+  catch (error) {
     console.error('save file failed', error)
-  } finally {
+  }
+  finally {
     isSaving.value = false
   }
 }
@@ -130,7 +135,7 @@ const menuOptions = computed((): MenuBarOptions => {
   }
 })
 
-const handleShortcutKey = (event: KeyboardEvent) => {
+function handleShortcutKey(event: KeyboardEvent) {
   const key = event.key?.toLowerCase()
   if (event.ctrlKey) {
     if (key === 's') {
@@ -143,14 +148,15 @@ const handleShortcutKey = (event: KeyboardEvent) => {
 
 <template>
   <div
-    class="text-editor-wrap"
-    ref="rootRef"
     v-loading="isSaving || isLoading"
+    class="text-editor-wrap"
     tabindex="0"
     @keydown="handleShortcutKey"
   >
     <MenuBar :options="menuOptions" />
-    <div v-if="isLoading" class="loading-wrapper">Loading...</div>
+    <div v-if="isLoading" class="loading-wrapper">
+      Loading...
+    </div>
     <textarea
       v-else
       ref="editRef"

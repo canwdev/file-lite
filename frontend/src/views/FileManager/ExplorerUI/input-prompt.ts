@@ -1,19 +1,17 @@
-export const showInputPrompt = (
-  options: {
-    // 弹窗标题
-    title?: string
-    // 文本框预设内容
-    value?: string
-    // 文本框占位符
-    placeholder?: string
-    // 返回错误字符串表示错误，否则校验成功
-    validateFn?: (val: string) => string | void
-    // 文本框类型
-    type?: 'text' | 'number'
-    // 是否允许空
-    allowEmpty?: boolean
-  } = {},
-): Promise<string> => {
+export function showInputPrompt(options: {
+  // 弹窗标题
+  title?: string
+  // 文本框预设内容
+  value?: string
+  // 文本框占位符
+  placeholder?: string
+  // 返回错误字符串表示错误，否则校验成功
+  validateFn?: (val: string) => string | void
+  // 文本框类型
+  type?: 'text' | 'number'
+  // 是否允许空
+  allowEmpty?: boolean
+} = {}): Promise<string> {
   const {
     // 弹窗标题
     title = '',
@@ -41,16 +39,15 @@ export const showInputPrompt = (
           if (validateFn) {
             return validateFn(val)
           }
-          return
         },
         confirmButtonText: 'OK',
         cancelButtonText: 'Cancel',
       })
-      .then(({value}) => {
+      .then(({ value }) => {
         resolve(value)
       })
-      .catch(() => {
-        reject()
+      .catch((e) => {
+        reject(e)
       })
   })
 }

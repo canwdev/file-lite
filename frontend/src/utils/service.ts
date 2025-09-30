@@ -1,7 +1,7 @@
 import axios from 'axios'
-import {authToken} from '@/store'
+import { authToken } from '@/store'
 
-const Service = (config: {
+function Service(config: {
   baseURL: string
   withCredentials?: boolean
   timeout?: number
@@ -9,7 +9,7 @@ const Service = (config: {
   isAuth?: boolean
   isToast?: boolean
   isRawResponse?: boolean
-}) => {
+}) {
   const {
     baseURL,
     withCredentials = false,
@@ -42,7 +42,7 @@ const Service = (config: {
 
       return config
     },
-    (error) => Promise.reject(error),
+    error => Promise.reject(error),
   )
 
   // 响应 拦截器
@@ -51,15 +51,15 @@ const Service = (config: {
       if (isRawResponse) {
         return response
       }
-      const {data} = response
+      const { data } = response
       // window.$loadingBar.finish()
       return data
     },
     async (error) => {
       const message = error.message
-      const {response} = error || {}
+      const { response } = error || {}
 
-      if (response?.status == 401) {
+      if (response?.status === 401) {
         console.log('[401] Authorization token 失效')
         window.$logout()
       }
@@ -70,7 +70,8 @@ const Service = (config: {
       if (isToast) {
         if (backendMessage) {
           window.$message.error(backendMessage)
-        } else {
+        }
+        else {
           window.$message.error(message)
         }
       }

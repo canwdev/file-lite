@@ -1,26 +1,30 @@
 <script setup lang="ts">
-import { IEntry } from '@server/types/server'
+import type { IEntry } from '@server/types/server'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { useFileItem } from './hooks/use-file-item'
 
-const emit = defineEmits(['open', 'select'])
+const props = withDefaults(defineProps<Props>(), {})
+
+defineEmits(['open', 'select'])
 
 interface Props {
   item: IEntry
   active: boolean
   showCheckbox?: boolean
 }
-const props = withDefaults(defineProps<Props>(), {})
-
 const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 </script>
 
 <template>
-  <button class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
-    @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
-    @dblclick.stop="$emit('open', { item })" :title="titleDesc">
-    <input v-if="showCheckbox" class="file-checkbox" type="checkbox" :checked="active"
-      @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop />
+  <button
+    class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
+    :title="titleDesc" @click.stop="$emit('select', { item, event: $event })"
+    @keyup.enter="$emit('open', { item })" @dblclick.stop="$emit('open', { item })"
+  >
+    <input
+      v-if="showCheckbox" class="file-checkbox" type="checkbox" :checked="active"
+      @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop
+    >
     <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" />
     <span class="desktop-icon-name" @click.stop="$emit('open', { item })" @dblclick.stop>{{
       nameDisplay
@@ -56,7 +60,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
   }
 
   &.hidden {
-    &>* {
+    & > * {
       opacity: 0.6;
     }
   }

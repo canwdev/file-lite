@@ -1,6 +1,6 @@
 {
   "name": "file-lite",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "private": true,
   "scripts": {
@@ -9,7 +9,8 @@
     "build:cjs": "bun build --target=node --format=cjs --outfile=dist/file-lite.min.cjs ./src/main.ts",
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
     "build:auto": "bun run ./docs/build.ts",
-    "lint": "eslint src/**/*.{ts,tsx,vue} --fix",
+    "lint": "eslint src/**/*.{ts,tsx,vue} frontend/**/*.{ts,tsx,vue} --fix",
+    "lint:backend": "eslint src/**/*.{ts,tsx,vue} --fix",
     "lint:frontend": "eslint frontend/**/*.{ts,tsx,vue} --fix"
   },
   "peerDependencies": {

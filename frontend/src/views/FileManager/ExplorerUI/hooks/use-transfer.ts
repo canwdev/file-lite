@@ -1,10 +1,10 @@
-import {useDropZone, useFileDialog} from '@vueuse/core'
-import {normalizePath} from '../../utils'
-import {fsWebApi} from '@/api/filesystem'
-import {downloadUrl} from '@/utils'
-import {IEntry} from '@server/types/server'
+import type { IEntry } from '@server/types/server'
+import { useDropZone, useFileDialog } from '@vueuse/core'
+import { fsWebApi } from '@/api/filesystem'
+import { downloadUrl } from '@/utils'
+import { normalizePath } from '../../utils'
 
-export const useTransfer = ({
+export function useTransfer({
   basePath,
   isLoading,
   selectedItems,
@@ -12,22 +12,21 @@ export const useTransfer = ({
   basePath: Ref<string>
   isLoading: Ref<boolean>
   selectedItems: Ref<IEntry[]>
-}) => {
+}) {
   const uploadFiles = async (files: File[] | FileList | null) => {
     if (!files) {
       return
     }
-    // @ts-ignore
     for (const file of files) {
       uploadQueueRef.value.addTask({
         filename: file.name,
-        path: normalizePath(basePath.value + '/' + file.name),
+        path: normalizePath(`${basePath.value}/${file.name}`),
         file,
       })
     }
   }
 
-  const {open: selectUploadFiles, onChange: onSelectFiles} = useFileDialog({
+  const { open: selectUploadFiles, onChange: onSelectFiles } = useFileDialog({
     multiple: true,
     reset: true,
   })
@@ -49,17 +48,18 @@ export const useTransfer = ({
 
         uploadQueueRef.value.addTask({
           filename: file.name,
-          path: normalizePath(basePath.value + '/' + path + file.name),
+          path: normalizePath(`${basePath.value}/${path}${file.name}`),
           file,
         })
       })
-    } else if (item.isDirectory) {
+    }
+    else if (item.isDirectory) {
       // console.log('Dir', item)
       // Get folder contents
       const dirReader = item.createReader()
       dirReader.readEntries((entries) => {
         for (let i = 0; i < entries.length; i++) {
-          traverseFileTree(entries[i], path + item.name + '/')
+          traverseFileTree(entries[i], `${path + item.name}/`)
         }
       })
 
@@ -67,14 +67,15 @@ export const useTransfer = ({
         path: normalizePath(basePath.value + item.fullPath),
         ignoreExisted: true,
       })
-    } else {
+    }
+    else {
       // 前两种只有拖拽上传才会触发，这种方式是选择文件夹后触发
       // 选择上传文件夹的弊端是无法上传空文件夹
       // console.warn('normal file', item)
 
       uploadQueueRef.value.addTask({
         filename: item.name,
-        path: normalizePath(basePath.value + '/' + item.webkitRelativePath),
+        path: normalizePath(`${basePath.value}/${item.webkitRelativePath}`),
         file: item,
       })
     }
@@ -82,7 +83,7 @@ export const useTransfer = ({
 
   const {
     open: selectUploadFolder,
-    reset: resetSelectFolder,
+    // reset: resetSelectFolder,
     onChange: onSelectFolder,
   } = useFileDialog({
     directory: true,
@@ -107,7 +108,7 @@ export const useTransfer = ({
       const paths: string[] = []
       for (const itemsKey in selectedItems.value) {
         const item = selectedItems.value[itemsKey]
-        paths.push(encodeURIComponent(normalizePath(basePath.value + '/' + item.name)))
+        paths.push(encodeURIComponent(normalizePath(`${basePath.value}/${item.name}`)))
       }
 
       // console.log(paths)
@@ -115,12 +116,13 @@ export const useTransfer = ({
       // console.log(url)
       // window.open(url)
       downloadUrl(url)
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
   const dropZoneRef = ref<HTMLDivElement>()
-  const {isOverDropZone} = useDropZone(dropZoneRef, {
+  const { isOverDropZone } = useDropZone(dropZoneRef, {
     onDrop: (files, event) => {
       const items = event.dataTransfer?.items || []
       // console.log(items)

@@ -1,11 +1,11 @@
 <script lang="ts" setup>
+import ContextMenu from '@imengyu/vue3-context-menu'
+import { PKG_NAME, VERSION } from '@server/enum/version.ts'
+import { contextMenuTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
-import ContextMenu from '@imengyu/vue3-context-menu'
-import {contextMenuTheme, ThemeMode, themeMode} from '@/hooks/use-global-theme.ts'
-import {PKG_NAME, VERSION} from '@server/enum/version.ts'
 
-const showMenu = (event: MouseEvent) => {
+function showMenu(event: MouseEvent) {
   const button = event.target?.closest('button') as HTMLElement
   const rect = button?.getBoundingClientRect()
 
@@ -20,9 +20,11 @@ const showMenu = (event: MouseEvent) => {
         onClick: () => {
           if (themeMode.value === ThemeMode.Auto) {
             themeMode.value = ThemeMode.Dark
-          } else if (themeMode.value === ThemeMode.Light) {
+          }
+          else if (themeMode.value === ThemeMode.Light) {
             themeMode.value = ThemeMode.Auto
-          } else {
+          }
+          else {
             themeMode.value = ThemeMode.Light
           }
         },
@@ -50,7 +52,7 @@ const showMenu = (event: MouseEvent) => {
   <FileManager>
     <template #headerRight>
       <button class="btn-action btn-no-style" title="Menu" @click="showMenu">
-        <span class="mdi mdi-menu"></span>
+        <span class="mdi mdi-menu" />
       </button>
     </template>
   </FileManager>

@@ -5,14 +5,14 @@ interface Props {
   src?: string
   isVideo?: boolean
 }
-const props = withDefaults(defineProps<Props>(), {})
+withDefaults(defineProps<Props>(), {})
 </script>
 
 <template>
   <button class="btn-no-style btn-cover flex items-center justify-center">
-    <slot></slot>
+    <slot />
     <CoverDisplay v-if="src" :src="src" />
-    <i v-else class="icon-wrap mdi" :class="[isVideo ? 'mdi-video-outline' : 'mdi-music-note']"></i>
+    <i v-else class="icon-wrap mdi" :class="[isVideo ? 'mdi-video-outline' : 'mdi-music-note']" />
   </button>
 </template>
 
