@@ -1,10 +1,10 @@
-import path from 'path'
-import fs from 'fs/promises'
-import {spawn} from 'child_process'
+import { spawn } from 'node:child_process'
 import * as console from 'node:console'
-import {VERSION} from '../src/enum/version.ts'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { VERSION } from '../src/enum/version.ts'
 
-const generateStartBat = async (jsName = 'main.js') => {
+async function generateStartBat(jsName = 'main.js') {
   return `@echo off
 cd /d %~dp0
 
@@ -12,22 +12,23 @@ node .\\${jsName}
 pause
 `
 }
-const generateStartSh = async (jsName = 'main.js') => {
+async function generateStartSh(jsName = 'main.js') {
   return `#!/usr/bin/env bash
 cd "$(dirname "$0")"
-
+  
 node ./${jsName}
 `
 }
 
-const run = (command: string, args: string[], cwd: string): Promise<void> => {
+function run(command: string, args: string[], cwd: string): Promise<void> {
   console.log(`\n> ${command} ${args.join(' ')}`) // 使用 > 符号，更像 shell 提示符
   return new Promise((resolve, reject) => {
-    spawn(command, args, {cwd, stdio: 'inherit'})
+    spawn(command, args, { cwd, stdio: 'inherit' })
       .on('close', (code) => {
         if (code === 0) {
           resolve()
-        } else {
+        }
+        else {
           reject(new Error(`Command failed with exit code: ${code}`))
         }
       })
@@ -35,7 +36,7 @@ const run = (command: string, args: string[], cwd: string): Promise<void> => {
   })
 }
 
-const runInDir = async (title: string, cwd: string, commands: string[]) => {
+async function runInDir(title: string, cwd: string, commands: string[]) {
   console.log(`\n--- ${title} ---`)
   for (const cmdStr of commands) {
     const [command, ...args] = cmdStr.split(' ')
@@ -43,14 +44,14 @@ const runInDir = async (title: string, cwd: string, commands: string[]) => {
   }
 }
 
-const createArchive = (fromPath, distName) => {
+function createArchive(fromPath, distName) {
   console.log(`>>> Creating archive: ${fromPath}`)
   const distFile = path.resolve(fromPath, `../${distName}.zip`)
   return new Promise((resolve, reject) => {
     const archiver = require('archiver')
-    const output = require('fs').createWriteStream(distFile)
+    const output = require('node:fs').createWriteStream(distFile)
     const archive = archiver('zip', {
-      zlib: {level: 9},
+      zlib: { level: 9 },
       forceLocalTime: true,
     })
     archive.pipe(output)
@@ -64,7 +65,7 @@ const createArchive = (fromPath, distName) => {
   })
 }
 
-const build = async () => {
+async function build() {
   const builderPath = __dirname
 
   const distDir = path.resolve(builderPath, '../dist')
@@ -72,7 +73,7 @@ const build = async () => {
   const frontendPath = path.join(builderPath, '../frontend')
 
   // 1. 清理旧的构建产物
-  await fs.rm(distDir, {recursive: true, force: true})
+  await fs.rm(distDir, { recursive: true, force: true })
   console.log('Cleaned dist directory.')
 
   // 2. 构建后端

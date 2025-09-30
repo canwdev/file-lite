@@ -1,6 +1,6 @@
-import {Request, Response, NextFunction} from 'express'
-import {authToken, config} from '@/enum/config.ts'
-import {IPRateLimiter} from './auth-limiter'
+import type { NextFunction, Request, Response } from 'express'
+import { authToken, config } from '@/enum/config.ts'
+import { IPRateLimiter } from './auth-limiter'
 
 // ⭐️ 在应用启动时创建 IPRateLimiter 的单例
 // 这确保了所有请求共享同一个状态跟踪器
@@ -9,7 +9,7 @@ const authLimiter = new IPRateLimiter({
   banDurationMs: 15 * 60 * 1000, // 封禁时长 (15分钟)
 })
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   if (config.noAuth) {
     return next()
   }
@@ -25,7 +25,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     })
   }
 
-  const token = req.headers['authorization'] || req.query.auth
+  const token = req.headers.authorization || req.query.auth
 
   // 2. 验证Token
   if (token === authToken) {
@@ -36,5 +36,5 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   // 3. 验证失败，通知limiter
   authLimiter.recordFailure(ip)
-  return res.status(401).json({message: 'Authorization failed'})
+  return res.status(401).json({ message: 'Authorization failed' })
 }
