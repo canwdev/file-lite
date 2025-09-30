@@ -12,24 +12,24 @@ export function useFileActions({
   isLoading,
   selectedPaths,
   basePath,
+  selectedItemsSet,
   selectedItems,
   enablePaste,
   handlePaste,
   handleCut,
   handleCopy,
-  selectedItemsSet,
   handleDownload,
   emit,
 }: {
   isLoading: Ref<boolean>
   selectedPaths: Ref<string[]>
   basePath: Ref<string>
+  selectedItemsSet: Ref<Set<IEntry>>
   selectedItems: Ref<IEntry[]>
   enablePaste: Ref<boolean>
   handlePaste: () => Promise<void>
   handleCut: () => void
   handleCopy: () => void
-  selectedItemsSet: Ref<Set<IEntry>>
   handleDownload: () => Promise<void>
   emit: any
 }) {
@@ -195,11 +195,12 @@ export function useFileActions({
     getMenuOptions: () => MenuItem[],
   ) => {
     if (!item) {
-      selectedItems.value = []
+      selectedItemsSet.value.clear()
     }
     else {
       if (!selectedItemsSet.value.has(item)) {
-        selectedItems.value = [item]
+        selectedItemsSet.value.clear()
+        selectedItemsSet.value.add(item)
       }
     }
 

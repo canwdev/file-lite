@@ -31,7 +31,6 @@ const router = createRouter({
         skipLogin: true,
       },
     },
-    // 404
     {
       path: '/:pathMatch(.*)*',
       name: 'Page404',
