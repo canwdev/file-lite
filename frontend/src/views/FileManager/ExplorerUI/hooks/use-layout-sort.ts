@@ -8,7 +8,7 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { sortMethodMap } from '../../utils/sort'
 
-export function useLayoutSort(files: Ref<IEntry[]>) {
+export function useLayoutSort(files: Ref<IEntry[]>, emit) {
   const isGridView = ref(false)
   const sortMode = ref(SortType.default)
 
@@ -57,7 +57,7 @@ export function useLayoutSort(files: Ref<IEntry[]>) {
             iconClass: `mdi ${getFileIconClass(item)}`,
           }),
           h('span', {
-            class: 'title-text',
+            class: 'title-text text-overflow',
             onClick: (e) => {
               e.stopPropagation()
               emit('open', { item })

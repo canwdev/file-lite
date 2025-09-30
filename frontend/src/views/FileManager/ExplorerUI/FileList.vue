@@ -42,7 +42,7 @@ useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 布局和排序方式
 const { isGridView, sortOptions, filteredFiles, showHidden, tableColumns }
-  = useLayoutSort(files)
+  = useLayoutSort(files, emit)
 
 const allowMultipleSelection = computed(() => {
   if (selectFileMode.value === 'folder') {
