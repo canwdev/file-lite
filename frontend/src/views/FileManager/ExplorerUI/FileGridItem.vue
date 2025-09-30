@@ -21,12 +21,22 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     :title="titleDesc" @click.stop="$emit('select', { item, event: $event })"
     @keyup.enter="$emit('open', { item })" @dblclick.stop="$emit('open', { item })"
   >
-    <input
-      v-if="showCheckbox" class="file-checkbox" type="checkbox" :checked="active"
+    <span
+      v-if="showCheckbox"
+      class="file-checkbox mdi" :class="[
+        active ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
+      ]"
       @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop
-    >
+    />
+
     <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" />
-    <span class="desktop-icon-name" @click.stop="$emit('open', { item })" @dblclick.stop>{{
+    <span
+      class="desktop-icon-name"
+      :class="{
+        error: item.error,
+      }"
+      @click.stop="$emit('open', { item })" @dblclick.stop
+    >{{
       nameDisplay
     }}</span>
   </button>
@@ -60,7 +70,8 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
   }
 
   &.hidden {
-    & > * {
+    .desktop-icon-image,
+    .desktop-icon-name {
       opacity: 0.6;
     }
   }
@@ -79,6 +90,10 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     top: 4px;
     left: 4px;
     visibility: hidden;
+    cursor: pointer;
+    @media screen and (max-width: $mq_mobile_width) {
+      visibility: visible;
+    }
   }
 
   .desktop-icon-image {
@@ -95,15 +110,19 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
   .desktop-icon-name {
     text-align: center;
     font-size: 12px;
-    padding-top: 4px;
     line-height: 1.4;
     width: 100%;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
     cursor: pointer;
-
     &:hover {
       text-decoration: underline;
+    }
+    &.error {
+      color: #f44336;
     }
   }
 }

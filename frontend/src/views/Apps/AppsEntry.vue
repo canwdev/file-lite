@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Apps } from './apps'
+import { AppList, Apps } from './apps'
 import { appsStoreState } from './apps-store'
 
 function handleExit() {
@@ -19,15 +19,19 @@ watch(
     }
   },
 )
+
+const appDetails = computed(() => AppList.find(item => item.openWith === appsStoreState.appName))
 </script>
 
 <template>
   <div v-if="appsStoreState.isShowApp" ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0">
     <div class="title-bar">
-      <div class="font-code">
-        {{ appsStoreState.appParams?.absPath }}
+      <div class="title-text">
+        <span :class="appDetails?.icon" /><span style="font-size: 12px;">{{ appsStoreState.appParams?.absPath }}</span>
       </div>
-      <button class="btn-no-style mdi mdi-close" @click="handleExit" />
+      <button class="btn-no-style btn-close" @click="handleExit">
+        <span class="mdi mdi-close" />
+      </button>
     </div>
 
     <!-- <pre>{{ appsStoreState }}</pre> -->
@@ -61,8 +65,31 @@ watch(
     gap: 8px;
     font-size: 14px;
     font-weight: 500;
-    border-radius: 0 0 8px 8px;
-    padding: 0 10px;
+    padding: 0 0 0 10px;
+    border-bottom: 1px solid var(--vgo-color-border);
+    .title-text {
+      font-size: 14px;
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      .mdi {
+        color: var(--vgo-primary);
+      }
+    }
+
+    .btn-close {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      font-size: 16px;
+      &:hover {
+        background-color: var(--vgo-primary-opacity);
+      }
+    }
   }
 
   .app-container {

@@ -17,7 +17,7 @@ export function getFileIconClass(item?: IEntry) {
     return 'mdi-folder'
   }
   if (regArchiveFormat.test(ext)) {
-    return `mdi-archive`
+    return `mdi-zip-box`
   }
   if (regImageFormat.test(ext)) {
     return `mdi-file-image`
@@ -29,7 +29,7 @@ export function getFileIconClass(item?: IEntry) {
     return `mdi-file-video-outline`
   }
   if (regExeFormat.test(ext)) {
-    return `mdi-window-maximize`
+    return `mdi-microsoft-windows`
   }
   if (regSupportedTextFormat.test(ext)) {
     if (/.vue$/.test(ext)) {
@@ -55,5 +55,5 @@ export function getFileIconClass(item?: IEntry) {
     }
     return `mdi-text-box-outline`
   }
-  return 'mdi-file'
+  return 'mdi-file-question'
 }
