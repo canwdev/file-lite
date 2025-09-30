@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {MediaItem, useMusicSettingsStore} from './utils/music-state'
-import {fsWebApi} from '@/api/filesystem'
-import {MusicEvents, useBusOn, useMediaStore} from './utils/media-store'
+import type { MediaItem } from './utils/music-state'
+import { fsWebApi } from '@/api/filesystem'
+import { MusicEvents, useBusOn, useMediaStore } from './utils/media-store'
+import { useMusicSettingsStore } from './utils/music-state'
 
 // interface Props {}
 // const props = withDefaults(defineProps<Props>(), {})
@@ -13,29 +14,30 @@ const avRef = ref()
 const mSettingsStore = useMusicSettingsStore()
 const avSrc = ref<string | undefined>()
 
-const play = () => {
+function play() {
   avRef.value.play()
 }
-const pause = () => {
+function pause() {
   avRef.value.pause()
 }
-const previous = () => {
+function previous() {
   mediaStore.playPrev()
 }
-const next = () => {
+function next() {
   mediaStore.playNext()
 }
-const togglePlay = () => {
+function togglePlay() {
   if (!avRef.value || !avRef.value.src) {
     return
   }
   if (avRef.value.paused) {
     play()
-  } else {
+  }
+  else {
     pause()
   }
 }
-const registerMediaEvents = (av) => {
+function registerMediaEvents(av) {
   // console.log(av)
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', play)
@@ -64,7 +66,7 @@ const registerMediaEvents = (av) => {
     // console.log(av.volume)
     mSettingsStore.setAudioVolume(av.volume * 100)
   })
-  av.addEventListener('ratechange', function () {
+  av.addEventListener('ratechange', () => {
     // console.log('[ratechange]', av.playbackRate)
     mediaStore.playbackRate = av.playbackRate
   })
@@ -87,19 +89,20 @@ const registerMediaEvents = (av) => {
     window.$message.error('Load media failed')
   })
 }
-const changeCurrentTime = (newTime) => {
+function changeCurrentTime(newTime) {
   avRef.value && (avRef.value.currentTime = newTime)
 }
-const changeVolume = (val) => {
+function changeVolume(val) {
   avRef.value && (avRef.value.volume = val / 100)
 }
-const changeSpeed = (val = 1) => {
+function changeSpeed(val = 1) {
   if (!avRef.value) {
     return
   }
   try {
     avRef.value.playbackRate = val
-  } catch (e: any) {
+  }
+  catch (e: any) {
     window.$message.error(e.message)
   }
 }
@@ -123,7 +126,7 @@ watch(
       changeSpeed(playbackRate)
     })
   },
-  {immediate: true},
+  { immediate: true },
 )
 
 watch(
@@ -135,7 +138,7 @@ watch(
       registerMediaEvents(avRef.value)
     })
   },
-  {immediate: true},
+  { immediate: true },
 )
 
 useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_TOGGLE_PLAY, togglePlay)
@@ -148,8 +151,8 @@ onBeforeUnmount(() => {})
 
 <template>
   <div class="player-core" :class="[mediaStore.isVideo ? 'is-video' : 'is-audio']">
-    <video v-if="mediaStore.isVideo" ref="avRef" :src="avSrc" controls></video>
-    <audio v-else ref="avRef" :src="avSrc" controls></audio>
+    <video v-if="mediaStore.isVideo" ref="avRef" :src="avSrc" controls />
+    <audio v-else ref="avRef" :src="avSrc" controls />
   </div>
 </template>
 

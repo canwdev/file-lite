@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {appsStoreState} from './apps-store'
-import {Apps} from './apps'
+import { Apps } from './apps'
+import { appsStoreState } from './apps-store'
 
-const handleExit = () => {
+function handleExit() {
   appsStoreState.isShowApp = false
   appsStoreState.appParams = null
 }
@@ -22,17 +22,19 @@ watch(
 </script>
 
 <template>
-  <div ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0" v-if="appsStoreState.isShowApp">
+  <div v-if="appsStoreState.isShowApp" ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0">
     <div class="title-bar">
-      <div class="font-code">{{ appsStoreState.appParams?.absPath }}</div>
-      <button @click="handleExit" class="btn-no-style mdi mdi-close"></button>
+      <div class="font-code">
+        {{ appsStoreState.appParams?.absPath }}
+      </div>
+      <button class="btn-no-style mdi mdi-close" @click="handleExit" />
     </div>
 
-    <!--<pre>{{ appsStoreState }}</pre>-->
+    <!-- <pre>{{ appsStoreState }}</pre> -->
     <div class="app-container">
       <component
         :is="Apps[appsStoreState.appName]"
-        :appParams="appsStoreState.appParams"
+        :app-params="appsStoreState.appParams"
         @exit="handleExit"
       />
     </div>

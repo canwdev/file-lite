@@ -1,8 +1,8 @@
-import {createRouter, createWebHistory} from 'vue-router'
+import { VERSION } from '@server/enum/version.ts'
+import { createRouter, createWebHistory } from 'vue-router'
+import { fsWebApi } from '@/api/filesystem'
+import { authToken } from '@/store'
 import FileLite from '@/views/FileLite.vue'
-import {authToken} from '@/store'
-import {fsWebApi} from '@/api/filesystem'
-import {VERSION} from '@server/enum/version.ts'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,14 +44,14 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  const query = {...to.query}
+  const query = { ...to.query }
 
   if (query.auth) {
     // console.log(query)
     authToken.value = query.auth as string
     delete query.auth
     return next({
-      query: query,
+      query,
     })
   }
   if (to.meta.skipLogin) {
@@ -60,7 +60,8 @@ router.beforeEach(async (to, from, next) => {
   try {
     // throw new Error('test')
     await fsWebApi.auth()
-  } catch (error) {
+  }
+  catch (error) {
     console.error(error)
     return next({
       name: 'LoginView',
@@ -72,7 +73,7 @@ router.beforeEach(async (to, from, next) => {
   return next()
 })
 
-router.afterEach((to, from) => {
+router.afterEach((to) => {
   document.title = `${to.meta?.title ? `${to.meta?.title} - ` : ''}File Lite v${VERSION}`
 })
 

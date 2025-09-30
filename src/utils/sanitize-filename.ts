@@ -29,7 +29,7 @@ const illegalRe = /[/?<>\\:*|"]/g
 // eslint-disable-next-line no-control-regex
 const controlRe = /[\x00-\x1F\x80-\x9F]/g
 const reservedRe = /^\.+$/
-// eslint-disable-next-line regexp/no-unused-capturing-group
+
 const windowsReservedRe = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i
 const windowsTrailingRe = /[. ]+$/
 

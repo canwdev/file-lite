@@ -1,14 +1,16 @@
 <script lang="ts" setup>
 import { authToken } from '@/store'
+
 const router = useRouter()
 const route = useRoute()
 
 const authTokenInput = ref('')
-const confirmAuthToken = async () => {
+async function confirmAuthToken() {
   authToken.value = authTokenInput.value
   if (route.query.redirect) {
     await router.push({ path: route.query.redirect as string })
-  } else {
+  }
+  else {
     await router.push({ path: '/' })
   }
 }
@@ -26,11 +28,17 @@ onMounted(() => {
 <template>
   <div class="auth-wrapper">
     <div class="vgo-panel">
-      <div class="login-title">Login</div>
+      <div class="login-title">
+        Login
+      </div>
       <div class="flex-row-center-gap">
-        <el-input ref="inputRef" type="password" clearable show-password v-model="authTokenInput"
-          placeholder="Input auth token" @keyup.enter="confirmAuthToken" style="width: 200px" />
-        <el-button @click="confirmAuthToken" type="primary">OK</el-button>
+        <el-input
+          ref="inputRef" v-model="authTokenInput" type="password" clearable show-password
+          placeholder="Input auth token" style="width: 200px" @keyup.enter="confirmAuthToken"
+        />
+        <el-button type="primary" @click="confirmAuthToken">
+          OK
+        </el-button>
       </div>
     </div>
   </div>

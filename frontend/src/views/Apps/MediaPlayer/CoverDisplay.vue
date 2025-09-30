@@ -24,7 +24,7 @@ export default {
 
 <template>
   <div class="cover-display">
-    <img v-if="src" :src="src" :class="{rounded: isRounded, rotating: isRotating}" />
+    <img v-if="src" :src="src" :class="{ rounded: isRounded, rotating: isRotating }">
     <span v-else-if="isShowIcon" class="cover-icon">CC</span>
   </div>
 </template>

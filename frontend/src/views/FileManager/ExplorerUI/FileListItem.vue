@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import {bytesToSize, formatDate} from '@/utils'
-import {IEntry} from '@server/types/server'
-import {useFileItem} from './hooks/use-file-item'
+import type { IEntry } from '@server/types/server'
+import { bytesToSize, formatDate } from '@/utils'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
+import { useFileItem } from './hooks/use-file-item'
 
-const emit = defineEmits(['open', 'select'])
+const props = withDefaults(defineProps<Props>(), {})
+
+defineEmits(['open', 'select'])
 
 interface Props {
   item: IEntry
   active: boolean
   showCheckbox?: boolean
 }
-const props = withDefaults(defineProps<Props>(), {})
-
-const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
+const { iconClass, titleDesc, extDisplay, nameDisplay } = useFileItem(props)
 </script>
 
 <template>
   <button
     class="btn-no-style file-list-item file-list-row"
-    :class="{active, hidden: item.hidden}"
-    @click.stop="$emit('select', {item, event: $event})"
-    @keyup.enter="$emit('open', {item})"
-    @dblclick.stop="$emit('open', {item})"
+    :class="{ active, hidden: item.hidden }"
     :title="titleDesc"
+    @click.stop="$emit('select', { item, event: $event })"
+    @keyup.enter="$emit('open', { item })"
+    @dblclick.stop="$emit('open', { item })"
   >
     <div class="list-col c-checkbox">
       <input
@@ -31,13 +31,13 @@ const {iconClass, titleDesc, extDisplay, nameDisplay} = useFileItem(props)
         class="file-checkbox"
         type="checkbox"
         :checked="active"
-        @click.stop="$emit('select', {item, event: $event, toggle: true})"
+        @click.stop="$emit('select', { item, event: $event, toggle: true })"
         @dblclick.stop
-      />
+      >
     </div>
     <span class="list-col c-filename">
       <ThemedIcon :icon-class="iconClass" />
-      <span class="text-overflow filename-text" @click.stop="$emit('open', {item})" @dblclick.stop>
+      <span class="text-overflow filename-text" @click.stop="$emit('open', { item })" @dblclick.stop>
         {{ nameDisplay }}
       </span>
     </span>

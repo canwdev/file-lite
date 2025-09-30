@@ -1,13 +1,14 @@
+import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { IEntry } from '@server/types/server'
+import ContextMenu from '@imengyu/vue3-context-menu'
 import moment from 'moment/moment'
-import {fsWebApi} from '@/api/filesystem'
-import {generateTextFile, normalizePath} from '../../utils'
-import {IEntry} from '@server/types/server'
-import {showInputPrompt} from '@/views/FileManager/ExplorerUI/input-prompt.ts'
-import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
-import {AppList, OpenWithEnum} from '@/views/Apps/apps'
-import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
+import { fsWebApi } from '@/api/filesystem'
+import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { AppList, OpenWithEnum } from '@/views/Apps/apps'
+import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
+import { generateTextFile, normalizePath } from '../../utils'
 
-export const useFileActions = ({
+export function useFileActions({
   isLoading,
   selectedPaths,
   basePath,
@@ -31,22 +32,23 @@ export const useFileActions = ({
   selectedItemsSet: Ref<Set<IEntry>>
   handleDownload: () => Promise<void>
   emit: any
-}) => {
+}) {
   const handleCreateFile = async (name = '', content = '') => {
     try {
-      name =
-        name ||
-        (await showInputPrompt({
-          title: 'Create File',
-          value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
-        }))
+      name
+        = name
+          || (await showInputPrompt({
+            title: 'Create File',
+            value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
+          }))
       isLoading.value = true
       await fsWebApi.uploadFile({
-        path: normalizePath(basePath.value + '/' + name),
+        path: normalizePath(`${basePath.value}/${name}`),
         file: generateTextFile(content, name),
       })
       emit('refresh')
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -57,9 +59,10 @@ export const useFileActions = ({
         value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}`,
       })
       isLoading.value = true
-      await fsWebApi.createDir({path: normalizePath(basePath.value + '/' + name)})
+      await fsWebApi.createDir({ path: normalizePath(`${basePath.value}/${name}`) })
       emit('refresh')
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -73,11 +76,12 @@ export const useFileActions = ({
       })
       isLoading.value = true
       await fsWebApi.renameEntry({
-        fromPath: normalizePath(basePath.value + '/' + item.name),
-        toPath: normalizePath(basePath.value + '/' + name),
+        fromPath: normalizePath(`${basePath.value}/${item.name}`),
+        toPath: normalizePath(`${basePath.value}/${name}`),
       })
       emit('refresh')
-    } finally {
+    }
+    finally {
       isLoading.value = false
     }
   }
@@ -88,7 +92,8 @@ export const useFileActions = ({
       await fsWebApi.deleteEntry({
         path: selectedPaths.value,
       })
-    } finally {
+    }
+    finally {
       isLoading.value = false
       emit('refresh')
     }
@@ -114,7 +119,7 @@ export const useFileActions = ({
   const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
-        {label: 'Refresh', icon: 'mdi mdi-refresh', onClick: () => emit('refresh')},
+        { label: 'Refresh', icon: 'mdi mdi-refresh', onClick: () => emit('refresh') },
         {
           label: 'Paste',
           icon: 'mdi mdi-content-paste',
@@ -125,7 +130,6 @@ export const useFileActions = ({
     }
     const isSingle = selectedItems.value.length === 1
     const isFile = isSingle && !selectedItems.value[0].isDirectory
-    // @ts-ignore
     return [
       isSingle && {
         label: 'Open',
@@ -135,54 +139,54 @@ export const useFileActions = ({
           })
         },
       },
-      isSingle &&
-        isFile && {
-          label: 'Open With',
-          icon: 'mdi mdi-open-in-app',
-          children: [
-            {
-              label: 'Browser',
-              icon: 'mdi mdi-open-in-new',
-              onClick: () => {
-                emit('open', {
-                  item: selectedItems.value[0],
-                  openWith: OpenWithEnum.Browser,
-                })
-              },
+      isSingle
+      && isFile && {
+        label: 'Open With',
+        icon: 'mdi mdi-open-in-app',
+        children: [
+          {
+            label: 'Browser',
+            icon: 'mdi mdi-open-in-new',
+            onClick: () => {
+              emit('open', {
+                item: selectedItems.value[0],
+                openWith: OpenWithEnum.Browser,
+              })
             },
-            {
-              label: 'Share',
-              icon: 'mdi mdi-share-variant',
-              onClick: () => {
-                emit('open', {
-                  item: selectedItems.value[0],
-                  openWith: OpenWithEnum.Share,
-                })
-              },
-              divided: true,
+          },
+          {
+            label: 'Share',
+            icon: 'mdi mdi-share-variant',
+            onClick: () => {
+              emit('open', {
+                item: selectedItems.value[0],
+                openWith: OpenWithEnum.Share,
+              })
             },
-            ...AppList.map((app) => ({
-              label: app.name,
-              icon: app.icon,
-              onClick: () => {
-                emit('open', {
-                  item: selectedItems.value[0],
-                  openWith: app.openWith,
-                })
-              },
-            })),
-          ],
-        },
-      {label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true},
-      {label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut},
-      {label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true},
-      isSingle && {label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename},
+            divided: true,
+          },
+          ...AppList.map(app => ({
+            label: app.name,
+            icon: app.icon,
+            onClick: () => {
+              emit('open', {
+                item: selectedItems.value[0],
+                openWith: app.openWith,
+              })
+            },
+          })),
+        ],
+      },
+      { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true },
+      { label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut },
+      { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true },
+      isSingle && { label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename },
       {
         label: 'Delete',
         icon: 'mdi mdi-delete-forever-outline',
         onClick: confirmDelete,
       },
-    ].filter(Boolean)
+    ].filter(Boolean) as MenuItem[]
   })
 
   const handleShowCtxMenu = (
@@ -192,7 +196,8 @@ export const useFileActions = ({
   ) => {
     if (!item) {
       selectedItems.value = []
-    } else {
+    }
+    else {
       if (!selectedItemsSet.value.has(item)) {
         selectedItems.value = [item]
       }

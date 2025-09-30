@@ -1,5 +1,5 @@
-import {Message} from 'element-plus'
-import {SFCInstallWithContext} from 'element-plus/es/utils'
+import type { Message } from 'element-plus'
+import type { SFCInstallWithContext } from 'element-plus/es/utils'
 
 declare global {
   interface Window {

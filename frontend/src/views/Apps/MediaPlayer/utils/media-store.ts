@@ -1,9 +1,10 @@
-import {getRandomInt} from '@/utils'
-import {LoopModeType, MediaItem, useMusicSettingsStore} from '../utils/music-state'
+import type { MediaItem } from '../utils/music-state'
 import mitt from 'mitt'
-import {defineStore} from 'pinia'
+import { defineStore } from 'pinia'
+import { getRandomInt } from '@/utils'
+import { LoopModeType, useMusicSettingsStore } from '../utils/music-state'
 
-type IStore = {
+interface IStore {
   mediaBus: mitt
   mediaItem: MediaItem | null
   playingList: MediaItem[]
@@ -25,7 +26,7 @@ export const MusicEvents = {
   ACTION_LOCATE_FILE: 'ACTION_LOCATE_FILE',
 }
 // 创建多个实例的store
-export const useMediaStore = (uniqueStoreName = 'mediaStore') => {
+export function useMediaStore(uniqueStoreName = 'mediaStore') {
   const Store = defineStore(uniqueStoreName, {
     state: () => {
       // State
@@ -95,7 +96,8 @@ export const useMediaStore = (uniqueStoreName = 'mediaStore') => {
         if (index > state.playingList.length - 1) {
           if (mSettingsStore.loopMode === LoopModeType.LOOP_SEQUENCE) {
             index = 0
-          } else {
+          }
+          else {
             return
           }
         }
@@ -128,7 +130,8 @@ export const useMediaStore = (uniqueStoreName = 'mediaStore') => {
           if (state.isPlayEnded) {
             state.mediaBus.emit(MusicEvents.ACTION_PLAY)
             state.isPlayEnded = false
-          } else if (state.paused) {
+          }
+          else if (state.paused) {
             state.mediaBus.emit(MusicEvents.ACTION_PLAY)
           }
         }, 100)
@@ -162,7 +165,7 @@ export const useMediaStore = (uniqueStoreName = 'mediaStore') => {
 
   return new Store()
 }
-export const useBusOn = (mediaBus, event: string, fn: any) => {
+export function useBusOn(mediaBus, event: string, fn: any) {
   onMounted(() => {
     mediaBus.on(event, fn)
   })

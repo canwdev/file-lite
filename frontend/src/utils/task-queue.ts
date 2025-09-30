@@ -1,5 +1,5 @@
-import {guid} from './index'
 import EventEmitter from './event-emitter'
+import { guid } from './index'
 
 // 任务对象封装
 export class TaskItem {
@@ -16,7 +16,7 @@ export class TaskItem {
 
 // 通用异步任务队列
 export class TaskQueue extends EventEmitter {
-  public taskMap: {[key: string]: TaskItem}
+  public taskMap: { [key: string]: TaskItem }
   public tasks: TaskItem[]
   public executing: Promise<any>[]
   public getTaskMapKey: (task: TaskItem) => string
@@ -32,24 +32,24 @@ export class TaskQueue extends EventEmitter {
 
     // 并发数
     this.concurrent = options.concurrent || 3
-    //一个进程失败是否清空所有任务
+    // 一个进程失败是否清空所有任务
     this.errorEmptyTask = options.errorEmptyTask || false
     // 任务处理 Promise 函数
-    this.taskHandler =
-      options.taskHandler ||
-      ((task) => {
-        return new Promise((resolve) => {
-          setTimeout(() => {
+    this.taskHandler
+      = options.taskHandler
+        || ((task) => {
+          return new Promise((resolve) => {
+            setTimeout(() => {
             // console.log(task)
-            resolve(task)
-          }, 1000)
+              resolve(task)
+            }, 1000)
+          })
         })
-      })
-    this.getTaskMapKey =
-      options.getTaskMapKey ||
-      ((task) => {
-        return task.guid
-      })
+    this.getTaskMapKey
+      = options.getTaskMapKey
+        || ((task) => {
+          return task.guid
+        })
   }
 
   get executingNum() {
@@ -66,7 +66,7 @@ export class TaskQueue extends EventEmitter {
   }
 
   addTasks(dataList: any[]) {
-    dataList.forEach((data) => this.addTask(data))
+    dataList.forEach(data => this.addTask(data))
   }
 
   execute() {
@@ -79,7 +79,7 @@ export class TaskQueue extends EventEmitter {
       return
     }
     // 过滤正在运行尚未结束的任务
-    const availableTask = this.tasks.filter((item) => !item.running)
+    const availableTask = this.tasks.filter(item => !item.running)
     let lastCount = this.concurrent - this.executing.length
     // console.log('lastCount',lastCount)
 
@@ -120,7 +120,7 @@ export class TaskQueue extends EventEmitter {
     // })
   }
 
-  //清空所有任务
+  // 清空所有任务
   removeAllTask() {
     this.tasks = []
     this.taskMap = {}
@@ -131,7 +131,7 @@ export class TaskQueue extends EventEmitter {
     const key = this.getTaskMapKey(task)
     delete this.taskMap[key]
 
-    const index = this.tasks.findIndex((v) => v.guid === task.guid)
+    const index = this.tasks.findIndex(v => v.guid === task.guid)
     // console.log('taskHandler then', tsk, index)
     if (index > -1) {
       this.tasks.splice(index, 1)
