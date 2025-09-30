@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { MediaItem } from '../utils/music-state'
 import CoverMini from '../CoverMini.vue'
-import {MediaItem} from '../utils/music-state'
-import {useMediaStore} from '../utils/media-store'
+import { useMediaStore } from '../utils/media-store'
 
 interface Props {
   item: MediaItem
@@ -10,30 +10,34 @@ const props = withDefaults(defineProps<Props>(), {})
 const storeId = inject('storeId')
 const mediaStore = useMediaStore(storeId.value)
 
-const {item} = toRefs(props)
+const { item } = toRefs(props)
 const isCurrent = computed(() => {
   return item.value.guid === mediaStore.mediaItem?.guid
 })
 </script>
 
 <template>
-  <div class="playlist-item" :class="{active: isCurrent}">
+  <div class="playlist-item" :class="{ active: isCurrent }">
     <div class="item-left">
       <div v-if="isCurrent" class="status-icon">
         <template v-if="!mediaStore.paused">
-          <span class="mdi mdi-play"></span>
+          <span class="mdi mdi-play" />
         </template>
         <template v-else>
-          <span class="mdi mdi-pause"></span>
+          <span class="mdi mdi-pause" />
         </template>
       </div>
       <CoverMini :src="item.cover" force-show-icon :is-video="item.type === 'video'" />
     </div>
     <div class="item-main">
-      <div class="item-title">{{ item.titleDisplay }}</div>
-      <div class="item-subtitle">{{ item.artistsAlbumDisplay }}</div>
+      <div class="item-title">
+        {{ item.titleDisplay }}
+      </div>
+      <div class="item-subtitle">
+        {{ item.artistsAlbumDisplay }}
+      </div>
     </div>
-    <div class="item-right"></div>
+    <div class="item-right" />
   </div>
 </template>
 

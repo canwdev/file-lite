@@ -1,20 +1,19 @@
 <script lang="ts" setup>
-import {IEntry} from '@server/types/server'
-import FileListItem from './FileListItem.vue'
-import {useVModel} from '@vueuse/core'
-import FileGridItem from './FileGridItem.vue'
+import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { IEntry } from '@server/types/server'
+import ContextMenu from '@imengyu/vue3-context-menu'
+import { useVModel } from '@vueuse/core'
+import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { bytesToSize } from '@/utils'
 import UploadQueue from '../UploadQueue.vue'
-import {useCopyPaste} from './hooks/use-copy-paste'
-import {ExplorerEvents, useExplorerBusOn} from '../utils/bus'
-import {useLayoutSort} from './hooks/use-layout-sort'
-import {useSelection} from './hooks/use-selection'
-import {useFileActions} from './hooks/use-file-actions'
-import {useTransfer} from './hooks/use-transfer'
-import {bytesToSize} from '@/utils'
-import ContextMenu, {MenuItem} from '@imengyu/vue3-context-menu'
-import {contextMenuTheme} from '@/hooks/use-global-theme.ts'
-
-const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
+import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
+import FileGridItem from './FileGridItem.vue'
+import FileListItem from './FileListItem.vue'
+import { useCopyPaste } from './hooks/use-copy-paste'
+import { useFileActions } from './hooks/use-file-actions'
+import { useLayoutSort } from './hooks/use-layout-sort'
+import { useSelection } from './hooks/use-selection'
+import { useTransfer } from './hooks/use-transfer'
 
 const props = withDefaults(
   defineProps<{
@@ -34,18 +33,22 @@ const props = withDefaults(
     selectables: () => ['.explorer-list-wrap .selectable'],
   },
 )
-const {basePath, files, selectFileMode, multiple} = toRefs(props)
+
+const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
+
+const { basePath, files, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 布局和排序方式
-const {isGridView, sortOptions, filteredFiles, showHidden, sortableListHeader} =
-  useLayoutSort(files)
+const { isGridView, sortOptions, filteredFiles, showHidden, sortableListHeader }
+  = useLayoutSort(files)
 
 const allowMultipleSelection = computed(() => {
   if (selectFileMode.value === 'folder') {
     return false
-  } else if (selectFileMode.value === 'file') {
+  }
+  else if (selectFileMode.value === 'file') {
     return multiple.value
   }
   return true
@@ -60,10 +63,10 @@ const {
   isAllSelected,
   toggleSelectAll,
   selectedPaths,
-} = useSelection({filteredFiles, basePath, allowMultipleSelection, selectables: props.selectables})
+} = useSelection({ filteredFiles, basePath, allowMultipleSelection, selectables: props.selectables })
 
 // 复制粘贴功能
-const {enablePaste, handleCut, handleCopy, handlePaste} = useCopyPaste({
+const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
   selectedPaths,
   basePath,
   isLoading,
@@ -78,7 +81,7 @@ const {
   selectUploadFiles,
   selectUploadFolder,
   handleDownload,
-} = useTransfer({basePath, isLoading, selectedItems})
+} = useTransfer({ basePath, isLoading, selectedItems })
 
 watch(isLoading, (val) => {
   if (!val) {
@@ -109,11 +112,12 @@ const {
   emit,
 })
 
-const getMenuOptions = () => {
+function getMenuOptions() {
   let contextMenuOptions: MenuItem[] = []
   if (selectedItems.value.length) {
     contextMenuOptions = ctxMenuOptions.value
-  } else {
+  }
+  else {
     contextMenuOptions = [
       {
         label: 'Create File',
@@ -157,10 +161,10 @@ const getMenuOptions = () => {
   return contextMenuOptions
 }
 
-const updateMenuOptions = (item: IEntry | null, event: MouseEvent) => {
+function updateMenuOptions(item: IEntry | null, event: MouseEvent) {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
-const updateMenuOptions2 = (event: MouseEvent) => {
+function updateMenuOptions2(event: MouseEvent) {
   const button = event.target?.closest('button') as HTMLElement
   const rect = button?.getBoundingClientRect()
   ContextMenu.showContextMenu({
@@ -171,27 +175,34 @@ const updateMenuOptions2 = (event: MouseEvent) => {
   })
 }
 
-const handleShortcutKey = (event) => {
+function handleShortcutKey(event) {
   event.preventDefault()
   const key = event.key?.toLowerCase()
   const isCtrlOrMeta = event.ctrlKey || event.metaKey
   if (isCtrlOrMeta) {
     if (key === 'r') {
       emit('refresh')
-    } else if (key === 'a') {
+    }
+    else if (key === 'a') {
       toggleSelectAll()
-    } else if (key === 'x') {
+    }
+    else if (key === 'x') {
       handleCut()
-    } else if (key === 'c') {
+    }
+    else if (key === 'c') {
       handleCopy()
-    } else if (key === 'v') {
+    }
+    else if (key === 'v') {
       handlePaste()
-    } else if (key === 'h') {
+    }
+    else if (key === 'h') {
       showHidden.value = !showHidden.value
-    } else if (key === 'm') {
+    }
+    else if (key === 'm') {
       updateMenuOptions(null, event)
     }
-  } else {
+  }
+  else {
     if (key === 'delete') {
       confirmDelete()
     }
@@ -207,120 +218,122 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="dropZoneRef" :class="{isOverDropZone}" class="explorer-list-wrap" @contextmenu.prevent>
+  <div ref="dropZoneRef" :class="{ isOverDropZone }" class="explorer-list-wrap" @contextmenu.prevent>
     <transition name="fade">
-      <div v-if="isLoading" class="os-loading-container _absolute">Loading...</div>
+      <div v-if="isLoading" class="os-loading-container _absolute">
+        Loading...
+      </div>
     </transition>
     <div v-if="!contentOnly" class="explorer-actions vgo-panel">
       <div class="action-group">
-        <button class="btn-action btn-no-style" @click="handleCreateFile()" title="Create Document">
-          <span class="mdi mdi-file-document-plus-outline"></span>
+        <button class="btn-action btn-no-style" title="Create Document" @click="handleCreateFile()">
+          <span class="mdi mdi-file-document-plus-outline" />
         </button>
-        <button class="btn-action btn-no-style" @click="handleCreateFolder()" title="Create Folder">
-          <span class="mdi mdi-folder-plus-outline"></span>
+        <button class="btn-action btn-no-style" title="Create Folder" @click="handleCreateFolder()">
+          <span class="mdi mdi-folder-plus-outline" />
         </button>
 
         <template v-if="!selectFileMode">
-          <div class="split-line"></div>
+          <div class="split-line" />
 
           <button
             class="btn-action btn-no-style"
-            @click="() => selectUploadFiles()"
             title="Upload Files..."
+            @click="() => selectUploadFiles()"
           >
-            <span class="mdi mdi-file-upload-outline"></span>
+            <span class="mdi mdi-file-upload-outline" />
           </button>
           <button
             class="btn-action btn-no-style"
-            @click="() => selectUploadFolder()"
             title="Upload Folder..."
+            @click="() => selectUploadFolder()"
           >
-            <span class="mdi mdi-folder-upload-outline"></span>
+            <span class="mdi mdi-folder-upload-outline" />
           </button>
           <button
             class="btn-action btn-no-style"
             :disabled="!enableAction"
-            @click="handleDownload"
             title="Download"
+            @click="handleDownload"
           >
-            <span class="mdi mdi-file-download-outline"></span>
+            <span class="mdi mdi-file-download-outline" />
           </button>
 
-          <div class="split-line"></div>
+          <div class="split-line" />
 
           <button
             class="btn-action btn-no-style"
             :disabled="!enableAction"
-            @click="handleCut"
             title="Cut (ctrl+x)"
+            @click="handleCut"
           >
-            <span class="mdi mdi-content-cut"></span>
+            <span class="mdi mdi-content-cut" />
           </button>
           <button
             class="btn-action btn-no-style"
             :disabled="!enableAction"
-            @click="handleCopy"
             title="Copy (ctrl+c)"
+            @click="handleCopy"
           >
-            <span class="mdi mdi-content-copy"></span>
+            <span class="mdi mdi-content-copy" />
           </button>
           <button
             class="btn-action btn-no-style"
             :disabled="!enablePaste"
-            @click="handlePaste"
             title="Paste (ctrl+v)"
+            @click="handlePaste"
           >
-            <span class="mdi mdi-content-paste"></span>
+            <span class="mdi mdi-content-paste" />
           </button>
 
           <button
             class="btn-action btn-no-style"
             :disabled="selectedItems.length !== 1"
-            @click="handleRename"
             title="Rename"
+            @click="handleRename"
           >
-            <span class="mdi mdi-rename"></span>
+            <span class="mdi mdi-rename" />
           </button>
           <button
             class="btn-action btn-no-style"
             :disabled="!enableAction"
-            @click="confirmDelete"
             title="Delete (del)"
+            @click="confirmDelete"
           >
-            <span class="mdi mdi-delete-forever-outline"></span>
+            <span class="mdi mdi-delete-forever-outline" />
           </button>
         </template>
       </div>
       <div class="action-group">
         <button
           class="btn-action btn-no-style"
-          @click="showHidden = !showHidden"
           title="Toggle hidden file visible (ctrl+h)"
+          @click="showHidden = !showHidden"
         >
           <template v-if="showHidden">
-            <span class="mdi mdi-eye-outline"></span>
+            <span class="mdi mdi-eye-outline" />
           </template>
           <template v-else>
-            <span class="mdi mdi-eye-off-outline"></span>
+            <span class="mdi mdi-eye-off-outline" />
           </template>
         </button>
 
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
           <button
             class="btn-action btn-no-style"
-            @click="toggleSelectAll"
             title="Toggle Select All (ctrl+a)"
+            @click="toggleSelectAll"
           >
-            <span class="mdi mdi-check-all"></span>
+            <span class="mdi mdi-check-all" />
           </button>
         </template>
 
         <button
           class="btn-action btn-no-style"
-          @click="updateMenuOptions2($event)"
           title="Menu (ctrl+m)"
+          @click="updateMenuOptions2($event)"
         >
-          <span class="mdi mdi-dots-vertical"></span>
+          <span class="mdi mdi-dots-vertical" />
         </button>
       </div>
     </div>
@@ -339,12 +352,12 @@ defineExpose({
               class="file-checkbox"
               type="checkbox"
               :checked="isAllSelected"
-            />
+            >
           </div>
           <div
             v-for="item in sortableListHeader"
             :key="item.label"
-            :class="[item.className, {active: item.active}]"
+            :class="[item.className, { active: item.active }]"
             class="list-col"
             @click.stop="item.onClick"
           >
@@ -353,16 +366,16 @@ defineExpose({
               v-if="item.active"
               class="mdi"
               :class="[item.isDesc ? 'mdi-menu-down' : 'mdi-menu-up']"
-            ></span>
+            />
           </div>
         </div>
 
         <div class="file-list-content">
           <FileListItem
-            class="selectable"
-            :item="item"
             v-for="item in filteredFiles"
             :key="item.name"
+            class="selectable"
+            :item="item"
             :data-name="item.name"
             :active="selectedItemsSet.has(item)"
             :show-checkbox="allowMultipleSelection"
@@ -374,10 +387,10 @@ defineExpose({
       </div>
       <div v-else class="explorer-grid-view">
         <FileGridItem
-          class="selectable"
-          :item="item"
           v-for="item in filteredFiles"
           :key="item.name"
+          class="selectable"
+          :item="item"
           :data-name="item.name"
           :active="selectedItemsSet.has(item)"
           :show-checkbox="allowMultipleSelection"
@@ -396,20 +409,20 @@ defineExpose({
       </span>
 
       <button
-        @click="isGridView = !isGridView"
         class="btn-action btn-no-style"
         title="Toggle grid view"
+        @click="isGridView = !isGridView"
       >
         <template v-if="isGridView">
-          <span class="mdi mdi-view-grid-outline"></span>
+          <span class="mdi mdi-view-grid-outline" />
         </template>
         <template v-else>
-          <span class="mdi mdi-view-list-outline"></span>
+          <span class="mdi mdi-view-list-outline" />
         </template>
       </button>
     </div>
 
-    <UploadQueue ref="uploadQueueRef" @allDone="emit('refresh')" auto-close />
+    <UploadQueue ref="uploadQueueRef" auto-close @all-done="emit('refresh')" />
   </div>
 </template>
 

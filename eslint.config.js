@@ -7,7 +7,9 @@ export default antfu({
   rules: {
     'no-console': 'off',
     'no-alert': 'off',
-    'vue/no-mutating-props': 'off',
+    'vue/no-mutating-props': 'warn',
     'ts/no-use-before-define': 'off',
+    'regexp/no-unused-capturing-group': 'off',
+    'regexp/no-dupe-disjunctions': 'warn',
   },
 })

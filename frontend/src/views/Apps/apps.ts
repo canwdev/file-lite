@@ -1,5 +1,5 @@
-import {defineAsyncComponent} from 'vue'
-import {IEntry} from '@server/types/server.ts'
+import type { IEntry } from '@server/types/server.ts'
+import { defineAsyncComponent } from 'vue'
 
 export enum OpenWithEnum {
   Browser = 'Browser',
@@ -10,7 +10,7 @@ export enum OpenWithEnum {
   MediaPlayer = 'MediaPlayer',
 }
 
-export type AppParams = {
+export interface AppParams {
   absPath: string
   item: IEntry
   basePath: string

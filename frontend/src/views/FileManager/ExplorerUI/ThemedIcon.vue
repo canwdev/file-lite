@@ -1,8 +1,7 @@
 <script lang="ts" setup>
-interface Props {
+withDefaults(defineProps<{
   iconClass: string
-}
-const props = withDefaults(defineProps<Props>(), {})
+}>(), {})
 </script>
 
 <template>

@@ -1,13 +1,13 @@
 <script lang="ts" setup>
-import PlayerCore from './PlayerCore.vue'
-import MusicControl from './MusicControl.vue'
-import MusicPlaylist from './Playlist/index.vue'
-import {MediaItem} from './utils/music-state'
-import {isSupportedMediaFormat} from '@/utils/is'
+import type { AppParams } from '@/views/Apps/apps.ts'
 import FoldableSidebarLayout from '@canwdev/vgo-ui/src/components/Layouts/FoldableSidebarLayout.vue'
-import {useMediaStore} from './utils/media-store'
-import {guid} from '@/utils'
-import {AppParams} from '@/views/Apps/apps.ts'
+import { guid } from '@/utils'
+import { isSupportedMediaFormat } from '@/utils/is'
+import MusicControl from './MusicControl.vue'
+import PlayerCore from './PlayerCore.vue'
+import MusicPlaylist from './Playlist/index.vue'
+import { useMediaStore } from './utils/media-store'
+import { MediaItem } from './utils/music-state'
 
 const props = withDefaults(
   defineProps<{
@@ -32,17 +32,17 @@ watch(
     if (!props.appParams) {
       return
     }
-    const {item, list, basePath} = props.appParams
+    const { item, list, basePath } = props.appParams
     const medias = list
-      .map((i) => new MediaItem(i.name, basePath))
+      .map(i => new MediaItem(i.name, basePath))
       .filter((i) => {
         return isSupportedMediaFormat(i.filename)
       })
-    const idx = medias.findIndex((i) => i.filename === item.name)
+    const idx = medias.findIndex(i => i.filename === item.name)
 
     mediaStore.playFromList(medias, idx)
   },
-  {immediate: true},
+  { immediate: true },
 )
 </script>
 

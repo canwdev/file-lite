@@ -1,7 +1,7 @@
-import {AppParams, OpenWithEnum} from './apps'
-import {IEntry} from '@server/types/server.ts'
+import type { AppParams } from './apps'
+import { OpenWithEnum } from './apps'
 
-type AppsStore = {
+interface AppsStore {
   isShowApp: boolean
   appName: OpenWithEnum
   appParams: null | AppParams

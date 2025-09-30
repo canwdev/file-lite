@@ -1,17 +1,15 @@
-import {guid} from '@/utils'
-import {regSupportedAudioFormat} from '@/utils/is'
-import {normalizePath} from '@/views/FileManager/utils'
+import { guid } from '@/utils'
+import { regSupportedAudioFormat } from '@/utils/is'
+import { normalizePath } from '@/views/FileManager/utils'
 
 export type MediaType = 'music' | 'video'
 
-export interface MediaItem {
+export class MediaItem {
   guid: string
   filename: string
   basePath: string
   type: MediaType
-}
 
-export class MediaItem {
   constructor(filename: string, basePath: string) {
     this.guid = guid()
     this.filename = filename
@@ -20,7 +18,7 @@ export class MediaItem {
   }
 
   get absPath() {
-    return normalizePath(this.basePath + '/' + this.filename)
+    return normalizePath(`${this.basePath}/${this.filename}`)
   }
 
   get titleDisplay() {
@@ -74,13 +72,6 @@ export const loopModeMap = {
     className: 'mdi mdi-repeat-once',
     i18nKey: 'Single Cycle',
   },
-}
-
-interface IMusicSettings {
-  // 循环模式
-  loopMode: LoopModeType
-  // 音量
-  audioVolume: number
 }
 
 // 使用箭头函数和明确的类型定义

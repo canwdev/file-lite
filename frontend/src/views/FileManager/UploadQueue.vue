@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import type { TaskItem } from '@/utils/task-queue'
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/index.vue'
-import {TaskItem, TaskQueue} from '@/utils/task-queue'
-import {fsWebApi} from '@/api/filesystem'
-import {bytesToSize} from '@/utils'
-import {isDev} from '@/enum'
-import {useStorage} from '@vueuse/core'
+import { useStorage } from '@vueuse/core'
+import { fsWebApi } from '@/api/filesystem'
+import { bytesToSize } from '@/utils'
+import { TaskQueue } from '@/utils/task-queue'
 
 const props = withDefaults(
   defineProps<{
@@ -33,7 +33,7 @@ interface IUploadItem extends IBatchFile {
   // 上传失败时的错误信息
   message: string
   // 上传过程中的abort对象
-  abortObj?: {abort: () => void}
+  abortObj?: { abort: () => void }
   // 上传成功后返回的结果
   result?: any
   speedInfo?: {
@@ -56,7 +56,7 @@ watch(isVisible, (val) => {
   }
 })
 
-const cancelAll = () => {
+function cancelAll() {
   taskQueueRef.value.removeAllTask()
   listData.value.forEach((i) => {
     if (i.status === 'pending' || i.status === 'transferring' || i.abortObj) {
@@ -67,12 +67,13 @@ const cancelAll = () => {
   })
 }
 
-const taskHandler = (task: TaskItem) => {
-  const {data} = task
+function taskHandler(task: TaskItem) {
+  const { data } = task
   // console.log('--- taskHandler', task, data)
+  // eslint-disable-next-line no-async-promise-executor
   return new Promise(async (resolve, reject) => {
     try {
-      const {path, file} = data
+      const { path, file } = data
 
       const abortController = new AbortController()
       data.status = 'transferring'
@@ -80,7 +81,7 @@ const taskHandler = (task: TaskItem) => {
         abort: async () => {
           abortController.abort()
           // 由于后端无法获得取消事件，并且存在文件残留，需要手动删除
-          await fsWebApi.deleteEntry({path})
+          await fsWebApi.deleteEntry({ path })
         },
       }
       data.message = `Uploading`
@@ -109,7 +110,8 @@ const taskHandler = (task: TaskItem) => {
       data.message = 'Success'
       emit('singleDone', data)
       resolve(data)
-    } catch (e: any) {
+    }
+    catch (e: any) {
       console.error(e)
       data.status = 'failed'
       data.message = e.message
@@ -131,7 +133,7 @@ onMounted(() => {
   taskQueueRef.value.on('allDone', () => {
     emit('allDone', listData.value)
     if (props.autoClose) {
-      const hasError = listData.value.some((i) => i.status === 'failed')
+      const hasError = listData.value.some(i => i.status === 'failed')
       if (!hasError) {
         isVisible.value = false
       }
@@ -143,7 +145,7 @@ onBeforeUnmount(() => {
   taskQueueRef.value = []
 })
 
-const addTask = (data: IBatchFile, position: number = -1) => {
+function addTask(data: IBatchFile, position: number = -1) {
   data = {
     ...data,
     index: ++uploadIndex.value,
@@ -153,19 +155,20 @@ const addTask = (data: IBatchFile, position: number = -1) => {
   } as IUploadItem
   if (position !== -1) {
     listData.value.splice(position, 0, data as IUploadItem)
-  } else {
+  }
+  else {
     listData.value.push(data as IUploadItem)
   }
   taskQueueRef.value.addTask(data)
   isVisible.value = true
 }
-const addTasks = (data: IBatchFile[]) => {
+function addTasks(data: IBatchFile[]) {
   data.forEach((i) => {
     addTask(i)
   })
 }
 
-const handleRetry = (item: IUploadItem, index: number) => {
+function handleRetry(item: IUploadItem, index: number) {
   listData.value.splice(index, 1)
   addTask(item, index)
 }
@@ -229,22 +232,22 @@ const handleRetry = (item: IUploadItem, index: number) => {
 // })
 
 const successNum = computed(() => {
-  return listData.value.filter((i) => i.status === 'success').length
+  return listData.value.filter(i => i.status === 'success').length
 })
 const transferringNum = computed(() => {
-  return listData.value.filter((i) => i.status === 'transferring').length
+  return listData.value.filter(i => i.status === 'transferring').length
 })
 const errorNum = computed(() => {
-  return listData.value.filter((i) => i.status === 'failed').length
+  return listData.value.filter(i => i.status === 'failed').length
 })
 const totalProgress = computed(() => {
   return (successNum.value / listData.value.length) * 100
 })
-const clearFailed = () => {
-  listData.value = listData.value.filter((i) => i.status !== 'failed')
+function clearFailed() {
+  listData.value = listData.value.filter(i => i.status !== 'failed')
 }
-const clearSuccess = () => {
-  listData.value = listData.value.filter((i) => i.status !== 'success')
+function clearSuccess() {
+  listData.value = listData.value.filter(i => i.status !== 'success')
 }
 
 defineExpose({
@@ -264,42 +267,42 @@ defineExpose({
   >
     <template #titleBarLeft>
       ({{ successNum }}/{{ listData.length }})
-      <span v-if="listData.length"
-        >{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span
-      >
+      <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
       <span v-if="transferringNum">| Uploading {{ transferringNum }} </span>
       <span v-if="errorNum">| Failed {{ errorNum }} </span>
     </template>
 
     <div class="batch-upload-wrapper">
       <div class="total-progress volume-bar">
-        <div :style="{width: totalProgress + '%'}" class="volume-value"></div>
+        <div :style="{ width: `${totalProgress}%` }" class="volume-value" />
       </div>
 
       <div class="upload-list">
         <div
           v-for="(item, index) in listData"
-          :class="{failed: item.status === 'failed'}"
           :key="item.index"
+          :class="{ failed: item.status === 'failed' }"
           class="upload-item"
         >
-          <div class="index-text">#{{ item.index }}</div>
+          <div class="index-text">
+            #{{ item.index }}
+          </div>
           <div class="upload-status" :title="item.message">
             <template v-if="item.status === 'success'">
-              <span class="mdi mdi-check-bold" style="color: #4caf50" title="成功"></span>
+              <span class="mdi mdi-check-bold" style="color: #4caf50" title="成功" />
             </template>
             <template v-else-if="item.status === 'failed'">
-              <span class="mdi mdi-alert" style="color: #f44336" title="失败"></span>
+              <span class="mdi mdi-alert" style="color: #f44336" title="失败" />
             </template>
             <template v-else-if="item.status === 'transferring'">
               <span
                 class="mdi mdi-upload-circle-outline"
                 style="color: #03a9f4"
                 title="Uploading"
-              ></span>
+              />
             </template>
             <template v-else-if="item.status === 'pending'">
-              <span class="mdi mdi-progress-upload" style="color: #ffc107" title="Waiting"></span>
+              <span class="mdi mdi-progress-upload" style="color: #ffc107" title="Waiting" />
             </template>
           </div>
           <div class="upload-content">
@@ -324,12 +327,12 @@ defineExpose({
                   </div>
                 </div>
               </div>
-              <button class="vgo-button" v-if="item.abortObj" @click="item.abortObj.abort()">
+              <button v-if="item.abortObj" class="vgo-button" @click="item.abortObj.abort()">
                 Cancel
               </button>
               <button
-                class="vgo-button"
                 v-if="item.status === 'failed'"
+                class="vgo-button"
                 @click="handleRetry(item, index)"
               >
                 Retry
@@ -337,7 +340,7 @@ defineExpose({
             </div>
 
             <div class="volume-bar">
-              <div :style="{width: item.progress * 100 + '%'}" class="volume-value"></div>
+              <div :style="{ width: `${item.progress * 100}%` }" class="volume-value" />
             </div>
 
             <div
@@ -354,7 +357,9 @@ defineExpose({
       </div>
       <div class="upload-control">
         <div class="flex-row-center-gap">
-          <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">Clear Failed</button>
+          <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">
+            Clear Failed
+          </button>
           <button v-if="successNum > 0" class="vgo-button" @click="clearSuccess">
             Clear Success
           </button>
@@ -363,7 +368,9 @@ defineExpose({
           <button v-if="taskQueueRef?.executing?.length" class="vgo-button" @click="cancelAll">
             Cancel All
           </button>
-          <button v-else class="vgo-button primary" @click="isVisible = false">Close</button>
+          <button v-else class="vgo-button primary" @click="isVisible = false">
+            Close
+          </button>
         </div>
       </div>
     </div>

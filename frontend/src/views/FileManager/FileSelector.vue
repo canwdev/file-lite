@@ -21,7 +21,7 @@ const { selectFileMode, multiple } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
-const handleSelect = (val) => {
+function handleSelect(val) {
   isShowFileSelectWindow.value = false
   emit('handleSelect', val)
 }
@@ -51,17 +51,24 @@ defineExpose({
       {{ actionLabel }}
     </button>
 
-    <ViewPortWindow v-model:visible="isShowFileSelectWindow" init-center :init-win-options="{
-      width: '500px',
-      height: '500px',
-    }">
-      <template #titleBarLeft>{{ actionLabel }}</template>
-      <FileManager v-if="isShowFileSelectWindow" :selectFileMode="selectFileMode" :multiple="multiple"
-        @cancelSelect="isShowFileSelectWindow = false" @handleSelect="handleSelect" />
+    <ViewPortWindow
+      v-model:visible="isShowFileSelectWindow" init-center :init-win-options="{
+        width: '500px',
+        height: '500px',
+      }"
+    >
+      <template #titleBarLeft>
+        {{ actionLabel }}
+      </template>
+      <FileManager
+        v-if="isShowFileSelectWindow" :select-file-mode="selectFileMode" :multiple="multiple"
+        @cancel-select="isShowFileSelectWindow = false" @handle-select="handleSelect"
+      />
     </ViewPortWindow>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.file-selector {}
+.file-selector {
+}
 </style>

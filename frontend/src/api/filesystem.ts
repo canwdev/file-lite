@@ -1,9 +1,9 @@
-import Service from '@/utils/service'
-import {API_PROXY_BASE} from '@/enum'
-import {authToken} from '@/store'
 import qs from 'qs'
+import { API_PROXY_BASE } from '@/enum'
+import { authToken } from '@/store'
+import Service from '@/utils/service'
 
-const baseURL = API_PROXY_BASE + '/api/files'
+const baseURL = `${API_PROXY_BASE}/api/files`
 const service = Service({
   baseURL,
 })
@@ -16,9 +16,9 @@ export const fsWebApi = {
     return service.get('/drives')
   },
   getList(params: any = {}) {
-    const {path} = params
+    const { path } = params
     return service.get('/list', {
-      params: {path},
+      params: { path },
     })
   },
   createDir(params) {
@@ -27,12 +27,12 @@ export const fsWebApi = {
   // 上传，创建或写入文件
   uploadFile(params, config: any = {}) {
     console.log('[uploadFile]', params)
-    const {path, file} = params
+    const { path, file } = params
     const formData = new FormData()
     formData.append('file', file)
 
     return service.post('/upload-file', formData, {
-      params: {path},
+      params: { path },
       ...config,
     })
   },
@@ -47,15 +47,15 @@ export const fsWebApi = {
   },
   getDownloadUrl(paths: string[]) {
     if (paths.length === 1) {
-      return baseURL + `/download?path=${paths[0]}&auth=${authToken.value}`
+      return `${baseURL}/download?path=${paths[0]}&auth=${authToken.value}`
     }
 
-    const query = qs.stringify({paths, auth: authToken.value}, {arrayFormat: 'repeat'})
-    return baseURL + `/download?${query}`
+    const query = qs.stringify({ paths, auth: authToken.value }, { arrayFormat: 'repeat' })
+    return `${baseURL}/download?${query}`
   },
   stream(path: string, config: any = {}) {
     return service.get('/stream', {
-      params: {path},
+      params: { path },
       ...config,
     })
   },
@@ -63,7 +63,7 @@ export const fsWebApi = {
     if (!path) {
       return ''
     }
-    return baseURL + `/stream?path=${encodeURIComponent(path)}&auth=${authToken.value}`
+    return `${baseURL}/stream?path=${encodeURIComponent(path)}&auth=${authToken.value}`
   },
 }
 

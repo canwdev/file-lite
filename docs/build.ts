@@ -76,6 +76,7 @@ async function build() {
   await fs.rm(distDir, { recursive: true, force: true })
   console.log('Cleaned dist directory.')
 
+  await runInDir('Code checking...', backendPath, ['bunx eslint src/**/*.{ts,tsx,vue} frontend/**/*.{ts,tsx,vue} --fix'])
   // 2. 构建后端
   await runInDir('Building backend...', backendPath, ['bun i', 'bun run build'])
   // 3. 构建前端

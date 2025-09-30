@@ -1,4 +1,4 @@
-import {useStorage} from '@vueuse/core'
+import { useStorage } from '@vueuse/core'
 
 export enum ThemeMode {
   Auto = 'auto',
@@ -9,7 +9,7 @@ export enum ThemeMode {
 export const themeMode = useStorage('file_lite_theme_mode', ThemeMode.Auto)
 export const contextMenuTheme = ref('flat dark')
 
-export const useGlobalTheme = () => {
+export function useGlobalTheme() {
   const isSystemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
   const handleSystemThemeChange = (event: any) => {
     isSystemDarkMode.value = Boolean(event.matches)
@@ -42,12 +42,13 @@ export const useGlobalTheme = () => {
         // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
         document.documentElement.classList.add('dark')
         contextMenuTheme.value = 'flat dark'
-      } else {
+      }
+      else {
         document.body.classList.remove('dark')
         document.documentElement.classList.remove('dark')
         contextMenuTheme.value = 'flat'
       }
     },
-    {immediate: true},
+    { immediate: true },
   )
 }
