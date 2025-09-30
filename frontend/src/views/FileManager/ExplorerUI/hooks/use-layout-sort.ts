@@ -3,6 +3,9 @@ import type { IEntry } from '@server/types/server'
 import { SortType } from '@server/types/server'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
+import { bytesToSize, formatDate } from '@/utils'
+import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
+import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { sortMethodMap } from '../../utils/sort'
 
 export function useLayoutSort(files: Ref<IEntry[]>) {
@@ -46,46 +49,64 @@ export function useLayoutSort(files: Ref<IEntry[]>) {
       .sort(sortMethodMap[sortMode.value])
   })
 
-  const sortableListHeader = computed(() => {
+  const tableColumns = computed((): Column[] => {
     return [
-      { label: 'Name', className: 'c-filename', sortModes: [SortType.name, SortType.nameDesc] },
-      { label: 'Ext', className: 'c-ext', sortModes: [SortType.extension, SortType.extensionDesc] },
-      { label: 'Size', className: 'c-size', sortModes: [SortType.size, SortType.sizeDesc] },
+      { key: 'name', label: 'Name', width: 200, render: (item: IEntry) => {
+        return h('div', { class: 'title-wrapper' }, [
+          h(ThemedIcon, {
+            iconClass: `mdi ${getFileIconClass(item)}`,
+          }),
+          h('span', {
+            class: 'title-text',
+            onClick: (e) => {
+              e.stopPropagation()
+              emit('open', { item })
+            },
+          }, item.name),
+        ])
+      }, sortModes: [SortType.name, SortType.nameDesc] },
+      { key: 'ext', label: 'Ext', width: 50, formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''), sortModes: [SortType.extension, SortType.extensionDesc] },
+      { key: 'size', label: 'Size', width: 80, formatter: (item: IEntry) => item.size === null ? '-' : bytesToSize(item.size), sortModes: [SortType.size, SortType.sizeDesc],
+      },
       {
+        key: 'lastModified',
         label: 'Last Modified',
-        className: 'c-time',
+        width: 140,
+        formatter: (item: IEntry) => formatDate(item.lastModified),
         sortModes: [SortType.lastModified, SortType.lastModifiedDesc],
       },
       {
+        key: 'birthtime',
         label: 'Created',
-        className: 'c-time',
+        width: 140,
+        formatter: (item: IEntry) => formatDate(item.birthtime),
         sortModes: [SortType.birthTime, SortType.birthTimeDesc],
       },
     ].map((item) => {
-      const idx = item.sortModes.findIndex((m: SortType) => m === sortMode.value)
       return {
         ...item,
-        active: idx > -1,
-        isDesc: idx > 0,
-        onClick: () => {
+        columnClick: () => {
+          const idx = (item.sortModes || []).findIndex((m: SortType) => m === sortMode.value)
           const nextMode = idx + 1
-          if (nextMode > item.sortModes.length) {
-            sortMode.value = SortType.default
-          }
-          else {
-            sortMode.value = item.sortModes[nextMode]
+          sortMode.value = item.sortModes[nextMode] || SortType.default
+        },
+        columnRightRender: () => {
+          const idx = (item.sortModes || []).findIndex((m: SortType) => m === sortMode.value)
+          const active = idx > -1
+          const isDesc = idx > 0
+          if (active) {
+            return h('span', { class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`, style: 'line-height: 1; transform: scale(1.4)' })
           }
         },
       }
     })
   })
-
   return {
     isGridView,
     sortMode,
     sortOptions,
     filteredFiles,
     showHidden,
-    sortableListHeader,
+    tableColumns,
   }
 }

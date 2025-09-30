@@ -351,10 +351,14 @@ function handleShortcutKey(event) {
   }
 
   .btn-action {
-    display: inline-flex;
+    display: flex;
     cursor: pointer;
     font-size: 18px;
     border-radius: 4px;
+    height: 29px;
+    width: 29px;
+    align-items: center;
+    justify-content: center;
 
     &:disabled {
       cursor: not-allowed;

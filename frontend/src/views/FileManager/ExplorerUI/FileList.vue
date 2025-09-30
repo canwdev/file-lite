@@ -4,11 +4,11 @@ import type { IEntry } from '@server/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useVModel } from '@vueuse/core'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
-import { bytesToSize } from '@/utils'
+import { bytesToSize, formatDate } from '@/utils'
+import FileTable from '@/views/FileManager/components/FileTable.vue'
 import UploadQueue from '../UploadQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import FileGridItem from './FileGridItem.vue'
-import FileListItem from './FileListItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { useFileActions } from './hooks/use-file-actions'
 import { useLayoutSort } from './hooks/use-layout-sort'
@@ -41,7 +41,7 @@ const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 布局和排序方式
-const { isGridView, sortOptions, filteredFiles, showHidden, sortableListHeader }
+const { isGridView, sortOptions, filteredFiles, showHidden, tableColumns }
   = useLayoutSort(files)
 
 const allowMultipleSelection = computed(() => {
@@ -55,9 +55,9 @@ const allowMultipleSelection = computed(() => {
 })
 // 文件选择功能
 const {
-  selectedItems,
-  selectedItemsSize,
   selectedItemsSet,
+  selectedItemsSize,
+  selectedItems,
   explorerContentRef,
   toggleSelect,
   isAllSelected,
@@ -209,6 +209,14 @@ function handleShortcutKey(event) {
   }
 }
 
+function getTooltip(row: IEntry) {
+  return `Name: ${row.name}
+Size: ${row.size === null ? '-' : bytesToSize(row.size)}
+Last Modified: ${formatDate(row.lastModified, 'YYYY-MM-DD HH:mm:ss')}
+Created: ${formatDate(row.birthtime, 'YYYY-MM-DD HH:mm:ss')}
+`
+}
+
 defineExpose({
   selectedItems,
   basePath,
@@ -341,49 +349,19 @@ defineExpose({
     <div
       ref="explorerContentRef"
       class="explorer-content"
-      @click="selectedItems = []"
+      @click="selectedItemsSet.clear()"
       @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
     >
       <div v-if="!(isGridView || gridView)" class="explorer-list-view">
-        <div class="vgo-bg file-list-header file-list-row">
-          <div class="list-col c-checkbox" @click.stop="toggleSelectAll">
-            <input
-              v-if="allowMultipleSelection"
-              class="file-checkbox"
-              type="checkbox"
-              :checked="isAllSelected"
-            >
-          </div>
-          <div
-            v-for="item in sortableListHeader"
-            :key="item.label"
-            :class="[item.className, { active: item.active }]"
-            class="list-col"
-            @click.stop="item.onClick"
-          >
-            {{ item.label }}
-            <span
-              v-if="item.active"
-              class="mdi"
-              :class="[item.isDesc ? 'mdi-menu-down' : 'mdi-menu-up']"
-            />
-          </div>
-        </div>
-
-        <div class="file-list-content">
-          <FileListItem
-            v-for="item in filteredFiles"
-            :key="item.name"
-            class="selectable"
-            :item="item"
-            :data-name="item.name"
-            :active="selectedItemsSet.has(item)"
-            :show-checkbox="allowMultipleSelection"
-            @open="(i) => emit('open', i)"
-            @select="toggleSelect"
-            @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
-          />
-        </div>
+        <FileTable
+          v-model:selected-rows="selectedItemsSet"
+          :columns="tableColumns"
+          :data="filteredFiles"
+          :get-tooltip="row => getTooltip(row)"
+          :custom-toggle="toggleSelect"
+          :row-contextmenu="updateMenuOptions"
+          @open="(row) => emit('open', { item: row })"
+        />
       </div>
       <div v-else class="explorer-grid-view">
         <FileGridItem
@@ -517,87 +495,6 @@ defineExpose({
 
   .explorer-list-view {
     width: fit-content;
-
-    .file-list-header {
-      font-weight: 500;
-      text-transform: capitalize;
-      border-left: 0;
-      border-right: 0;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-
-      .list-col {
-        & + .list-col {
-          border-left: 1px solid var(--vgo-color-border);
-        }
-
-        padding: 4px 5px !important;
-        font-size: 14px;
-
-        &:hover {
-          background-color: var(--vgo-primary-opacity);
-        }
-
-        .mdi {
-          transform: scale(1.5);
-        }
-      }
-    }
-
-    .file-list-content {
-      margin-top: 2px;
-    }
-
-    :deep(.file-list-row) {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: fit-content;
-
-      .list-col {
-        padding: 0 5px;
-        flex-shrink: 0;
-        box-sizing: border-box;
-
-        &.c-icon {
-          padding-left: 10px;
-          width: 50px;
-        }
-
-        &.c-filename {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          width: 200px;
-        }
-
-        &.c-type {
-          width: 100px;
-        }
-
-        &.c-ext {
-          width: 50px;
-        }
-
-        &.c-size {
-          width: 80px;
-        }
-
-        &.c-time {
-          width: 140px;
-        }
-
-        &.c-actions {
-          padding-right: 10px;
-          display: flex;
-          justify-content: flex-end;
-          gap: 4px;
-          width: 100px;
-        }
-      }
-    }
   }
 
   .explorer-grid-view {
@@ -622,6 +519,22 @@ defineExpose({
     .mdi {
       display: flex;
       transform: scale(1.2);
+    }
+  }
+
+  :deep(.title-wrapper) {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    .themed-icon {
+      width: fit-content;
+      font-size: 16px;
+    }
+    .title-text {
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 }

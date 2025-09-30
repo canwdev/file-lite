@@ -13,19 +13,16 @@ export function useSelection({
   allowMultipleSelection: Ref<boolean>
   selectables: string[]
 }) {
-  const selectedItems = ref<IEntry[]>([])
-  const selectedItemsSet = computed(() => {
-    return new Set(selectedItems.value)
-  })
+  const selectedItemsSet = ref(new Set<IEntry>())
   watch(filteredFiles, () => {
-    selectedItems.value = []
+    selectedItemsSet.value.clear()
   })
 
   const explorerContentRef = ref()
   const selectionRef = useSelectionArea({
     containerRef: explorerContentRef,
     onStart: () => {
-      selectedItems.value = []
+      selectedItemsSet.value.clear()
     },
     onStop: (stored) => {
       const map: Record<string, IEntry> = {}
@@ -43,7 +40,10 @@ export function useSelection({
         }
       })
 
-      selectedItems.value = list
+      selectedItemsSet.value.clear()
+      list.forEach((i) => {
+        selectedItemsSet.value.add(i)
+      })
     },
     selectables,
   })
@@ -77,12 +77,13 @@ export function useSelection({
     toggle?: boolean
   }) => {
     if (!allowMultipleSelection.value) {
-      selectedItems.value = [item]
+      selectedItemsSet.value.clear()
+      selectedItemsSet.value.add(item)
       return
     }
     if (event.ctrlKey || event.metaKey || toggle) {
       // 使用ctrl键多选
-      selectedItems.value = toggleArrayElement([...selectedItems.value], item)
+      selectedItemsSet.value = new Set(toggleArrayElement(selectedItems.value, item))
     }
     else if (event.shiftKey) {
       // 使用shift键选择范围
@@ -96,10 +97,11 @@ export function useSelection({
         // 使最小的index在最前
         ;[itemIdx, idx] = [idx, itemIdx]
       }
-      selectedItems.value = filteredFiles.value.slice(idx, itemIdx + 1)
+      selectedItemsSet.value = new Set(filteredFiles.value.slice(idx, itemIdx + 1))
     }
     else {
-      selectedItems.value = [item]
+      selectedItemsSet.value.clear()
+      selectedItemsSet.value.add(item)
     }
   }
 
@@ -108,7 +110,7 @@ export function useSelection({
     if (!allFiles.length) {
       return false
     }
-    return selectedItems.value.length === allFiles.length
+    return selectedItemsSet.value.size === allFiles.length
   })
 
   const toggleSelectAll = () => {
@@ -117,12 +119,11 @@ export function useSelection({
     }
     const allFiles = filteredFiles.value
     if (isAllSelected.value) {
-      selectedItems.value = []
+      selectedItemsSet.value.clear()
     }
     else {
-      selectedItems.value = [...allFiles]
+      selectedItemsSet.value = new Set(allFiles)
     }
-    // console.log(selectedItems.value)
   }
 
   const selectedPaths = computed(() => {
@@ -141,10 +142,14 @@ export function useSelection({
     }, 0)
   })
 
+  const selectedItems = computed(() => {
+    return [...selectedItemsSet.value]
+  })
+
   return {
-    selectedItems,
-    selectedItemsSize,
     selectedItemsSet,
+    selectedItemsSize,
+    selectedItems,
     explorerContentRef,
     toggleSelect,
     isAllSelected,
