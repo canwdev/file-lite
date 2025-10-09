@@ -5,6 +5,7 @@ import { appsStoreState } from './apps-store'
 function handleExit() {
   appsStoreState.isShowApp = false
   appsStoreState.appParams = null
+  appsStoreState.appTitle = ''
 }
 
 const rootRef = ref()
@@ -27,7 +28,7 @@ const appDetails = computed(() => AppList.find(item => item.openWith === appsSto
   <div v-if="appsStoreState.isShowApp" ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0">
     <div class="title-bar">
       <div class="title-text">
-        <span :class="appDetails?.icon" /><span style="font-size: 12px;">{{ appsStoreState.appParams?.absPath }}</span>
+        <span :class="appDetails?.icon" /><span style="word-break:break-word;font-size: 12px;">{{ appsStoreState.appTitle || appDetails?.name }}</span>
       </div>
       <button class="btn-no-style btn-close" @click="handleExit">
         <span class="mdi mdi-close" />

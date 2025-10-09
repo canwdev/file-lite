@@ -1,5 +1,6 @@
 import type { IEntry } from '@server/types/server'
 import { fsWebApi } from '@/api/filesystem'
+import { bytesToSize } from '@/utils'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -9,6 +10,30 @@ import {
 import { OpenWithEnum } from '@/views/Apps/apps'
 import { appsStoreState } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
+
+function checkTooLargeFileDialog(item: IEntry, bytes: number) {
+  return new Promise<boolean>((resolve, reject) => {
+    if (item.size && item.size > bytes) {
+      window.$dialog
+        .confirm(
+          `File ${item.name} (${bytesToSize(item.size)}) is larger than ${bytesToSize(bytes)}, are you sure to open it?`,
+          'File is too large',
+          {
+            type: 'warning',
+          },
+        )
+        .then(() => {
+          resolve(true)
+        })
+        .catch(() => {
+          reject(false)
+        })
+    }
+    else {
+      resolve(true)
+    }
+  })
+}
 
 export function useOpener(basePath: Ref<string>) {
   const getStreamUrl = (item: IEntry) => {
@@ -53,11 +78,17 @@ export function useOpener(basePath: Ref<string>) {
       return
     }
     if (regSupportedTextFormat.test(item.name)) {
-      openApp(OpenWithEnum.TextEditor)
+      // 1MB
+      if (await checkTooLargeFileDialog(item, 1024 * 1024)) {
+        openApp(OpenWithEnum.TextEditor)
+      }
       return
     }
     if (regSupportedImageFormat.test(item.name)) {
-      openApp(OpenWithEnum.ImageViewer)
+      // 50MB
+      if (await checkTooLargeFileDialog(item, 1024 * 1024 * 100)) {
+        openApp(OpenWithEnum.ImageViewer)
+      }
       return
     }
     if (regSupportedAudioFormat.test(item.name)) {
@@ -68,7 +99,19 @@ export function useOpener(basePath: Ref<string>) {
       openApp(OpenWithEnum.VideoPlayer)
       return
     }
-    window.open(getStreamUrl(item))
+
+    window.$dialog
+      .confirm(
+        `Continue to open in browser? ${item.name}`,
+        'Unsupported File Type',
+        {
+          type: 'info',
+        },
+      )
+      .then(() => {
+        window.open(getStreamUrl(item))
+      })
+      .catch()
   }
 
   return {

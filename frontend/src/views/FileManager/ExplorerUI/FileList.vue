@@ -86,6 +86,7 @@ const {
   selectUploadFiles,
   selectUploadFolder,
   handleDownload,
+  confirmDownload,
 } = useTransfer({ basePath, isLoading, selectedItems })
 
 watch(isLoading, (val) => {
@@ -281,7 +282,7 @@ defineExpose({
             class="btn-action btn-no-style"
             :disabled="!enableAction"
             title="Download"
-            @click="handleDownload"
+            @click="confirmDownload"
           >
             <span class="mdi mdi-download" />
           </button>

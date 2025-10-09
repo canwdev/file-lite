@@ -2,16 +2,16 @@ export const shortcutFilenameReg = /\.shortcut$/i
 
 export const regArchiveFormat
   = /\.(zip|rar|tar|gz|bz2|7z|xz|tgz|zipx|tar\.gz|tar\.bz2|z|lzh|arj|zoo|pkg|lz|7zip|cab|iso|dmg|apk)$/i
-export const regImageFormat = /\.(jpg|jpeg|png|gif|bmp|svg|webp|tiff?|heif|indd)$/i
+export const regImageFormat = /\.(jpg|jpeg|png|gif|bmp|svg|webp|tiff?|heif|indd|ico)$/i
 export const regExeFormat = /\.(exe|msi)$/i
-export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|dat)$/i
-export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus|aiff?|dsd)$/i
+export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp)$/i
+export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus)$/i
 
 export const regSupportedTextFormat
   = /\.(txt|csv|md|log|lock|ini|conf|config|json|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|cs|rb|go|php|html|htm|hta|xml|yaml|css|scss|sass|styl|less|vue|bat|cmd|sh)$/i
-export const regSupportedImageFormat = /\.(jpg|jpeg|png|gif|webp|svg)$/i
-export const regSupportedVideoFormat = /\.(mp4|webm|ogg|mov)$/i
-export const regSupportedAudioFormat = /\.(mp3|wav|ogg|aac|flac|opus)$/i
+export const regSupportedImageFormat = regImageFormat // /\.(jpg|jpeg|png|gif|webp|svg)$/i
+export const regSupportedVideoFormat = regVideoFormat // /\.(mp4|webm|ogg|mov)$/i
+export const regSupportedAudioFormat = regAudioFormat // /\.(mp3|wav|ogg|aac|flac|opus)$/i
 export function isSupportedMediaFormat(name: string) {
   return regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
 }

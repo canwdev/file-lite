@@ -121,6 +121,21 @@ export function useTransfer({
       isLoading.value = false
     }
   }
+  const confirmDownload = async () => {
+    window.$dialog
+      .confirm(
+        `Are you sure to download ${selectedItems.value.length} item(s)?`,
+        'Confirm Download',
+        {
+          type: 'info',
+        },
+      )
+      .then(() => {
+        handleDownload()
+      })
+      .catch()
+  }
+
   const dropZoneRef = ref<HTMLDivElement>()
   const { isOverDropZone } = useDropZone(dropZoneRef, {
     onDrop: (files, event) => {
@@ -144,5 +159,6 @@ export function useTransfer({
     selectUploadFiles,
     selectUploadFolder,
     handleDownload,
+    confirmDownload,
   }
 }
