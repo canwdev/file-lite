@@ -5,6 +5,7 @@ import { useUnSavedChanges } from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
 import { MenuBar } from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { appsStoreState } from '@/views/Apps/apps-store.ts'
 import { generateTextFile } from '@/views/FileManager/utils'
 
 const props = withDefaults(
@@ -31,6 +32,10 @@ async function openFile() {
   try {
     isLoading.value = true
     console.log('open file', absPath.value)
+
+    appsStoreState.appTitle = absPath.value
+    console.log(appsStoreState)
+
     editContent.value = ''
     if (!absPath.value) {
       return
@@ -54,8 +59,7 @@ async function openFile() {
 
 watch(
   () => props.absPath,
-  (path) => {
-    absPath.value = path
+  (val) => {
     openFile()
   },
 )
