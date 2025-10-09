@@ -1,19 +1,37 @@
 <script setup lang="ts">
 import { useQRCode } from '@vueuse/integrations/useQRCode'
+import { authToken } from '@/store'
 import { copyWithToast } from '@/utils'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
 const route = useRoute()
 
+function parseData() {
+  try {
+    const data = JSON.parse(atob(route.query.data as string))
+    console.log(data)
+    const { ips, port, protocol, auth } = data as { ips: string[], host: string, port: number, protocol: string, auth: string }
+    hostUrls.value = ips.map(ip => auth ? `${protocol}//${ip}:${port}?auth=${auth}` : `${protocol}//${ip}:${port}`)
+
+    if (auth) {
+      authToken.value = auth
+    }
+  }
+  catch (error) {
+    console.error('Error parsing data:', error)
+    hostUrls.value = []
+  }
+}
+
 watch(
-  () => route.query.urls,
+  () => route.query.data,
   (newVal) => {
     if (newVal) {
-      hostUrls.value = JSON.parse(atob(route.query.urls as string))
+      parseData()
     }
     else {
-      hostUrls.value = [location.href]
+      hostUrls.value = []
     }
     setTimeout(() => {
       autoSelectUrl()

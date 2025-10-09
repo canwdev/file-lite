@@ -44,14 +44,16 @@ async function startServer() {
     let urlIpSelector: string
     const printUrls = () => {
       console.log(``)
-      const { localhostUrl, urls } = printServerRunningOn({
-        protocol: isHttps ? 'https:' : 'http:',
+      const authParam = config.noAuth ? '' : `auth=${authToken}`
+      const protocol = isHttps ? 'https:' : 'http:'
+      const { localhostUrl, ips } = printServerRunningOn({
+        protocol,
         host,
         port,
-        params: `?auth=${authToken}`,
+        params: authParam ? `?${authParam}` : '',
       })
       console.log(`IP Selector:`)
-      urlIpSelector = `${localhostUrl}/ip?urls=${btoa(JSON.stringify(urls))}`
+      urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, auth: config.noAuth ? '' : (authToken || '') }))}`
       console.log(urlIpSelector)
     }
     printUrls()

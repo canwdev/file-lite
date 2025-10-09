@@ -6,19 +6,23 @@ import * as process from 'node:process'
 /**
  * 打印服务器运行地址信息。
  */
-export function printServerRunningOn({ protocol = 'http:', host, port, params = '' }) {
+export function printServerRunningOn({ protocol = 'http:', host, port, params = '' }: { protocol?: string, host: string, port: number, params?: string }) {
   const localhostUrl = `${protocol}//127.0.0.1:${port}`
   console.log(`Listening on: ${host}:${port}\n${localhostUrl}${params}`)
 
-  let urls: string[] = []
+  const urls: string[] = []
+  const ips: string[] = []
 
   // 当 host 为 '0.0.0.0' 时，查找所有可用的 IPv4 地址
   if (host === '0.0.0.0') {
     const ifaces = networkInterfaces()
-    urls = Object.values(ifaces)
+    Object.values(ifaces)
       .flat() // 将多维数组扁平化为一维
       .filter(details => details?.family === 'IPv4' && details.address) // 筛选出 IPv4 地址
-      .map(details => `${protocol}//${details!.address}:${port}${params}`) // 转换为 URL 字符串
+      .forEach((details) => {
+        urls.push(`${protocol}//${details!.address}:${port}${params}`)
+        ips.push(details!.address)
+      })
 
     if (urls.length > 0) {
       console.log(`Available on:\n${urls.join('\n')}`)
@@ -28,6 +32,7 @@ export function printServerRunningOn({ protocol = 'http:', host, port, params = 
   return {
     localhostUrl,
     urls,
+    ips,
   }
 }
 
