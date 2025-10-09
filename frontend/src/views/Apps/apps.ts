@@ -25,6 +25,12 @@ export const AppList = [
     component: defineAsyncComponent(() => import('./TextEditor.vue')),
   },
   {
+    name: 'Media Player',
+    openWith: OpenWithEnum.MediaPlayer,
+    icon: 'mdi mdi-multimedia',
+    component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
+  },
+  {
     name: 'Image Viewer',
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image-outline',
@@ -35,12 +41,6 @@ export const AppList = [
     openWith: OpenWithEnum.VideoPlayer,
     icon: 'mdi mdi-play',
     component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
-  },
-  {
-    name: 'Music Player',
-    openWith: OpenWithEnum.MediaPlayer,
-    icon: 'mdi mdi-music-circle',
-    component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
   },
 ]
 
