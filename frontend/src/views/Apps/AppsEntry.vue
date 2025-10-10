@@ -41,6 +41,7 @@ const appDetails = computed(() => AppList.find(item => item.openWith === appsSto
         :is="Apps[appsStoreState.appName]"
         :app-params="appsStoreState.appParams"
         @exit="handleExit"
+        @set-title="(val: string) => appsStoreState.appTitle = val"
       />
     </div>
   </div>
