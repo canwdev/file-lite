@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useFullscreen } from '@vueuse/core'
+import { useTemplateRef } from 'vue'
 import { AppList, Apps } from './apps'
+
 import { appsStoreState } from './apps-store'
 
 function handleExit() {
@@ -22,6 +25,9 @@ watch(
 )
 
 const appDetails = computed(() => AppList.find(item => item.openWith === appsStoreState.appName))
+
+const containerEl = useTemplateRef('containerEl')
+const { isFullscreen, toggle } = useFullscreen(containerEl)
 </script>
 
 <template>
@@ -30,13 +36,18 @@ const appDetails = computed(() => AppList.find(item => item.openWith === appsSto
       <div class="title-text">
         <span :class="appDetails?.icon" /><span style="word-break:break-word;font-size: 12px;">{{ appsStoreState.appTitle || appDetails?.name }}</span>
       </div>
-      <button class="btn-no-style btn-close" @click="handleExit">
-        <span class="mdi mdi-close" />
-      </button>
+      <div class="flex-row-center-gap">
+        <button class="btn-no-style btn-close" @click="toggle">
+          <span class="mdi" :class="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
+        </button>
+        <button class="btn-no-style btn-close" @click="handleExit">
+          <span class="mdi mdi-close" />
+        </button>
+      </div>
     </div>
 
     <!-- <pre>{{ appsStoreState }}</pre> -->
-    <div class="app-container">
+    <div ref="containerEl" class="app-container vgo-bg">
       <component
         :is="Apps[appsStoreState.appName]"
         :app-params="appsStoreState.appParams"
@@ -78,6 +89,9 @@ const appDetails = computed(() => AppList.find(item => item.openWith === appsSto
       .mdi {
         color: var(--vgo-primary);
       }
+    }
+    .flex-row-center-gap {
+      gap: 0;
     }
 
     .btn-close {
