@@ -74,6 +74,7 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenW
   return handleOpen({
     item,
     openWith,
+    list: fileListRef.value.sortedFiles,
   })
 }
 

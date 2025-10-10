@@ -14,7 +14,7 @@ watch(
   (newVal) => {
     if (newVal) {
       setTimeout(() => {
-        console.log('appsEntry focus', rootRef.value)
+        // console.log('appsEntry focus', rootRef.value)
         rootRef.value?.focus()
       })
     }

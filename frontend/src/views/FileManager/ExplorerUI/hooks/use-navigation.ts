@@ -109,7 +109,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   const { openFile } = useOpener(basePath, isLoading)
 
   // 打开文件或文件夹
-  const handleOpen = async ({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) => {
+  const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: OpenWithEnum }) => {
     const path = normalizePath(`${basePath.value}/${item.name}`)
     if (item.isDirectory) {
       await handleOpenPath(path)
@@ -120,7 +120,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
           item,
           openWith,
         },
-        filteredFiles.value,
+        list,
       )
     }
   }
