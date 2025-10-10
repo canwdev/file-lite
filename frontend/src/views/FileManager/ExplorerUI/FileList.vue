@@ -1,12 +1,16 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@server/types/server'
+import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
+import { SortType } from '@server/types/server'
 import { useVModel } from '@vueuse/core'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
-import { bytesToSize } from '@/utils'
+import { bytesToSize, formatDate } from '@/utils'
+import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
+import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import UploadQueue from '../UploadQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import FileGridItem from './FileGridItem.vue'
@@ -42,8 +46,95 @@ const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 布局和排序方式
-const { isGridView, sortOptions, filteredFiles, showHidden, tableColumns }
+const { isGridView, sortOptions, filteredFiles, showHidden, sortMode }
   = useLayoutSort(files, emit)
+
+const iconSizeList = ref(16)
+const iconSizeGrid = ref(48)
+const tableColumns = computed(() => {
+  return [
+    {
+      key: 'name',
+      label: 'Name',
+      width: 200,
+      render: (item: IEntry) => {
+        return h('div', { class: `title-wrapper ${item.hidden ? 'hidden' : ''}` }, [
+          h(ThemedIcon, {
+            iconClass: `mdi ${getFileIconClass(item)}`,
+            item,
+            absPath: `${basePath.value}/${item.name}`,
+            iconSize: iconSizeList.value,
+          }),
+          h(
+            'span',
+            {
+              class: `title-text text-overflow ${item.error ? 'error' : ''}`,
+              onClick: (e) => {
+                e.stopPropagation()
+                emit('open', { item })
+              },
+            },
+            item.name,
+          ),
+        ])
+      },
+      sortModes: [SortType.name, SortType.nameDesc],
+    },
+    {
+      key: 'ext',
+      label: 'Ext',
+      width: 70,
+      formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''),
+      sortModes: [SortType.extension, SortType.extensionDesc],
+    },
+    {
+      key: 'size',
+      label: 'Size',
+      width: 80,
+      formatter: (item: IEntry) =>
+        item.size === null ? '-' : bytesToSize(item.size),
+      sortModes: [SortType.size, SortType.sizeDesc],
+    },
+    {
+      key: 'lastModified',
+      label: 'Last Modified',
+      width: 140,
+      formatter: (item: IEntry) => formatDate(item.lastModified),
+      sortModes: [SortType.lastModified, SortType.lastModifiedDesc],
+    },
+    {
+      key: 'birthtime',
+      label: 'Created',
+      width: 140,
+      formatter: (item: IEntry) => formatDate(item.birthtime),
+      sortModes: [SortType.birthTime, SortType.birthTimeDesc],
+    },
+  ].map((item) => {
+    return {
+      ...item,
+      columnClick: () => {
+        const idx = (item.sortModes || []).findIndex(
+          (m: SortType) => m === sortMode.value,
+        )
+        const nextMode = idx + 1
+        sortMode.value = item.sortModes[nextMode] || SortType.default
+      },
+      columnRightRender: () => {
+        const idx = (item.sortModes || []).findIndex(
+          (m: SortType) => m === sortMode.value,
+        )
+        const active = idx > -1
+        const isDesc = idx > 0
+        if (active) {
+          return h('span', {
+            class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`,
+            style: 'line-height: 1; transform: scale(1.4)',
+          })
+        }
+      },
+    }
+  }) as Column[]
+})
 
 const allowMultipleSelection = computed(() => {
   if (selectFileMode.value === 'folder') {
@@ -389,9 +480,11 @@ defineExpose({
           :key="item.name"
           class="selectable"
           :item="item"
+          :base-path="basePath"
           :data-name="item.name"
           :active="selectedItemsSet.has(item)"
           :show-checkbox="allowMultipleSelection"
+          :icon-size="iconSizeGrid"
           @open="(i) => emit('open', i)"
           @select="toggleSelect"
           @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
@@ -399,26 +492,30 @@ defineExpose({
       </div>
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar">
-      <span>
+      <div>
         {{ filteredFiles.length }} Item(s)
         <template v-if="selectedItems.length">
           | {{ selectedItems.length }} item(s) selected |
           {{ bytesToSize(selectedItemsSize) }}
         </template>
-      </span>
+      </div>
 
-      <button
-        class="btn-action btn-no-style"
-        title="Toggle grid view"
-        @click="isGridView = !isGridView"
-      >
-        <template v-if="isGridView">
-          <span class="mdi mdi-view-grid-outline" />
-        </template>
-        <template v-else>
-          <span class="mdi mdi-view-list-outline" />
-        </template>
-      </button>
+      <div class="flex-row-center-gap">
+        <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
+        <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />
+        <button
+          class="btn-action btn-no-style"
+          title="Toggle grid view"
+          @click="isGridView = !isGridView"
+        >
+          <template v-if="isGridView">
+            <span class="mdi mdi-view-grid-outline" />
+          </template>
+          <template v-else>
+            <span class="mdi mdi-view-list-outline" />
+          </template>
+        </button>
+      </div>
     </div>
 
     <UploadQueue ref="uploadQueueRef" auto-close @all-done="emit('refresh')" />
@@ -544,6 +641,10 @@ defineExpose({
     .mdi {
       display: flex;
       transform: scale(1.2);
+    }
+
+    .el-slider {
+      width: 100px;
     }
   }
 
