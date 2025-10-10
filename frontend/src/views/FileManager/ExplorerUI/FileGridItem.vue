@@ -3,23 +3,27 @@ import type { IEntry } from '@server/types/server'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { useFileItem } from './hooks/use-file-item'
 
-const props = withDefaults(defineProps<Props>(), {})
-
-defineEmits(['open', 'select'])
-
-interface Props {
+const props = withDefaults(defineProps<{
   item: IEntry
+  basePath: string
   active: boolean
   showCheckbox?: boolean
+  iconSize?: number
 }
+>(), {
+  iconSize: 48,
+})
+
+defineEmits(['open', 'select'])
 const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 </script>
 
 <template>
   <button
     class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
-    :title="titleDesc" @click.stop="$emit('select', { item, event: $event })"
-    @keyup.enter="$emit('open', { item })" @dblclick.stop="$emit('open', { item })"
+    :title="titleDesc" :style="{ width: `${iconSize + 42}px` }"
+    @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
+    @dblclick.stop="$emit('open', { item })"
   >
     <span
       v-if="showCheckbox"
@@ -29,7 +33,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
       @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop
     />
 
-    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" />
+    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="`${basePath}/${item.name}`" :icon-size="iconSize" />
     <span
       class="desktop-icon-name"
       :class="{
@@ -98,8 +102,6 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 
   .desktop-icon-image {
     flex-shrink: 0;
-    width: 48px;
-    height: 48px;
     pointer-events: none;
 
     ::v-deep(.themed-icon-class) {
