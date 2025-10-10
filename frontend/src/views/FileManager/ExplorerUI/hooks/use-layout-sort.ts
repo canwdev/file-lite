@@ -5,7 +5,7 @@ import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { sortMethodMap } from '../../utils/sort'
 
-export function useLayoutSort(files: Ref<IEntry[]>, emit) {
+export function useLayoutSort(files: Ref<IEntry[]>) {
   const isGridView = ref(false)
   const sortMode = ref(SortType.default)
 
@@ -35,7 +35,7 @@ export function useLayoutSort(files: Ref<IEntry[]>, emit) {
   const showHidden = useStorage(LsKeys.SHOW_HIDDEN_FILES, false, localStorage, {
     listenToStorageChanges: false,
   })
-  const filteredFiles = computed(() => {
+  const sortedFiles = computed(() => {
     return files.value
       .filter((item) => {
         if (showHidden.value) {
@@ -50,7 +50,7 @@ export function useLayoutSort(files: Ref<IEntry[]>, emit) {
     isGridView,
     sortMode,
     sortOptions,
-    filteredFiles,
+    sortedFiles,
     showHidden,
   }
 }

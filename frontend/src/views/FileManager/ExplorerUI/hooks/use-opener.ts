@@ -12,7 +12,7 @@ import { appsStoreState } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
 
 function checkTooLargeFileDialog(item: IEntry, bytes: number) {
-  return new Promise<boolean>((resolve, reject) => {
+  return new Promise<boolean>((resolve) => {
     if (item.size && item.size > bytes) {
       window.$dialog
         .confirm(
@@ -26,7 +26,7 @@ function checkTooLargeFileDialog(item: IEntry, bytes: number) {
           resolve(true)
         })
         .catch(() => {
-          reject(false)
+          resolve(false)
         })
     }
     else {

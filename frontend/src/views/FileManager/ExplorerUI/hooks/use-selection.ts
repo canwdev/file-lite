@@ -3,18 +3,18 @@ import { useSelectionArea } from '@/hooks/use-selection-area'
 import { normalizePath, toggleArrayElement } from '../../utils'
 
 export function useSelection({
-  filteredFiles,
+  sortedFiles,
   basePath,
   allowMultipleSelection,
   selectables = ['.selectable'],
 }: {
-  filteredFiles: Ref<IEntry[]>
+  sortedFiles: Ref<IEntry[]>
   basePath: Ref<string>
   allowMultipleSelection: Ref<boolean>
   selectables: string[]
 }) {
   const selectedItemsSet = ref(new Set<IEntry>())
-  watch(filteredFiles, () => {
+  watch(sortedFiles, () => {
     selectedItemsSet.value.clear()
   })
 
@@ -26,7 +26,7 @@ export function useSelection({
     },
     onStop: (stored) => {
       const map: Record<string, IEntry> = {}
-      filteredFiles.value.forEach((i) => {
+      sortedFiles.value.forEach((i) => {
         map[i.name] = i
       })
       const list: IEntry[] = []
@@ -90,14 +90,14 @@ export function useSelection({
       let idx = 0
       const first = selectedItems.value[0]
       if (first) {
-        idx = filteredFiles.value.findIndex(i => i.name === first.name)
+        idx = sortedFiles.value.findIndex(i => i.name === first.name)
       }
-      let itemIdx = filteredFiles.value.findIndex(i => i.name === item.name)
+      let itemIdx = sortedFiles.value.findIndex(i => i.name === item.name)
       if (idx > itemIdx) {
         // 使最小的index在最前
         ;[itemIdx, idx] = [idx, itemIdx]
       }
-      selectedItemsSet.value = new Set(filteredFiles.value.slice(idx, itemIdx + 1))
+      selectedItemsSet.value = new Set(sortedFiles.value.slice(idx, itemIdx + 1))
     }
     else {
       selectedItemsSet.value.clear()
@@ -106,7 +106,7 @@ export function useSelection({
   }
 
   const isAllSelected = computed(() => {
-    const allFiles = filteredFiles.value
+    const allFiles = sortedFiles.value
     if (!allFiles.length) {
       return false
     }
@@ -117,7 +117,7 @@ export function useSelection({
     if (!allowMultipleSelection.value) {
       return
     }
-    const allFiles = filteredFiles.value
+    const allFiles = sortedFiles.value
     if (isAllSelected.value) {
       selectedItemsSet.value.clear()
     }

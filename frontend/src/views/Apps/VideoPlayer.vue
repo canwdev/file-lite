@@ -19,9 +19,10 @@ const mediaSrc = computed(() => {
   return fsWebApi.getStreamUrl(appParams.value?.absPath)
 })
 watch(
-  () => appParams.value?.absPath,
-  (val) => {
-    emit('setTitle', val)
+  () => props.appParams,
+  () => {
+    const { item } = props.appParams
+    emit('setTitle', item?.name || '')
   },
   { immediate: true },
 )
