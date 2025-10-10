@@ -8,11 +8,18 @@ const props = withDefaults(
   }>(),
   {},
 )
+const emit = defineEmits(['setTitle'])
 const { appParams } = toRefs(props)
-
 const mediaSrc = computed(() => {
   return fsWebApi.getStreamUrl(appParams.value?.absPath)
 })
+watch(
+  () => appParams.value?.absPath,
+  (val) => {
+    emit('setTitle', val)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

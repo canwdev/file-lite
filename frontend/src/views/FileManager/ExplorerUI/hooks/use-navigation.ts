@@ -21,6 +21,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
 
   const handleRefresh = async () => {
     try {
+      files.value = []
       basePath.value = basePathNormalized.value
       isLoading.value = true
       if (!basePath.value) {

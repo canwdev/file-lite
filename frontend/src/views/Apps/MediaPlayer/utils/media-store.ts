@@ -4,20 +4,6 @@ import { defineStore } from 'pinia'
 import { getRandomInt } from '@/utils'
 import { LoopModeType, useMusicSettingsStore } from '../utils/music-state'
 
-interface IStore {
-  mediaBus: mitt
-  mediaItem: MediaItem | null
-  playingList: MediaItem[]
-  playingIndex: number
-  paused: boolean
-  currentTime: number
-  duration: number
-  playbackRate: number
-  stopCountdown: any // setTimeout timer
-  isPlayEnded: boolean
-  isLoadedAutoplay: boolean // 是否在加载结束后自动播放
-}
-
 export const MusicEvents = {
   ACTION_PLAY: 'ACTION_PLAY',
   ACTION_PAUSE: 'ACTION_PAUSE',

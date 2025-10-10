@@ -252,7 +252,6 @@ onBeforeUnmount(() => {
             :key="column.key"
             :style="getColumnStyle(column)"
           >
-            <!-- 你可以使用插槽来自定义单元格内容 -->
             <slot :name="`cell-${column.key}`" :row="row" :column="column">
               <VueRender
                 v-if="column.render"
