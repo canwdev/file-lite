@@ -56,8 +56,8 @@ async function openFile() {
 }
 
 watch(
-  () => props.absPath,
-  (val) => {
+  () => props.appParams,
+  () => {
     openFile()
   },
 )

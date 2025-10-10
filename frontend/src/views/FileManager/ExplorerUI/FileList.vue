@@ -46,8 +46,8 @@ const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 布局和排序方式
-const { isGridView, sortOptions, filteredFiles, showHidden, sortMode }
-  = useLayoutSort(files, emit)
+const { isGridView, sortOptions, sortedFiles, showHidden, sortMode }
+  = useLayoutSort(files)
 
 const iconSizeList = ref(16)
 const iconSizeGrid = ref(48)
@@ -155,7 +155,7 @@ const {
   toggleSelectAll,
   selectedPaths,
 } = useSelection({
-  filteredFiles,
+  sortedFiles,
   basePath,
   allowMultipleSelection,
   selectables: props.selectables,
@@ -318,6 +318,7 @@ defineExpose({
   basePath,
   handleShortcutKey,
   handleCreateFile,
+  sortedFiles,
 })
 </script>
 
@@ -467,7 +468,7 @@ defineExpose({
         <FileTable
           v-model:selected-rows="selectedItemsSet"
           :columns="tableColumns"
-          :data="filteredFiles"
+          :data="sortedFiles"
           :get-tooltip="(row) => getTooltip(row)"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
@@ -476,7 +477,7 @@ defineExpose({
       </div>
       <div v-else class="explorer-grid-view">
         <FileGridItem
-          v-for="item in filteredFiles"
+          v-for="item in sortedFiles"
           :key="item.name"
           class="selectable"
           :item="item"
@@ -493,7 +494,7 @@ defineExpose({
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar">
       <div>
-        {{ filteredFiles.length }} Item(s)
+        {{ sortedFiles.length }} Item(s)
         <template v-if="selectedItems.length">
           | {{ selectedItems.length }} item(s) selected |
           {{ bytesToSize(selectedItemsSize) }}
