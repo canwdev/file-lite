@@ -56,7 +56,7 @@ const tableColumns = computed(() => {
     {
       key: 'name',
       label: 'Name',
-      width: 200,
+      width: 240,
       render: (item: IEntry) => {
         return h('div', { class: `title-wrapper ${item.hidden ? 'hidden' : ''}` }, [
           h(ThemedIcon, {
