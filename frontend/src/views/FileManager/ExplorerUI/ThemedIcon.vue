@@ -13,6 +13,10 @@ const props = withDefaults(defineProps<{
   iconSize: 48,
 })
 
+const loadFailed = ref(false)
+watch(() => props.absPath, () => {
+  loadFailed.value = false
+})
 const previewSrc = computed(() => {
   const { item, absPath } = props
   if (absPath && item) {
@@ -33,7 +37,7 @@ const targetIsVisible = useElementVisibility(target, {
 
 <template>
   <div ref="target" class="themed-icon" :style="{ width: `${iconSize}px` }">
-    <img v-if="previewSrc && targetIsVisible" class="preview-image" :class="iconClass" :src="previewSrc">
+    <img v-if="!loadFailed && previewSrc && targetIsVisible" class="preview-image" :src="previewSrc" @error="loadFailed = true">
     <span v-else-if="iconClass" class="themed-icon-class" :class="[iconClass]" :style="{ fontSize: `${iconSize}px` }" />
     <span v-else class="themed-icon-class mdi mdi-file-question" />
   </div>
