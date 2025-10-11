@@ -382,10 +382,11 @@ onBeforeUnmount(() => {
   .checkbox-col {
     text-align: center;
     text-overflow: unset;
+    cursor: pointer;
     .mdi {
-      font-size: 14px;
+      font-size: 16px;
       vertical-align: middle;
-      cursor: pointer;
+      line-height: 14px;
     }
   }
 }
