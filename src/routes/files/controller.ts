@@ -10,6 +10,7 @@ import Archiver from 'archiver'
 import multer from 'multer'
 import nodeDiskInfo from 'node-disk-info'
 import { DATA_BASE_DIR, normalizePath, SAFE_BASE_DIR } from '@/enum/config.ts'
+import { getWindowsDrives } from '@/utils/get-drives.ts'
 import { sanitize } from '@/utils/sanitize-filename.ts'
 
 /**
@@ -67,15 +68,24 @@ export async function getDrivers(req: Request, res: Response) {
     path: os.homedir(),
   }
 
-  const drives = await nodeDiskInfo.getDiskInfo()
-  const otherDrives: IDrive[] = drives.map(drive => ({
-    label: drive.mounted,
-    path: drive.mounted,
-    free: drive.available,
-    total: drive.blocks,
-  }))
+  try {
+    const drives = await nodeDiskInfo.getDiskInfo()
+    const otherDrives: IDrive[] = drives.map(drive => ({
+      label: drive.mounted,
+      path: drive.mounted,
+      free: drive.available,
+      total: drive.blocks,
+    }))
 
-  return res.json([homeDrive, ...otherDrives])
+    return res.json([homeDrive, ...otherDrives])
+  }
+  catch (error: any) {
+    const list = (await getWindowsDrives()).map(drive => ({
+      label: drive,
+      path: drive,
+    }))
+    return res.json([homeDrive, ...list])
+  }
 }
 
 export async function getFiles(req: Request, res: Response) {
