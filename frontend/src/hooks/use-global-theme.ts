@@ -36,15 +36,11 @@ export function useGlobalTheme() {
     isAppDarkMode,
     (val) => {
       if (val) {
-        // vgo-ui 黑暗模式
-        document.body.classList.add('dark')
-
         // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
         document.documentElement.classList.add('dark')
         contextMenuTheme.value = 'flat dark'
       }
       else {
-        document.body.classList.remove('dark')
         document.documentElement.classList.remove('dark')
         contextMenuTheme.value = 'flat'
       }
