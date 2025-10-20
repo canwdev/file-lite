@@ -685,9 +685,13 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 8px 16px;
     padding: 4px 8px;
     font-size: 12px;
+
+    @media screen and (max-width: $mq_mobile_width) {
+      justify-content: flex-end;
+    }
 
     .mdi {
       display: flex;

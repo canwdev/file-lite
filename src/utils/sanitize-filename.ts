@@ -46,3 +46,7 @@ export function sanitize(input: string, replacement = '_') {
 
   return sanitized.slice(0, 255)
 }
+
+export function sanitizeAttachmentFilename(originalFileName: string) {
+  return originalFileName.replace(/[^\w.\-]/g, '_')
+}

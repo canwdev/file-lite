@@ -11,7 +11,7 @@ import multer from 'multer'
 import nodeDiskInfo from 'node-disk-info'
 import { DATA_BASE_DIR, normalizePath, SAFE_BASE_DIR } from '@/enum/config.ts'
 import { getWindowsDrives } from '@/utils/get-drives.ts'
-import { sanitize } from '@/utils/sanitize-filename.ts'
+import { sanitize, sanitizeAttachmentFilename } from '@/utils/sanitize-filename.ts'
 
 /**
  * 安全检查：确保访问路径不超出基础目录
@@ -268,10 +268,11 @@ export async function getFileStream(req: Request, res: Response) {
   }
 
   // res.sendFile 会自动处理流、头部等，是最佳实践
+  // sanitizeAttachmentFilename
   const filename = encodeURIComponent(sanitize(Path.basename(path)))
   res.sendFile(Path.resolve(path), {
     headers: {
-      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Disposition': `inline; filename="download.zip"; filename*=UTF-8''${filename}`,
     },
     dotfiles: 'allow',
   })
@@ -294,9 +295,10 @@ async function downloadMultiFiles(paths: string[], res: Response) {
     downloadName = 'download'
   }
 
+  // sanitizeAttachmentFilename
   const filename = encodeURIComponent(sanitize(downloadName))
   // console.log(downloadName, filename)
-  res.header('Content-Disposition', `attachment; filename="${filename}.zip"`)
+  res.header('Content-Disposition', `attachment; filename="download.zip"; filename*=UTF-8''${filename}.zip`)
 
   const archive = Archiver('zip', { zlib: { level: 9 } })
   archive.pipe(res)
@@ -364,8 +366,8 @@ export async function downloadPath(req: Request, res: Response) {
       const stats = await fs.stat(singlePath)
       if (stats.isFile()) {
         // 对于单个文件，直接使用 res.download
-        const filename = encodeURIComponent(sanitize(Path.basename(singlePath)))
-        // console.log('single', filename)
+        const filename = sanitizeAttachmentFilename(Path.basename(singlePath))
+        // console.log('single download', filename)
         return res.download(singlePath, filename, {
           dotfiles: 'allow',
         })

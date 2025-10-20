@@ -4,7 +4,7 @@
     "": {
       "name": "frontend",
       "dependencies": {
-        "@canwdev/vgo-ui": "^0.2.0",
+        "@canwdev/vgo-ui": "^0.2.1",
         "@imengyu/vue3-context-menu": "^1.5.2",
         "@mdi/font": "^7.4.47",
         "@viselect/vanilla": "^3.9.0",
@@ -89,7 +89,7 @@
 
     "@babel/types": ["@babel/types@7.28.4", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.27.1" } }, "sha512-bkFqkLhh3pMBUQQkpVgWDWq/lqzc2678eUyDlTBhRqhCHFguYYGM0Efga7tYk4TogG/3x0EEl66/OQ+WGbWB/Q=="],
 
-    "@canwdev/vgo-ui": ["@canwdev/vgo-ui@0.2.0", "", { "peerDependencies": { "@vueuse/core": "^12.8.2", "lodash-es": "^4.17.21", "vue": "^3.5.13" } }, "sha512-vJ2IoqeVCgfb5cE6t9NHA2AN+juPLfENbhjfO8l0WUWTFimHb08Oyc/pNjJS+1tbxTKvvrjZH1+4jWGZzpK63A=="],
+    "@canwdev/vgo-ui": ["@canwdev/vgo-ui@0.2.1", "", { "peerDependencies": { "@vueuse/core": "^12.8.2", "lodash-es": "^4.17.21", "vue": "^3.5.13" } }, "sha512-gydmUSwhVaCsU1csFwSmrmqTXE8PJ8Cy4KowYnyooy7uoUDlFfDqzSWMD1fv/p3t2qQ7VB4Fpid3yCE+e+Lwqg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.9", "", { "os": "aix", "cpu": "ppc64" }, "sha512-OaGtL73Jck6pBKjNIe24BnFE6agGl+6KxDtTfHhy1HmhthfKouEcOhqpSL64K4/0WCtbKFLOdzD/44cJ4k9opA=="],
 
