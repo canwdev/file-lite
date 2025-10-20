@@ -1,2 +1,2 @@
 export const PKG_NAME = 'file-lite'
-export const VERSION = '1.0.8'
+export const VERSION = '1.0.9'
