@@ -4,7 +4,7 @@ import type { IEntry } from '@server/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { SortType } from '@server/types/server'
-import { useVModel } from '@vueuse/core'
+import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
@@ -45,9 +45,25 @@ const { basePath, files, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit)
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
+// 缓存路径状态
+const stateMap = ref<{ [key: string]: { position?: number, sortMode?: SortType } }>({})
+
 // 布局和排序方式
-const { isGridView, sortOptions, sortedFiles, showHidden, sortMode }
-  = useLayoutSort(files)
+const sortMode = computed<SortType>({
+  get: () => {
+    return stateMap.value[basePath.value]?.sortMode || SortType.default
+  },
+  set: (val) => {
+    if (!stateMap.value[basePath.value]) {
+      stateMap.value[basePath.value] = { sortMode: val }
+    }
+    else {
+      stateMap.value[basePath.value].sortMode = val
+    }
+  },
+})
+const { isGridView, sortOptions, sortedFiles, showHidden }
+  = useLayoutSort(files, sortMode)
 
 const iconSizeList = ref(16)
 const iconSizeGrid = ref(48)
@@ -93,21 +109,21 @@ const tableColumns = computed(() => {
       width: 80,
       formatter: (item: IEntry) =>
         item.size === null ? '-' : bytesToSize(item.size),
-      sortModes: [SortType.size, SortType.sizeDesc],
+      sortModes: [SortType.sizeDesc, SortType.size],
     },
     {
       key: 'lastModified',
       label: 'Last Modified',
       width: 140,
       formatter: (item: IEntry) => formatDate(item.lastModified),
-      sortModes: [SortType.lastModified, SortType.lastModifiedDesc],
+      sortModes: [SortType.lastModifiedDesc, SortType.lastModified],
     },
     {
       key: 'birthtime',
       label: 'Created',
       width: 140,
       formatter: (item: IEntry) => formatDate(item.birthtime),
-      sortModes: [SortType.birthTime, SortType.birthTimeDesc],
+      sortModes: [SortType.birthTimeDesc, SortType.birthTime],
     },
   ].map((item) => {
     return {
@@ -124,7 +140,7 @@ const tableColumns = computed(() => {
           (m: SortType) => m === sortMode.value,
         )
         const active = idx > -1
-        const isDesc = idx > 0
+        const isDesc = /Desc$/i.test(sortMode.value)
         if (active) {
           return h('span', {
             class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`,
@@ -312,6 +328,40 @@ function handleShortcutKey(event) {
     }
   }
 }
+
+// 缓存滚动位置
+function getSetScrollPosition(action: 'get' | 'set', value = 0) {
+  const el = explorerContentRef.value
+  if (!el) {
+    return 0
+  }
+  if (action === 'get') {
+    return el.scrollTop
+  }
+  else if (action === 'set') {
+    el.scrollTop = value
+  }
+}
+
+watchDebounced(files, () => {
+  if (stateMap.value[basePath.value]) {
+    const position = stateMap.value[basePath.value]?.position || 0
+    getSetScrollPosition('set', position)
+    // console.log('restore', basePath.value, position)
+  }
+}, { debounce: 100, maxWait: 1000 })
+const debounceHandleScroll = useDebounceFn(() => {
+  const position = getSetScrollPosition('get')
+  if (!stateMap.value[basePath.value]) {
+    stateMap.value[basePath.value] = { position }
+  }
+  else {
+    stateMap.value[basePath.value].position = position
+  }
+
+  // console.log('save', basePath.value, position)
+}, 500)
+useEventListener(explorerContentRef, 'scroll', debounceHandleScroll)
 
 defineExpose({
   selectedItems,

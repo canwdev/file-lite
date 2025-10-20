@@ -5,9 +5,8 @@ import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { sortMethodMap } from '../../utils/sort'
 
-export function useLayoutSort(files: Ref<IEntry[]>) {
+export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {
   const isGridView = ref(false)
-  const sortMode = ref(SortType.default)
 
   const sortOptions = computed((): MenuItem[] => {
     return [
@@ -48,7 +47,6 @@ export function useLayoutSort(files: Ref<IEntry[]>) {
 
   return {
     isGridView,
-    sortMode,
     sortOptions,
     sortedFiles,
     showHidden,

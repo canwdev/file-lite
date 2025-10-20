@@ -2,11 +2,13 @@ import type { IEntry } from '@server/types/server'
 import type { OpenWithEnum } from '@/views/Apps/apps'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
+import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { normalizePath, toggleArrayElement } from '../../utils'
 import { useOpener } from './use-opener'
 
 export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]> }) {
   const files = ref<IEntry[]>([])
+
   const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
     listenToStorageChanges: false,
   })
@@ -18,17 +20,25 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     return path
   })
   const isLoading = ref(false)
+  const navigationHistory = ref<NavigationHistory | null>(null)
 
-  const handleRefresh = async () => {
+  const handleRefresh = async (isUpdateHistory = true) => {
     try {
-      files.value = []
       basePath.value = basePathNormalized.value
+
+      files.value = []
       isLoading.value = true
       if (!basePath.value) {
         basePath.value = '/'
       }
-
       files.value = (await getListFn()) as unknown as IEntry[]
+
+      if (!navigationHistory.value) {
+        navigationHistory.value = new NavigationHistory(basePath.value)
+      }
+      else if (isUpdateHistory) {
+        navigationHistory.value.go(basePath.value)
+      }
     }
     catch (e) {
       console.error(e)
@@ -40,29 +50,18 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   }
 
   /* 历史记录功能 START */
-  const backHistory = ref<string[]>([])
-  const forwardHistory = ref<string[]>([])
-  const addHistory = (list: string[], path = basePathNormalized.value) => {
-    const last = list[list.length - 1]
-    if (!last || (last && last !== path)) {
-      list.push(path)
-    }
-  }
   const goBack = async () => {
-    const path = backHistory.value[backHistory.value.length - 2]
+    const { path } = navigationHistory.value?.back()
     if (!path) {
       return
     }
-    backHistory.value.pop()
-    addHistory(forwardHistory.value)
     await handleOpenPath(path, false)
   }
   const goForward = async () => {
-    const path = forwardHistory.value.pop()
+    const { path } = navigationHistory.value?.forward()
     if (!path) {
       return
     }
-    addHistory(backHistory.value, path)
     await handleOpenPath(path, false)
   }
   /* 历史记录功能 END */
@@ -95,24 +94,21 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     if (isUnix.value) {
       path = `/${path}`
     }
-    await handleOpenPath(path)
+    await handleOpenPath(path, true)
   }
 
-  const handleOpenPath = async (path: string, updateHistory = true) => {
+  const handleOpenPath = async (path: string, isUpdateHistory: boolean) => {
     basePath.value = path
     filterText.value = ''
-    await handleRefresh()
-    if (updateHistory) {
-      addHistory(backHistory.value)
-    }
+    await handleRefresh(isUpdateHistory)
   }
-  const { openFile } = useOpener(basePath, isLoading)
+  const { openFile } = useOpener(basePath)
 
   // 打开文件或文件夹
   const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: OpenWithEnum }) => {
     const path = normalizePath(`${basePath.value}/${item.name}`)
     if (item.isDirectory) {
-      await handleOpenPath(path)
+      await handleOpenPath(path, true)
     }
     else {
       openFile(
@@ -147,9 +143,8 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     basePathNormalized,
     starList,
     handleOpenPath,
-    backHistory,
+    navigationHistory,
     goBack,
-    forwardHistory,
     goForward,
     allowUp,
     goUp,

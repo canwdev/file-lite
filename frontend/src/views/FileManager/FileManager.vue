@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { IEntry } from '@server/types/server'
 import type { OpenWithEnum } from '../Apps/apps'
+import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
@@ -23,6 +24,7 @@ const props = withDefaults(
 )
 const emit = defineEmits(['handleSelect', 'cancelSelect'])
 const { selectFileMode, multiple } = toRefs(props)
+const rootRef = ref()
 
 const {
   isLoading,
@@ -32,9 +34,8 @@ const {
   basePathNormalized,
   starList,
   handleOpenPath,
-  backHistory,
+  navigationHistory,
   goBack,
-  forwardHistory,
   goForward,
   allowUp,
   goUp,
@@ -43,6 +44,7 @@ const {
   isStared,
   filterText,
 } = useNavigation({
+  rootRef,
   getListFn: async () => {
     const res = await fsWebApi.getList({
       path: basePath.value,
@@ -52,6 +54,10 @@ const {
     return res as unknown as IEntry[]
   },
 })
+
+const debounceHandleRefresh = useDebounceFn(() => {
+  handleRefresh()
+}, 100)
 
 const fileSidebarRef = ref()
 onMounted(async () => {
@@ -110,7 +116,6 @@ function handleSelect() {
   }
 }
 
-const rootRef = ref()
 const inputAddrRef = ref()
 const searchInputRef = ref()
 function handleShortcutKey(event) {
@@ -150,7 +155,7 @@ function handleShortcutKey(event) {
       <div class="nav-address-bar">
         <div class="nav-wrap">
           <button
-            :disabled="backHistory.length <= 1"
+            :disabled="!navigationHistory?.canBack"
             class="btn-action btn-no-style"
             title="Back (alt+left)"
             @click="goBack"
@@ -158,7 +163,7 @@ function handleShortcutKey(event) {
             <span class="mdi mdi-arrow-left" />
           </button>
           <button
-            :disabled="forwardHistory.length <= 0"
+            :disabled="!navigationHistory?.canForward"
             class="btn-action btn-no-style"
             title="Forward (alt+right)"
             @click="goForward"
@@ -173,7 +178,7 @@ function handleShortcutKey(event) {
           >
             <span class="mdi mdi-arrow-up" />
           </button>
-          <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="handleRefresh">
+          <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="debounceHandleRefresh">
             <span class="mdi mdi-refresh" />
           </button>
         </div>
@@ -184,8 +189,8 @@ function handleShortcutKey(event) {
             placeholder="Path"
             class="input-addr vgo-input"
             title="Address bar (alt+a)"
-            @keyup.enter="handleRefresh"
-            @change="handleRefresh"
+            @keyup.enter="debounceHandleRefresh"
+            @change="debounceHandleRefresh"
           >
           <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
             <template v-if="isStared">
@@ -242,7 +247,7 @@ function handleShortcutKey(event) {
             :multiple="multiple"
             :content-only="contentOnly"
             @open="handleFileListOpen"
-            @refresh="handleRefresh"
+            @refresh="debounceHandleRefresh"
           />
         </el-splitter-panel>
       </el-splitter>
