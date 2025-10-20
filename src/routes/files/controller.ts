@@ -268,11 +268,12 @@ export async function getFileStream(req: Request, res: Response) {
   }
 
   // res.sendFile 会自动处理流、头部等，是最佳实践
-  // sanitizeAttachmentFilename
-  const filename = encodeURIComponent(sanitize(Path.basename(path)))
+  const tName = Path.basename(path)
+  const filename = encodeURIComponent(sanitize(tName))
+  const fallbackFilename = sanitizeAttachmentFilename(tName)
   res.sendFile(Path.resolve(path), {
     headers: {
-      'Content-Disposition': `inline; filename="download.zip"; filename*=UTF-8''${filename}`,
+      'Content-Disposition': `inline; filename="${fallbackFilename}"; filename*=UTF-8''${filename}`,
     },
     dotfiles: 'allow',
   })
@@ -296,9 +297,11 @@ async function downloadMultiFiles(paths: string[], res: Response) {
   }
 
   // sanitizeAttachmentFilename
-  const filename = encodeURIComponent(sanitize(downloadName))
+  const tName = `${downloadName}.zip`
+  const filename = encodeURIComponent(sanitize(tName))
+  const fallbackFilename = sanitizeAttachmentFilename(tName)
   // console.log(downloadName, filename)
-  res.header('Content-Disposition', `attachment; filename="download.zip"; filename*=UTF-8''${filename}.zip`)
+  res.header('Content-Disposition', `attachment; filename="${fallbackFilename}"; filename*=UTF-8''${filename}`)
 
   const archive = Archiver('zip', { zlib: { level: 9 } })
   archive.pipe(res)
@@ -366,9 +369,12 @@ export async function downloadPath(req: Request, res: Response) {
       const stats = await fs.stat(singlePath)
       if (stats.isFile()) {
         // 对于单个文件，直接使用 res.download
-        const filename = sanitizeAttachmentFilename(Path.basename(singlePath))
+        const tName = Path.basename(singlePath)
+        const filename = encodeURIComponent(sanitize(tName))
+        const fallbackFilename = sanitizeAttachmentFilename(tName)
+        res.header('Content-Disposition', `attachment; filename="${fallbackFilename}"; filename*=UTF-8''${filename}`)
         // console.log('single download', filename)
-        return res.download(singlePath, filename, {
+        return res.download(singlePath, sanitize(tName), {
           dotfiles: 'allow',
         })
       }
