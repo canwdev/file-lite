@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import https from 'node:https'
 import path from 'node:path'
 import * as process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import fallback from 'express-history-api-fallback'
 import getPort, { portNumbers } from 'get-port'
@@ -18,7 +19,9 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true }))
 
   // 配置静态资源服务
-  const frontendRoot = path.resolve(process.cwd(), './frontend')
+  const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './frontend')
+  // console.log('frontendRoot', frontendRoot)
+
   app.use('/', express.static(frontendRoot))
 
   if (config.enableLog) {
