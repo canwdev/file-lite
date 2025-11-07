@@ -21,7 +21,7 @@ Web 文件管理器，技术栈 Express.js + TypeScript + Vue 3
 
 ```shell
 # 全局安装（Windows 需要管理员权限）
-npm i -g @canwdev/file-lite
+npm i -g file-lite
 
 # 运行（注意会在当前目录创建 data 文件夹存储配置文件）
 file-lite
