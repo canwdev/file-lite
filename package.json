@@ -1,8 +1,14 @@
 {
-  "name": "file-lite",
+  "name": "@canwdev/file-lite",
   "version": "1.0.9",
   "type": "module",
-  "private": true,
+  "repository": "https://github.com/canwdev/file-lite.git",
+  "bin": {
+    "file-lite": "./dist/file-lite.min.mjs"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "bun --watch run src/main.ts",
     "build": "bun build --target=node --minify --outfile=dist/file-lite.min.mjs ./src/main.ts",
@@ -11,12 +17,10 @@
     "build:auto": "bun run ./docs/build.ts",
     "lint": "eslint src/**/*.{ts,tsx,vue} frontend/**/*.{ts,tsx,vue} --fix",
     "lint:backend": "eslint src/**/*.{ts,tsx,vue} --fix",
-    "lint:frontend": "eslint frontend/**/*.{ts,tsx,vue} --fix"
+    "lint:frontend": "eslint frontend/**/*.{ts,tsx,vue} --fix",
+    "publish": "npm publish --access public"
   },
-  "peerDependencies": {
-    "typescript": "^5.9.2"
-  },
-  "dependencies": {
+  "devDependencies": {
     "archiver": "^7.0.1",
     "express": "^5.1.0",
     "express-history-api-fallback": "^2.2.1",
@@ -25,9 +29,8 @@
     "https": "^1.0.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
-    "node-disk-info": "^1.3.0"
-  },
-  "devDependencies": {
+    "node-disk-info": "^1.3.0",
+    "typescript": "^5.9.2",
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.3",
     "prettier": "3.6.2",
