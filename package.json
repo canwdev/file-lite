@@ -1,6 +1,6 @@
 {
   "name": "@canwdev/file-lite",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "module",
   "repository": "https://github.com/canwdev/file-lite.git",
   "bin": {
