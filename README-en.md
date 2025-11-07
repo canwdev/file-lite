@@ -21,7 +21,7 @@ Web file manager, tech stack Express.js + TypeScript + Vue 3
 
 ```shell
 # Global installation (Windows requires administrator privileges)
-npm i -g @canwdev/file-lite
+npm i -g file-lite
 
 # Run (Note: will create a data folder in the current directory to store configuration files)
 file-lite
