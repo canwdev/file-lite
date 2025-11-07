@@ -17,6 +17,16 @@ Web 文件管理器，技术栈 Express.js + TypeScript + Vue 3
   - 支持 HTTPS 协议（使用自签名证书）
   - 支持访问频率限制
 
+## 安装
+
+```shell
+# 全局安装（Windows 需要管理员权限）
+npm i -g @canwdev/file-lite
+
+# 运行（注意会在当前目录创建 data 文件夹存储配置文件）
+file-lite
+```
+
 ## 开发
 
 使用 bun 开发和编译，最终产物在 Node.js 环境运行

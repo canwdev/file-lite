@@ -17,6 +17,16 @@ Web file manager, tech stack Express.js + TypeScript + Vue 3
   - Support HTTPS protocol (using self-signed certificate)
   - Support access frequency limit
 
+## Installation
+
+```shell
+# Global installation (Windows requires administrator privileges)
+npm i -g @canwdev/file-lite
+
+# Run (Note: will create a data folder in the current directory to store configuration files)
+file-lite
+```
+
 ## Development
 
 Using bun to develop and compile, the final product runs in the Node.js environment
