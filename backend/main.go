@@ -62,8 +62,11 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 	// e.Use(middleware.BodyLimit("100M"))
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `[${time_rfc3339}] ${status} ${method} ${host}${uri} ${latency_human}` + "\n",
+	}))
 	e.Use(middleware.Recover())
-	e.Use(utils.LogErrorsOnly())
+	// e.Use(utils.LogErrorsOnly())
 
 	frontendRoot := filepath.Join(utils.ExeDir(), "frontend")
 	if utils.DirExists(frontendRoot) {
