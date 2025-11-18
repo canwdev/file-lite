@@ -69,11 +69,13 @@ go build -o file-lite-go.exe ./
 
 认证：`Authorization: <token>` 或 `?auth=<token>`，当 `noAuth=true` 时免认证。
 
-## 格式化
+## 常用
 
-使用 `gofmt` 格式化代码。
+```shell
+# 镜像
+go env -w GOPROXY=https://mirrors.aliyun.com/goproxy,direct
 
-```
+# 使用 `gofmt` 格式化代码。
 gofmt -w .\
 ```
 
