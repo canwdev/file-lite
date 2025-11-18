@@ -1,6 +1,6 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { IEntry } from '@server/types/server'
-import { SortType } from '@server/types/server'
+import type { IEntry } from '@/types/server'
+import { SortType } from '@/types/server'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { sortMethodMap } from '../../utils/sort'

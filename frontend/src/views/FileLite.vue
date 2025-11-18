@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { PKG_NAME, VERSION } from '@server/enum/version.ts'
+import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { contextMenuTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'

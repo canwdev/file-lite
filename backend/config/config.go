@@ -24,7 +24,7 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.0.10"
+const Version = "2.0.0"
 
 var cfg Cfg
 var dataBaseDir string

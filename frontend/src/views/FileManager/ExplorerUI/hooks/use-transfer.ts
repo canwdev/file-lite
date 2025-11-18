@@ -1,4 +1,4 @@
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import { useDropZone, useFileDialog } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { downloadUrl } from '@/utils'

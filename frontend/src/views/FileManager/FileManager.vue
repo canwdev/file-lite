@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import type { OpenWithEnum } from '../Apps/apps'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'

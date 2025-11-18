@@ -2,7 +2,7 @@
 
 ## 介绍
 
-一个基于 Echo 的轻量级 web 文件管理服务，完整还原 `./file-lite-nodejs` 的接口与行为。
+一个基于 Echo 的轻量级 web 文件管理服务，完整还原 `file-lite` nodejs 后端的接口与行为。
 
 ## 目录结构
 
@@ -68,3 +68,11 @@ go build -o file-lite-go.exe ./
 - `POST /files/upload-file`：`form-data` 字段 `file`
 
 认证：`Authorization: <token>` 或 `?auth=<token>`，当 `noAuth=true` 时免认证。
+
+## 格式化
+
+使用 `gofmt` 格式化代码。
+
+```
+gofmt -w .\
+```

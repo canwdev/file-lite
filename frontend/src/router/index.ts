@@ -1,4 +1,4 @@
-import { VERSION } from '@server/enum/version.ts'
+import { VERSION } from '@/enum/version.ts'
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
 import { authToken } from '@/store'

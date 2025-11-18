@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { useFileItem } from './hooks/use-file-item'
 
