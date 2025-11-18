@@ -53,9 +53,9 @@ export const fsWebApi = {
     const query = qs.stringify({ paths, auth: authToken.value }, { arrayFormat: 'repeat' })
     return `${baseURL}/download?${query}`
   },
-  stream(path: string, config: any = {}) {
+  stream(path: string, config: any = {}, noCache = true) {
     return service.get('/stream', {
-      params: { path },
+      params: { path, t: noCache ? Date.now() : 0 },
       ...config,
     })
   },

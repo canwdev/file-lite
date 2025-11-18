@@ -51,7 +51,7 @@ const {
     })
     // console.log(res)
 
-    return res as unknown as IEntry[]
+    return (res || []) as unknown as IEntry[]
   },
 })
 
