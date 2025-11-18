@@ -1,29 +1,29 @@
 package config
 
 import (
-    "crypto/rand"
-    "encoding/json"
-    "fmt"
-    "io/fs"
-    "math/big"
-    "os"
-    "path/filepath"
-    "strconv"
-    "strings"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"math/big"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 type Cfg struct {
-    Host       string `json:"host"`
-    Port       string `json:"port"`
-    NoAuth     bool   `json:"noAuth"`
-    Password   string `json:"password"`
-    SafeBaseDir string `json:"safeBaseDir"`
-    EnableLog  bool   `json:"enableLog"`
-    SSLKey     string `json:"sslKey"`
-    SSLCert    string `json:"sslCert"`
+	Host        string `json:"host"`
+	Port        string `json:"port"`
+	NoAuth      bool   `json:"noAuth"`
+	Password    string `json:"password"`
+	SafeBaseDir string `json:"safeBaseDir"`
+	EnableLog   bool   `json:"enableLog"`
+	SSLKey      string `json:"sslKey"`
+	SSLCert     string `json:"sslCert"`
 }
 
-const PkgName = "file-lite"
+const PkgName = "file-lite-go"
 const Version = "1.0.10"
 
 var cfg Cfg
@@ -32,97 +32,107 @@ var safeBaseDir string
 var authToken string
 
 func normalizePath(p string) string {
-    s := strings.ReplaceAll(p, "\\", "/")
-    s = strings.ReplaceAll(s, "//", "/")
-    return s
+	s := strings.ReplaceAll(p, "\\", "/")
+	s = strings.ReplaceAll(s, "//", "/")
+	return s
 }
 
 func DataBaseDir() string { return dataBaseDir }
 func SafeBaseDir() string { return safeBaseDir }
-func AuthToken() string { return authToken }
-func Config() Cfg { return cfg }
+func AuthToken() string   { return authToken }
+func Config() Cfg         { return cfg }
 
 func init() {
-    fmt.Printf("%s version: %s\n\n", PkgName, Version)
-    base := os.Getenv("ENV_DATA_BASE_DIR")
-    if base == "" {
-        wd, _ := os.Getwd()
-        base = filepath.Join(wd, "data")
-    }
-    dataBaseDir = base
-    _ = os.MkdirAll(dataBaseDir, fs.ModePerm)
-    fmt.Printf("DATA_BASE_DIR=%s\n", dataBaseDir)
+	fmt.Printf("%s version: %s\n\n", PkgName, Version)
+	base := os.Getenv("ENV_DATA_BASE_DIR")
+	if base == "" {
+		wd, _ := os.Getwd()
+		base = filepath.Join(wd, "data")
+	}
+	dataBaseDir = base
+	_ = os.MkdirAll(dataBaseDir, fs.ModePerm)
+	fmt.Printf("DATA_BASE_DIR=%s\n", dataBaseDir)
 
-    def := Cfg{
-        Host: "",
-        Port: "",
-        NoAuth: false,
-        Password: "",
-        SafeBaseDir: "./data/public",
-        EnableLog: true,
-        SSLKey: "",
-        SSLCert: "",
-    }
-    fp := filepath.Join(dataBaseDir, "config.json")
-    if _, err := os.Stat(fp); err != nil {
-        b, _ := json.MarshalIndent(def, "", "  ")
-        _ = os.WriteFile(fp, b, 0644)
-        cfg = def
-    } else {
-        b, _ := os.ReadFile(fp)
-        _ = json.Unmarshal(b, &cfg)
-    }
+	def := Cfg{
+		Host:        "",
+		Port:        "",
+		NoAuth:      false,
+		Password:    "",
+		SafeBaseDir: "./data/public",
+		EnableLog:   true,
+		SSLKey:      "",
+		SSLCert:     "",
+	}
+	fp := filepath.Join(dataBaseDir, "config.json")
+	if _, err := os.Stat(fp); err != nil {
+		b, _ := json.MarshalIndent(def, "", "  ")
+		_ = os.WriteFile(fp, b, 0644)
+		cfg = def
+	} else {
+		b, _ := os.ReadFile(fp)
+		_ = json.Unmarshal(b, &cfg)
+	}
 
-    if cfg.SafeBaseDir != "" {
-        wd, _ := os.Getwd()
-        abs := normalizePath(filepath.Clean(filepath.Join(wd, cfg.SafeBaseDir)))
-        if filepath.IsAbs(cfg.SafeBaseDir) {
-            abs = normalizePath(filepath.Clean(cfg.SafeBaseDir))
-        }
-        safeBaseDir = abs
-        if _, err := os.Stat(safeBaseDir); err != nil {
-            _ = os.MkdirAll(safeBaseDir, fs.ModePerm)
-        }
-        fmt.Printf("SAFE_BASE_DIR=%s\n", safeBaseDir)
-    } else {
-        safeBaseDir = ""
-    }
+	if cfg.SafeBaseDir != "" {
+		wd, _ := os.Getwd()
+		abs := normalizePath(filepath.Clean(filepath.Join(wd, cfg.SafeBaseDir)))
+		if filepath.IsAbs(cfg.SafeBaseDir) {
+			abs = normalizePath(filepath.Clean(cfg.SafeBaseDir))
+		}
+		safeBaseDir = abs
+		if _, err := os.Stat(safeBaseDir); err != nil {
+			_ = os.MkdirAll(safeBaseDir, fs.ModePerm)
+		}
+		fmt.Printf("SAFE_BASE_DIR=%s\n", safeBaseDir)
+	} else {
+		safeBaseDir = ""
+	}
 
-    if cfg.Password != "" {
-        authToken = cfg.Password
-    } else {
-        authToken = s4()
-    }
-    fmt.Printf("auth=%s\n", authToken)
+	if cfg.Password != "" {
+		authToken = cfg.Password
+	} else {
+		authToken = s4()
+	}
+	fmt.Printf("auth=%s\n", authToken)
 }
 
 func s4() string {
-    n, _ := rand.Int(rand.Reader, big.NewInt(0x10000))
-    v := int(n.Int64()) + 0x10000
-    s := strconv.FormatInt(int64(v), 16)
-    return s[1:5]
+	n, _ := rand.Int(rand.Reader, big.NewInt(0x10000))
+	v := int(n.Int64()) + 0x10000
+	s := strconv.FormatInt(int64(v), 16)
+	return s[1:5]
 }
 
 func Port() int {
-    env := os.Getenv("PORT")
-    p := cfg.Port
-    if p == "" { p = env }
-    if p == "" { p = "3100" }
-    i, _ := strconv.Atoi(p)
-    return i
+	env := os.Getenv("PORT")
+	p := cfg.Port
+	if p == "" {
+		p = env
+	}
+	if p == "" {
+		p = "3100"
+	}
+	i, _ := strconv.Atoi(p)
+	return i
 }
 
 func Host() string {
-    env := os.Getenv("HOST")
-    h := cfg.Host
-    if h == "" { h = env }
-    if h == "" { h = "0.0.0.0" }
-    return h
+	env := os.Getenv("HOST")
+	h := cfg.Host
+	if h == "" {
+		h = env
+	}
+	if h == "" {
+		h = "0.0.0.0"
+	}
+	return h
 }
 
 func IsHTTPS() bool { return cfg.SSLKey != "" && cfg.SSLCert != "" }
 
 func AuthParam() string {
-    if cfg.NoAuth { return "" }
-    return "auth=" + authToken
+	if cfg.NoAuth {
+		return ""
+	}
+	return "auth=" + authToken
 }
