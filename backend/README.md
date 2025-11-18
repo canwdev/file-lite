@@ -76,3 +76,13 @@ go build -o file-lite-go.exe ./
 ```
 gofmt -w .\
 ```
+
+## 使用 air 热重载开发环境
+
+```shell
+# 安装 air
+go install github.com/air-verse/air@latest
+
+# 启动
+air
+```
