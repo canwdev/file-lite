@@ -1,5 +1,5 @@
 <script lang="ts" setup="">
-import type { IEntry } from '@server/types/server.ts'
+import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fsWebApi } from '@/api/filesystem.ts'
 import { regSupportedImageFormat } from '@/utils/is.ts'

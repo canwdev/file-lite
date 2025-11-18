@@ -1,4 +1,4 @@
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import { useSelectionArea } from '@/hooks/use-selection-area'
 import { normalizePath, toggleArrayElement } from '../../utils'
 

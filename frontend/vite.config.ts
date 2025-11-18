@@ -24,13 +24,12 @@ export default defineConfig({
   ],
   base: './',
   build: {
-    outDir: '../backend-go/frontend',
+    outDir: '../backend/frontend',
     emptyOutDir: true,
   },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@server': fileURLToPath(new URL('../src', import.meta.url)),
     },
   },
   server: {

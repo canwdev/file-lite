@@ -61,7 +61,7 @@ func frontendEmbeddedHandler(subFS fs.FS) echo.HandlerFunc {
 func main() {
 	e := echo.New()
 	e.HideBanner = true
-	e.Use(middleware.BodyLimit("100M"))
+	// e.Use(middleware.BodyLimit("100M"))
 	e.Use(middleware.Recover())
 	e.Use(utils.LogErrorsOnly())
 
