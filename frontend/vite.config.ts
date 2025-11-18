@@ -24,7 +24,7 @@ export default defineConfig({
   ],
   base: './',
   build: {
-    outDir: '../dist/frontend',
+    outDir: '../backend-go/frontend',
     emptyOutDir: true,
   },
   resolve: {
