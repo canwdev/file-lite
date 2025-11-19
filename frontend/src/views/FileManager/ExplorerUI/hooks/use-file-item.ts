@@ -1,4 +1,4 @@
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 

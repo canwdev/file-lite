@@ -1,5 +1,5 @@
+import { PKG_NAME, VERSION } from '@frontend/enum/version.ts'
 import express from 'express'
-import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { authMiddleware } from '@/middlewares/auth.ts'
 import { errorHandler } from '@/middlewares/error-handler.ts'
 import { limiter } from '@/middlewares/limiter.ts'

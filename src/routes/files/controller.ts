@@ -1,5 +1,5 @@
+import type { IDrive, IEntry } from '@frontend/types/server.ts'
 import type { Request, Response } from 'express'
-import type { IDrive, IEntry } from '@/types/server.ts'
 import { Buffer } from 'node:buffer'
 import * as console from 'node:console'
 import fs from 'node:fs/promises'

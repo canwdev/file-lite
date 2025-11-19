@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IDrive } from '@server/types/server'
+import type { IDrive } from '@/types/server'
 import { fsWebApi } from '@/api/filesystem'
 import { bytesToSize } from '@/utils'
 import { normalizePath } from '@/views/FileManager/utils'

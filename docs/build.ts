@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import * as console from "node:console";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { VERSION } from "../src/enum/version.ts";
+import { VERSION } from "../frontend/src/enum/version.ts";
 
 async function generateStartBat(jsName = "main.js") {
   return `@echo off

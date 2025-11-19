@@ -1,11 +1,11 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { IEntry } from '@server/types/server'
+import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { SortType } from '@server/types/server'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'

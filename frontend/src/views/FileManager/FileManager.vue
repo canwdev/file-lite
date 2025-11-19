@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { IEntry } from '@server/types/server'
 import type { OpenWithEnum } from '../Apps/apps'
+import type { IEntry } from '@/types/server'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
