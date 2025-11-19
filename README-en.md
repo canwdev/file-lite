@@ -33,24 +33,31 @@ Using bun to develop and compile, the final product runs in the Node.js environm
 
 ```shell
 # backend
+cd backend
 bun i
 bun run dev
 bun run build
+```
 
+```shell
 # frontend
 cd frontend
 bun i
 bun run frontend:dev
 bun run frontend:build
 
-# run dist
+```shell
+# auto build
+cd backend
+bun run build:auto
+
 cd dist
 node file-lite.min.mjs
 ```
 
 ## Configuration
 
-- Configuration file path: `./data/config.json`
-- Configuration document: [IConfig](./src/enum/config.ts)
-- Supported environment variables example [.env.development](.env.development)
+- Configuration file path: `${cwd}/data/config.json`
+- Configuration document: [IConfig](./backend/src/enum/config.ts)
+- Supported environment variables example [.env.development](./backend/.env.development)
 - [Generate and trust self-signed certificate using mkcert](./docs/mkcert.md)

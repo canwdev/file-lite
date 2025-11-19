@@ -33,24 +33,31 @@ file-lite
 
 ```shell
 # backend
+cd backend
 bun i
 bun run dev
 bun run build
+```
 
+```shell
 # frontend
 cd frontend
 bun i
 bun run frontend:dev
 bun run frontend:build
 
-# run dist
+```shell
+# auto build
+cd backend
+bun run build:auto
+
 cd dist
 node file-lite.min.mjs
 ```
 
 ## 配置文件
 
-- 配置文件路径：`./data/config.json`
-- 配置文档：[IConfig](./src/enum/config.ts)
-- 支持的环境变量示例 [.env.development](.env.development)
+- 配置文件路径：`${cwd}/data/config.json`
+- 配置文档：[IConfig](./backend/src/enum/config.ts)
+- 支持的环境变量示例 [.env.development](./backend/.env.development)
 - [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
