@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "mocha --require ts-node/register 'test/**/*.test.ts'",
+    "test": "mocha --bail --require ts-node/register 'test/**/*.test.ts'",
     "test:watch": "mocha --require ts-node/register 'test/**/*.test.ts' --watch"
   },
   "peerDependencies": {
