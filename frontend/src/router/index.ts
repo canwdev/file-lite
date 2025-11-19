@@ -1,6 +1,6 @@
-import { VERSION } from '@server/enum/version.ts'
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
+import { VERSION } from '@/enum/version.ts'
 import { authToken } from '@/store'
 import FileLite from '@/views/FileLite.vue'
 

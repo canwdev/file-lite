@@ -1,4 +1,4 @@
-import type { IEntry } from '@server/types/server.ts'
+import type { IEntry } from '@/types/server.ts'
 import { defineAsyncComponent } from 'vue'
 
 export enum OpenWithEnum {

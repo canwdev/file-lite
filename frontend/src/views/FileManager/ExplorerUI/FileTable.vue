@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IEntry } from '@server/types/server.ts'
+import type { IEntry } from '@/types/server.ts'
 import VueRender from '@canwdev/vgo-ui/src/components/VueRender.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 

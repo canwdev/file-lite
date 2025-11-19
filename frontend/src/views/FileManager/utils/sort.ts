@@ -2,8 +2,8 @@
  * 修改自GAGU
  * gagu-front-end/src/utils/sorter.util.ts
  */
-import type { IEntry } from '@server/types/server'
-import { SortType } from '@server/types/server'
+import type { IEntry } from '@/types/server'
+import { SortType } from '@/types/server'
 
 export function defaultSorter(a: IEntry, b: IEntry) {
   const aVal = a.isDirectory ? 1 : 2

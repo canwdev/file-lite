@@ -2,7 +2,7 @@ import * as console from 'node:console'
 import fs from 'node:fs'
 import Path from 'node:path'
 import * as process from 'node:process'
-import { PKG_NAME, VERSION } from '@/enum/version.ts'
+import { PKG_NAME, VERSION } from '@frontend/enum/version.ts'
 
 interface IConfig {
   // 监听地址，如果传入 127.0.0.1 则不允许外部设备访问，默认 '0.0.0.0'
