@@ -1,8 +1,8 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
+import { SortType } from '@/types/server'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
-import { SortType } from '@/types/server'
 import { sortMethodMap } from '../../utils/sort'
 
 export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {

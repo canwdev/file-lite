@@ -37,10 +37,10 @@ export function useFileActions({
     try {
       name
         = name
-          || (await showInputPrompt({
-            title: 'Create File',
-            value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
-          }))
+        || (await showInputPrompt({
+          title: 'Create File',
+          value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
+        }))
       isLoading.value = true
       await fsWebApi.uploadFile({
         path: normalizePath(`${basePath.value}/${name}`),
