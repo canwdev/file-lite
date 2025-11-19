@@ -1,5 +1,4 @@
 import ContextMenu from '@imengyu/vue3-context-menu'
-import ElementPlus from 'element-plus'
 import { createPinia } from 'pinia'
 
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
@@ -23,7 +22,6 @@ pinia.use(piniaPluginPersistedstate)
 app.use(pinia)
 
 app.use(router)
-app.use(ElementPlus)
 app.use(ContextMenu)
 
 app.mount('#app')
