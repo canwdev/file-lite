@@ -1,0 +1,39 @@
+{
+  "name": "file-lite",
+  "version": "1.0.11",
+  "type": "module",
+  "repository": "https://github.com/canwdev/file-lite.git",
+  "bin": {
+    "file-lite": "./dist/file-lite.min.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "build": "bun build --target=node --minify --outfile=dist/file-lite.min.mjs ./src/main.ts",
+    "build:cjs": "bun build --target=node --format=cjs --outfile=dist/file-lite.min.cjs ./src/main.ts",
+    "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
+    "build:auto": "bun run ./build.ts",
+    "lint": "eslint src/**/*.{ts,tsx,vue} --fix",
+    "publish": "npm publish --access public"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1",
+    "express": "^5.1.0",
+    "express-history-api-fallback": "^2.2.1",
+    "express-rate-limit": "^8.1.0",
+    "get-port": "^7.1.0",
+    "https": "^1.0.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "node-disk-info": "^1.3.0",
+    "typescript": "^5.9.2",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.3",
+    "prettier": "3.6.2",
+    "@antfu/eslint-config": "^5.4.1",
+    "eslint": "^9.36.0",
+    "eslint-plugin-format": "^1.0.1"
+  }
+}
