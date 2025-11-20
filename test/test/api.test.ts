@@ -136,16 +136,17 @@ describe('文件管理', () => {
       expect(entry).to.not.be.undefined
     })
   }
-  const testUploadModify = (folderName: string, filename: string, fileContent: string) => {
+  const testUploadFile = (folderName: string, filename: string, fileContent: string) => {
 
     it(`上传/修改文件并检测内容: ${folderName}/${filename} | ${fileContent}`, async () => {
       const targetPath = path.join(legalPath, folderName, filename)
-      const localFilePath = path.join(m_dirname, filename)
-
-      fs.writeFileSync(localFilePath, fileContent, 'utf-8')
+      // const localFilePath = path.join(m_dirname, filename)
+      // 构造一个文件对象
+      const fileBuffer = Buffer.from(fileContent, 'utf-8')
+      // 上传文件
       const response = await api.post('/api/files/upload-file')
         .set('Authorization', testConfig.password)
-        .attach('file', localFilePath)
+        .attach('file', fileBuffer, filename)
         .query({
           path: targetPath,
         })
@@ -164,22 +165,20 @@ describe('文件管理', () => {
         .expect('Content-Type', /text\/plain/)
         .expect(200)
       expect(response2.text).to.contain(fileContent)
-    })
 
-    it(`检测文件属性：${folderName}/${filename}`, async () => {
-      const targetPath = path.join(legalPath, folderName)
-      const response = await api.get('/api/files/list')
+      // 检测文件属性
+      const response3 = await api.get('/api/files/list')
         .set('Authorization', testConfig.password)
         .query({
-          path: targetPath,
+          path: path.join(legalPath, folderName),
         })
         .expect('Content-Type', /json/)
         .expect(200)
-      expect(response.body).to.be.an('array')
+      expect(response3.body).to.be.an('array')
       // 检查数组是否非空
-      expect(response.body.length).to.be.greaterThan(0)
+      expect(response3.body.length).to.be.greaterThan(0)
       // 检查数组中是否有 filename
-      const entry = response.body.find((file: IEntry) => file.name === filename)
+      const entry = response3.body.find((file: IEntry) => file.name === filename)
 
       expect(entry).to.have.property('name').that.is.a('string')
       expect(entry).to.have.property('isDirectory').that.is.a('boolean').and.equals(false)
@@ -187,13 +186,14 @@ describe('文件管理', () => {
       expect(entry).to.have.property('error').that.is.null
       expect(entry).to.not.be.undefined
     })
+
   }
 
   describe('创建', () => {
     testCreateFolder(testFolderName)
 
-    testUploadModify(testFolderName, testFilename, 'hello world!')
-    testUploadModify(testFolderName, testFilename, 'modified test file.')
+    testUploadFile(testFolderName, testFilename, 'hello world!')
+    testUploadFile(testFolderName, testFilename, 'modified test file.')
   })
 
   const testDelete = (folderName: string, filename: string) => {
@@ -228,7 +228,91 @@ describe('文件管理', () => {
 
     const toBeDeletedFolder = '.to Be Deleted Folder'
     testCreateFolder(toBeDeletedFolder)
-    testUploadModify(toBeDeletedFolder, testFilename, 'hello world! test file.')
+    testUploadFile(toBeDeletedFolder, testFilename, 'hello world! test file.')
     testDelete('', toBeDeletedFolder)
+  })
+
+  function testRename(folderName: string, from: string, to: string) {
+    it(`重命名文件/文件夹：${folderName}/${from} -> ${folderName}/${to}`, async () => {
+      const response = await api.post('/api/files/rename')
+        .set('Authorization', testConfig.password)
+        .send({
+          fromPath: path.join(legalPath, folderName, from),
+          toPath: path.join(legalPath, folderName, to),
+        })
+        .expect('Content-Type', /json/)
+        .expect(200)
+      expect(response.body).to.be.an('object')
+
+      // 检测文件是否已重命名
+      const response2 = await api.get('/api/files/list')
+        .set('Authorization', testConfig.password)
+        .query({
+          path: path.join(legalPath, folderName),
+        })
+        .expect('Content-Type', /json/)
+        .expect(200)
+      expect(response2.body).to.be.an('array')
+      const entry = response2.body.find((file: IEntry) => file.name === to)
+      expect(entry).to.not.be.undefined
+      expect(entry).to.have.property('name').that.is.a('string').and.equals(to)
+    })
+  }
+
+  describe('重命名', () => {
+    testUploadFile(testFolderName, 'a.txt', 'test rename')
+    testRename(testFolderName, 'a.txt', 'b.txt')
+    testDelete(testFolderName, 'b.txt')
+  })
+
+  const testCopy = (fromPath: string, toPath: string, isMove = false) => {
+    it(`${isMove ? '移动' : '复制'}文件/文件夹：${fromPath} -> ${toPath}`, async () => {
+      const response = await api.post('/api/files/copy-paste')
+        .set('Authorization', testConfig.password)
+        .send({
+          fromPaths: [fromPath],
+          toPath,
+          isMove,
+        })
+        .expect('Content-Type', /json/)
+        .expect(200)
+      expect(response.body).to.be.an('object')
+
+      // 检测目标路径是否存在
+      const response2 = await api.get('/api/files/list')
+        .set('Authorization', testConfig.password)
+        .query({
+          path: path.dirname(toPath),
+        })
+        .expect('Content-Type', /json/)
+        .expect(200)
+      expect(response2.body).to.be.an('array')
+      const entry = response2.body.find((file: IEntry) => file.name === path.basename(toPath))
+      expect(entry).to.not.be.undefined
+
+      // 检测源路径是否已被移动/删除（如果是移动操作）
+      if (isMove) {
+        const response3 = await api.get('/api/files/list')
+          .set('Authorization', testConfig.password)
+          .query({
+            path: path.dirname(fromPath),
+          })
+          .expect('Content-Type', /json/)
+          .expect(200)
+        expect(response3.body).to.be.an('array')
+        const entry2 = response3.body.find((file: IEntry) => file.name === path.basename(fromPath))
+        expect(entry2).to.be.undefined
+      }
+    })
+  }
+
+  describe('移动/复制', () => {
+    testUploadFile(testFolderName, 'a.txt', 'a')
+    testCopy(path.join(legalPath, testFolderName, 'a.txt'), path.join(legalPath))
+    testDelete('', 'a.txt')
+
+    testUploadFile(testFolderName, 'b.txt', 'b')
+    testCopy(path.join(legalPath, testFolderName, 'b.txt'), path.join(legalPath), true)
+    testDelete('', 'b.txt')
   })
 })
