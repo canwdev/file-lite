@@ -1,17 +1,17 @@
 {
   "name": "file-lite",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "type": "module",
   "repository": "https://github.com/canwdev/file-lite.git",
   "bin": {
-    "file-lite": "./dist/file-lite.min.js"
+    "file-lite": "./dist/file-lite.min.mjs"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "dev": "bun --watch run src/main.ts",
-    "build": "bun build --target=node --minify --outfile=dist/file-lite.min.js ./src/main.ts",
+    "build": "bun build --target=node --minify --outfile=dist/file-lite.min.mjs ./src/main.ts",
     "build:cjs": "bun build --target=node --format=cjs --outfile=dist/file-lite.min.cjs ./src/main.ts",
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
     "build:auto": "bun run ./build.ts",

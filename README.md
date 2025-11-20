@@ -55,7 +55,7 @@ cd backend
 bun run build:auto
 
 cd dist
-node file-lite.min.js
+node file-lite.min.mjs
 ```
 
 - [go 后端](backend-go/README.md)
