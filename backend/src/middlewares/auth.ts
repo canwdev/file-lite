@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
-import { authToken, config } from '@/enum/config.ts'
+import { internalConfig } from '@/config/config.ts'
 import { IPRateLimiter } from './auth-limiter'
 
 // ⭐️ 在应用启动时创建 IPRateLimiter 的单例
@@ -10,7 +10,11 @@ const authLimiter = new IPRateLimiter({
 })
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  if (config.noAuth) {
+  if (!internalConfig.config) {
+    return res.status(500).json({ message: 'config error' })
+  }
+
+  if (internalConfig.config.noAuth) {
     return next()
   }
   // ⭐️ 重要: 确保Express应用设置了 'trust proxy'
@@ -28,7 +32,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   const token = req.headers.authorization || req.query.auth
 
   // 2. 验证Token
-  if (token === authToken) {
+  if (token === internalConfig.authToken) {
     // 验证成功，通知limiter
     authLimiter.recordSuccess(ip)
     return next()

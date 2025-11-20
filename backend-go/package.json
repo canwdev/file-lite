@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "dev:go": "air",
+    "build:go": "go build -o file-lite-go.exe ./"
+  }
+}
