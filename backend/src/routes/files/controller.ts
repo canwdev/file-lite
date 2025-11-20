@@ -9,7 +9,7 @@ import * as process from 'node:process'
 import Archiver from 'archiver'
 import multer from 'multer'
 import nodeDiskInfo from 'node-disk-info'
-import { DATA_BASE_DIR, normalizePath, SAFE_BASE_DIR } from '@/enum/config.ts'
+import { internalConfig, normalizePath } from '@/config/config.ts'
 import { getWindowsDrives } from '@/utils/get-drives.ts'
 import { sanitize, sanitizeAttachmentFilename } from '@/utils/sanitize-filename.ts'
 
@@ -24,10 +24,10 @@ function isPathSafe(path: string): boolean {
     return false
   }
   // 如果未配置安全基础目录，则默认所有路径都安全
-  if (!SAFE_BASE_DIR) {
+  if (!internalConfig.safeBaseDir) {
     return true
   }
-  const safeBaseDir = SAFE_BASE_DIR
+  const safeBaseDir = internalConfig.safeBaseDir
   const resolvedPath = normalizePath(path)
   const isSafe = resolvedPath.startsWith(safeBaseDir)
   if (!isSafe) {
@@ -54,11 +54,11 @@ async function isExist(path: string): Promise<boolean> {
 // --- 路由处理函数 (Route Handlers) ---
 
 export async function getDrivers(req: Request, res: Response) {
-  if (SAFE_BASE_DIR) {
+  if (internalConfig.safeBaseDir) {
     res.json([
       {
-        label: SAFE_BASE_DIR,
-        path: SAFE_BASE_DIR,
+        label: internalConfig.safeBaseDir,
+        path: internalConfig.safeBaseDir,
       },
     ])
     return
@@ -403,7 +403,7 @@ export const multerUpload = multer({
           dest = Path.dirname(path)
         }
         else {
-          dest = Path.join(process.cwd(), `${DATA_BASE_DIR}/uploads`)
+          dest = Path.join(process.cwd(), `${internalConfig.dataBaseDir}/uploads`)
         }
         console.log('upload dest', dest)
         // 确保目录存在

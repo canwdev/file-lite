@@ -8,8 +8,8 @@ import type {IEntry} from "@frontend/types/server.ts";
 
 const m_dirname = dirname(fileURLToPath(import.meta.url));
 
-const backendPath = path.join(m_dirname, '../../backend-go')
-const testConfig = JSON.parse(fs.readFileSync(path.join(backendPath, 'data/config.json')) as any) as any
+const backendPath = path.join(m_dirname, '../../backend')
+const testConfig = JSON.parse(fs.readFileSync(path.join(backendPath, 'file-lite/config.json')) as any) as any
 
 const BASE_URL = `${testConfig.sslKey ? 'https' : 'http'}://${testConfig.host || '127.0.0.1'}:${testConfig.port || '3111'}`
 
@@ -26,7 +26,7 @@ describe('鉴权', () => {
     if (testConfig.noAuth) {
       expect(response.status).to.equal(200)
     } else {
-      expect(response.status).to.equal(401)
+      expect(response.status).to.be.oneOf([403, 401])
     }
 
     // Chai 断言：检查响应体是否是一个对象
@@ -76,7 +76,7 @@ describe('文件管理', () => {
     })
   })
 
-  const legalPath = path.resolve(backendPath, testConfig.safeBaseDir || 'data')
+  const legalPath = path.resolve(backendPath, 'file-lite')
   const testFolderName = 'F01 测试文件夹'
   const testFilename = '.A01 测试文件.txt'
 

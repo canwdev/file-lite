@@ -30,9 +30,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 
 *.exe
-/bin/chrome-win64
-/data/
-/bin/frontend/
 /dist
 *.tar
 *.zip
@@ -41,3 +38,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.tar.gz
 
 
+data/
+file-lite/

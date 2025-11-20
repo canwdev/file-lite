@@ -60,6 +60,6 @@ node file-lite.min.mjs
 ## Configuration
 
 - Configuration file path: `${cwd}/data/config.json`
-- Configuration document: [IConfig](./backend/src/enum/config.ts)
+- Configuration document: [IConfig](backend/src/config/types.ts)
 - Supported environment variables example [.env.development](./backend/.env.development)
 - [Generate and trust self-signed certificate using mkcert](./docs/mkcert.md)
