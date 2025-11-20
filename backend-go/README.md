@@ -15,17 +15,24 @@
 
 ## 编译
 
-要求 Go 1.20+。
+- 要求 Go 1.20+。
+- 需要提前编译[前端](../frontend/package.json) `frontend:build-go`，确保 `backend-go/frontend/` 存在
 
 ```bash
 go mod download
 go build -o file-lite-go.exe ./
+# 启动
+./file-lite-go.exe
 ```
 
-## 启动
+## 使用 air 热重载开发环境
 
-```bash
-./file-lite-go.exe
+```shell
+# 安装 air
+go install github.com/air-verse/air@latest
+
+# 启动
+air
 ```
 
 或指定环境变量：
@@ -75,14 +82,4 @@ go build -o file-lite-go.exe ./
 
 ```
 gofmt -w .\
-```
-
-## 使用 air 热重载开发环境
-
-```shell
-# 安装 air
-go install github.com/air-verse/air@latest
-
-# 启动
-air
 ```

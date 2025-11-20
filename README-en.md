@@ -55,6 +55,8 @@ cd dist
 node file-lite.min.mjs
 ```
 
+- [go backend](./backend-go)
+
 ## Configuration
 
 - Configuration file path: `${cwd}/data/config.json`

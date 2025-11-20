@@ -8,7 +8,8 @@ import type {IEntry} from "@frontend/types/server.ts";
 
 const m_dirname = dirname(fileURLToPath(import.meta.url));
 
-const testConfig = JSON.parse(fs.readFileSync(path.join(m_dirname, '../../backend/data/config.json')) as any) as any
+const backendPath = path.join(m_dirname, '../../backend-go')
+const testConfig = JSON.parse(fs.readFileSync(path.join(backendPath, 'data/config.json')) as any) as any
 
 const BASE_URL = `${testConfig.sslKey ? 'https' : 'http'}://${testConfig.host || '127.0.0.1'}:${testConfig.port || '3111'}`
 
@@ -75,7 +76,7 @@ describe('文件管理', () => {
     })
   })
 
-  const legalPath = path.resolve(m_dirname, '../../backend', testConfig.safeBaseDir || 'data')
+  const legalPath = path.resolve(backendPath, testConfig.safeBaseDir || 'data')
   const testFolderName = 'F01 测试文件夹'
   const testFilename = '.A01 测试文件.txt'
 
