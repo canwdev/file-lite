@@ -9,6 +9,7 @@
   "scripts": {
     "frontend:dev": "vite",
     "frontend:build": "vite build",
+    "frontend:build-go": "vite build --mode go",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build"

@@ -55,6 +55,8 @@ cd dist
 node file-lite.min.mjs
 ```
 
+- [go 后端](backend-go/README.md)
+
 ## 配置文件
 
 - 配置文件路径：`${cwd}/data/config.json`
