@@ -98,7 +98,7 @@ function startServer(): Promise<StartServerResult> {
 }
 
 function stopServer() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!server) {
       console.error('server is not running')
       return
@@ -131,7 +131,7 @@ async function main() {
     const { selectedFn }: { selectedFn: FnType } = await enquirer.prompt([{
       type: 'select',
       name: 'selectedFn',
-      message: `📁 ${PKG_NAME} v${VERSION} Select function`,
+      message: `${PKG_NAME} v${VERSION} Select function`,
       choices: [
         { message: '🌐 Open IP selector', name: 'ip' },
         { message: '🔗 Print urls', name: 'print' },
@@ -161,6 +161,7 @@ async function main() {
       continue
     }
     if (selectedFn === 'reload') {
+      console.clear()
       await stopServer()
       continue
     }
