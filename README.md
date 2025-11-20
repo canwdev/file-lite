@@ -19,7 +19,7 @@ Web 文件管理器，技术栈 go (Echo) + Vue 3 (TypeScript)
 
 进入前后端目录，查看对应文档。
 
-- [后端](./backend/README.md)
+- [后端](backend-go/README.md)
 - [前端](./frontend/README.md)
 
 ## 配置
