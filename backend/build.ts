@@ -89,9 +89,9 @@ async function build() {
   ])
 
   const batPath = path.join(distDir, 'file-lite.bat')
-  await fs.writeFile(batPath, await generateStartBat('file-lite.min.mjs'))
+  await fs.writeFile(batPath, await generateStartBat('file-lite.min.js'))
   const shPath = path.join(distDir, 'file-lite.sh')
-  await fs.writeFile(shPath, await generateStartSh('file-lite.min.mjs'))
+  await fs.writeFile(shPath, await generateStartSh('file-lite.min.js'))
   await fs.chmod(shPath, 0o755)
 
   console.log(`\n>>> Dist executable: ${batPath}`)

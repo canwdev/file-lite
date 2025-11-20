@@ -23,8 +23,11 @@ Web file manager, tech stack Express.js + TypeScript + Vue 3
 # Global installation (Windows requires administrator privileges)
 npm i -g file-lite
 
-# Run (Note: will create a data folder in the current directory to store configuration files)
+# Run
 file-lite
+
+# Uninstall
+npm uninstall -g file-lite
 ```
 
 ## Development
@@ -52,7 +55,7 @@ cd backend
 bun run build:auto
 
 cd dist
-node file-lite.min.mjs
+node file-lite.min.js
 ```
 
 - [go backend](./backend-go)

@@ -23,8 +23,11 @@ Web 文件管理器，技术栈 Express.js + TypeScript + Vue 3
 # 全局安装（Windows 需要管理员权限）
 npm i -g file-lite
 
-# 运行（注意会在当前目录创建 data 文件夹存储配置文件）
+# 运行
 file-lite
+
+# 卸载
+npm uninstall -g file-lite
 ```
 
 ## 开发
@@ -52,7 +55,7 @@ cd backend
 bun run build:auto
 
 cd dist
-node file-lite.min.mjs
+node file-lite.min.js
 ```
 
 - [go 后端](backend-go/README.md)
