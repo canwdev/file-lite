@@ -9,6 +9,7 @@
   "scripts": {
     "frontend:dev": "vite",
     "frontend:build": "vite build",
+    "frontend:build-go": "vite build --mode go",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build"
@@ -20,6 +21,7 @@
     "@viselect/vanilla": "^3.9.0",
     "@vueuse/integrations": "^13.9.0",
     "axios": "^1.12.1",
+    "element-plus": "^2.11.8",
     "mitt": "^3.0.1",
     "moment": "^2.30.1",
     "mousetrap": "^1.6.5",
