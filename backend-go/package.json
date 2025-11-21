@@ -1,6 +1,6 @@
 {
   "scripts": {
     "dev:go": "air",
-    "build:go": "go build -o file-lite-go.exe ./"
+    "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./"
   }
 }
