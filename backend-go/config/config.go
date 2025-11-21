@@ -24,12 +24,14 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "2.0.0"
+const Version = "1.1.2"
 
 var cfg Cfg
 var dataBaseDir string
 var safeBaseDir string
 var authToken string
+var configInitialized bool
+var configFilePath string
 
 func normalizePath(p string) string {
 	s := strings.ReplaceAll(p, "\\", "/")
@@ -37,40 +39,54 @@ func normalizePath(p string) string {
 	return s
 }
 
-func DataBaseDir() string { return dataBaseDir }
-func SafeBaseDir() string { return safeBaseDir }
-func AuthToken() string   { return authToken }
-func Config() Cfg         { return cfg }
+func DataBaseDir() string     { return dataBaseDir }
+func SafeBaseDir() string     { return safeBaseDir }
+func AuthToken() string       { return authToken }
+func Config() Cfg             { return cfg }
+func ConfigInitialized() bool { return configInitialized }
+func ConfigFilePath() string  { return configFilePath }
 
-func init() {
+func LoadConfig(allowCreate bool) {
 	fmt.Printf("%s version: %s\n\n", PkgName, Version)
 	base := os.Getenv("ENV_DATA_BASE_DIR")
 	if base == "" {
 		wd, _ := os.Getwd()
-		base = filepath.Join(wd, "data")
+		base = filepath.Join(wd, "file-lite")
 	}
 	dataBaseDir = base
-	_ = os.MkdirAll(dataBaseDir, fs.ModePerm)
-	fmt.Printf("DATA_BASE_DIR=%s\n", dataBaseDir)
+	fmt.Printf("DATA_BASE_DIR: %s\n", dataBaseDir)
+
+	if allowCreate {
+		_ = os.MkdirAll(dataBaseDir, fs.ModePerm)
+	}
 
 	def := Cfg{
 		Host:        "",
 		Port:        "",
 		NoAuth:      false,
 		Password:    "",
-		SafeBaseDir: "./data/public",
+		SafeBaseDir: "./",
 		EnableLog:   true,
 		SSLKey:      "",
 		SSLCert:     "",
 	}
 	fp := filepath.Join(dataBaseDir, "config.json")
+	configFilePath = fp
+
 	if _, err := os.Stat(fp); err != nil {
-		b, _ := json.MarshalIndent(def, "", "  ")
-		_ = os.WriteFile(fp, b, 0644)
-		cfg = def
+		if allowCreate {
+			b, _ := json.MarshalIndent(def, "", "  ")
+			_ = os.WriteFile(fp, b, 0644)
+			cfg = def
+			configInitialized = true
+		} else {
+			cfg = def
+			configInitialized = false
+		}
 	} else {
 		b, _ := os.ReadFile(fp)
 		_ = json.Unmarshal(b, &cfg)
+		configInitialized = true
 	}
 
 	if cfg.SafeBaseDir != "" {
@@ -80,10 +96,14 @@ func init() {
 			abs = normalizePath(filepath.Clean(cfg.SafeBaseDir))
 		}
 		safeBaseDir = abs
-		if _, err := os.Stat(safeBaseDir); err != nil {
-			_ = os.MkdirAll(safeBaseDir, fs.ModePerm)
+		if safeBaseDir != "" {
+			if allowCreate {
+				if _, err := os.Stat(safeBaseDir); err != nil {
+					_ = os.MkdirAll(safeBaseDir, fs.ModePerm)
+				}
+			}
+			fmt.Printf("safeBaseDir: %s\n", safeBaseDir)
 		}
-		fmt.Printf("SAFE_BASE_DIR=%s\n", safeBaseDir)
 	} else {
 		safeBaseDir = ""
 	}
@@ -91,9 +111,9 @@ func init() {
 	if cfg.Password != "" {
 		authToken = cfg.Password
 	} else {
-		authToken = s4()
+		authToken = s4() + s4()
 	}
-	fmt.Printf("auth=%s\n", authToken)
+	fmt.Printf("password: %s\n", authToken)
 }
 
 func s4() string {

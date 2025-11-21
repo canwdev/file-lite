@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -21,6 +25,11 @@ import (
 
 //go:embed frontend
 var embeddedFrontend embed.FS
+
+var (
+	server       *http.Server
+	echoInstance *echo.Echo
+)
 
 func frontendDirHandler(frontendRoot string) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -58,15 +67,25 @@ func frontendEmbeddedHandler(subFS fs.FS) echo.HandlerFunc {
 	}
 }
 
-func main() {
+type StartServerResult struct {
+	UrlIpSelector string
+	PrintUrls     func()
+}
+
+func startServer() (*StartServerResult, error) {
+	if server != nil {
+		return nil, fmt.Errorf("server is already running")
+	}
+
 	e := echo.New()
 	e.HideBanner = true
-	// e.Use(middleware.BodyLimit("100M"))
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: `[${time_rfc3339}] ${status} ${method} ${host}${uri} ${latency_human}` + "\n",
+		Skipper: func(c echo.Context) bool {
+			return c.Response().Status < 400 && !config.Config().EnableLog
+		},
 	}))
 	e.Use(middleware.Recover())
-	// e.Use(utils.LogErrorsOnly())
 
 	frontendRoot := filepath.Join(utils.ExeDir(), "frontend")
 	if utils.DirExists(frontendRoot) {
@@ -86,17 +105,176 @@ func main() {
 	isHttps := config.IsHTTPS()
 	addr := fmt.Sprintf("%s:%d", host, port)
 
+	printUrls := func() {
+		fmt.Println("")
+		protocol := "http:"
+		if isHttps {
+			protocol = "https:"
+		}
+		utils.PrintUrls(protocol, host, port, config.AuthParam())
+		fmt.Println("IP Selector:")
+
+		// Construct IP selector URL
+		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
+
+		auth := ""
+		if !config.Config().NoAuth {
+			auth = config.AuthToken()
+		}
+
+		data := map[string]interface{}{
+			"ips":      []string{},
+			"port":     port,
+			"protocol": protocol,
+			"auth":     auth,
+		}
+		jsonData, _ := json.Marshal(data)
+		encodedData := base64.StdEncoding.EncodeToString(jsonData)
+		urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
+		fmt.Println(urlIpSelector)
+		fmt.Println("")
+	}
+
+	echoInstance = e
+
+	go func() {
+		if isHttps {
+			key := filepath.Join(config.DataBaseDir(), config.Config().SSLKey)
+			cert := filepath.Join(config.DataBaseDir(), config.Config().SSLCert)
+			fmt.Println("HTTPS enabled")
+			server = &http.Server{Addr: addr, Handler: e} // Assign server before StartTLS
+			if err := e.StartTLS(addr, cert, key); err != nil && err != http.ErrServerClosed {
+				e.Logger.Fatal(err)
+			}
+		} else {
+			server = &http.Server{Addr: addr, Handler: e} // Assign server before Start
+			if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+				// fmt.Fprintln(os.Stderr, err)
+			}
+		}
+	}()
+
+	// Give it a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Construct result
+	// Note: The IP selector URL construction above in printUrls is a bit hacky because we didn't refactor PrintUrls to return IPs.
+	// For now, we will re-calculate it or just use a placeholder if needed, but let's try to make it work in printUrls closure.
+
+	protocol := "http:"
 	if isHttps {
-		srv := &http.Server{Addr: addr, Handler: e}
-		utils.PrintUrls("https:", host, port, config.AuthParam())
-		key := filepath.Join(config.DataBaseDir(), config.Config().SSLKey)
-		cert := filepath.Join(config.DataBaseDir(), config.Config().SSLCert)
-		e.Logger.Fatal(e.StartTLS(addr, cert, key))
-		_ = srv
-	} else {
-		utils.PrintUrls("http:", host, port, config.AuthParam())
-		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintln(os.Stderr, err)
+		protocol = "https:"
+	}
+	localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
+	auth := ""
+	if !config.Config().NoAuth {
+		auth = config.AuthToken()
+	}
+	data := map[string]interface{}{
+		"ips":      []string{}, // Empty for now
+		"port":     port,
+		"protocol": protocol,
+		"auth":     auth,
+	}
+	jsonData, _ := json.Marshal(data)
+	encodedData := base64.StdEncoding.EncodeToString(jsonData)
+	urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
+
+	return &StartServerResult{
+		UrlIpSelector: urlIpSelector,
+		PrintUrls:     printUrls,
+	}, nil
+}
+
+func stopServer() {
+	if echoInstance != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := echoInstance.Shutdown(ctx); err != nil {
+			echoInstance.Close()
+		}
+		server = nil
+		echoInstance = nil
+		fmt.Println("server stopped")
+	}
+}
+
+func main() {
+	isExit := false
+	isPrint := false
+	isCreateConfig := false
+	var serverResult *StartServerResult
+
+	for !isExit {
+		if server == nil {
+			config.LoadConfig(isCreateConfig)
+			res, err := startServer()
+			if err != nil {
+				fmt.Println("Error starting server:", err)
+				return
+			}
+			serverResult = res
+			serverResult.PrintUrls()
+		} else if isPrint {
+			// Clear console? Go doesn't have a built-in clear, can use escape codes
+			fmt.Print("\033[H\033[2J")
+			serverResult.PrintUrls()
+		}
+
+		isPrint = false
+		isCreateConfig = false
+
+		var qs = []*survey.Question{
+			{
+				Name: "action",
+				Prompt: &survey.Select{
+					Message: fmt.Sprintf("%s v%s Select function", config.PkgName, config.Version),
+					Options: func() []string {
+						opts := []string{
+							"🌐 Open IP selector",
+							"🔗 Print urls",
+						}
+						if config.ConfigInitialized() {
+							opts = append(opts, "⚙️ Open config file")
+						} else {
+							opts = append(opts, "✨ Create config file")
+						}
+						opts = append(opts, "🔄 Restart server", "🚪 Exit")
+						return opts
+					}(),
+				},
+			},
+		}
+
+		answers := struct {
+			Action string
+		}{}
+
+		err := survey.Ask(qs, &answers)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		switch {
+		case strings.Contains(answers.Action, "Open IP selector"):
+			utils.Opener(serverResult.UrlIpSelector)
+			time.Sleep(1000 * time.Millisecond)
+		case strings.Contains(answers.Action, "Print urls"):
+			isPrint = true
+		case strings.Contains(answers.Action, "Open config file"):
+			if config.ConfigInitialized() {
+				utils.Opener(config.ConfigFilePath())
+			}
+		case strings.Contains(answers.Action, "Create config file"):
+			stopServer()
+			isCreateConfig = true
+		case strings.Contains(answers.Action, "Restart server"):
+			fmt.Print("\033[H\033[2J")
+			stopServer()
+		case strings.Contains(answers.Action, "Exit"):
+			stopServer()
+			isExit = true
 		}
 	}
 }
