@@ -6,7 +6,7 @@ Web 文件管理器，技术栈 Express.js + TypeScript + Vue 3
 
 ![screenshot](docs/screenshot.webp)
 
-- 打包体积不超过 10MB
+- 打包体积不超过 20MB
 - 功能
   - 支持文件创建、删除、重命名、移动、复制
   - 支持批量文件上传、上传文件夹、下载、下载文件夹为zip
