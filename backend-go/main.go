@@ -111,7 +111,7 @@ func startServer() (*StartServerResult, error) {
 		if isHttps {
 			protocol = "https:"
 		}
-		utils.PrintUrls(protocol, host, port, config.AuthParam())
+		ips := utils.PrintUrls(protocol, host, port, config.AuthParam())
 		fmt.Println("IP Selector:")
 
 		// Construct IP selector URL
@@ -123,7 +123,7 @@ func startServer() (*StartServerResult, error) {
 		}
 
 		data := map[string]interface{}{
-			"ips":      []string{},
+			"ips":      ips,
 			"port":     port,
 			"protocol": protocol,
 			"auth":     auth,
@@ -171,7 +171,7 @@ func startServer() (*StartServerResult, error) {
 		auth = config.AuthToken()
 	}
 	data := map[string]interface{}{
-		"ips":      []string{}, // Empty for now
+		"ips":      utils.GetAvailableIPs(host),
 		"port":     port,
 		"protocol": protocol,
 		"auth":     auth,
