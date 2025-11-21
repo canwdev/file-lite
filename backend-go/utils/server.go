@@ -7,7 +7,20 @@ import (
 	"runtime"
 )
 
-func PrintUrls(protocol string, host string, port int, authParam string) {
+func GetAvailableIPs(host string) []string {
+	var ips []string
+	if host == "0.0.0.0" {
+		addrs, _ := net.InterfaceAddrs()
+		for _, a := range addrs {
+			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+				ips = append(ips, ipnet.IP.String())
+			}
+		}
+	}
+	return ips
+}
+
+func PrintUrls(protocol string, host string, port int, authParam string) []string {
 	localhost := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
 	fmt.Printf("Listening on: %s:%d\n%s%s\n", host, port, localhost, func() string {
 		if authParam == "" {
@@ -15,26 +28,23 @@ func PrintUrls(protocol string, host string, port int, authParam string) {
 		}
 		return "?" + authParam
 	}())
-	if host == "0.0.0.0" {
-		addrs, _ := net.InterfaceAddrs()
-		var urls []string
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-				urls = append(urls, fmt.Sprintf("%s//%s:%d%s", protocol, ipnet.IP.String(), port, func() string {
-					if authParam == "" {
-						return ""
-					}
-					return "?" + authParam
-				}()))
+
+	ips := GetAvailableIPs(host)
+
+	if len(ips) > 0 {
+		authSuffix := func() string {
+			if authParam == "" {
+				return ""
 			}
-		}
-		if len(urls) > 0 {
-			fmt.Printf("Available on:\n%s\n", fmt.Sprintf("%s", urls[0]))
-			for i := 1; i < len(urls); i++ {
-				fmt.Println(urls[i])
-			}
+			return "?" + authParam
+		}()
+
+		fmt.Printf("Available on:\n%s//%s:%d%s\n", protocol, ips[0], port, authSuffix)
+		for i := 1; i < len(ips); i++ {
+			fmt.Printf("%s//%s:%d%s\n", protocol, ips[i], port, authSuffix)
 		}
 	}
+	return ips
 }
 
 func Opener(url string) error {
