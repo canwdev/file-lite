@@ -89,11 +89,6 @@ async function build() {
   ])
 
   const jsName = 'file-lite.min.mjs'
-  // 必须在 jsName 文件前面加上 #!/usr/bin/env node
-  // 否则 npm 生成的启动脚本无法用 node 执行
-  const jsPath = path.join(distDir, jsName)
-  const jsContent = await fs.readFile(jsPath, 'utf8')
-  await fs.writeFile(jsPath, `#!/usr/bin/env node\n${jsContent}`)
 
   const batPath = path.join(distDir, 'file-lite.bat')
   await fs.writeFile(batPath, await generateStartBat(jsName))
