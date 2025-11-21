@@ -1,0 +1,3 @@
+- Install rsrc tool: `go install github.com/akavel/rsrc@latest`
+- Run `rsrc -ico icon.ico -o rsrc.syso` in backend-go.
+- The go build command will automatically include rsrc.syso.

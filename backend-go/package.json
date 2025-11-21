@@ -1,6 +1,11 @@
 {
   "scripts": {
     "dev:go": "air",
+    "icon": "node scripts/generate_icon.js && rsrc -ico icon.ico -o rsrc.syso",
     "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5"
   }
 }
