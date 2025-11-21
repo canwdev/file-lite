@@ -6,7 +6,7 @@ Web file manager, tech stack Express.js + TypeScript + Vue 3
 
 ![screenshot](docs/screenshot.webp)
 
-- Bundle size: under 10MB
+- Bundle size: under 20MB
 - Features
   - Support file creation, deletion, renaming, moving, copying
   - Support batch file upload, upload folder, download, download folder as zip
