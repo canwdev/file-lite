@@ -2,9 +2,22 @@
   "scripts": {
     "dev:go": "air",
     "icon": "node scripts/generate_icon.js && rsrc -ico icon.ico -o rsrc.syso",
-    "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./"
+    "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./",
+    "build": "go build -ldflags=\"-s -w\" -o bin/app",
+    "clean": "rimraf ./bin",
+    "build:win:amd64": "cross-env GOOS=windows GOARCH=amd64 npm run build -- --o bin/windows_amd64/file-lite-go.exe",
+    "build:win:arm64": "cross-env GOOS=windows GOARCH=arm64 npm run build -- --o bin/windows_arm64/file-lite-go.exe",
+    "build:linux:amd64": "cross-env GOOS=linux GOARCH=amd64 npm run build -- --o bin/linux_amd64/file-lite-go",
+    "build:linux:arm64": "cross-env GOOS=linux GOARCH=arm64 npm run build -- --o bin/linux_arm64/file-lite-go",
+    "build:mac:amd64": "cross-env GOOS=darwin GOARCH=amd64 npm run build -- --o bin/mac_amd64/file-lite-go",
+    "build:mac:arm64": "cross-env GOOS=darwin GOARCH=arm64 npm run build -- --o bin/mac_arm64/file-lite-go",
+    "build:all:amd64": "npm run build:win:amd64 && npm run build:linux:amd64 && npm run build:mac:amd64",
+    "build:all:arm64": "npm run build:win:arm64 && npm run build:linux:arm64 && npm run build:mac:arm64",
+    "build:all": "npm run build:all:amd64 && npm run build:all:arm64"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
+    "rimraf": "^6.1.2",
     "sharp": "^0.34.5",
     "to-ico": "^1.1.5"
   }
