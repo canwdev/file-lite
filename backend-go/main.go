@@ -9,13 +9,17 @@ import (
 	"io/fs"
 	"mime"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/mattn/go-isatty"
 
 	"file-lite-go/config"
 	"file-lite-go/middlewares"
@@ -204,6 +208,26 @@ func main() {
 	isPrint := false
 	isCreateConfig := false
 	var serverResult *StartServerResult
+
+	// Check if running in a terminal
+	if !isatty.IsTerminal(os.Stdin.Fd()) && !isatty.IsCygwinTerminal(os.Stdin.Fd()) {
+		fmt.Println("Interactive mode disabled (not a TTY)")
+		config.LoadConfig(isCreateConfig)
+		res, err := startServer()
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+			return
+		}
+		serverResult = res
+		serverResult.PrintUrls()
+
+		// Wait for interrupt signal to gracefully shutdown the server
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+		<-quit
+		stopServer()
+		return
+	}
 
 	for !isExit {
 		if server == nil {

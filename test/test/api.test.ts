@@ -1,14 +1,14 @@
 import request from 'supertest'
-import {expect} from 'chai'
+import { expect } from 'chai'
 import * as path from 'node:path'
 import * as fs from "node:fs";
-import {fileURLToPath} from 'url';
-import {dirname} from 'path';
-import type {IEntry} from "@frontend/types/server.ts";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import type { IEntry } from "@frontend/types/server.ts";
 
 const m_dirname = dirname(fileURLToPath(import.meta.url));
 
-const backendPath = path.join(m_dirname, '../../backend')
+const backendPath = path.join(m_dirname, '../../backend-go')
 const testConfig = JSON.parse(fs.readFileSync(path.join(backendPath, 'file-lite/config.json')) as any) as any
 
 const BASE_URL = `${testConfig.sslKey ? 'https' : 'http'}://${testConfig.host || '127.0.0.1'}:${testConfig.port || '3111'}`
