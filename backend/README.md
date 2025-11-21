@@ -1,5 +1,9 @@
 # File Lite
 
+Web file manager, tech stack Express.js + TypeScript + Vue 3
+
+![screenshot](../docs/screenshot.webp)
+
 ## Installation
 
 ```shell
