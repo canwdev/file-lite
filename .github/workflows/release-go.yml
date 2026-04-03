@@ -49,16 +49,11 @@ jobs:
         with:
           go-version-file: backend-go/go.mod
 
-      - name: Setup Node.js (backend-go npm scripts)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
       - name: Build Go (all platforms)
         working-directory: backend-go
         run: |
-          npm install
-          npm run build:all
+          bun install
+          bun run build:all
 
       - name: Pack Go binaries
         run: |
