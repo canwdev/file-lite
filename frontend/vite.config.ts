@@ -31,6 +31,19 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir,
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+
+          sanitizeFileName: (name) => {
+          // Sanitizes file names generated during the build process:
+          // - Replaces spaces with dashes ('-').
+          // - Removes invalid characters that are not alphanumeric, underscores (_), periods (.), or dashes (-).
+            return name
+              .replace(/\s+/g, '-') // Replaces spaces with dashes.
+              .replace(/[^\w.-]/g, '') // Removes all invalid characters.
+          },
+        },
+      },
     },
     resolve: {
       alias: {
