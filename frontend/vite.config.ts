@@ -8,7 +8,7 @@ import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   let outDir = '../backend/dist/frontend'
   if (mode === 'go') {
     outDir = '../backend-go/frontend'

@@ -30,7 +30,7 @@ async function loadDrives() {
   try {
     isLoading.value = true
 
-    const drives = (await fsWebApi.getDrives()) as unknown as IDrive[]
+    const drives = (await fsWebApi.getDrives())
     driveList.value = drives.map((i) => {
       return {
         ...i,

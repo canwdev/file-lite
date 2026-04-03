@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION from frontend/src/enum/version.ts
+        id: appver
+        run: |
+          V=$(sed -n "s/export const VERSION = '\([^']*\)'.*/\1/p" frontend/src/enum/version.ts)
+          if [ -z "$V" ]; then
+            echo "Could not parse VERSION from frontend/src/enum/version.ts" >&2
+            exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Set release tag (git tag push vs manual)
+        id: rel
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=v${{ steps.appver.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build Node distribution (backend build:auto)
+        working-directory: backend
+        run: |
+          bun install
+          bun run build:auto
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.rel.outputs.tag_name }}
+          name: ${{ steps.rel.outputs.tag_name }}
+          generate_release_notes: true
+          files: |
+            backend/file-lite-v*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

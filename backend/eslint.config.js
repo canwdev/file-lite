@@ -10,6 +10,7 @@ export default antfu({
     'vue/no-mutating-props': 'warn',
     'ts/no-use-before-define': 'off',
     'regexp/no-unused-capturing-group': 'off',
+    'e18e/prefer-static-regex': 'off',
     'regexp/no-dupe-disjunctions': 'warn',
     'unused-imports/no-unused-vars': 'warn',
     'no-async-promise-executor': 'warn',

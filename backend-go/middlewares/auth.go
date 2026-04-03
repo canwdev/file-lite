@@ -51,6 +51,9 @@ func (l *ipLimiter) ban(ip string) {
 
 var authLimiter = newIPLimiter()
 
+// authTokenCookieName must match frontend AUTH_TOKEN_COOKIE_KEY.
+const authTokenCookieName = "file_lite_auth_token"
+
 func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if config.Config().NoAuth {
@@ -63,7 +66,9 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		token := c.Request().Header.Get("Authorization")
 		if token == "" {
-			token = c.QueryParam("auth")
+			if ck, err := c.Cookie(authTokenCookieName); err == nil {
+				token = ck.Value
+			}
 		}
 		if token == config.AuthToken() {
 			authLimiter.recordSuccess(ip)

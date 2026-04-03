@@ -126,6 +126,10 @@ export function useSelection({
     }
   }
 
+  const selectedItems = computed(() => {
+    return [...selectedItemsSet.value]
+  })
+
   const selectedPaths = computed(() => {
     return selectedItems.value.map((item) => {
       return normalizePath(`${basePath.value}/${item.name}`)
@@ -140,10 +144,6 @@ export function useSelection({
       }
       return pv + (size || 0)
     }, 0)
-  })
-
-  const selectedItems = computed(() => {
-    return [...selectedItemsSet.value]
   })
 
   return {

@@ -52,7 +52,7 @@ function showMenu(event: MouseEvent) {
         label: 'Logout',
         icon: 'mdi mdi-logout',
         onClick: () => {
-          window.$logout()
+          window.$logout(true)
         },
       },
     ],
