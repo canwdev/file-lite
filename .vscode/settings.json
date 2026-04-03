@@ -1,0 +1,7 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  // Optional: disable the default formatter if it conflicts with ESLint
+  "editor.formatOnSave": false
+}

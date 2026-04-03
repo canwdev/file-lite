@@ -1,3 +1,4 @@
+import type { IDrive, IEntry } from '@/types/server'
 import qs from 'qs'
 import { API_PROXY_BASE } from '@/enum'
 import { authToken } from '@/store'
@@ -12,20 +13,20 @@ export const fsWebApi = {
   auth() {
     return service.get('/auth')
   },
-  getDrives() {
-    return service.get('/drives')
+  async getDrives() {
+    return (await service.get('/drives')) as unknown as IDrive[]
   },
-  getList(params: any = {}) {
+  async getList(params: any = {}) {
     const { path } = params
-    return service.get('/list', {
+    return await service.get('/list', {
       params: { path },
-    })
+    }) as unknown as IEntry[]
   },
-  createDir(params) {
+  createDir(params: { path: string }) {
     return service.post('/create-dir', params)
   },
   // 上传，创建或写入文件
-  uploadFile(params, config: any = {}) {
+  uploadFile(params: { path: string, file: File }, config: any = {}) {
     console.log('[uploadFile]', params)
     const { path, file } = params
     const formData = new FormData()
@@ -36,13 +37,13 @@ export const fsWebApi = {
       ...config,
     })
   },
-  renameEntry(params) {
+  renameEntry(params: { fromPath: string, toPath: string }) {
     return service.post('/rename', params)
   },
-  copyPaste(params) {
+  copyPaste(params: { fromPaths: string[], toPath: string, isMove: boolean }) {
     return service.post('/copy-paste', params)
   },
-  deleteEntry(params) {
+  deleteEntry(params: { path: string[] }) {
     return service.post('/delete', params)
   },
   getDownloadUrl(paths: string[]) {
@@ -67,5 +68,5 @@ export const fsWebApi = {
   },
 }
 
-window.$fsWebApi = fsWebApi
-console.log('window.$fsWebApi available')
+// window.$fsWebApi = fsWebApi
+// console.log('window.$fsWebApi available')

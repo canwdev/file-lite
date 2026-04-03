@@ -34,6 +34,7 @@ const props = withDefaults(
 const emit = defineEmits(['update:selectedRows', 'open'])
 
 const { selectedRows, data } = toRefs(props)
+const mSelectedRows = ref(new Set())
 
 watch(
   selectedRows,
@@ -43,7 +44,6 @@ watch(
   { deep: true },
 )
 
-const mSelectedRows = ref(new Set())
 const columnWidths = ref<Record<string, number>>({})
 
 // 监听 props.columns 的变化，初始化列宽
