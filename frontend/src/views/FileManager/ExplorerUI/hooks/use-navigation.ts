@@ -66,6 +66,10 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   }
   /* 历史记录功能 END */
 
+  // 检测以/开头的路径为unix路径
+  const isUnix = computed(() => {
+    return /^\//.test(basePath.value)
+  })
   // 是否允许返回上一级
   const allowUp = computed(() => {
     const arr = basePath.value.split('/').filter(i => !!i)
@@ -75,10 +79,6 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     else {
       return arr.length > 1
     }
-  })
-  // 检测以/开头的路径为unix路径
-  const isUnix = computed(() => {
-    return /^\//.test(basePath.value)
   })
   const goUp = async () => {
     if (!allowUp.value) {
@@ -96,6 +96,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     }
     await handleOpenPath(path, true)
   }
+  const filterText = ref('')
 
   const handleOpenPath = async (path: string, isUpdateHistory: boolean) => {
     basePath.value = path
@@ -129,7 +130,6 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     starList.value = toggleArrayElement([...starList.value], basePathNormalized.value)
   }
 
-  const filterText = ref('')
   const filteredFiles = computed(() => {
     const search = filterText.value.toLowerCase()
     return files.value.filter(item => item.name.toLowerCase().includes(search))

@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express'
 import { internalConfig } from '@/config/config.ts'
 import { IPRateLimiter } from './auth-limiter'
 
+const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
+
 // ⭐️ 在应用启动时创建 IPRateLimiter 的单例
 // 这确保了所有请求共享同一个状态跟踪器
 const authLimiter = new IPRateLimiter({
@@ -29,7 +31,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     })
   }
 
-  const token = req.headers.authorization || req.query.auth
+  const fromCookie = req.cookies?.[AUTH_TOKEN_COOKIE_KEY]
+  const token = req.headers.authorization || fromCookie
 
   // 2. 验证Token
   if (token === internalConfig.authToken) {

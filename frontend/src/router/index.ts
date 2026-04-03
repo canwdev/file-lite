@@ -1,6 +1,6 @@
-import { VERSION } from '@/enum/version.ts'
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
+import { VERSION } from '@/enum/version.ts'
 import { authToken } from '@/store'
 import FileLite from '@/views/FileLite.vue'
 
@@ -46,7 +46,7 @@ router.beforeEach(async (to, from, next) => {
   const query = { ...to.query }
 
   if (query.auth) {
-    // console.log(query)
+    console.log('set auth token from query')
     authToken.value = query.auth as string
     delete query.auth
     return next({
@@ -57,7 +57,6 @@ router.beforeEach(async (to, from, next) => {
     return next()
   }
   try {
-    // throw new Error('test')
     await fsWebApi.auth()
   }
   catch (error) {

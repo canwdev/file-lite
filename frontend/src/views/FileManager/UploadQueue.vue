@@ -47,6 +47,7 @@ interface IUploadItem extends IBatchFile {
 const listData = ref<IUploadItem[]>([])
 const isVisible = ref(false)
 const uploadIndex = ref(0)
+const taskQueueRef = ref()
 
 watch(isVisible, (val) => {
   if (!val) {
@@ -121,7 +122,6 @@ function taskHandler(task: TaskItem) {
   })
 }
 
-const taskQueueRef = ref()
 const concurrentNum = useStorage('file_lite_concurrent_num', 1, localStorage, {
   listenToStorageChanges: false,
 })
