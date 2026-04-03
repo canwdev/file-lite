@@ -35,6 +35,11 @@ jobs:
             echo "tag_name=v${{ steps.appver.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
@@ -54,11 +59,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: backend-go/go.mod
-
-      - name: Setup Node (for backend-go npm scripts)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
       - name: Build Go (all platforms)
         working-directory: backend-go
