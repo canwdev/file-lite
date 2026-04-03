@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"mime"
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -36,64 +34,19 @@ var (
 	echoInstance *echo.Echo
 )
 
-// Echo 的 c.Param("*") 对 /* 根路由下多级路径（如 assets/foo.js）可能取不到完整路径，
-// 会导致误判为 SPA 并返回 index.html，浏览器把 HTML 当 JS 执行报 Unexpected token '<'。
-func frontendURLRelPath(c echo.Context) (rel string, ok bool) {
-	raw := strings.TrimPrefix(c.Request().URL.Path, "/")
-	if strings.Contains(raw, "..") {
-		return "", false
-	}
-	if raw == "" {
-		return "", true
-	}
-	cleaned := path.Clean("/" + raw)
-	rel = strings.TrimPrefix(cleaned, "/")
-	if rel == "." || rel == "" {
-		return "", true
-	}
-	return rel, true
-}
-
-func frontendDirHandler(frontendRoot string) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		rel, ok := frontendURLRelPath(c)
-		if !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid path")
-		}
-		if rel == "" {
-			return c.File(filepath.Join(frontendRoot, "index.html"))
-		}
-		fp := filepath.Join(frontendRoot, filepath.FromSlash(rel))
-		if utils.FileExists(fp) {
-			return c.File(fp)
-		}
-		return c.File(filepath.Join(frontendRoot, "index.html"))
-	}
-}
-
-func frontendEmbeddedHandler(subFS fs.FS) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		rel, ok := frontendURLRelPath(c)
-		if !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid path")
-		}
-		if rel == "" {
-			rel = "index.html"
-		}
-		f, err := subFS.Open(rel)
-		if err != nil {
-			f, err = subFS.Open("index.html")
-			if err != nil {
-				return echo.NewHTTPError(http.StatusNotFound)
-			}
-		}
-		defer f.Close()
-		ct := mime.TypeByExtension(path.Ext(rel))
-		if ct == "" {
-			ct = "text/html; charset=utf-8"
-		}
-		return c.Stream(http.StatusOK, ct, f)
-	}
+// 使用 Static 中间件 + HTML5 模式：始终用 Request.URL.Path 解析多级路径（如 assets/*.js）。
+// 不要再用 e.GET("/*", …)：匹配到该路由时 c.Path() 以 * 结尾，Echo 会改用 c.Param("*")，
+// 多级路径会断裂，从而把静态请求误判为 SPA 并返回 index.html（浏览器报 Unexpected token '<'）。
+func frontendStaticMiddleware(staticFS http.FileSystem) echo.MiddlewareFunc {
+	return middleware.StaticWithConfig(middleware.StaticConfig{
+		Skipper: func(c echo.Context) bool {
+			return strings.HasPrefix(c.Request().URL.Path, "/api")
+		},
+		Root:       ".",
+		Index:      "index.html",
+		HTML5:      true,
+		Filesystem: staticFS,
+	})
 }
 
 type StartServerResult struct {
@@ -117,13 +70,17 @@ func startServer() (*StartServerResult, error) {
 	e.Use(middleware.Recover())
 
 	frontendRoot := filepath.Join(utils.ExeDir(), "frontend")
+	var staticFS http.FileSystem
 	if utils.DirExists(frontendRoot) {
-		e.Static("/", frontendRoot)
-		e.GET("/*", frontendDirHandler(frontendRoot))
+		staticFS = http.FS(os.DirFS(frontendRoot))
 	} else {
-		subFS, _ := fs.Sub(embeddedFrontend, "frontend")
-		e.GET("/*", frontendEmbeddedHandler(subFS))
+		subFS, err := fs.Sub(embeddedFrontend, "frontend")
+		if err != nil {
+			return nil, fmt.Errorf("embed frontend: %w", err)
+		}
+		staticFS = http.FS(subFS)
 	}
+	e.Use(frontendStaticMiddleware(staticFS))
 
 	api := e.Group("/api")
 	api.Use(middlewares.RateLimiter())
