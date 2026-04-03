@@ -13,7 +13,7 @@
     "build:mac:arm64": "cross-env GOOS=darwin GOARCH=arm64 bun run build -- --o bin/mac_arm64/file-lite-go",
     "build:all:amd64": "bun run build:win:amd64 && bun run build:linux:amd64 && bun run build:mac:amd64",
     "build:all:arm64": "bun run build:win:arm64 && bun run build:linux:arm64 && bun run build:mac:arm64",
-    "build:all": "bun run icon && bun run build:all:amd64 && bun run build:all:arm64"
+    "build:all": "bun run build:all:amd64 && bun run build:all:arm64"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
