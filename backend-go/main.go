@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -35,13 +36,34 @@ var (
 	echoInstance *echo.Echo
 )
 
+// Echo 的 c.Param("*") 对 /* 根路由下多级路径（如 assets/foo.js）可能取不到完整路径，
+// 会导致误判为 SPA 并返回 index.html，浏览器把 HTML 当 JS 执行报 Unexpected token '<'。
+func frontendURLRelPath(c echo.Context) (rel string, ok bool) {
+	raw := strings.TrimPrefix(c.Request().URL.Path, "/")
+	if strings.Contains(raw, "..") {
+		return "", false
+	}
+	if raw == "" {
+		return "", true
+	}
+	cleaned := path.Clean("/" + raw)
+	rel = strings.TrimPrefix(cleaned, "/")
+	if rel == "." || rel == "" {
+		return "", true
+	}
+	return rel, true
+}
+
 func frontendDirHandler(frontendRoot string) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		p := c.Param("*")
-		if p == "" || strings.HasSuffix(p, "/") {
+		rel, ok := frontendURLRelPath(c)
+		if !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid path")
+		}
+		if rel == "" {
 			return c.File(filepath.Join(frontendRoot, "index.html"))
 		}
-		fp := filepath.Join(frontendRoot, p)
+		fp := filepath.Join(frontendRoot, filepath.FromSlash(rel))
 		if utils.FileExists(fp) {
 			return c.File(fp)
 		}
@@ -51,11 +73,14 @@ func frontendDirHandler(frontendRoot string) echo.HandlerFunc {
 
 func frontendEmbeddedHandler(subFS fs.FS) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		p := c.Param("*")
-		if p == "" || strings.HasSuffix(p, "/") {
-			p = "index.html"
+		rel, ok := frontendURLRelPath(c)
+		if !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid path")
 		}
-		f, err := subFS.Open(p)
+		if rel == "" {
+			rel = "index.html"
+		}
+		f, err := subFS.Open(rel)
 		if err != nil {
 			f, err = subFS.Open("index.html")
 			if err != nil {
@@ -63,7 +88,7 @@ func frontendEmbeddedHandler(subFS fs.FS) echo.HandlerFunc {
 			}
 		}
 		defer f.Close()
-		ct := mime.TypeByExtension(filepath.Ext(p))
+		ct := mime.TypeByExtension(path.Ext(rel))
 		if ct == "" {
 			ct = "text/html; charset=utf-8"
 		}
