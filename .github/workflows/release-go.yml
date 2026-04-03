@@ -49,6 +49,9 @@ jobs:
         with:
           go-version-file: backend-go/go.mod
 
+      - name: Install rsrc
+        run: go install github.com/akavel/rsrc@latest
+
       - name: Build Go (all platforms)
         working-directory: backend-go
         run: |
