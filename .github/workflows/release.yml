@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,15 +16,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync VERSION from tag
+      - name: Read VERSION from frontend/src/enum/version.ts
+        id: appver
         run: |
-          VER="${GITHUB_REF_NAME#v}"
-          if [ -z "$VER" ] || [ "$VER" = "$GITHUB_REF_NAME" ]; then
-            echo "Tag must be like v1.2.0 (got: $GITHUB_REF_NAME)" >&2
+          V=$(sed -n "s/export const VERSION = '\([^']*\)'.*/\1/p" frontend/src/enum/version.ts)
+          if [ -z "$V" ]; then
+            echo "Could not parse VERSION from frontend/src/enum/version.ts" >&2
             exit 1
           fi
-          sed -i.bak "s#export const VERSION = '[^']*'#export const VERSION = '${VER}'#" frontend/src/enum/version.ts
-          rm -f frontend/src/enum/version.ts.bak
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Set release tag (git tag push vs manual)
+        id: rel
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=v${{ steps.appver.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -59,14 +69,16 @@ jobs:
       - name: Pack Go binaries
         run: |
           cd backend-go
-          zip -r "../file-lite-go-${{ github.ref_name }}.zip" bin
+          zip -r "../file-lite-go-v${{ steps.appver.outputs.version }}.zip" bin
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.rel.outputs.tag_name }}
+          name: ${{ steps.rel.outputs.tag_name }}
           generate_release_notes: true
           files: |
             backend/file-lite-v*.zip
-            file-lite-go-${{ github.ref_name }}.zip
+            file-lite-go-v${{ steps.appver.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
