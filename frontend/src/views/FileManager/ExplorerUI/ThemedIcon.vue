@@ -4,24 +4,34 @@ import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
-const props = withDefaults(defineProps<{
-  iconClass: string
-  item?: IEntry
-  absPath?: string
-  iconSize?: number
-}>(), {
-  iconSize: 48,
-})
+const props = withDefaults(
+  defineProps<{
+    iconClass: string
+    item?: IEntry
+    absPath?: string
+    iconSize?: number
+  }>(),
+  {
+    iconSize: 48,
+  },
+)
 
 const loadFailed = ref(false)
-watch(() => props.absPath, () => {
-  loadFailed.value = false
-})
+watch(
+  () => props.absPath,
+  () => {
+    loadFailed.value = false
+  },
+)
 const previewSrc = computed(() => {
   const { item, absPath } = props
   if (absPath && item) {
-    // 仅支持图片预览，且大小不超过 30MB
-    if (!item.isDirectory && regSupportedImageFormat.test(item.name) && Number(item.size) < (30 * 1024 * 1024)) {
+    // 仅支持图片预览，且大小不超过 xMB
+    if (
+      !item.isDirectory
+      && regSupportedImageFormat.test(item.name)
+      && Number(item.size) < 3 * 1024 * 1024
+    ) {
       return fsWebApi.getStreamUrl(absPath)
     }
   }
@@ -37,8 +47,18 @@ const targetIsVisible = useElementVisibility(target, {
 
 <template>
   <div ref="target" class="themed-icon" :style="{ width: `${iconSize}px` }">
-    <img v-if="!loadFailed && previewSrc && targetIsVisible" class="preview-image" :src="previewSrc" @error="loadFailed = true">
-    <span v-else-if="iconClass" class="themed-icon-class" :class="[iconClass]" :style="{ fontSize: `${iconSize}px` }" />
+    <img
+      v-if="!loadFailed && previewSrc && targetIsVisible"
+      class="preview-image"
+      :src="previewSrc"
+      @error="loadFailed = true"
+    >
+    <span
+      v-else-if="iconClass"
+      class="themed-icon-class"
+      :class="[iconClass]"
+      :style="{ fontSize: `${iconSize}px` }"
+    />
     <span v-else class="themed-icon-class mdi mdi-file-question" />
   </div>
 </template>

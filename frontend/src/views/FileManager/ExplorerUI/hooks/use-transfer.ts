@@ -13,6 +13,7 @@ export function useTransfer({
   isLoading: Ref<boolean>
   selectedItems: Ref<IEntry[]>
 }) {
+  const uploadQueueRef = ref()
   const uploadFiles = async (files: File[] | FileList | null) => {
     if (!files) {
       return
@@ -30,7 +31,6 @@ export function useTransfer({
     multiple: true,
     reset: true,
   })
-  const uploadQueueRef = ref()
   onSelectFiles(async (files) => {
     if (!files) {
       return

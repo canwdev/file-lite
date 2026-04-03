@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { IEntry } from '@/types/server'
 import type { OpenWithEnum } from '../Apps/apps'
+import type { IEntry } from '@/types/server'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import FileList from './ExplorerUI/FileList.vue'
@@ -51,7 +51,7 @@ const {
     })
     // console.log(res)
 
-    return (res || []) as unknown as IEntry[]
+    return (res || [])
   },
 })
 
@@ -71,6 +71,7 @@ onMounted(async () => {
     }
   }
 })
+const fileListRef = ref()
 
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
@@ -84,7 +85,6 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenW
   })
 }
 
-const fileListRef = ref()
 // 是否选中了一个文件夹
 const isSelectAFolder = computed(() => {
   const items = fileListRef.value.selectedItems
