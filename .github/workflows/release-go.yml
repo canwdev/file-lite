@@ -1,4 +1,4 @@
-name: Release
+name: Release (Go)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-go-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,27 +35,43 @@ jobs:
             echo "tag_name=v${{ steps.appver.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Node.js
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build frontend for Go embed
+        working-directory: frontend
+        run: |
+          bun install
+          bun run frontend:build-go
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend-go/go.mod
+
+      - name: Setup Node.js (backend-go npm scripts)
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Build Node distribution (backend build:auto)
-        working-directory: backend
+      - name: Build Go (all platforms)
+        working-directory: backend-go
         run: |
-          bun install
-          bun run build:auto
+          npm install
+          npm run build:all
 
-      - name: Publish GitHub Release
+      - name: Pack Go binaries
+        run: |
+          cd backend-go
+          zip -r "../file-lite-go-v${{ steps.appver.outputs.version }}.zip" bin
+
+      - name: Publish GitHub Release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rel.outputs.tag_name }}
           name: ${{ steps.rel.outputs.tag_name }}
-          generate_release_notes: true
+          generate_release_notes: false
           files: |
-            backend/file-lite-v*.zip
+            file-lite-go-v${{ steps.appver.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
