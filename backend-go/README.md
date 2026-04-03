@@ -42,7 +42,7 @@ air
 - `GET /files/download?path=` 或 `paths[]=`：下载或打包
 - `POST /files/upload-file`：`form-data` 字段 `file`
 
-认证：`Authorization: <token>` 或 `?auth=<token>`，当 `noAuth=true` 时免认证。
+认证：`Authorization: <token>` 或 Cookie `file_lite_auth_token`，当 `noAuth=true` 时免认证。
 
 ## 格式化
 

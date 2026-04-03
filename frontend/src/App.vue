@@ -9,8 +9,10 @@ window.$dialog = ElMessageBox
 const router = useRouter()
 
 useGlobalTheme()
-window.$logout = () => {
-  authToken.value = ''
+window.$logout = (clearToken = true) => {
+  if (clearToken) {
+    authToken.value = ''
+  }
   router.push({ name: 'LoginView' })
 }
 </script>

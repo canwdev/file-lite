@@ -6,6 +6,7 @@ import path from 'node:path'
 import * as process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { PKG_NAME, VERSION } from '@frontend/enum/version.ts'
+import cookieParser from 'cookie-parser'
 import enquirer from 'enquirer'
 import express from 'express'
 import fallback from 'express-history-api-fallback'
@@ -36,6 +37,7 @@ function startServer(): Promise<StartServerResult> {
     app.set('trust proxy', 1)
     app.use(express.json())
     app.use(express.urlencoded({ extended: true }))
+    app.use(cookieParser())
 
     // 配置静态资源服务
     const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './frontend')

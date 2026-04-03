@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { fsWebApi } from '@/api/filesystem'
 import { authToken } from '@/store'
 
 const router = useRouter()
@@ -7,6 +8,15 @@ const route = useRoute()
 const authTokenInput = ref('')
 async function confirmAuthToken() {
   authToken.value = authTokenInput.value
+
+  try {
+    await fsWebApi.auth()
+  }
+  catch (error) {
+    console.error(error)
+    return
+  }
+
   if (route.query.redirect) {
     await router.push({ path: route.query.redirect as string })
   }
@@ -14,11 +24,13 @@ async function confirmAuthToken() {
     await router.push({ path: '/' })
   }
 }
-watch(authToken, (newVal) => {
-  if (newVal) {
-    authTokenInput.value = newVal
+
+onMounted(async () => {
+  if (authToken.value) {
+    authTokenInput.value = authToken.value
   }
-}, { immediate: true })
+})
+
 const inputRef = ref<HTMLInputElement>()
 onMounted(() => {
   inputRef.value?.focus()

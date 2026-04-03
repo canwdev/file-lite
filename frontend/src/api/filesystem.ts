@@ -48,7 +48,7 @@ export const fsWebApi = {
   },
   getDownloadUrl(paths: string[]) {
     if (paths.length === 1) {
-      return `${baseURL}/download?path=${paths[0]}&auth=${authToken.value}`
+      return `${baseURL}/download?path=${paths[0]}`
     }
 
     const query = qs.stringify({ paths, auth: authToken.value }, { arrayFormat: 'repeat' })
@@ -64,7 +64,7 @@ export const fsWebApi = {
     if (!path) {
       return ''
     }
-    return `${baseURL}/stream?path=${encodeURIComponent(path)}&auth=${authToken.value}`
+    return `${baseURL}/stream?path=${encodeURIComponent(path)}`
   },
 }
 
