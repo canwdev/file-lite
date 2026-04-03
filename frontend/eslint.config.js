@@ -21,6 +21,7 @@ export default antfu({
     'no-console': 'off',
     'regexp/no-unused-capturing-group': 'off',
     'ts/no-use-before-define': 'off',
+    'e18e/prefer-static-regex': 'off',
     'no-alert': 'warn',
     // 'ts/no-explicit-any': 'error',
   },

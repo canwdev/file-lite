@@ -28,7 +28,7 @@ export async function getWindowsDrives(): Promise<string[]> {
       }
 
       // The last line contains the drives.  Example: "Drives: A:\ C:\ D:\"
-      const drivesLine = lines[lines.length - 1] || ''
+      const drivesLine = lines.at(-1) || ''
       const drives = drivesLine.split(' ').filter(value => /[A-Z]:\\/i.test(value)).map(value => value.trim().slice(0, -1))
 
       resolve(drives)
