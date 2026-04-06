@@ -2,10 +2,10 @@ import type { IEntry } from '@/types/server'
 import {
   regArchiveFormat,
   regAudioFormat,
-  regExeFormat,
   regImageFormat,
   regSupportedTextFormat,
   regVideoFormat,
+  regWindowsExeFormat,
 } from '@/utils/is'
 
 export function getFileIconClass(item?: IEntry) {
@@ -28,7 +28,7 @@ export function getFileIconClass(item?: IEntry) {
   if (regVideoFormat.test(ext)) {
     return `mdi-file-video-outline`
   }
-  if (regExeFormat.test(ext)) {
+  if (regWindowsExeFormat.test(ext)) {
     return `mdi-microsoft-windows`
   }
   if (regSupportedTextFormat.test(ext)) {

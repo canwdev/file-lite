@@ -1,17 +1,18 @@
 export const shortcutFilenameReg = /\.shortcut$/i
 
-export const regArchiveFormat
-  = /\.(zip|rar|tar|gz|bz2|7z|xz|tgz|zipx|tar\.gz|tar\.bz2|z|lzh|arj|zoo|pkg|lz|7zip|cab|iso|dmg|apk)$/i
-export const regImageFormat = /\.(jpg|jpeg|png|gif|bmp|svg|webp|tiff?|heif|indd|ico)$/i
-export const regExeFormat = /\.(exe|msi)$/i
-export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp)$/i
+export const regArchiveFormat = /\.(?:zip|rar|7z|tar|gz|bz2|xz|tgz|tar\.gz|tar\.bz2|tar\.xz|zipx|z|lzh|arj|zoo|pkg|lz|cab|iso|dmg|apk|deb|rpm|jar|war|ear|zst|lz4|br|vhd|vhdx|wim)$/i
+
+export const regImageFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|apng|webp|svg|avif|bmp|tiff?|heif|indd|ico)$/i
+export const regWindowsExeFormat = /\.(?:exe|msi|com|scr|cpl|msc|msp|pif|dll|sys|drv)$/i
+export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogv)$/i
 export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus)$/i
 
-export const regSupportedTextFormat
-  = /\.(txt|csv|md|log|lock|ini|conf|config|json|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|cs|rb|go|php|html|htm|hta|xml|yaml|css|scss|sass|styl|less|vue|bat|cmd|sh)$/i
-export const regSupportedImageFormat = regImageFormat // /\.(jpg|jpeg|png|gif|webp|svg)$/i
-export const regSupportedVideoFormat = regVideoFormat // /\.(mp4|webm|ogg|mov)$/i
-export const regSupportedAudioFormat = regAudioFormat // /\.(mp3|wav|ogg|aac|flac|opus)$/i
+export const regSupportedTextFormat = /\.(?:txt|csv|md|log|lock|ini|conf|config|json|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|hpp|cs|rb|go|php|html|htm|hta|xml|yaml|yml|css|scss|sass|styl|less|vue|bat|cmd|ps1|sh|env|editorconfig|gitignore|gitattributes|dockerfile|makefile|sql|graphql|gql|jsonl|properties|toml|rtf|tex|bib|tsv|svg|map)$/i
+
+export const regSupportedImageFormat = regImageFormat
+export const regSupportedVideoFormat = regVideoFormat
+export const regSupportedAudioFormat = regAudioFormat
+
 export function isSupportedMediaFormat(name: string) {
   return regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
 }
@@ -28,8 +29,4 @@ export function isBase64Image(str: string) {
 
 export function isSrcHttpUrl(url: string) {
   return /^(https?:)/i.test(url)
-}
-
-export function isUrlImage(url: string) {
-  return /\.(?:jpg|jpeg|jfif|pjpeg|pjp|gif|apng|png|webp|svg|avif)$/i.test(url)
 }
