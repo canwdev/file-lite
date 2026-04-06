@@ -12,7 +12,7 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import UploadQueue from '../UploadQueue.vue'
+import TransferQueue from '../TransferQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
@@ -188,7 +188,7 @@ const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
 
 // 上传下载功能
 const {
-  uploadQueueRef,
+  transferQueueRef,
   dropZoneRef,
   isOverDropZone,
   selectUploadFiles,
@@ -580,7 +580,7 @@ defineExpose({
       </div>
     </div>
 
-    <UploadQueue ref="uploadQueueRef" auto-close @all-done="emit('refresh')" />
+    <TransferQueue ref="transferQueueRef" auto-close @all-done="emit('refresh')" />
   </div>
 </template>
 

@@ -3,6 +3,7 @@ import type { TaskItem } from '@/utils/task-queue'
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import { isDev } from '@/enum'
 import { authToken } from '@/store'
 import { bytesToSize } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
@@ -262,61 +263,67 @@ function handleRetry(item: ITransferItem, index: number) {
   addTask(item, index)
 }
 
-/* onMounted(() => {
+onMounted(() => {
+  // 仅在开发环境下加载 mock 数据
+  if (!isDev)
+    return
+
   const mockList = () => {
     isVisible.value = true
-    listData.value = [
-      {
-        index: 1,
-        path: 'D:/TEST/test1_long_long_long_long_long_long.png',
-        filename: 'test1_long_long_long_long_long_long.png',
-        file: new File([], 'test1.png'),
-        progress: 0.5,
-        status: 'transferring',
-        message: 'Uploading',
-        abortObj: {
-          abort: () => {
-            console.log('abort')
-          },
-        },
-        speedInfo: {
-          loaded: 1000000,
-          total: 2000000,
-          rate: 1000000,
-          bytes: 1000000,
-        },
-      },
-      {
-        index: 2,
-        path: 'D:/TEST/test1.png',
-        filename: 'test1.png',
-        file: new File([], 'test1.png'),
-        progress: 1,
-        status: 'success',
-        message: '',
-      },
-      {
-        index: 3,
-        path: 'D:/TEST/test2.png',
-        filename: 'test2.png',
-        file: new File([], 'test1.png'),
-        progress: 0.6,
-        status: 'failed',
-        message: 'Test: Failed',
-      },
-      {
-        index: 4,
-        path: 'D:/TEST/test1_long_long_long_long_long_long.png',
-        filename: 'test1_long_long_long_long_long_long.png',
-        file: new File([], 'test2.png'),
+    let index = 0
+    const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
+      index++
+      const filename = overrides.filename || `mock_file_${index}.png`
+      return {
+        index,
+        path: `D:/TEST/${filename}`,
+        filename,
+        file: new File([], 'mock.png'),
         progress: 0,
         status: 'pending',
         message: 'Waiting',
-      },
+        type: 'upload',
+        ...overrides,
+      }
+    }
+
+    listData.value = [
+      // 上传状态覆盖
+      createItem({ status: 'pending', message: 'Waiting' }),
+      createItem({
+        status: 'transferring',
+        message: 'Uploading',
+        progress: 0.45,
+        speedInfo: { loaded: 450000, total: 1000000, rate: 102400, bytes: 102400 },
+        abortObj: { abort: () => console.log('Abort Upload') },
+      }),
+      createItem({ status: 'success', message: 'Success', progress: 1 }),
+      createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
+
+      // 下载状态覆盖
+      createItem({ status: 'pending', type: 'download' }),
+      createItem({
+        status: 'transferring',
+        message: 'Downloading',
+        type: 'download',
+        progress: 0.75,
+        speedInfo: { loaded: 750000, total: 1000000, rate: 204800, bytes: 204800 },
+        abortObj: { abort: () => console.log('Abort Download') },
+      }),
+      createItem({ status: 'success', type: 'download', progress: 1 }),
+      // Windows 可能对 .url,.dll 等文件名进行限制
+      createItem({ status: 'failed', type: 'download', message: `TypeError: Failed to execute 'getFileHandle' on 'FileSystemDirectoryHandle': Name is not allowed.`, progress: 0.8 }),
+
+      // 特殊情况：长文件名
+      createItem({
+        filename: 'very_long_filename_to_test_ui_truncation_behavior_in_transfer_queue_list_item.png',
+        status: 'transferring',
+        progress: 0.15,
+      }),
     ]
   }
   mockList()
-}) */
+})
 
 const successNum = computed(() => {
   return listData.value.filter(i => i.status === 'success').length

@@ -13,13 +13,13 @@ export function useTransfer({
   isLoading: Ref<boolean>
   selectedItems: Ref<IEntry[]>
 }) {
-  const uploadQueueRef = ref()
+  const transferQueueRef = ref()
   const uploadFiles = async (files: File[] | FileList | null) => {
     if (!files) {
       return
     }
     for (const file of files) {
-      uploadQueueRef.value.addTask({
+      transferQueueRef.value.addTask({
         filename: file.name,
         path: normalizePath(`${basePath.value}/${file.name}`),
         file,
@@ -46,7 +46,7 @@ export function useTransfer({
       item.file((file) => {
         // console.log('File:', {path, file})
 
-        uploadQueueRef.value.addTask({
+        transferQueueRef.value.addTask({
           filename: file.name,
           path: normalizePath(`${basePath.value}/${path}${file.name}`),
           file,
@@ -73,7 +73,7 @@ export function useTransfer({
       // 选择上传文件夹的弊端是无法上传空文件夹
       // console.warn('normal file', item)
 
-      uploadQueueRef.value.addTask({
+      transferQueueRef.value.addTask({
         filename: item.name,
         path: normalizePath(`${basePath.value}/${item.webkitRelativePath}`),
         file: item,
@@ -156,7 +156,7 @@ export function useTransfer({
         }
         else {
           // 添加文件下载任务到队列
-          uploadQueueRef.value.addTask({
+          transferQueueRef.value.addTask({
             filename: entry.name,
             path: itemPath,
             parentHandle: currentHandle,
@@ -195,7 +195,7 @@ export function useTransfer({
   })
 
   return {
-    uploadQueueRef,
+    transferQueueRef,
     dropZoneRef,
     isOverDropZone,
     selectUploadFiles,
