@@ -271,7 +271,7 @@ function handleManualDownload(item: ITransferItem) {
 onMounted(() => {
   // 仅在开发环境下加载 mock 数据
   const enableMock = false
-  if (isDev && !enableMock)
+  if (!(isDev && !enableMock))
     return
 
   const mockList = () => {
