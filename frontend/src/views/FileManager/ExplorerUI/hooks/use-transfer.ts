@@ -136,7 +136,47 @@ export function useTransfer({
       .catch()
   }
 
-  const downloadToFolder = () => {}
+  const downloadToFolder = async () => {
+    try {
+      const handle = await window.showDirectoryPicker()
+      if (!handle) {
+        return
+      }
+
+      const processEntry = async (entry: IEntry, currentHandle: FileSystemDirectoryHandle, basePathStr: string) => {
+        const itemPath = normalizePath(`${basePathStr}/${entry.name}`)
+        console.log('processEntry', itemPath, entry)
+        if (entry.isDirectory) {
+          // 直接创建本地目录，不添加到任务队列
+          const dirHandle = await currentHandle.getDirectoryHandle(entry.name, { create: true })
+          const children = await fsWebApi.getList({ path: itemPath })
+          for (const child of children) {
+            await processEntry(child, dirHandle, itemPath)
+          }
+        }
+        else {
+          // 添加文件下载任务到队列
+          uploadQueueRef.value.addTask({
+            filename: entry.name,
+            path: itemPath,
+            parentHandle: currentHandle,
+            type: 'download',
+          })
+        }
+      }
+
+      for (const item of selectedItems.value) {
+        await processEntry(item, handle, basePath.value)
+      }
+    }
+    catch (e: any) {
+      if (e.name === 'AbortError') {
+        return
+      }
+      console.error(e)
+      window.$message.error(`Download failed: ${e.message}`)
+    }
+  }
 
   const dropZoneRef = ref<HTMLDivElement>()
   const { isOverDropZone } = useDropZone(dropZoneRef, {

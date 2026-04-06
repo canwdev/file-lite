@@ -3,6 +3,7 @@ import type { TaskItem } from '@/utils/task-queue'
 import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import { authToken } from '@/store'
 import { bytesToSize } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
 
@@ -17,24 +18,27 @@ const props = withDefaults(
 const emit = defineEmits(['allDone', 'singleDone'])
 
 interface IBatchFile {
-  file: File
+  file?: File
   // 绝对路径
   path: string
   filename?: string
+  // 下载时使用的父级目录句柄
+  parentHandle?: FileSystemDirectoryHandle
+  type?: 'upload' | 'download'
 }
 
-interface IUploadItem extends IBatchFile {
-  // 上传任务的序号
+interface ITransferItem extends IBatchFile {
+  // 任务的序号
   index: number
-  // 上传进度(0-1)
+  // 进度(0-1)
   progress: number
-  // 上传状态
+  // 状态
   status: 'success' | 'failed' | 'pending' | 'transferring'
-  // 上传失败时的错误信息
+  // 错误信息
   message: string
-  // 上传过程中的abort对象
+  // 过程中的abort对象
   abortObj?: { abort: () => void }
-  // 上传成功后返回的结果
+  // 成功后返回的结果
   result?: any
   speedInfo?: {
     loaded: number
@@ -44,14 +48,14 @@ interface IUploadItem extends IBatchFile {
   }
 }
 
-const listData = ref<IUploadItem[]>([])
+const listData = ref<ITransferItem[]>([])
 const isVisible = ref(false)
-const uploadIndex = ref(0)
+const transferIndex = ref(0)
 const taskQueueRef = ref()
 
 watch(isVisible, (val) => {
   if (!val) {
-    uploadIndex.value = 0
+    transferIndex.value = 0
     cancelAll()
     listData.value = []
   }
@@ -68,44 +72,126 @@ function cancelAll() {
   })
 }
 
+async function handleUpload(data: ITransferItem, abortController: AbortController) {
+  const { path, file } = data
+  if (!file) {
+    throw new Error('File is required for upload')
+  }
+  await fsWebApi.uploadFile(
+    {
+      path,
+      file,
+    },
+    {
+      onUploadProgress(event: any) {
+        // console.log(event)
+        data.progress = event.progress
+        data.speedInfo = {
+          loaded: event.loaded,
+          total: event.total,
+          rate: event.rate,
+          bytes: event.bytes,
+        }
+      },
+      signal: abortController.signal,
+    },
+  )
+}
+
+async function handleDownload(data: ITransferItem, abortController: AbortController) {
+  const { path, filename, parentHandle } = data
+  if (!parentHandle || !filename) {
+    throw new Error('parentHandle and filename are required for download')
+  }
+
+  // 文件下载逻辑
+  const response = await fetch(fsWebApi.getStreamUrl(path), {
+    headers: {
+      Authorization: authToken.value,
+    },
+    signal: abortController.signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('Response body is not readable')
+  }
+
+  const contentLength = Number.parseInt(response.headers.get('Content-Length') || '0')
+  const fileHandle = await parentHandle.getFileHandle(filename, { create: true })
+  const writable = await fileHandle.createWritable()
+
+  let loaded = 0
+  let lastTime = Date.now()
+  let lastLoaded = 0
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done)
+        break
+
+      await writable.write(value)
+      loaded += value.length
+
+      // Update progress and speed
+      const currentTime = Date.now()
+      const timeDiff = (currentTime - lastTime) / 1000 // seconds
+      if (timeDiff >= 0.5 || loaded === contentLength) {
+        data.progress = contentLength ? loaded / contentLength : 0
+        const bytesDiff = loaded - lastLoaded
+        const rate = timeDiff > 0 ? bytesDiff / timeDiff : 0
+
+        data.speedInfo = {
+          loaded,
+          total: contentLength,
+          rate,
+          bytes: bytesDiff,
+        }
+
+        lastTime = currentTime
+        lastLoaded = loaded
+      }
+    }
+  }
+  finally {
+    await writable.close()
+    reader.releaseLock()
+  }
+}
+
 function taskHandler(task: TaskItem) {
-  const { data } = task
+  const { data } = task as { data: ITransferItem }
   // console.log('--- taskHandler', task, data)
   // eslint-disable-next-line no-async-promise-executor
   return new Promise(async (resolve, reject) => {
     try {
-      const { path, file } = data
+      const { path, type = 'upload' } = data
 
       const abortController = new AbortController()
       data.status = 'transferring'
       data.abortObj = {
         abort: async () => {
           abortController.abort()
-          // 由于后端无法获得取消事件，并且存在文件残留，需要手动删除
-          await fsWebApi.deleteEntry({ path })
+          if (type === 'upload') {
+            // 由于后端无法获得取消事件，并且存在文件残留，需要手动删除
+            await fsWebApi.deleteEntry({ path: [path] })
+          }
         },
       }
-      data.message = `Uploading`
+      data.message = type === 'upload' ? 'Uploading' : 'Downloading'
 
-      await fsWebApi.uploadFile(
-        {
-          path,
-          file,
-        },
-        {
-          onUploadProgress(event) {
-            // console.log(event)
-            data.progress = event.progress
-            data.speedInfo = {
-              loaded: event.loaded,
-              total: event.total,
-              rate: event.rate,
-              bytes: event.bytes,
-            }
-          },
-          signal: abortController.signal,
-        },
-      )
+      if (type === 'upload') {
+        await handleUpload(data, abortController)
+      }
+      else {
+        await handleDownload(data, abortController)
+      }
+
       data.status = 'success'
       data.abortObj = undefined
       data.message = 'Success'
@@ -113,6 +199,9 @@ function taskHandler(task: TaskItem) {
       resolve(data)
     }
     catch (e: any) {
+      if (e.name === 'AbortError') {
+        return
+      }
       console.error(e)
       data.status = 'failed'
       data.message = e.message
@@ -148,16 +237,16 @@ onBeforeUnmount(() => {
 function addTask(data: IBatchFile, position: number = -1) {
   data = {
     ...data,
-    index: ++uploadIndex.value,
+    index: ++transferIndex.value,
     progress: 0,
     status: 'pending',
     message: 'Waiting',
-  } as IUploadItem
+  } as ITransferItem
   if (position !== -1) {
-    listData.value.splice(position, 0, data as IUploadItem)
+    listData.value.splice(position, 0, data as ITransferItem)
   }
   else {
-    listData.value.push(data as IUploadItem)
+    listData.value.push(data as ITransferItem)
   }
   taskQueueRef.value.addTask(data)
   isVisible.value = true
@@ -168,7 +257,7 @@ function addTasks(data: IBatchFile[]) {
   })
 }
 
-function handleRetry(item: IUploadItem, index: number) {
+function handleRetry(item: ITransferItem, index: number) {
   listData.value.splice(index, 1)
   addTask(item, index)
 }
@@ -266,7 +355,7 @@ defineExpose({
     <template #titleBarLeft>
       ({{ successNum }}/{{ listData.length }})
       <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
-      <span v-if="transferringNum">| Uploading {{ transferringNum }} </span>
+      <span v-if="transferringNum">| Transferring {{ transferringNum }} </span>
       <span v-if="errorNum">| Failed {{ errorNum }} </span>
     </template>
 
@@ -287,20 +376,26 @@ defineExpose({
           </div>
           <div class="upload-status" :title="item.message">
             <template v-if="item.status === 'success'">
-              <span class="mdi mdi-check-bold" style="color: #4caf50" title="成功" />
+              <span class="mdi mdi-check-bold" style="color: #4caf50" title="Success" />
             </template>
             <template v-else-if="item.status === 'failed'">
-              <span class="mdi mdi-alert" style="color: #f44336" title="失败" />
+              <span class="mdi mdi-alert" style="color: #f44336" title="Failed" />
             </template>
             <template v-else-if="item.status === 'transferring'">
               <span
-                class="mdi mdi-upload-circle-outline"
+                class="mdi"
+                :class="item.type === 'download' ? 'mdi-download-circle-outline' : 'mdi-upload-circle-outline'"
                 style="color: #03a9f4"
-                title="Uploading"
+                :title="item.type === 'download' ? 'Downloading' : 'Uploading'"
               />
             </template>
             <template v-else-if="item.status === 'pending'">
-              <span class="mdi mdi-progress-upload" style="color: #ffc107" title="Waiting" />
+              <span
+                class="mdi"
+                :class="item.type === 'download' ? 'mdi-progress-download' : 'mdi-progress-upload'"
+                style="color: #ffc107"
+                title="Waiting"
+              />
             </template>
           </div>
           <div class="upload-content">

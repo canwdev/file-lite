@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import { computed, h, ref, toRefs, watch } from 'vue'
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
+import { computed, h, ref, toRefs, watch } from 'vue'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
@@ -43,7 +43,7 @@ const props = withDefaults(
 const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
 
 const { basePath, files, selectFileMode, multiple } = toRefs(props)
-const isLoading = useVModel(props, 'isLoading', emit)
+const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 // 缓存路径状态
@@ -224,6 +224,7 @@ const {
   handleCopy,
   selectedItemsSet,
   handleDownload,
+  downloadToFolder,
   emit,
 })
 
