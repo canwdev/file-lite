@@ -19,6 +19,7 @@ export function useFileActions({
   handleCut,
   handleCopy,
   handleDownload,
+  downloadToFolder,
   emit,
 }: {
   isLoading: Ref<boolean>
@@ -31,6 +32,7 @@ export function useFileActions({
   handleCut: () => void
   handleCopy: () => void
   handleDownload: () => Promise<void>
+  downloadToFolder: () => Promise<void>
   emit: any
 }) {
   const handleCreateFile = async (name = '', content = '') => {
@@ -177,7 +179,8 @@ export function useFileActions({
           })),
         ],
       },
-      { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload, divided: true },
+      { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
+      { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
       { label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut },
       { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true },
       isSingle && { label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename },

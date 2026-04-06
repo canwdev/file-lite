@@ -136,6 +136,8 @@ export function useTransfer({
       .catch()
   }
 
+  const downloadToFolder = () => {}
+
   const dropZoneRef = ref<HTMLDivElement>()
   const { isOverDropZone } = useDropZone(dropZoneRef, {
     onDrop: (files, event) => {
@@ -160,5 +162,6 @@ export function useTransfer({
     selectUploadFolder,
     handleDownload,
     confirmDownload,
+    downloadToFolder,
   }
 }

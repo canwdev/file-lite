@@ -13,6 +13,7 @@ export interface Column {
   // 表头点击事件
   columnClick?: (col: Column, event: MouseEvent) => void
   columnRightRender?: (col: Column) => VNode
+  sortModes?: any[]
 }
 
 const props = withDefaults(

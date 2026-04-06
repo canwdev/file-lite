@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { computed, h, ref, toRefs, watch } from 'vue'
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
@@ -194,6 +195,7 @@ const {
   selectUploadFolder,
   handleDownload,
   confirmDownload,
+  downloadToFolder,
 } = useTransfer({ basePath, isLoading, selectedItems })
 
 watch(isLoading, (val) => {
@@ -278,7 +280,7 @@ function updateMenuOptions(item: IEntry | null, event: MouseEvent) {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
 function updateMenuOptions2(event: MouseEvent) {
-  const button = event.target?.closest('button') as HTMLElement
+  const button = (event.target as HTMLElement)?.closest('button') as HTMLElement
   const rect = button?.getBoundingClientRect()
   ContextMenu.showContextMenu({
     x: rect?.right || event.x,
@@ -288,7 +290,7 @@ function updateMenuOptions2(event: MouseEvent) {
   })
 }
 
-function handleShortcutKey(event) {
+function handleShortcutKey(event: KeyboardEvent) {
   const key = event.key?.toLowerCase()
   const isCtrlOrMeta = event.ctrlKey || event.metaKey
   if (isCtrlOrMeta && !event.shiftKey) {
@@ -427,6 +429,14 @@ defineExpose({
             @click="confirmDownload"
           >
             <span class="mdi mdi-download" />
+          </button>
+          <button
+            class="btn-action btn-no-style"
+            :disabled="!enableAction"
+            title="Download to Folder..."
+            @click="downloadToFolder"
+          >
+            <span class="mdi mdi-folder-download-outline" />
           </button>
 
           <div class="split-line" />
