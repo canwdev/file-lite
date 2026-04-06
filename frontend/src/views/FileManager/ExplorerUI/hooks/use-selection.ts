@@ -1,3 +1,5 @@
+import type { Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { IEntry } from '@/types/server'
 import { useSelectionArea } from '@/hooks/use-selection-area'
 import { normalizePath, toggleArrayElement } from '../../utils'
@@ -18,7 +20,7 @@ export function useSelection({
     selectedItemsSet.value.clear()
   })
 
-  const explorerContentRef = ref()
+  const explorerContentRef = ref<HTMLElement | null>(null)
   const selectionRef = useSelectionArea({
     containerRef: explorerContentRef,
     onStart: () => {
