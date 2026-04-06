@@ -5,7 +5,7 @@ import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { isDev } from '@/enum'
 import { authToken } from '@/store'
-import { bytesToSize } from '@/utils'
+import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
 
 const props = withDefaults(
@@ -18,7 +18,7 @@ const props = withDefaults(
 )
 const emit = defineEmits(['allDone', 'singleDone'])
 
-interface IBatchFile {
+export interface IBatchFile {
   file?: File
   // 绝对路径
   path: string
@@ -28,7 +28,7 @@ interface IBatchFile {
   type?: 'upload' | 'download'
 }
 
-interface ITransferItem extends IBatchFile {
+export interface ITransferItem extends IBatchFile {
   // 任务的序号
   index: number
   // 进度(0-1)
@@ -263,9 +263,15 @@ function handleRetry(item: ITransferItem, index: number) {
   addTask(item, index)
 }
 
+function handleManualDownload(item: ITransferItem) {
+  const url = fsWebApi.getDownloadUrl([item.path])
+  downloadUrl(url, item.filename)
+}
+
 onMounted(() => {
   // 仅在开发环境下加载 mock 数据
-  if (!isDev)
+  const enableMock = false
+  if (isDev && !enableMock)
     return
 
   const mockList = () => {
@@ -360,103 +366,106 @@ defineExpose({
     wid="file_lite_upload_dialog"
   >
     <template #titleBarLeft>
-      ({{ successNum }}/{{ listData.length }})
+      <span class="mdi mdi-cloud-sync" />
+      [{{ successNum }}/{{ listData.length }}]
       <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
-      <span v-if="transferringNum">| Transferring {{ transferringNum }} </span>
-      <span v-if="errorNum">| Failed {{ errorNum }} </span>
+      <span v-if="transferringNum" title="Transferring"> <span class="mdi mdi-check-circle" /> {{ transferringNum }} </span>
+      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle" /> {{ errorNum }} </span>
     </template>
 
-    <div class="batch-upload-wrapper">
-      <div class="total-progress volume-bar">
-        <div :style="{ width: `${totalProgress}%` }" class="volume-value" />
+    <div class="transfer-wrapper">
+      <div class="total-progress-bar">
+        <div :style="{ width: `${totalProgress}%` }" class="bar-value" />
       </div>
 
-      <div class="upload-list">
+      <div class="transfer-list">
         <div
           v-for="(item, index) in listData"
           :key="item.index"
-          :class="{ failed: item.status === 'failed' }"
-          class="upload-item"
+          :class="[item.status, item.type]"
+          class="transfer-item"
         >
-          <div class="index-text">
-            #{{ item.index }}
-          </div>
-          <div class="upload-status" :title="item.message">
-            <template v-if="item.status === 'success'">
-              <span class="mdi mdi-check-bold" style="color: #4caf50" title="Success" />
-            </template>
-            <template v-else-if="item.status === 'failed'">
-              <span class="mdi mdi-alert" style="color: #f44336" title="Failed" />
-            </template>
-            <template v-else-if="item.status === 'transferring'">
-              <span
-                class="mdi"
-                :class="item.type === 'download' ? 'mdi-download-circle-outline' : 'mdi-upload-circle-outline'"
-                style="color: #03a9f4"
-                :title="item.type === 'download' ? 'Downloading' : 'Uploading'"
-              />
-            </template>
-            <template v-else-if="item.status === 'pending'">
-              <span
-                class="mdi"
-                :class="item.type === 'download' ? 'mdi-progress-download' : 'mdi-progress-upload'"
-                style="color: #ffc107"
-                title="Waiting"
-              />
-            </template>
-          </div>
-          <div class="upload-content">
-            <div class="upload-info-wrapper">
-              <div class="flex-cols" style="flex: 1; gap: 4px; overflow: hidden">
-                <div class="upload-title" :title="item.path">
-                  <template v-if="item.filename">
-                    {{ item.filename }}
+          <div class="item-main">
+            <div class="item-status-icon">
+              <template v-if="item.status === 'success'">
+                <span class="mdi mdi-check-circle" style="color: #4caf50" />
+              </template>
+              <template v-else-if="item.status === 'failed'">
+                <span class="mdi mdi-alert-circle" style="color: #f44336" />
+              </template>
+              <template v-else-if="item.status === 'transferring'">
+                <span
+                  class="mdi mdi-loading mdi-spin"
+                  style="color: #03a9f4"
+                />
+              </template>
+              <template v-else>
+                <span
+                  class="mdi"
+                  :class="item.type === 'download' ? 'mdi-download-outline' : 'mdi-upload-outline'"
+                  style="color: #9e9e9e"
+                />
+              </template>
+            </div>
+
+            <div class="item-content">
+              <div class="item-info">
+                <div class="item-title" :title="item.path">
+                  <span class="type-icon">
+                    <i class="mdi" :class="item.type === 'download' ? 'mdi-download' : 'mdi-upload'" />
+                  </span>
+                  <span class="filename">{{ item.filename || item.path }}</span>
+                </div>
+                <div class="item-meta">
+                  <template v-if="item.status === 'transferring' && item.speedInfo">
+                    <span class="speed">{{ bytesToSize(item.speedInfo.rate) }}/s</span>
+                    <span class="size">{{ bytesToSize(item.speedInfo.loaded) }} / {{ bytesToSize(item.speedInfo.total) }}</span>
                   </template>
                   <template v-else>
-                    {{ item.path }}
+                    <span class="message" :title="item.message">{{ item.message }}</span>
                   </template>
-                </div>
-                <div class="upload-info">
-                  <div class="progress-text">
-                    <template v-if="item.progress > 0">
-                      <span>{{ (item.progress * 100).toFixed(0) }}%</span>
-                    </template>
-                  </div>
-                  <div class="message-text text-overflow" :title="item.message">
-                    {{ item.message }}
-                  </div>
+                  <span class="percent">{{ (item.progress * 100).toFixed(0) }}%</span>
                 </div>
               </div>
-              <button v-if="item.abortObj" class="vgo-button" @click="item.abortObj.abort()">
-                Cancel
+            </div>
+
+            <div class="item-actions">
+              <button
+                v-if="item.abortObj"
+                class="action-btn"
+                title="Cancel"
+                @click="item.abortObj.abort()"
+              >
+                <i class="mdi mdi-close" />
               </button>
               <button
                 v-if="item.status === 'failed'"
-                class="vgo-button"
+                class="action-btn"
+                title="Retry"
                 @click="handleRetry(item, index)"
               >
-                Retry
+                <i class="mdi mdi-refresh" />
+              </button>
+              <button
+                v-if="item.status === 'failed' && item.type === 'download'"
+                class="action-btn primary"
+                title="Manual Download"
+                @click="handleManualDownload(item)"
+              >
+                <i class="mdi mdi-download" />
               </button>
             </div>
+          </div>
 
-            <div class="volume-bar">
-              <div :style="{ width: `${item.progress * 100}%` }" class="volume-value" />
-            </div>
-
-            <div
-              v-if="item.speedInfo && item.status === 'transferring'"
-              class="speed-info-wrapper flex-row-center-gap"
-            >
-              <div>
-                {{ bytesToSize(item.speedInfo.loaded) }}/{{ bytesToSize(item.speedInfo.total) }}
-              </div>
-              <div>{{ bytesToSize(item.speedInfo.rate) }}/s</div>
+          <div class="item-progress">
+            <div class="progress-bar">
+              <div :style="{ width: `${item.progress * 100}%` }" class="progress-value" />
             </div>
           </div>
         </div>
       </div>
-      <div class="upload-control">
-        <div class="flex-row-center-gap">
+      <div class="transfer-footer">
+        <div class="footer-group">
           <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">
             Clear Failed
           </button>
@@ -464,8 +473,8 @@ defineExpose({
             Clear Success
           </button>
         </div>
-        <div class="flex-row-center-gap">
-          <button v-if="taskQueueRef?.executing?.length" class="vgo-button" @click="cancelAll">
+        <div class="footer-group">
+          <button v-if="taskQueueRef?.executing?.length" class="vgo-button danger" @click="cancelAll">
             Cancel All
           </button>
           <button v-else class="vgo-button primary" @click="isVisible = false">
@@ -478,143 +487,195 @@ defineExpose({
 </template>
 
 <style scoped lang="scss">
-.batch-upload-wrapper {
+.transfer-wrapper {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--vgo-color-bg);
 
-  button {
-    font-size: 12px;
-    height: fit-content;
-    flex-shrink: 0;
+  .total-progress-bar {
+    height: 3px;
+    background-color: var(--vgo-color-border);
+    width: 100%;
+
+    .bar-value {
+      height: 100%;
+      background-color: #4caf50;
+      transition: width 0.3s ease;
+    }
   }
 
-  .upload-control {
-    padding: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    border-top: var(--vgo-color-border);
-  }
-
-  .upload-list {
+  .transfer-list {
     height: 400px;
-    overflow-x: hidden;
     overflow-y: auto;
-    box-sizing: border-box;
+    padding: 0;
 
-    .upload-item {
-      padding: 10px;
+    .transfer-item {
       display: flex;
-      gap: 8px;
-      align-items: center;
-      position: relative;
-
-      .index-text {
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        font-size: 12px;
-      }
-
-      &:nth-child(even) {
-        background-color: rgba(0, 0, 0, 0.03);
-      }
+      flex-direction: column;
+      padding: 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      transition: background-color 0.2s;
 
       &:hover {
         background-color: var(--vgo-color-hover);
       }
 
-      .upload-status {
-        font-size: 28px;
+      .item-main {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        gap: 12px;
+        width: 100%;
+        box-sizing: border-box;
       }
 
-      .upload-content {
+      .item-status-icon {
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        flex-shrink: 0;
+      }
+
+      .item-content {
         flex: 1;
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        overflow: hidden;
 
-        .upload-info-wrapper {
+        .item-info {
           display: flex;
-          flex-wrap: nowrap;
-          gap: 8px;
-          align-items: flex-start;
-          justify-content: space-between;
+          flex-direction: column;
+          gap: 2px;
+
+          .item-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--vgo-color-text);
+
+            .type-icon {
+              font-size: 14px;
+              opacity: 0.6;
+              display: flex;
+            }
+
+            .filename {
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          }
+
+          .item-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--vgo-color-text-secondary);
+            opacity: 0.8;
+
+            .message {
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              flex: 1;
+              margin-right: 8px;
+            }
+
+            .speed, .size {
+              margin-right: 8px;
+              white-space: nowrap;
+            }
+
+            .percent {
+              font-weight: 600;
+            }
+          }
         }
       }
 
-      .upload-title {
-        font-size: 12px;
-        font-weight: 500;
-        line-height: 1.2;
-        word-break: break-word;
-      }
-
-      .upload-info {
-        font-size: 12px;
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-
-        & > div {
+      .item-progress {
+        width: 100%;
+        .progress-bar {
+          height: 2px;
+          background-color: transparent;
           overflow: hidden;
-        }
 
-        .progress-text {
-          font-weight: bold;
-        }
-
-        .message-text {
-          flex: 1;
-          text-align: right;
-          opacity: 0.5;
+          .progress-value {
+            height: 100%;
+            background-color: #2196f3;
+            transition: width 0.3s ease;
+          }
         }
       }
 
-      .speed-info-wrapper {
-        justify-content: space-between;
-        font-size: 12px;
-        opacity: 0.5;
-      }
+      &.success .progress-value { background-color: #4caf50 !important; }
+      &.failed .progress-value { background-color: #f44336 !important; }
+      // &.transferring .progress-bar { background-color: rgba(0, 0, 0, 0.05); }
 
-      .volume-bar {
-        border-radius: 100px;
-      }
+      .item-actions {
+        display: flex;
+        gap: 4px;
 
-      &.failed {
-        .volume-bar {
-          .volume-value {
-            background-color: #f44336;
+        .action-btn {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          color: var(--vgo-color-text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          transition: all 0.2s;
+
+          &:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+            color: var(--vgo-color-text);
+          }
+
+          &.primary {
+            color: #2196f3;
+            &:hover {
+              background-color: rgba(33, 150, 243, 0.1);
+            }
           }
         }
       }
     }
   }
 
-  .volume-bar {
-    overflow: hidden;
-    height: 4px;
-    width: 100%;
-    position: relative;
-    background-color: #d6d6d6;
+  .transfer-footer {
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--vgo-color-border);
+    background-color: var(--vgo-color-bg-soft);
 
-    .volume-value {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 0;
-      background-color: #4caf50;
-      transition: all 0.3s;
+    .footer-group {
+      display: flex;
+      gap: 8px;
     }
-  }
 
-  .total-progress {
-    width: 100%;
-    flex-shrink: 0;
+    button {
+      padding: 4px 12px;
+      font-size: 12px;
+      height: 28px;
+
+      &.danger {
+        color: #f44336;
+        &:hover {
+          background-color: rgba(244, 67, 54, 0.1);
+        }
+      }
+    }
   }
 }
 </style>
