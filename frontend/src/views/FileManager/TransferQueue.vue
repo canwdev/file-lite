@@ -271,7 +271,7 @@ function handleManualDownload(item: ITransferItem) {
 onMounted(() => {
   // 仅在开发环境下加载 mock 数据
   const enableMock = false
-  if (!(isDev && !enableMock))
+  if (!(isDev && enableMock))
     return
 
   const mockList = () => {
@@ -350,6 +350,14 @@ function clearSuccess() {
   listData.value = listData.value.filter(i => i.status !== 'success')
 }
 
+function setConcurrentNum() {
+  const num = prompt('Enter the number of concurrent tasks', String(concurrentNum.value) || '1')
+  const intNum = Number.parseInt(num || '0')
+  if (num && !Number.isNaN(intNum) && intNum > 0) {
+    concurrentNum.value = intNum
+    taskQueueRef.value.concurrent = intNum
+  }
+}
 defineExpose({
   addTask,
   addTasks,
@@ -367,10 +375,10 @@ defineExpose({
   >
     <template #titleBarLeft>
       <span class="mdi mdi-cloud-sync" />
-      [{{ successNum }}/{{ listData.length }}]
+      <span>[{{ successNum }}/{{ listData.length }}]</span>
       <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
-      <span v-if="transferringNum" title="Transferring"> <span class="mdi mdi-check-circle" /> {{ transferringNum }} </span>
-      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle" /> {{ errorNum }} </span>
+
+      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle" style="color: #f44336" /> {{ errorNum }} </span>
     </template>
 
     <div class="transfer-wrapper">
@@ -466,6 +474,13 @@ defineExpose({
       </div>
       <div class="transfer-footer">
         <div class="footer-group">
+          <span
+            v-if="transferringNum"
+            class="cursor-pointer"
+            :title="`Concurrent: ${concurrentNum}, Transferring: ${transferringNum}`"
+            @click="setConcurrentNum"
+          > <span class="mdi mdi-compare-vertical" /> {{ transferringNum }} </span>
+
           <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">
             Clear Failed
           </button>
@@ -634,6 +649,7 @@ defineExpose({
           justify-content: center;
           font-size: 16px;
           transition: all 0.2s;
+          line-height: 1;
 
           &:hover {
             background-color: rgba(0, 0, 0, 0.1);
@@ -661,7 +677,9 @@ defineExpose({
 
     .footer-group {
       display: flex;
+      align-items: center;
       gap: 8px;
+      font-size: 14px;
     }
 
     button {
@@ -677,5 +695,6 @@ defineExpose({
       }
     }
   }
+
 }
 </style>

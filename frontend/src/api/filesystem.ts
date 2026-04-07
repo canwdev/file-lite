@@ -27,7 +27,7 @@ export const fsWebApi = {
   },
   // 上传，创建或写入文件
   uploadFile(params: { path: string, file: File }, config: any = {}) {
-    console.log('[uploadFile]', params)
+    // console.log('[uploadFile]', params)
     const { path, file } = params
     const formData = new FormData()
     formData.append('file', file)
