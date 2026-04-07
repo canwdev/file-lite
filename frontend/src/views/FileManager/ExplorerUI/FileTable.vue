@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { IEntry } from '@/types/server.ts'
-import VueRender from '@canwdev/vgo-ui/src/components/VueRender.vue'
+import { VueRender } from '@canwdev/vgo-ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 // 表头列配置接口

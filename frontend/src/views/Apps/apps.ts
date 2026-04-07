@@ -44,6 +44,17 @@ export const AppList = [
   },
 ]
 
+export type AppListItem = (typeof AppList)[number]
+
+/** O(1) lookup by `openWith`; entries not in AppList are absent (same as former find). */
+export const appListByOpenWith = AppList.reduce(
+  (acc, app) => {
+    acc[app.openWith] = app
+    return acc
+  },
+  {} as Partial<Record<OpenWithEnum, AppListItem>>,
+)
+
 export const Apps = AppList.reduce(
   (acc, app) => {
     acc[app.openWith] = app.component
