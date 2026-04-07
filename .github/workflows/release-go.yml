@@ -56,9 +56,17 @@ jobs:
           bun run build:all
 
       - name: Pack Go binaries
+        id: pack
         run: |
-          cd backend-go
-          zip -r "../file-lite-go-v${{ steps.appver.outputs.version }}.zip" bin
+          cd backend-go/bin
+          # 遍历当前目录下的所有文件夹
+          for dir in */; do
+            # 移除文件夹名称末尾的斜杠
+            dirname=${dir%/}
+            zipname="file-lite-${dirname}-v${{ steps.appver.outputs.version }}.zip"
+            echo "Packing $dirname into $zipname"
+            zip -r "../../$zipname" "$dirname"
+          done
 
       - name: Publish GitHub Release assets
         uses: softprops/action-gh-release@v2
@@ -66,7 +74,8 @@ jobs:
           tag_name: ${{ steps.rel.outputs.tag_name }}
           name: ${{ steps.rel.outputs.tag_name }}
           generate_release_notes: false
+          # 使用通配符匹配所有生成的 zip 文件
           files: |
-            file-lite-go-v${{ steps.appver.outputs.version }}.zip
+            file-lite-*-v${{ steps.appver.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
