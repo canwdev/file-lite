@@ -70,5 +70,9 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    esbuild: {
+      // 产环境移除console.log https://github.com/vitejs/vite/discussions/7920
+      pure: ['console.log'],
+    },
   }
 })
