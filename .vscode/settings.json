@@ -2,5 +2,12 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  "editor.formatOnSave": false
+  "editor.formatOnSave": false,
+
+  // Monorepo: each package has its own eslint.config.js under frontend/ / backend/.
+  // Without this, the ESLint extension often lints from the repo root and stalls on "code actions".
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+
+  // Type-aware rules (@antfu/eslint-config + Vue/TS) are heavy; lint on save avoids constant work while typing.
+  "eslint.run": "onSave"
 }
