@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { OpenWithEnum } from '../Apps/apps'
-import type { IEntry } from '@/types/server'
+import type { IDrive, IEntry } from '@/types/server'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import AddressBar from './ExplorerUI/AddressBar.vue'
 import FileList from './ExplorerUI/FileList.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import FileSidebar from './FileSidebar.vue'
@@ -57,6 +58,13 @@ const {
 const debounceHandleRefresh = useDebounceFn(() => {
   handleRefresh()
 }, 100)
+
+const addressBarPath = computed({
+  get: () => basePath.value,
+  set: (v: string) => {
+    basePath.value = v
+  },
+})
 
 const fileSidebarRef = ref()
 onMounted(async () => {
@@ -118,16 +126,14 @@ function handleSelect() {
   }
 }
 
-const inputAddrRef = ref()
+const addressBarRef = ref<InstanceType<typeof AddressBar> | null>(null)
 const searchInputRef = ref()
 function handleShortcutKey(event: KeyboardEvent) {
   // console.log('handleShortcutKey', event)
   const key = event.key?.toLowerCase()
   if (event.altKey) {
     if (key === 'a') {
-      if (inputAddrRef.value) {
-        inputAddrRef.value.focus()
-      }
+      addressBarRef.value?.focus()
     }
     else if (key === 's') {
       if (searchInputRef.value) {
@@ -185,15 +191,11 @@ function handleShortcutKey(event: KeyboardEvent) {
           </button>
         </div>
         <div class="input-wrap" @keydown.stop>
-          <input
-            ref="inputAddrRef"
-            v-model="basePath"
-            placeholder="Path"
-            class="input-addr vgo-input"
-            title="Address bar (alt+a)"
-            @keyup.enter="debounceHandleRefresh"
-            @change="debounceHandleRefresh"
-          >
+          <AddressBar
+            ref="addressBarRef"
+            v-model="addressBarPath"
+            @navigate="handleOpenPath"
+          />
           <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
             <template v-if="isStared">
               <span class="mdi mdi-star" />
@@ -223,7 +225,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             v-if="!contentOnly"
             ref="fileSidebarRef"
             :current-path="currentPathForSidebar"
-            @open-drive="(i) => handleOpenPath(i.path)"
+            @open-drive="(i: IDrive) => handleOpenPath(i.path)"
           >
             <div v-if="starredPathsList.length" class="file-sidebar-content star-list">
               <div v-for="path in starredPathsList" :key="path">
@@ -327,13 +329,6 @@ function handleShortcutKey(event: KeyboardEvent) {
 
         @media screen and (max-width: $mq_mobile_width) {
           width: 100%;
-        }
-
-        .input-addr {
-          flex: 1;
-          line-height: 1;
-          padding: 4px 8px;
-          height: 26px;
         }
 
         .input-filter {
