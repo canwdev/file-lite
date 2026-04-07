@@ -3,7 +3,7 @@ import type { OpenWithEnum } from '@/views/Apps/apps'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
-import { normalizePath, toggleArrayElement } from '../../utils'
+import { normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
 import { useOpener } from './use-opener'
 
 export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]> }) {
@@ -12,13 +12,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
     listenToStorageChanges: false,
   })
-  const basePathNormalized = computed(() => {
-    let path = normalizePath(basePath.value)
-    if (!/\/$/.test(path)) {
-      path += '/'
-    }
-    return path
-  })
+  const basePathNormalized = computed(() => normalizeListingPath(basePath.value))
   const isLoading = ref(false)
   const navigationHistory = ref<NavigationHistory | null>(null)
 
@@ -107,6 +101,9 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   const filterText = ref('')
 
   const handleOpenPath = async (path: string, isUpdateHistory: boolean = true) => {
+    if (normalizeListingPath(path) === basePathNormalized.value) {
+      return
+    }
     basePath.value = path
     filterText.value = ''
     await handleRefresh(isUpdateHistory)

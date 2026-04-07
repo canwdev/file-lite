@@ -2,6 +2,18 @@ export function normalizePath(path: string) {
   return path.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
+/** 与列表/导航使用的路径一致：正斜杠、末尾 `/`（空路径视为 `/`） */
+export function normalizeListingPath(path: string) {
+  let p = normalizePath(path)
+  if (!p) {
+    p = '/'
+  }
+  if (!/\/$/.test(p)) {
+    p += '/'
+  }
+  return p
+}
+
 export function toggleArrayElement(arr: any[], value: any) {
   const index = arr.indexOf(value)
   if (index !== -1) {
