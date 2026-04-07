@@ -9,6 +9,12 @@ export class MediaItem {
   filename: string
   basePath: string
   type: MediaType
+  /** Optional cover URL when enriched by the player / metadata */
+  cover?: string
+  /** Optional subtitle line (e.g. artist / album) */
+  artistsAlbumDisplay?: string
+  artist?: string
+  album?: string
 
   constructor(filename: string, basePath: string) {
     this.guid = guid()

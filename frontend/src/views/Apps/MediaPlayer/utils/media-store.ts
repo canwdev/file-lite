@@ -1,8 +1,23 @@
+import type { Emitter } from 'mitt'
 import type { MediaItem } from '../utils/music-state'
 import mitt from 'mitt'
 import { defineStore } from 'pinia'
 import { getRandomInt } from '@/utils'
 import { LoopModeType, useMusicSettingsStore } from '../utils/music-state'
+
+interface MediaStoreState {
+  mediaBus: Emitter<Record<string, unknown>>
+  mediaItem: MediaItem | null
+  playingList: MediaItem[]
+  playingIndex: number
+  paused: boolean
+  currentTime: number
+  duration: number
+  playbackRate: number
+  stopCountdown: null
+  isPlayEnded: boolean
+  isLoadedAutoplay: boolean
+}
 
 export const MusicEvents = {
   ACTION_PLAY: 'ACTION_PLAY',
@@ -16,7 +31,7 @@ export function useMediaStore(uniqueStoreName = 'mediaStore') {
   const Store = defineStore(uniqueStoreName, {
     state: () => {
       // State
-      const state = reactive<IStore>({
+      const state = reactive<MediaStoreState>({
         mediaBus: mitt(),
         mediaItem: null,
         playingList: [],
@@ -149,9 +164,13 @@ export function useMediaStore(uniqueStoreName = 'mediaStore') {
     },
   })
 
-  return new Store()
+  return Store()
 }
-export function useBusOn(mediaBus, event: string, fn: any) {
+export function useBusOn(
+  mediaBus: Emitter<Record<string, unknown>>,
+  event: string,
+  fn: (...args: unknown[]) => void,
+) {
   onMounted(() => {
     mediaBus.on(event, fn)
   })

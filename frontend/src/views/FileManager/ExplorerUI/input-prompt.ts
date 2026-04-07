@@ -43,10 +43,10 @@ export function showInputPrompt(options: {
         confirmButtonText: 'OK',
         cancelButtonText: 'Cancel',
       })
-      .then(({ value }) => {
-        resolve(value)
+      .then((res: { value: string }) => {
+        resolve(res.value)
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         reject(e)
       })
   })

@@ -22,7 +22,7 @@ export const fsWebApi = {
       params: { path },
     }) as unknown as IEntry[]
   },
-  createDir(params: { path: string }) {
+  createDir(params: { path: string, ignoreExisted?: boolean }) {
     return service.post('/create-dir', params)
   },
   // 上传，创建或写入文件

@@ -56,7 +56,6 @@ export const fsLocal = {
       const dirHandle = await getDirHandle(params.path)
       const entries: IEntry[] = []
 
-      // @ts-expect-error - entries iteration support varies by lib version
       for await (const [name, handle] of dirHandle.entries()) {
         const isDirectory = handle.kind === 'directory'
         let size = null
@@ -93,7 +92,7 @@ export const fsLocal = {
     }
   },
 
-  async createDir(params: { path: string }) {
+  async createDir(params: { path: string, ignoreExisted?: boolean }) {
     await getDirHandle(params.path, true)
   },
 

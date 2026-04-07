@@ -1,5 +1,6 @@
-import { fileURLToPath, URL } from 'node:url'
+import type { ESBuildOptions } from 'vite'
 
+import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -70,9 +71,9 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // 生产移除 console.log；需 `as ESBuildOptions`：未安装 `esbuild` 时 Vite 的 ESBuildOptions 不含这些字段
     esbuild: {
-      // 产环境移除console.log https://github.com/vitejs/vite/discussions/7920
       pure: ['console.log'],
-    },
+    } as ESBuildOptions,
   }
 })

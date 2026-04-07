@@ -40,10 +40,18 @@ export function useTransfer({
   })
 
   // 支持递归上传文件夹
-  function traverseFileTree(item, path = '') {
+  function traverseFileTree(item: FileSystemEntry | File, path = '') {
+    if (item instanceof File) {
+      transferQueueRef.value.addTask({
+        filename: item.name,
+        path: normalizePath(`${basePath.value}/${item.webkitRelativePath}`),
+        file: item,
+      })
+      return
+    }
     if (item.isFile) {
       // Get file
-      item.file((file) => {
+      ;(item as FileSystemFileEntry).file((file: File) => {
         // console.log('File:', {path, file})
 
         transferQueueRef.value.addTask({
@@ -56,8 +64,9 @@ export function useTransfer({
     else if (item.isDirectory) {
       // console.log('Dir', item)
       // Get folder contents
-      const dirReader = item.createReader()
-      dirReader.readEntries((entries) => {
+      const dir = item as FileSystemDirectoryEntry
+      const dirReader = dir.createReader()
+      dirReader.readEntries((entries: FileSystemEntry[]) => {
         for (let i = 0; i < entries.length; i++) {
           traverseFileTree(entries[i], `${path + item.name}/`)
         }
@@ -66,17 +75,6 @@ export function useTransfer({
       fsWebApi.createDir({
         path: normalizePath(basePath.value + item.fullPath),
         ignoreExisted: true,
-      })
-    }
-    else {
-      // 前两种只有拖拽上传才会触发，这种方式是选择文件夹后触发
-      // 选择上传文件夹的弊端是无法上传空文件夹
-      // console.warn('normal file', item)
-
-      transferQueueRef.value.addTask({
-        filename: item.name,
-        path: normalizePath(`${basePath.value}/${item.webkitRelativePath}`),
-        file: item,
       })
     }
   }
@@ -138,7 +136,7 @@ export function useTransfer({
 
   const downloadToFolder = async () => {
     try {
-      const handle = await window.showDirectoryPicker()
+      const handle = await (window as Window & { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker()
       if (!handle) {
         return
       }
@@ -179,16 +177,16 @@ export function useTransfer({
   }
 
   const dropZoneRef = ref<HTMLDivElement>()
-  const { isOverDropZone } = useDropZone(dropZoneRef, {
+  const { isOverDropZone } = useDropZone(() => dropZoneRef.value ?? null, {
     onDrop: (files, event) => {
       const items = event.dataTransfer?.items || []
       // console.log(items)
 
       for (let i = 0; i < items.length; i++) {
         // webkitGetAsEntry is where the magic happens
-        const item = items[i].webkitGetAsEntry()
-        if (item) {
-          traverseFileTree(item)
+        const entry = items[i].webkitGetAsEntry()
+        if (entry) {
+          traverseFileTree(entry)
         }
       }
     },

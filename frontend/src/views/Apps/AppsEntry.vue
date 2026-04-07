@@ -27,7 +27,7 @@ watch(
 const appDetails = computed(() => AppList.find(item => item.openWith === appsStoreState.appName))
 
 const containerEl = useTemplateRef('containerEl')
-const { isFullscreen, toggle } = useFullscreen(containerEl)
+const { isFullscreen, toggle } = useFullscreen(containerEl as never)
 </script>
 
 <template>

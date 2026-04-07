@@ -66,6 +66,10 @@ const sortMode = computed<SortType>({
 const { isGridView, sortOptions, sortedFiles, showHidden }
   = useLayoutSort(files, sortMode)
 
+function toggleShowHiddenFiles() {
+  showHidden.value = !showHidden.value
+}
+
 const iconSizeList = ref(16)
 const iconSizeGrid = ref(48)
 const tableColumns = computed(() => {
@@ -277,7 +281,7 @@ function getMenuOptions() {
   return contextMenuOptions
 }
 
-function updateMenuOptions(item: IEntry | null, event: MouseEvent) {
+function updateMenuOptions(item: IEntry | null, event: MouseEvent | KeyboardEvent) {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
 function updateMenuOptions2(event: MouseEvent) {
@@ -364,7 +368,7 @@ const debounceHandleScroll = useDebounceFn(() => {
 
   // console.log('save', basePath.value, position)
 }, 500)
-useEventListener(explorerContentRef, 'scroll', debounceHandleScroll)
+useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
 
 defineExpose({
   selectedItems,
@@ -489,7 +493,7 @@ defineExpose({
         <button
           class="btn-action btn-no-style"
           title="Toggle hidden file visible (ctrl+h)"
-          @click="showHidden = !showHidden"
+          @click="toggleShowHiddenFiles"
         >
           <template v-if="showHidden">
             <span class="mdi mdi-eye-outline" />

@@ -51,18 +51,26 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
 
   /* 历史记录功能 START */
   const goBack = async () => {
-    const { path } = navigationHistory.value?.back()
-    if (!path) {
+    const hist = navigationHistory.value
+    if (!hist) {
       return
     }
-    await handleOpenPath(path, false)
+    const item = hist.back()
+    if (!item?.path) {
+      return
+    }
+    await handleOpenPath(item.path, false)
   }
   const goForward = async () => {
-    const { path } = navigationHistory.value?.forward()
-    if (!path) {
+    const hist = navigationHistory.value
+    if (!hist) {
       return
     }
-    await handleOpenPath(path, false)
+    const item = hist.forward()
+    if (!item?.path) {
+      return
+    }
+    await handleOpenPath(item.path, false)
   }
   /* 历史记录功能 END */
 
@@ -98,7 +106,7 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   }
   const filterText = ref('')
 
-  const handleOpenPath = async (path: string, isUpdateHistory: boolean) => {
+  const handleOpenPath = async (path: string, isUpdateHistory: boolean = true) => {
     basePath.value = path
     filterText.value = ''
     await handleRefresh(isUpdateHistory)

@@ -35,7 +35,7 @@ function checkTooLargeFileDialog(item: IEntry, bytes: number) {
   })
 }
 
-export function useOpener(basePath: Ref<string>) {
+export function useOpener(basePath: { value: string }) {
   const getStreamUrl = (item: IEntry) => {
     return fsWebApi.getStreamUrl(normalizePath(`${basePath.value}/${item.name}`))
   }

@@ -5,6 +5,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue": [
+        "./src/shims/vgo-ui/view-port-window.ts"
+      ],
+      "@canwdev/vgo-ui/src/components/VueRender.vue": [
+        "./src/shims/vgo-ui/vue-render.ts"
+      ],
+      "@canwdev/vgo-ui/src/hooks/use-beforeunload": [
+        "./src/shims/vgo-ui/use-beforeunload.ts"
       ]
     },
     "noImplicitAny": true,

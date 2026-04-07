@@ -6,7 +6,7 @@ import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
 function showMenu(event: MouseEvent) {
-  const button = event.target?.closest('button') as HTMLElement
+  const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
   const rect = button?.getBoundingClientRect()
 
   ContextMenu.showContextMenu({

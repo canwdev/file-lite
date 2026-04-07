@@ -3,12 +3,12 @@ import type { MediaItem } from '../utils/music-state'
 import PlaylistItem from '../Playlist/PlaylistItem.vue'
 import { MusicEvents, useMediaStore } from '../utils/media-store'
 
-const storeId = inject('storeId')
+const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 const filterText = ref('')
 
 function handleItemClick(item: MediaItem) {
-  const idx = mediaStore.playingList.findIndex(i => i.guid === item.guid)
+  const idx = mediaStore.playingList.findIndex((i: MediaItem) => i.guid === item.guid)
   if (idx === -1) {
     console.error('idx not found!')
     return
@@ -26,8 +26,8 @@ const playlistFiltered = computed(() => {
   }
 
   const reg = new RegExp(filterText.value, 'gi')
-  return mediaStore.playingList.filter((item) => {
-    return reg.test(item.titleDisplay) || reg.test(item.artistsAlbumDisplay)
+  return mediaStore.playingList.filter((item: MediaItem) => {
+    return reg.test(item.titleDisplay) || reg.test(item.artistsAlbumDisplay ?? '')
   })
 })
 </script>
