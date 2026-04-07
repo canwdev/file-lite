@@ -1,5 +1,5 @@
 <script lang="ts" setup="">
-import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
+import { ViewPortWindow } from '@canwdev/vgo-ui'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
 const props = withDefaults(

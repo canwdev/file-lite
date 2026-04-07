@@ -1,4 +1,5 @@
 import type { AppParams, OpenWithEnum } from './apps'
+import { guid } from '@/utils'
 
 /** ViewPortWindow 实例暴露（用于置顶、聚焦） */
 export type AppWindowViewRef = {
@@ -17,10 +18,6 @@ export interface AppWindowState {
   windowRef: AppWindowViewRef
 }
 
-function newWindowId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
-
 export const appsStoreState = reactive({
   windows: [] as AppWindowState[],
   activeId: '',
@@ -28,19 +25,19 @@ export const appsStoreState = reactive({
 
 function createWindowState(appName: OpenWithEnum, appParams: AppParams): AppWindowState {
   return {
-    id: newWindowId(),
+    id: guid(),
     appName,
     appTitle: '',
     appParams,
     minimized: false,
-    maximized: false,
+    maximized: true,
     isClosing: false,
     windowRef: null,
   }
 }
 
 /**
- * 打开新 App 窗口并设为当前活动窗口（参考 canos createTask / activeId）
+ * 打开新 App 窗口并设为当前活动窗口
  */
 export function openAppWindow(appName: OpenWithEnum, appParams: AppParams) {
   const win = createWindowState(appName, appParams)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskItem } from '@/utils/task-queue'
-import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
+import { ViewPortWindow } from '@canwdev/vgo-ui'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { isDev } from '@/enum'

@@ -66,6 +66,7 @@ watch(initialIndex, (val) => {
   height: 100%;
   overflow: hidden;
   position: relative;
+  z-index: 1;
 
   //img {
   //  width: 100%;

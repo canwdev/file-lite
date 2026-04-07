@@ -5,6 +5,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
+import '@canwdev/vgo-ui/styles'
 import './styles/style.scss'
 import 'element-plus/dist/index.css'
 

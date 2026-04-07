@@ -1,7 +1,7 @@
 <script lang="ts" setup="">
 import type { MenuBarOptions } from '@imengyu/vue3-context-menu'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useUnSavedChanges } from '@canwdev/vgo-ui/src/hooks/use-beforeunload'
+import { useUnSavedChanges } from '@canwdev/vgo-ui'
 import { MenuBar } from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
@@ -176,7 +176,7 @@ function handleShortcutKey(event: KeyboardEvent) {
   min-width: 200px;
   display: flex;
   flex-direction: column;
-  padding-top: 0;
+  padding: 2px;
 
   .mx-menu-bar {
     padding: 4px 0;

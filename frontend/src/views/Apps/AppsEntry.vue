@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AppWindowState } from './apps-store'
-import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
-import { AppList, Apps } from './apps'
+import { ViewPortWindow } from '@canwdev/vgo-ui'
+import { appListByOpenWith, Apps } from './apps'
 import {
   appsStoreState,
   closeAppWindow,
@@ -21,7 +21,7 @@ watch(
 )
 
 function appMeta(win: AppWindowState) {
-  return AppList.find(item => item.openWith === win.appName)
+  return appListByOpenWith[win.appName]
 }
 
 function dockTitle(win: AppWindowState) {
@@ -54,11 +54,9 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
     :allow-minimum="true"
     :init-center="true"
     :init-win-options="{
-      maximized: true,
       width: 'min(960px, 90vw)',
       height: 'min(720px, 85vh)',
     }"
-    tabindex="0"
     @on-active="setAppWindowActive(win, false)"
     @on-close="handleClose(win)"
     @on-restored="handleWindowRestored(win)"
@@ -98,7 +96,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
           :title="dockTitle(win)"
           @click="setAppWindowActive(win, true)"
         >
-          <span class="dock-icon-wrap vgo-bg">
+          <span class="dock-icon-wrap vgo-panel">
             <span :class="appMeta(win)?.icon" class="dock-icon" />
           </span>
           <span class="dock-indicator" aria-hidden="true" />
@@ -125,14 +123,14 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   min-height: 200px;
 }
 
-/* 底部 Dock：紧凑、小圆角 */
+/* 底部 Dock */
 .app-dock {
   position: fixed;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
+  bottom: 4px;
   z-index: 10;
   pointer-events: none;
+  left: 4px;
+  transform: none;
 }
 
 .app-dock-inner {
@@ -141,7 +139,6 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   align-items: flex-end;
   justify-content: center;
   gap: 2px;
-  padding: 3px 5px;
 }
 
 .dock-item {
@@ -171,11 +168,10 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
 }
 
 .dock-icon {
-  font-size: 20px;
+  font-size: 24px;
   line-height: 1;
   color: var(--vgo-primary, #1976d2);
 }
