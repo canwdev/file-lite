@@ -7,7 +7,7 @@ interface Props {
   item: MediaItem
 }
 const props = withDefaults(defineProps<Props>(), {})
-const storeId = inject('storeId')
+const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 
 const { item } = toRefs(props)

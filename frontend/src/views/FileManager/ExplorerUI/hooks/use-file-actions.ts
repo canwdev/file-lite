@@ -194,7 +194,7 @@ export function useFileActions({
 
   const handleShowCtxMenu = (
     item: IEntry | null,
-    event: MouseEvent,
+    event: MouseEvent | KeyboardEvent,
     getMenuOptions: () => MenuItem[],
   ) => {
     if (!item) {
@@ -207,9 +207,12 @@ export function useFileActions({
       }
     }
 
+    const x = event instanceof MouseEvent ? event.clientX : window.innerWidth / 2
+    const y = event instanceof MouseEvent ? event.clientY : window.innerHeight / 2
+
     ContextMenu.showContextMenu({
-      x: event.x,
-      y: event.y,
+      x,
+      y,
       theme: contextMenuTheme.value,
       items: getMenuOptions(),
     })

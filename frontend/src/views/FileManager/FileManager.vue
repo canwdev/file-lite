@@ -44,7 +44,6 @@ const {
   isStared,
   filterText,
 } = useNavigation({
-  rootRef,
   getListFn: async () => {
     const res = await fsWebApi.getList({
       path: basePath.value,
@@ -73,6 +72,9 @@ onMounted(async () => {
 })
 const fileListRef = ref()
 
+const starredPathsList = computed(() => [...starList.value])
+const currentPathForSidebar = computed(() => basePath.value)
+
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
     emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
@@ -98,7 +100,7 @@ function handleSelect() {
   let items = fileListRef.value.selectedItems
   // 打开文件夹
   if (isSelectAFolder.value) {
-    handleOpen({ item: items[0] })
+    handleOpen({ item: items[0], list: fileListRef.value.sortedFiles })
     return
   }
   if (selectFileMode.value === 'folder') {
@@ -108,7 +110,7 @@ function handleSelect() {
     return
   }
   if (selectFileMode.value === 'file') {
-    items = items.filter(i => !i.isDirectory)
+    items = items.filter((i: IEntry) => !i.isDirectory)
     if (!items.length) {
       return
     }
@@ -118,7 +120,7 @@ function handleSelect() {
 
 const inputAddrRef = ref()
 const searchInputRef = ref()
-function handleShortcutKey(event) {
+function handleShortcutKey(event: KeyboardEvent) {
   // console.log('handleShortcutKey', event)
   const key = event.key?.toLowerCase()
   if (event.altKey) {
@@ -220,11 +222,11 @@ function handleShortcutKey(event) {
           <FileSidebar
             v-if="!contentOnly"
             ref="fileSidebarRef"
-            :current-path="basePath"
+            :current-path="currentPathForSidebar"
             @open-drive="(i) => handleOpenPath(i.path)"
           >
-            <div v-if="starList.length" class="file-sidebar-content star-list">
-              <div v-for="(path,) in starList" :key="path">
+            <div v-if="starredPathsList.length" class="file-sidebar-content star-list">
+              <div v-for="path in starredPathsList" :key="path">
                 <button class="drive-item btn-no-style" :title="path" @click="handleOpenPath(path)">
                   <span class="drive-icon">
                     <span class="mdi mdi-star" />

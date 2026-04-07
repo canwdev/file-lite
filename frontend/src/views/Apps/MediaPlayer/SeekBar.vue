@@ -1,5 +1,7 @@
 <script lang="ts">
-export default {
+import { defineComponent } from 'vue'
+
+export default defineComponent({
   name: 'Seekbar',
   props: {
     min: {
@@ -25,42 +27,47 @@ export default {
   },
   emits: ['input', 'focus', 'blur', 'change'],
   computed: {
-    progress() {
-      return ((this.value / this.max) * 100).toFixed(1)
+    progress(): string {
+      const value = Number(this.value)
+      const max = Number(this.max)
+      return ((value / max) * 100).toFixed(1)
     },
   },
   methods: {
-    handleInput(event) {
-      this.$emit('input', event.target.value)
+    handleInput(event: Event) {
+      const t = event.target as HTMLInputElement
+      this.$emit('input', t.value)
     },
-    handleFocus(event) {
+    handleFocus(event: FocusEvent) {
       this.$emit('focus', event)
     },
-    handleBlur(event) {
+    handleBlur(event: FocusEvent) {
       this.$emit('blur', event)
     },
-    handleChange(event) {
-      this.$emit('change', event.target.value)
+    handleChange(event: Event) {
+      const t = event.target as HTMLInputElement
+      this.$emit('change', t.value)
     },
-    handleWheel(event) {
+    handleWheel(event: WheelEvent) {
       if (this.wheel) {
         event.preventDefault()
-        const el = this.$refs.seekBar
+        const el = this.$refs.seekBar as HTMLInputElement
         const deltaY = event.deltaY || 0
 
         const num = Math.abs(deltaY) / 64
+        const val = Number(this.value)
 
         if (deltaY > 0) {
-          el.value = this.value - num
+          el.value = String(val - num)
         }
         else if (deltaY < 0) {
-          el.value = this.value + num
+          el.value = String(val + num)
         }
         this.$emit('input', el.value)
       }
     },
   },
-}
+})
 </script>
 
 <template>

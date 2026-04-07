@@ -7,7 +7,7 @@ export function useSelectionArea({
   toggleClass = 'active',
   selectables = ['.selectable'],
 }: {
-  containerRef: Ref<HTMLElement>
+  containerRef: Ref<HTMLElement | null>
   onStart: () => void
   onStop: (stored: HTMLElement[]) => void
   toggleClass?: string
@@ -15,17 +15,21 @@ export function useSelectionArea({
 }) {
   const selectionRef = shallowRef()
   onMounted(() => {
+    const el = containerRef.value
+    if (!el) {
+      return
+    }
     // https://github.com/simonwep/selection/tree/master/packages/vanilla
     selectionRef.value = new SelectionArea({
       selectables,
-      boundaries: [containerRef.value],
+      boundaries: [el],
       features: {
         touch: false,
         singleTap: {
           allow: false,
         },
       },
-      container: containerRef.value,
+      container: el,
     })
       .on('start', ({ event }) => {
         if (!(event as MouseEvent).ctrlKey && !(event as MouseEvent).metaKey) {
@@ -53,7 +57,7 @@ export function useSelectionArea({
       )
       .on('stop', ({ store: { stored } }) => {
         setTimeout(() => {
-          onStop && onStop(stored)
+          onStop && onStop(stored as HTMLElement[])
         })
       })
   })

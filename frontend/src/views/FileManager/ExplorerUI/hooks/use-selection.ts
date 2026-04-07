@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
-import { computed, ref, watch } from 'vue'
 import type { IEntry } from '@/types/server'
+import { computed, ref, watch } from 'vue'
 import { useSelectionArea } from '@/hooks/use-selection-area'
 import { normalizePath, toggleArrayElement } from '../../utils'
 

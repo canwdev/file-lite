@@ -40,7 +40,7 @@ const previewSrc = computed(() => {
 
 // 仅当元素可见时才加载预览图片
 const target = useTemplateRef<HTMLDivElement>('target')
-const targetIsVisible = useElementVisibility(target, {
+const targetIsVisible = useElementVisibility(target as never, {
   rootMargin: '0px 0px 100px 0px',
 })
 </script>

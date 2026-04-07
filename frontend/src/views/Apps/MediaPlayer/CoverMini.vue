@@ -4,6 +4,7 @@ import CoverDisplay from './CoverDisplay.vue'
 interface Props {
   src?: string
   isVideo?: boolean
+  forceShowIcon?: boolean
 }
 withDefaults(defineProps<Props>(), {})
 </script>

@@ -10,7 +10,7 @@ defineEmits(['onCoverClick', 'onTitleClick'])
 // interface Props {}
 // const props = withDefaults(defineProps<Props>(), {})
 
-const storeId = inject('storeId')
+const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 
 const KEY_SPACE = 'space'
@@ -26,8 +26,8 @@ const isDisabled = ref(false)
 
 const mousetrapRef = shallowRef()
 
-function togglePlay(e) {
-  e.preventDefault()
+function togglePlay(e?: Event) {
+  e?.preventDefault()
   mediaStore.mediaBus.emit(MusicEvents.ACTION_TOGGLE_PLAY)
 }
 function previous() {
@@ -36,11 +36,11 @@ function previous() {
 function next() {
   mediaStore.playNext()
 }
-function volumeUpFn(e) {
+function volumeUpFn(e: KeyboardEvent) {
   e.preventDefault()
   mSettingsStore.volumeUp()
 }
-function volumeDownFn(e) {
+function volumeDownFn(e: KeyboardEvent) {
   e.preventDefault()
   mSettingsStore.volumeDown()
 }
@@ -56,11 +56,11 @@ function switchLoopMode() {
   }
 }
 
-function progressSeeking(value) {
+function progressSeeking(value: string | number) {
   isSeeking.value = true
   mCurrentTime.value = Number(value)
 }
-function progressChange(value) {
+function progressChange(value: string | number) {
   value = Number(value)
   mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, value)
   isSeeking.value = false

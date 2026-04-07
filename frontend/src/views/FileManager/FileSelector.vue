@@ -21,7 +21,7 @@ const { selectFileMode, multiple } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
-function handleSelect(val) {
+function handleSelect(val: unknown) {
   isShowFileSelectWindow.value = false
   emit('handleSelect', val)
 }

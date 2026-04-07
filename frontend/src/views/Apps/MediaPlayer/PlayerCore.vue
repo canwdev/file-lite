@@ -7,7 +7,7 @@ import { useMusicSettingsStore } from './utils/music-state'
 // interface Props {}
 // const props = withDefaults(defineProps<Props>(), {})
 
-const storeId = inject('storeId')
+const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 
 const avRef = ref()
@@ -37,8 +37,11 @@ function togglePlay() {
     pause()
   }
 }
-function registerMediaEvents(av) {
+function registerMediaEvents(av: HTMLMediaElement | undefined) {
   // console.log(av)
+  if (!av) {
+    return
+  }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', play)
     navigator.mediaSession.setActionHandler('pause', pause)
@@ -71,31 +74,33 @@ function registerMediaEvents(av) {
     mediaStore.playbackRate = av.playbackRate
   })
 
-  av.addEventListener('canplay', (evt) => {
+  av.addEventListener('canplay', (evt: Event) => {
     // console.log('canplay', av)
-    mediaStore.duration = evt.target.duration
+    const target = evt.target as HTMLMediaElement
+    mediaStore.duration = target.duration
     if (mediaStore.isLoadedAutoplay) {
       play()
     }
   })
 
-  av.addEventListener('timeupdate', (evt) => {
+  av.addEventListener('timeupdate', (evt: Event) => {
     // console.log('timeupdate', evt.target.currentTime)
-    mediaStore.currentTime = evt.target.currentTime
+    const target = evt.target as HTMLMediaElement
+    mediaStore.currentTime = target.currentTime
   })
 
-  av.addEventListener('error', (error) => {
+  av.addEventListener('error', (error: Event) => {
     console.error(error)
     window.$message.error('Load media failed')
   })
 }
-function changeCurrentTime(newTime) {
+function changeCurrentTime(newTime: number) {
   avRef.value && (avRef.value.currentTime = newTime)
 }
-function changeVolume(val) {
+function changeVolume(val: number) {
   avRef.value && (avRef.value.volume = val / 100)
 }
-function changeSpeed(val = 1) {
+function changeSpeed(val: number = 1) {
   if (!avRef.value) {
     return
   }
@@ -112,7 +117,7 @@ watch(() => mediaStore.playbackRate, changeSpeed)
 
 watch(
   () => mediaStore.mediaItem,
-  async (item: MediaItem) => {
+  async (item: MediaItem | null) => {
     if (!item) {
       avSrc.value = undefined
       return
@@ -144,7 +149,9 @@ watch(
 useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_TOGGLE_PLAY, togglePlay)
 useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_PLAY, play)
 useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_PAUSE, pause)
-useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_CHANGE_CURRENT_TIME, changeCurrentTime)
+useBusOn(mediaStore.mediaBus, MusicEvents.ACTION_CHANGE_CURRENT_TIME, (...args: unknown[]) => {
+  changeCurrentTime(args[0] as number)
+})
 
 onBeforeUnmount(() => {})
 </script>
