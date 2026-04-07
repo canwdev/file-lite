@@ -300,7 +300,7 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 1.3;
 }
 
 .addr-crumb-placeholder {

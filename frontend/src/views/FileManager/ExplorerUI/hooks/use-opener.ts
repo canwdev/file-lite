@@ -8,7 +8,7 @@ import {
   regSupportedVideoFormat,
 } from '@/utils/is'
 import { OpenWithEnum } from '@/views/Apps/apps'
-import { appsStoreState } from '@/views/Apps/apps-store'
+import { openAppWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
 
 function checkTooLargeFileDialog(item: IEntry, bytes: number) {
@@ -52,14 +52,12 @@ export function useOpener(basePath: { value: string }) {
   ) => {
     const absPath = normalizePath(`${basePath.value}/${item.name}`)
     const openApp = (appName: OpenWithEnum) => {
-      appsStoreState.appParams = {
+      openAppWindow(appName, {
         absPath,
         item,
         basePath: basePath.value,
         list,
-      }
-      appsStoreState.isShowApp = true
-      appsStoreState.appName = appName
+      })
     }
     if (openWith) {
       if (openWith === OpenWithEnum.Browser) {

@@ -1,116 +1,214 @@
 <script setup lang="ts">
-import { useFullscreen } from '@vueuse/core'
-import { useTemplateRef } from 'vue'
+import type { AppWindowState } from './apps-store'
+import ViewPortWindow from '@canwdev/vgo-ui/src/components/ViewPortWindow/ViewPortWindow.vue'
 import { AppList, Apps } from './apps'
+import {
+  appsStoreState,
+  closeAppWindow,
+  setAppWindowActive,
+  syncAppWindowRefs,
+} from './apps-store'
 
-import { appsStoreState } from './apps-store'
+const vpWindowRefs = ref<unknown[]>([])
 
-function handleExit() {
-  appsStoreState.isShowApp = false
-  appsStoreState.appParams = null
-  appsStoreState.appTitle = ''
-}
-
-const rootRef = ref()
 watch(
-  () => appsStoreState.isShowApp,
-  (newVal) => {
-    if (newVal) {
-      setTimeout(() => {
-        // console.log('appsEntry focus', rootRef.value)
-        rootRef.value?.focus()
-      })
-    }
+  () => appsStoreState.windows.map(w => w.id),
+  async () => {
+    await nextTick()
+    syncAppWindowRefs((vpWindowRefs.value ?? []) as unknown[])
   },
+  { flush: 'post' },
 )
 
-const appDetails = computed(() => AppList.find(item => item.openWith === appsStoreState.appName))
+function appMeta(win: AppWindowState) {
+  return AppList.find(item => item.openWith === win.appName)
+}
 
-const containerEl = useTemplateRef('containerEl')
-const { isFullscreen, toggle } = useFullscreen(containerEl as never)
+function dockTitle(win: AppWindowState) {
+  return win.appTitle || appMeta(win)?.name || win.appParams.item.name
+}
+
+function handleClose(win: AppWindowState) {
+  closeAppWindow(win.id)
+}
+
+function handleWindowRestored(win: AppWindowState) {
+  setTimeout(() => {
+    win.windowRef?.focus()
+  }, 0)
+}
+
+const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 </script>
 
 <template>
-  <div v-if="appsStoreState.isShowApp" ref="rootRef" class="apps-entry-wrapper vgo-bg" tabindex="0">
-    <div class="title-bar">
-      <div class="title-text">
-        <span :class="appDetails?.icon" /><span style="word-break:break-word;font-size: 12px;">{{ appsStoreState.appTitle || appDetails?.name }}</span>
-      </div>
-      <div class="flex-row-center-gap">
-        <button class="btn-no-style btn-close" @click="toggle">
-          <span class="mdi" :class="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'" />
-        </button>
-        <button class="btn-no-style btn-close" @click="handleExit">
-          <span class="mdi mdi-close" />
-        </button>
-      </div>
-    </div>
+  <ViewPortWindow
+    v-for="win in appsStoreState.windows"
+    :key="win.id"
+    ref="vpWindowRefs"
+    v-model:maximized="win.maximized"
+    v-model:minimized="win.minimized"
+    class="apps-vp-window"
+    :visible="!win.minimized && !win.isClosing"
+    :allow-maximum="true"
+    :allow-minimum="true"
+    :init-center="true"
+    :init-win-options="{
+      maximized: true,
+      width: 'min(960px, 90vw)',
+      height: 'min(720px, 85vh)',
+    }"
+    tabindex="0"
+    @on-active="setAppWindowActive(win, false)"
+    @on-close="handleClose(win)"
+    @on-restored="handleWindowRestored(win)"
+  >
+    <template #titleBarLeft>
+      <span :class="appMeta(win)?.icon" />
+      <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
+    </template>
 
-    <!-- <pre>{{ appsStoreState }}</pre> -->
-    <div ref="containerEl" class="app-container vgo-bg">
+    <div class="app-container vgo-bg">
       <component
-        :is="Apps[appsStoreState.appName]"
-        :app-params="appsStoreState.appParams"
-        @exit="handleExit"
-        @set-title="(val: string) => appsStoreState.appTitle = val"
+        :is="Apps[win.appName]"
+        :app-params="win.appParams"
+        @exit="handleClose(win)"
+        @set-title="(val: string) => { win.appTitle = val }"
       />
     </div>
-  </div>
+  </ViewPortWindow>
+
+  <Transition name="dock-fade">
+    <div
+      v-if="hasOpenApps"
+      class="app-dock"
+      role="toolbar"
+      aria-label="Open apps"
+    >
+      <div class="app-dock-inner">
+        <button
+          v-for="win in appsStoreState.windows"
+          :key="win.id"
+          type="button"
+          class="dock-item btn-no-style"
+          :class="{
+            'is-active': win.id === appsStoreState.activeId,
+            'is-minimized': win.minimized,
+          }"
+          :title="dockTitle(win)"
+          @click="setAppWindowActive(win, true)"
+        >
+          <span class="dock-icon-wrap vgo-bg">
+            <span :class="appMeta(win)?.icon" class="dock-icon" />
+          </span>
+          <span class="dock-indicator" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
-.apps-entry-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
+.app-container {
   height: 100%;
-  z-index: 100;
+  overflow: auto;
+}
+
+.title-text {
+  word-break: break-word;
+  font-size: 12px;
+}
+
+.apps-vp-window {
+  outline: none;
+  min-width: 320px;
+  min-height: 200px;
+}
+
+/* 底部 Dock：紧凑、小圆角 */
+.app-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.app-dock-inner {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px 5px;
+}
+
+.dock-item {
+  position: relative;
   display: flex;
   flex-direction: column;
-  outline: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: inherit;
+  transition: background-color 0.12s ease;
+}
 
-  .title-bar {
-    min-height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 0 0 0 10px;
-    border-bottom: 1px solid var(--vgo-color-border);
-    .title-text {
-      font-size: 14px;
-      padding: 4px 0;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      .mdi {
-        color: var(--vgo-primary);
-      }
-    }
-    .flex-row-center-gap {
-      gap: 0;
-    }
+.dock-item:hover {
+  background-color: color-mix(in srgb, var(--vgo-primary, #1976d2) 10%, transparent);
+}
 
-    .btn-close {
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-      font-size: 16px;
-      &:hover {
-        background-color: var(--vgo-primary-opacity);
-      }
-    }
-  }
+.dock-item:active {
+  background-color: color-mix(in srgb, var(--vgo-primary, #1976d2) 16%, transparent);
+}
 
-  .app-container {
-    flex: 1;
-    overflow: auto;
-  }
+.dock-icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.dock-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--vgo-primary, #1976d2);
+}
+
+.dock-indicator {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vgo-color-text, #333) 45%, transparent);
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+}
+
+.dock-item.is-active .dock-indicator {
+  opacity: 1;
+  background: var(--vgo-primary, #1976d2);
+}
+
+.dock-item.is-minimized .dock-icon-wrap {
+  opacity: 0.55;
+}
+
+.dock-item.is-minimized .dock-indicator {
+  opacity: 0.35;
+}
+
+.dock-fade-enter-active,
+.dock-fade-leave-active {
+  transition: opacity 0.16s ease;
+}
+
+.dock-fade-enter-from,
+.dock-fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 import type { IEntry } from '@/types/server.ts'
-import { defineAsyncComponent } from 'vue'
+import { defineAsyncComponent } from '@vue/runtime-core'
 
 export enum OpenWithEnum {
   Browser = 'Browser',

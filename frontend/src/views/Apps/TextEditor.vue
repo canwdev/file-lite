@@ -176,7 +176,6 @@ function handleShortcutKey(event: KeyboardEvent) {
   min-width: 200px;
   display: flex;
   flex-direction: column;
-  padding: 8px;
   padding-top: 0;
 
   .mx-menu-bar {
@@ -188,6 +187,7 @@ function handleShortcutKey(event: KeyboardEvent) {
   .text-editor-textarea {
     width: 100%;
     flex: 1;
+    resize: none;
   }
 
   .loading-wrapper {
