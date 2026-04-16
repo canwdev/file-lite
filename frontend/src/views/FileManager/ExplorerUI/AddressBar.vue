@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [string]
   'navigate': [string]
+  'refresh': []
 }>()
 
 function getBreadcrumbSegments(path: string): BreadcrumbSegment[] {
@@ -102,17 +103,22 @@ function startEdit() {
   })
 }
 
-function commitFromEdit() {
+function commitFromEdit(opts?: { refreshIfUnchanged?: boolean }) {
   if (!editing.value) {
     return
   }
   const next = normalizePath(editDraft.value.trim() || '/')
   editing.value = false
   if (normalizeListingPath(next) === normalizeListingPath(props.modelValue)) {
+    if (opts?.refreshIfUnchanged) {
+      emit('refresh')
+    }
     return
   }
-  emit('update:modelValue', next)
+  // Emit navigate before v-model so the parent still sees the old path when
+  // handleOpenPath compares; otherwise basePath updates first and refresh is skipped.
   emit('navigate', next)
+  emit('update:modelValue', next)
 }
 
 function cancelEdit() {
@@ -143,7 +149,7 @@ function onBreadcrumbBarClick(event: MouseEvent) {
 function onInputKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
-    commitFromEdit()
+    commitFromEdit({ refreshIfUnchanged: true })
   }
   else if (e.key === 'Escape') {
     e.preventDefault()
