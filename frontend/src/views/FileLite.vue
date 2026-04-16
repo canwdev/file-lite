@@ -2,6 +2,7 @@
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { contextMenuTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
+import { isNativePlayer } from '@/store/index.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -40,6 +41,19 @@ function showMenu(event: MouseEvent) {
           ...item,
           icon: item.label === themeMode.value ? `mdi mdi-check` : '',
         })),
+      },
+      {
+        label: `Config`,
+        icon: 'mdi mdi-cog',
+        children: [
+          {
+            icon: isNativePlayer.value ? 'mdi mdi-check' : '',
+            label: `Use native player`,
+            onClick: () => {
+              isNativePlayer.value = !isNativePlayer.value
+            },
+          },
+        ],
       },
       {
         label: `${PKG_NAME} v${VERSION}`,
