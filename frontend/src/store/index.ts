@@ -1,3 +1,4 @@
+import { useStorage } from '@vueuse/core'
 import Cookies from 'js-cookie'
 
 export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
@@ -37,3 +38,7 @@ watch(
   },
   { flush: 'sync' },
 )
+
+export const isNativePlayer = useStorage('file_lite_use_native_player', false, localStorage, {
+  listenToStorageChanges: true,
+})
