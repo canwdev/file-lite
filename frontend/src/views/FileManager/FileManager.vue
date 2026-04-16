@@ -195,6 +195,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             ref="addressBarRef"
             v-model="addressBarPath"
             @navigate="handleOpenPath"
+            @refresh="debounceHandleRefresh"
           />
           <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
             <template v-if="isStared">
