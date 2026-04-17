@@ -72,7 +72,7 @@ $music-control-bar-height: 75px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--vgo-color-border);
+  // border-top: 1px solid var(--vgo-color-border);
   .music-above {
     flex: 1;
     overflow: hidden;

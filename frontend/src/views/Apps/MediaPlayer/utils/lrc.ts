@@ -55,9 +55,11 @@ export function parseLrcString(raw: string): LyricLine[] {
     if (stamps.length === 0)
       continue
 
-    const text = trimmed.slice(lastIndex).trim()
+    let text = trimmed.slice(lastIndex).trim()
     if (!text)
       continue
+    // 清理 ELRC 逐字时间戳 <00:00.00>，保留纯文本
+    text = text.replace(/<\d{2}:\d{2}[.:]\d{2,3}>/g, '')
 
     for (const t of stamps) {
       out.push({ time: Math.max(0, t + offsetSec), text })
