@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SteamCard from '../components/SteamCard.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
 import CoverDisplay from './CoverDisplay.vue'
 import { useMediaStore } from './utils/media-store'
@@ -144,9 +145,7 @@ onBeforeUnmount(() => {
       <!-- With lyrics: two-column AMLL / Apple Music–like -->
       <template v-if="lyricLines.length > 0">
         <div class="meta-side">
-          <div class="art-frame">
-            <CoverDisplay :src="item.cover || defaultCoverUrl" class="art-cover-display" />
-          </div>
+          <SteamCard :src="item.cover || defaultCoverUrl" />
           <div class="meta-text">
             <h1 class="track-title">
               {{ item.titleDisplay }}
@@ -186,11 +185,7 @@ onBeforeUnmount(() => {
 
       <!-- No lyrics: original centered layout -->
       <div v-else class="music-detail-inner">
-        <div class="art-column">
-          <div class="art-frame">
-            <CoverDisplay :src="item.cover || defaultCoverUrl" class="art-cover-display" />
-          </div>
-        </div>
+        <SteamCard :src="item.cover || defaultCoverUrl" />
         <div class="text-column">
           <h1 class="track-title">
             {{ item.titleDisplay }}
@@ -206,9 +201,6 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="music-detail-empty">
-      <div class="art-frame art-frame--empty">
-        <CoverDisplay class="art-cover-display" />
-      </div>
       <p class="empty-hint">
         未选择曲目
       </p>
@@ -257,7 +249,7 @@ onBeforeUnmount(() => {
   filter: blur(35px) ;
   opacity: 0.2;
   z-index: 0;
-  transform: scale(1.2);
+  // transform: scale(1.2);
   pointer-events: none;
 }
 
@@ -449,54 +441,8 @@ onBeforeUnmount(() => {
   }
 }
 
-.art-column {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  max-width: min(72vmin, 320px);
-}
-
-@media (min-width: 720px) {
-  .art-column {
-    width: min(38vw, 300px);
-    max-width: 300px;
-  }
-}
-
-.art-frame {
-  width: 100%;
-  aspect-ratio: 1;
-  max-width: min(72vmin, 320px);
-  border-radius: clamp(8px, 1.5vw, 14px);
-  overflow: hidden;
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.07),
-    0 22px 48px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
-}
-
-.music-detail-inner .art-frame {
-  @media (min-width: 720px) {
-    max-width: none;
-  }
-}
-
-.meta-side .art-frame {
+.meta-side .steam-card-container {
   max-width: min(64vmin, 260px);
-}
-
-.art-frame--empty {
-  max-width: 200px;
-  opacity: 0.85;
-}
-
-:deep(.cover-display.art-cover-display) {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  box-shadow: none;
-  border: none;
 }
 
 .text-column {

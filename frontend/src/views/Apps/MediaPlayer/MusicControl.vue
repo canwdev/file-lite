@@ -313,13 +313,12 @@ function jumpBackward() {
           <span v-else>{{ currentLoopMode.i18nKey }}</span>
         </button>
 
-        <el-popover placement="top" trigger="hover" popper-class="popover-volume">
+        <el-popover placement="top" trigger="click" popper-class="popover-volume">
           <template #reference>
             <button
               ref="volumeIconBtnRef"
               class="btn-action btn-no-style icon-wrap"
               title="Volume (scroll wheel to adjust)"
-              @click="toggleMute"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
                 <span class="mdi mdi-volume-high" />
@@ -340,7 +339,10 @@ function jumpBackward() {
               height="100px"
               @update:model-value="(v) => mSettingsStore.setAudioVolume(Array.isArray(v) ? v[0]! : v)"
             />
-            <span class="popover-volume-label">{{ mSettingsStore.audioVolume }}</span>
+            <span
+              class="popover-volume-label"
+              @click="toggleMute"
+            >{{ mSettingsStore.audioVolume }}</span>
           </div>
         </el-popover>
       </div>
@@ -423,6 +425,10 @@ function jumpBackward() {
       line-height: 1.1;
       flex: 1;
       overflow-x: auto;
+
+      // @media screen  and (max-width: 500px) {
+      //   // display: none;
+      // }
 
       .title {
         font-size: 14px;
