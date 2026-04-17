@@ -56,6 +56,6 @@ jobs:
           name: ${{ steps.rel.outputs.tag_name }}
           generate_release_notes: true
           files: |
-            backend/file-lite-v*.zip
+            backend/file-lite-nodejs-v*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

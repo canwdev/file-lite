@@ -16,7 +16,7 @@
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
     "build:auto": "bun run ./build.ts",
     "lint": "eslint src/**/*.{ts,tsx,vue} --fix",
-    "publish": "npm publish --access public"
+    "publish:npm": "bun run build:auto && npm publish --access public"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7"
