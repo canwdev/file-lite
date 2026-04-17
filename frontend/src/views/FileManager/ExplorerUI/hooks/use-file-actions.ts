@@ -221,6 +221,7 @@ export function useFileActions({
       x,
       y,
       theme: contextMenuTheme.value,
+      closeWhenScroll: false, // ← 防止滚动关闭菜单
       items: getMenuOptions(),
     })
   }
