@@ -24,12 +24,19 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    disabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: ['input', 'focus', 'blur', 'change'],
   computed: {
     progress(): string {
       const value = Number(this.value)
       const max = Number(this.max)
+      if (!Number.isFinite(max) || max <= 0) {
+        return '0'
+      }
       return ((value / max) * 100).toFixed(1)
     },
   },
@@ -80,6 +87,7 @@ export default defineComponent({
       :max="max"
       :value="value"
       class="common-seekbar seekbar-input"
+      :disabled="disabled"
       v-bind="$attrs"
       @input="handleInput"
       @focus="handleFocus"
@@ -135,6 +143,11 @@ export default defineComponent({
     border-radius: 2px;
     box-shadow: none;
     margin: 0;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
 
     @mixin mixin-thumb {
       position: relative;

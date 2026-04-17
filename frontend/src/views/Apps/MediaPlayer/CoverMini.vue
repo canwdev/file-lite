@@ -4,9 +4,9 @@ import CoverDisplay from './CoverDisplay.vue'
 interface Props {
   src?: string
   isVideo?: boolean
-  forceShowIcon?: boolean
 }
-withDefaults(defineProps<Props>(), {})
+withDefaults(defineProps<Props>(), {
+})
 </script>
 
 <template>
@@ -19,10 +19,12 @@ withDefaults(defineProps<Props>(), {})
 
 <style lang="scss" scoped>
 .btn-cover {
+  position: relative;
   width: 50px;
   height: 50px;
   border-radius: 0;
   overflow: hidden;
+
   .cover-display {
     width: 100%;
     height: 100%;

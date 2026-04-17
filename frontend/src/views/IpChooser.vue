@@ -190,7 +190,7 @@ function autoSelectUrl() {
           height: auto;
           display: flex;
           margin: 0 auto;
-          border-radius: 4px;
+          border-radius: var(--vgo-radius);
           image-rendering: pixelated;
         }
 

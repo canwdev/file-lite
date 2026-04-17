@@ -649,7 +649,7 @@ defineExpose({
           background: transparent;
           cursor: pointer;
           padding: 4px;
-          border-radius: 4px;
+          border-radius: var(--vgo-radius);
           color: var(--vgo-color-text-secondary);
           display: flex;
           align-items: center;

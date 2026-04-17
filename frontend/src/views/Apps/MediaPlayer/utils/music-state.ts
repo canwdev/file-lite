@@ -1,20 +1,38 @@
+import type { LyricLine } from './lrc'
+import { watch } from 'vue'
 import { guid } from '@/utils'
 import { regSupportedAudioFormat } from '@/utils/is'
 import { normalizePath } from '@/views/FileManager/utils'
 
 export type MediaType = 'music' | 'video'
 
+export type { LyricLine }
+
+export interface EmbeddedAudioTags {
+  title?: string
+  artist?: string
+  album?: string
+  year?: number
+  /** Embedded cover; caller creates object URL from raw picture data */
+  coverImage?: { data: Uint8Array, mimeType: string }
+  lyricsLines?: LyricLine[]
+}
+
 export class MediaItem {
   guid: string
   filename: string
   basePath: string
   type: MediaType
-  /** Optional cover URL when enriched by the player / metadata */
+  /** Optional cover URL when enriched by the player / metadata (e.g. blob:) */
   cover?: string
-  /** Optional subtitle line (e.g. artist / album) */
-  artistsAlbumDisplay?: string
+  /** Track title from embedded tags; falls back to filename in `titleDisplay` */
+  title?: string
   artist?: string
   album?: string
+  year?: number
+  /** Timed lyrics (e.g. from embedded tags); seconds from track start */
+  lyricsLines?: LyricLine[]
+  private _coverObjectUrl?: string
 
   constructor(filename: string, basePath: string) {
     this.guid = guid()
@@ -28,7 +46,49 @@ export class MediaItem {
   }
 
   get titleDisplay() {
+    const t = this.title?.trim()
+    if (t)
+      return t
     return this.filename
+  }
+
+  /** One-line subtitle for lists (artist / album) */
+  get artistsAlbumDisplay() {
+    const parts = [this.artist?.trim(), this.album?.trim()].filter(Boolean) as string[]
+    if (parts.length === 0)
+      return undefined
+    return parts.join(' — ')
+  }
+
+  /** Replace embedded-tag fields and cover; revokes previous cover blob URL */
+  applyEmbeddedTags(tags: EmbeddedAudioTags) {
+    this.title = tags.title?.trim() || undefined
+    this.artist = tags.artist?.trim() || undefined
+    this.album = tags.album?.trim() || undefined
+    this.year = tags.year
+
+    this.releaseCoverObjectUrl()
+    if (tags.coverImage?.data?.length) {
+      const mime = tags.coverImage.mimeType || 'image/jpeg'
+      const blob = new Blob([tags.coverImage.data.slice()], { type: mime })
+      this._coverObjectUrl = URL.createObjectURL(blob)
+      this.cover = this._coverObjectUrl
+    }
+    else {
+      this.cover = undefined
+    }
+
+    this.lyricsLines = tags.lyricsLines?.length
+      ? tags.lyricsLines.map(l => ({ time: l.time, text: l.text }))
+      : undefined
+  }
+
+  releaseCoverObjectUrl() {
+    if (this._coverObjectUrl) {
+      URL.revokeObjectURL(this._coverObjectUrl)
+      this._coverObjectUrl = undefined
+    }
+    this.cover = undefined
   }
 }
 
@@ -89,11 +149,10 @@ export const useMusicSettingsStore = defineStore(
 
     // actions: 使用 `function` 声明，提供清晰的上下文，并进行类型注解
     function setAudioVolume(value: number) {
-      let parsedValue = Number(value)
-
+      // Integer 0–100: avoid float noise (e.g. 20.000000000000004) from IEEE-754 + slider/wheel
+      let parsedValue = Math.round(Number(value))
       parsedValue = Math.min(100, Math.max(0, parsedValue))
-
-      audioVolume.value = parsedValue // 使用 `.value` 访问 ref 的值
+      audioVolume.value = parsedValue
     }
 
     function volumeUp(step: number = 5) {
@@ -103,6 +162,19 @@ export const useMusicSettingsStore = defineStore(
     function volumeDown(step: number = 5) {
       setAudioVolume(audioVolume.value - step)
     }
+
+    watch(
+      audioVolume,
+      (v) => {
+        if (!Number.isFinite(v))
+          return
+        const n = Math.min(100, Math.max(0, Math.round(v)))
+        if (Object.is(v, n))
+          return
+        audioVolume.value = n
+      },
+      { flush: 'sync' },
+    )
 
     return {
       loopMode,

@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import ContextMenu from '@imengyu/vue3-context-menu'
+import { useEventListener } from '@vueuse/core'
 import Mousetrap from 'mousetrap'
+import { contextMenuTheme } from '@/hooks/use-global-theme'
 import { formatTimeHMS } from '@/utils'
 import CoverMini from './CoverMini.vue'
 import Seekbar from './SeekBar.vue'
@@ -7,8 +10,26 @@ import { MusicEvents, useMediaStore } from './utils/media-store'
 import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/music-state'
 
 defineEmits(['onCoverClick', 'onTitleClick'])
-// interface Props {}
-// const props = withDefaults(defineProps<Props>(), {})
+
+const PLAYBACK_RATE_OPTIONS = [
+  { value: 0.5, label: '0.5x' },
+  { value: 0.8, label: '0.8x' },
+  { value: 1, label: '1x' },
+  { value: 1.3, label: '1.3x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 2, label: '2x' },
+] as const
+
+function rateMatches(a: number, b: number) {
+  return Math.abs(a - b) < 0.02
+}
+
+function speedMenuButtonLabel(rate: number) {
+  const hit = PLAYBACK_RATE_OPTIONS.find(o => rateMatches(rate, o.value))
+  if (hit)
+    return hit.label
+  return `${Number(rate.toFixed(2))}×`
+}
 
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
@@ -22,7 +43,48 @@ const KEY_DOWN = 'down'
 const mSettingsStore = useMusicSettingsStore()
 const mCurrentTime = ref(0)
 const isSeeking = ref(false)
-const isDisabled = ref(false)
+
+function showSpeedMenu(event: MouseEvent) {
+  const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
+  const rect = button?.getBoundingClientRect()
+  ContextMenu.showContextMenu({
+    x: rect?.right ?? event.clientX,
+    y: rect?.top ?? event.clientY,
+    theme: contextMenuTheme.value,
+    items: PLAYBACK_RATE_OPTIONS.map((opt) => {
+      const selected = rateMatches(mediaStore.playbackRate, opt.value)
+      return {
+        label: opt.label,
+        icon: selected ? 'mdi mdi-check' : '',
+        onClick: () => {
+          mediaStore.playbackRate = opt.value
+        },
+      }
+    }),
+  })
+}
+
+function showLoopMenu(event: MouseEvent) {
+  const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
+  const rect = button?.getBoundingClientRect()
+  ContextMenu.showContextMenu({
+    x: rect?.right ?? event.clientX,
+    y: rect?.top ?? event.clientY,
+    theme: contextMenuTheme.value,
+    items: LoopModeTypeValues.map((mode) => {
+      const info = loopModeMap[mode]
+      const selected = mSettingsStore.loopMode === mode
+      return {
+        label: info.i18nKey,
+        icon: selected ? 'mdi mdi-check' : (info.className || ''),
+        onClick: () => {
+          mSettingsStore.loopMode = mode
+          window.$message.info(info.i18nKey)
+        },
+      }
+    }),
+  })
+}
 
 const mousetrapRef = shallowRef()
 
@@ -44,6 +106,51 @@ function volumeDownFn(e: KeyboardEvent) {
   e.preventDefault()
   mSettingsStore.volumeDown()
 }
+
+const volumeIconBtnRef = ref<HTMLButtonElement | null>(null)
+
+/** Win11-like: hover volume icon and scroll to adjust (wheel up → louder, down → quieter). */
+useEventListener(
+  () => volumeIconBtnRef.value,
+  'wheel',
+  (e: WheelEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+    if (dy === 0)
+      return
+
+    let step: number
+    if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+      step = 5
+    }
+    else if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+      step = 15
+    }
+    else {
+      step = Math.round(Math.abs(dy) / 20)
+      step = Math.min(12, Math.max(2, step || 2))
+    }
+
+    if (dy < 0)
+      mSettingsStore.volumeUp(step)
+    else
+      mSettingsStore.volumeDown(step)
+  },
+  { passive: false },
+)
+
+const previousVolume = ref(100)
+function toggleMute() {
+  if (mSettingsStore.audioVolume === 0) {
+    mSettingsStore.audioVolume = previousVolume.value
+  }
+  else {
+    previousVolume.value = mSettingsStore.audioVolume
+    mSettingsStore.audioVolume = 0
+  }
+}
+
 function switchLoopMode() {
   let index = LoopModeTypeValues.findIndex(i => i === mSettingsStore.loopMode)
   ++index
@@ -99,11 +206,30 @@ watch(
 
 const mediaItem = computed(() => mediaStore.mediaItem)
 
+const canSeek = computed(() => {
+  const d = mediaStore.duration
+  return d > 0 && Number.isFinite(d)
+})
+
+function clampSeekTime(t: number) {
+  const d = mediaStore.duration
+  if (!Number.isFinite(d) || d <= 0) {
+    return Math.max(0, t)
+  }
+  return Math.min(d, Math.max(0, t))
+}
+
 function jumpForward() {
-  mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, (mediaStore.currentTime += 5))
+  mediaStore.mediaBus.emit(
+    MusicEvents.ACTION_CHANGE_CURRENT_TIME,
+    clampSeekTime(mediaStore.currentTime + 5),
+  )
 }
 function jumpBackward() {
-  mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, (mediaStore.currentTime -= 5))
+  mediaStore.mediaBus.emit(
+    MusicEvents.ACTION_CHANGE_CURRENT_TIME,
+    clampSeekTime(mediaStore.currentTime - 5),
+  )
 }
 </script>
 
@@ -115,6 +241,7 @@ function jumpBackward() {
       <Seekbar
         :max="mediaStore.duration"
         :value="mCurrentTime"
+        :disabled="!canSeek"
         @input="progressSeeking"
         @change="progressChange"
       />
@@ -134,9 +261,8 @@ function jumpBackward() {
       </button>
       <div class="buttons-scroll">
         <button
-          :disabled="isDisabled"
           class="btn-action btn-no-style icon-wrap"
-          title="Previous"
+          title="Previous (right-click: −5s)"
           @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
@@ -144,7 +270,6 @@ function jumpBackward() {
         </button>
 
         <button
-          :disabled="isDisabled"
           class="btn-action btn-no-style icon-wrap"
           :title="mediaStore.paused ? `Play` : `Pause`"
           @click="togglePlay"
@@ -158,55 +283,44 @@ function jumpBackward() {
         </button>
 
         <button
-          :disabled="isDisabled"
           class="btn-action btn-no-style icon-wrap"
-          title="Next"
+          title="Next (right-click: +5s)"
           @click="next"
           @contextmenu.prevent="jumpForward"
         >
           <span class="mdi mdi-skip-next" />
         </button>
 
-        <el-popover placement="top" trigger="hover">
-          <template #reference>
-            <button class="btn-action btn-no-style icon-wrap" title="Playback Speed">
-              {{ mediaStore.playbackRate }}x
-            </button>
-          </template>
-
-          <div class="flex-row-center-gap">
-            <button class="vgo-button" @click="mediaStore.playbackRate = Number(1)">
-              Reset
-            </button>
-            <el-slider
-              v-model="mediaStore.playbackRate"
-              style="width: 150px"
-              :max="2"
-              :min="0.1"
-              :step="0.1"
-            />
-          </div>
-        </el-popover>
+        <button
+          class="btn-action btn-no-style icon-wrap"
+          title="Playback speed"
+          @click="showSpeedMenu"
+        >
+          {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
+        </button>
 
         <button
           v-if="currentLoopMode"
           class="btn-action btn-no-style icon-wrap"
           :title="currentLoopMode.i18nKey"
-          @click="switchLoopMode"
+          @click="showLoopMenu"
         >
           <span
-            v-if="currentLoopMode.icon || currentLoopMode.className"
-            class="material-icons"
+            v-if="currentLoopMode.className"
+            class="mdi"
             :class="currentLoopMode.className"
-          >
-            <!-- {{ currentLoopMode.icon }} -->
-          </span>
+          />
           <span v-else>{{ currentLoopMode.i18nKey }}</span>
         </button>
 
-        <el-popover placement="top" trigger="hover">
+        <el-popover placement="top" trigger="hover" popper-class="popover-volume">
           <template #reference>
-            <button class="btn-action btn-no-style icon-wrap" title="Volume">
+            <button
+              ref="volumeIconBtnRef"
+              class="btn-action btn-no-style icon-wrap"
+              title="Volume (scroll wheel to adjust)"
+              @click="toggleMute"
+            >
               <template v-if="mSettingsStore.audioVolume > 0">
                 <span class="mdi mdi-volume-high" />
               </template>
@@ -215,16 +329,18 @@ function jumpBackward() {
               </template>
             </button>
           </template>
-          <div style="display: flex; align-items: center; flex-direction: column">
+          <div class="popover-col popover-col--volume">
             <el-slider
-              v-model="mSettingsStore.audioVolume"
-              style="width: 100px"
+              :model-value="mSettingsStore.audioVolume"
               :max="100"
               :step="1"
               :min="0"
               :tooltip="false"
+              vertical
+              height="100px"
+              @update:model-value="(v) => mSettingsStore.setAudioVolume(Array.isArray(v) ? v[0]! : v)"
             />
-            <span style="font-size: 12px">{{ mSettingsStore.audioVolume }}</span>
+            <span class="popover-volume-label">{{ mSettingsStore.audioVolume }}</span>
           </div>
         </el-popover>
       </div>
@@ -232,7 +348,26 @@ function jumpBackward() {
   </div>
 </template>
 
+<style lang="scss">
+.popover-volume {
+  min-width: 60px !important;
+  width: 60px !important;
+}
+</style>
+
 <style lang="scss" scoped>
+.popover-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.popover-volume-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, inherit);
+}
+
 .actionbar-wrapper {
   width: 100%;
   $bottomZIndex: 2100;

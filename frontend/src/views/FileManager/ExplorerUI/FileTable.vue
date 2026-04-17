@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
     }
   }
   .table-row {
-    border-radius: 4px;
+    border-radius: var(--vgo-radius);
     font-size: 14px;
     padding-top: 4px;
     padding-bottom: 4px;

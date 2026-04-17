@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Option } from 'artplayer/types/option'
-import Artplayer from 'artplayer'
+import type { Ref } from 'vue'
 import { useStorage } from '@vueuse/core'
-import { type Ref, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import Artplayer from 'artplayer'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
 
 interface Props {
@@ -25,10 +26,10 @@ const emit = defineEmits<{
 
 const storageOpts = { listenToStorageChanges: false as const }
 
-/** 与 art.volume / HTML5 一致，0–1 */
+/** 与 art.volume / HTML5 一致，0–1（与 MediaPlayer Pinia 音量仅在原生 video 路径互相同步） */
 const persistedVolume = useStorage(LsKeys.ARTPLAYER_VOLUME, 1, localStorage, storageOpts)
 
-/** 与 art.playbackRate 一致 */
+/** 与 art.playbackRate 一致（与 MediaPlayer store 仅在原生 video 路径互相同步） */
 const persistedPlaybackRate = useStorage(LsKeys.ARTPLAYER_PLAYBACK_RATE, 1, localStorage, storageOpts)
 
 const FLOAT_EPS = 1e-3
@@ -144,7 +145,7 @@ onMounted(() => {
     fullscreen: true,
     fullscreenWeb: true,
     // autoSize: true,
-    theme: '#e91e63',
+    theme: '#53ade4',
     // autoMini: true,
     aspectRatio: true,
     screenshot: true,
@@ -249,7 +250,9 @@ onBeforeUnmount(() => {
   artInstance.value?.destroy(false)
 })
 
-// 向外暴露实例，父组件可通过 template ref 直接调用 artInstance 的方法 (如播放、暂停)
+/**
+ * `art`：供 NativeOrArtVideo / PlayerCore 等统一控制播放、取 `art.video` 做 HTML 事件同步。
+ */
 defineExpose({
   art: artInstance,
 })
@@ -301,7 +304,7 @@ defineExpose({
 }
 </style>
 
-<style>
+<!-- <style>
 .art-video-player .art-bottom {
     background-image: linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.1), transparent) !important;
 }
@@ -314,4 +317,4 @@ defineExpose({
 .art-mask .art-icon-state {
     display: none !important;
 }
-</style>
+</style> -->

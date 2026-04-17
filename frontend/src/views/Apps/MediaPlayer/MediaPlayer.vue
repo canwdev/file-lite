@@ -27,7 +27,6 @@ const mediaStore = useMediaStore(storeId.value)
 watch(
   () => props.appParams,
   () => {
-    console.log(props.appParams)
     if (!props.appParams) {
       return
     }
@@ -59,27 +58,34 @@ watch(
         </el-splitter-panel>
       </el-splitter>
     </div>
-    <div class="music-below">
+    <!-- 视频模式无底部控制条，音量/倍速不与 VArt 内持久化抢写 Pinia -->
+    <div v-if="!mediaStore.isVideo" class="music-below">
       <MusicControl />
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
+$music-control-bar-height: 75px;
+
 .media-player-wrap {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-top: 1px solid var(--vgo-color-border);
   .music-above {
     flex: 1;
     overflow: hidden;
+    min-height: 0;
   }
   .media-detail {
     overflow: hidden;
     height: 100%;
+    position: relative;
   }
   .music-below {
-    height: 75px;
+    height: $music-control-bar-height;
+    flex-shrink: 0;
   }
 }
 </style>

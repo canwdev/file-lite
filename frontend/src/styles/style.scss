@@ -2,6 +2,7 @@
 
 :root {
   --vgo-primary-rgb: 83, 173, 228;
+  --vgo-radius: 8px;
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
 }
 
@@ -72,7 +73,7 @@ html, body, #app {
   }
 
   &::-webkit-scrollbar-track {
-    border-radius: 4px;
+    border-radius: var(--vgo-radius);
     background: transparent;
   }
   &::-webkit-scrollbar-corner {
@@ -162,7 +163,7 @@ html, body, #app {
   }
 
   &::-webkit-scrollbar-track {
-    border-radius: 4px;
+    border-radius: var(--vgo-radius);
     background: transparent;
   }
 

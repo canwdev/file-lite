@@ -361,7 +361,7 @@ function handleShortcutKey(event: KeyboardEvent) {
     display: flex;
     cursor: pointer;
     font-size: 18px;
-    border-radius: 4px;
+    border-radius: var(--vgo-radius);
     height: 29px;
     width: 29px;
     align-items: center;

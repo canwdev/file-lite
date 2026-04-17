@@ -1,31 +1,21 @@
-<script lang="ts">
-export default {
-  name: 'CoverDisplay',
-  props: {
-    src: {
-      type: String,
-      default: null,
-    },
-    isRounded: {
-      type: Boolean,
-      default: false,
-    },
-    isRotating: {
-      type: Boolean,
-      default: false,
-    },
-    isShowIcon: {
-      type: Boolean,
-      default: true,
-    },
-  },
-}
+<script setup lang="ts">
+withDefaults(defineProps<{
+  src?: string | null
+  isRounded?: boolean
+  isRotating?: boolean
+}>(), {
+  isRounded: false,
+  isRotating: false,
+})
 </script>
 
 <template>
   <div class="cover-display">
     <img v-if="src" :src="src" :class="{ rounded: isRounded, rotating: isRotating }">
-    <span v-else-if="isShowIcon" class="cover-icon">CC</span>
+    <span
+      v-else
+      class="cover-icon mdi mdi-music-note"
+    />
   </div>
 </template>
 
@@ -34,13 +24,14 @@ export default {
   position: relative;
   overflow: hidden;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
 
   .cover-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 10rem;
+    font-size: 64px;
+    opacity: .3;
   }
 
   img {

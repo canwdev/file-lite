@@ -652,7 +652,7 @@ defineExpose({
         font-size: 20px;
         border: none;
         padding: 2px 4px;
-        border-radius: 4px;
+        border-radius: var(--vgo-radius);
 
         .icon-small-abs {
           font-size: 12px;
