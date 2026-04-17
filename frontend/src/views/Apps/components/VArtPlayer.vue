@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Option } from 'artplayer/types/option'
 import Artplayer from 'artplayer'
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useStorage } from '@vueuse/core'
+import { type Ref, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { LsKeys } from '@/enum'
 
 interface Props {
   src: string
@@ -21,7 +23,31 @@ const emit = defineEmits<{
   (e: 'ready', art: Artplayer): void // 抛出实例以便父组件获取控制权
 }>()
 
-/** llms.txt / 文档：Subtitle type 可选 vtt、srt、ass */
+const storageOpts = { listenToStorageChanges: false as const }
+
+/** 与 art.volume / HTML5 一致，0–1 */
+const persistedVolume = useStorage(LsKeys.ARTPLAYER_VOLUME, 1, localStorage, storageOpts)
+
+/** 与 art.playbackRate 一致 */
+const persistedPlaybackRate = useStorage(LsKeys.ARTPLAYER_PLAYBACK_RATE, 1, localStorage, storageOpts)
+
+const FLOAT_EPS = 1e-3
+
+function clamp(n: number, lo: number, hi: number, nanFallback: number): number {
+  if (!Number.isFinite(n))
+    return nanFallback
+  return Math.min(hi, Math.max(lo, n))
+}
+
+function clampVolume(v: number): number {
+  return clamp(v, 0, 1, 1)
+}
+
+function clampPlaybackRate(v: number): number {
+  return clamp(v, 0.25, 4, 1)
+}
+
+/** Subtitle type 可选 vtt、srt、ass */
 function inferSubtitleType(filename: string): 'vtt' | 'srt' | 'ass' {
   const lower = filename.toLowerCase()
   if (lower.endsWith('.vtt'))
@@ -39,47 +65,42 @@ const artInstance = shallowRef<Artplayer | null>(null)
 const videoObjectUrl = ref<string | null>(null)
 const subtitleObjectUrl = ref<string | null>(null)
 
-function revokeVideoObjectUrl() {
-  if (videoObjectUrl.value) {
-    URL.revokeObjectURL(videoObjectUrl.value)
-    videoObjectUrl.value = null
+function revokeBlobRef(urlRef: Ref<string | null>) {
+  if (urlRef.value) {
+    URL.revokeObjectURL(urlRef.value)
+    urlRef.value = null
   }
 }
 
-function revokeSubtitleObjectUrl() {
-  if (subtitleObjectUrl.value) {
-    URL.revokeObjectURL(subtitleObjectUrl.value)
-    subtitleObjectUrl.value = null
-  }
+function takePickedFile(e: Event): File | null {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  input.value = ''
+  return file
 }
 
 function onLocalVideoPicked(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
+  const file = takePickedFile(e)
   const inst = artInstance.value
   if (!file || !inst)
     return
-  revokeVideoObjectUrl()
+  revokeBlobRef(videoObjectUrl)
   const url = URL.createObjectURL(file)
   videoObjectUrl.value = url
   void inst.switchUrl(url).catch(console.error)
 }
 
 function onLocalSubtitlePicked(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
+  const file = takePickedFile(e)
   const inst = artInstance.value
   if (!file || !inst)
     return
-  revokeSubtitleObjectUrl()
+  revokeBlobRef(subtitleObjectUrl)
   const url = URL.createObjectURL(file)
   subtitleObjectUrl.value = url
-  const type = inferSubtitleType(file.name)
   inst.subtitle.switch(url, {
     name: file.name,
-    type,
+    type: inferSubtitleType(file.name),
   })
 }
 
@@ -94,19 +115,29 @@ async function copyDataUrlImageToClipboard(dataUrl: string): Promise<void> {
   await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })])
 }
 
+/** 将 useStorage 中的音量/倍速应用到播放器（ready 与跨处复用） */
+function applyPersistedToArt(art: Artplayer) {
+  const v = clampVolume(persistedVolume.value)
+  if (Math.abs(art.volume - v) > FLOAT_EPS)
+    art.volume = v
+  const r = clampPlaybackRate(persistedPlaybackRate.value)
+  if (Math.abs(art.playbackRate - r) > FLOAT_EPS)
+    art.playbackRate = r
+}
+
 onMounted(() => {
-  if (!artRef.value)
+  const el = artRef.value
+  if (!el)
     return
 
   const { contextmenu: extraContextmenu, settings: extraSettings, ...playerOptionsRest } = props.options
 
-  // 初始化 Artplayer
+  // 初始化 Artplayer — https://artplayer.org/document/start/option.html · https://artplayer.org/llms.txt
   artInstance.value = new Artplayer({
-    container: artRef.value,
+    container: el,
     url: props.src,
     autoplay: props.autoplay,
     // 基础控制栏配置
-    // https://artplayer.org/document/start/option.html
     setting: true,
     playbackRate: true,
     pip: true,
@@ -114,7 +145,6 @@ onMounted(() => {
     fullscreenWeb: true,
     // autoSize: true,
     theme: '#e91e63',
-    volume: 1,
     // autoMini: true,
     aspectRatio: true,
     screenshot: true,
@@ -170,26 +200,43 @@ onMounted(() => {
     autoPlayback: true,
     // 合并外部传入的额外配置（contextmenu 已合并进上方列表）
     ...playerOptionsRest,
+    volume: clampVolume(persistedVolume.value),
   })
 
   const art = artInstance.value
 
   // Artplayer 会将原生的 video 事件加上 'video:' 前缀
-  art.on('video:ratechange', (e: Event) => emit('ratechange', e))
+  art.on('video:volumechange', () => {
+    persistedVolume.value = clampVolume(art.volume)
+  })
+  art.on('video:ratechange', (e: Event) => {
+    persistedPlaybackRate.value = clampPlaybackRate(art.playbackRate)
+    emit('ratechange', e)
+  })
   art.on('video:loadedmetadata', (e: Event) => emit('loadedmetadata', e))
   art.on('video:play', (e: Event) => emit('play', e))
 
   art.on('ready', () => {
+    applyPersistedToArt(art)
     emit('ready', art)
   })
 })
+
+watch(
+  [() => persistedVolume.value, () => persistedPlaybackRate.value],
+  () => {
+    const inst = artInstance.value
+    if (inst?.isReady)
+      applyPersistedToArt(inst)
+  },
+)
 
 // 监听 src 变化，实现视频源的动态切换
 watch(
   () => props.src,
   (newUrl) => {
     if (artInstance.value && newUrl) {
-      revokeVideoObjectUrl()
+      revokeBlobRef(videoObjectUrl)
       artInstance.value.switchUrl(newUrl)
     }
   },
@@ -197,12 +244,9 @@ watch(
 
 // 组件卸载前销毁播放器，释放内存
 onBeforeUnmount(() => {
-  revokeVideoObjectUrl()
-  revokeSubtitleObjectUrl()
-  if (artInstance.value && artInstance.value.destroy) {
-    // 传入 false 表示不删除关联的 DOM 节点 (因为 Vue 会接管 DOM 卸载)
-    artInstance.value.destroy(false)
-  }
+  revokeBlobRef(videoObjectUrl)
+  revokeBlobRef(subtitleObjectUrl)
+  artInstance.value?.destroy(false)
 })
 
 // 向外暴露实例，父组件可通过 template ref 直接调用 artInstance 的方法 (如播放、暂停)
@@ -240,8 +284,8 @@ defineExpose({
 
 /* 确保播放器容器默认填满父级 */
 .v-artplayer-container {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
 .v-artplayer-file-input {

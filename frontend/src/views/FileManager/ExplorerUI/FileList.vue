@@ -3,8 +3,9 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
+import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, ref, toRefs, watch } from 'vue'
+import { LsKeys } from '@/enum'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
@@ -70,8 +71,12 @@ function toggleShowHiddenFiles() {
   showHidden.value = !showHidden.value
 }
 
-const iconSizeList = ref(16)
-const iconSizeGrid = ref(48)
+const iconSizeList = useStorage(LsKeys.ICON_SIZE_LIST, 16, localStorage, {
+  listenToStorageChanges: false,
+})
+const iconSizeGrid = useStorage(LsKeys.ICON_SIZE_GRID, 48, localStorage, {
+  listenToStorageChanges: false,
+})
 const tableColumns = computed(() => {
   return [
     {
@@ -210,6 +215,7 @@ watch(isLoading, (val) => {
 
 // 文件操作功能
 const {
+  handleOpen,
   handleCreateFile,
   handleCreateFolder,
   handleRename,
@@ -328,11 +334,21 @@ function handleShortcutKey(event: KeyboardEvent) {
       updateMenuOptions(null, event)
     }
   }
-  else {
-    if (key === 'delete') {
-      event.preventDefault()
-      confirmDelete()
-    }
+  else if (key === 'delete') {
+    event.preventDefault()
+    confirmDelete()
+  }
+  else if (key === 'f2') {
+    event.preventDefault()
+    handleRename()
+  }
+  else if (key === 'f3') {
+    event.preventDefault()
+    handleOpen()
+  }
+  else if (key === 'f7') {
+    event.preventDefault()
+    handleCreateFolder()
   }
 }
 

@@ -105,7 +105,8 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
     throw new Error('parentHandle and filename are required for download')
   }
 
-  // 文件下载逻辑
+  // 文件下载逻辑：用 pipeTo 连接网络读与磁盘写，由流标准实现背压，避免读远快于写导致
+  // 大量缓冲在浏览器内、到 100% 后 close() 才集中刷盘。
   const response = await fetch(fsWebApi.getStreamUrl(path), {
     headers: {
       Authorization: authToken.value,
@@ -117,51 +118,57 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
     throw new Error(`HTTP error! status: ${response.status}`)
   }
 
-  const reader = response.body?.getReader()
-  if (!reader) {
+  const body = response.body
+  if (!body) {
     throw new Error('Response body is not readable')
   }
 
   const contentLength = Number.parseInt(response.headers.get('Content-Length') || '0')
   const fileHandle = await parentHandle.getFileHandle(filename, { create: true })
-  const writable = await fileHandle.createWritable()
+  const writable = await fileHandle.createWritable({ keepExistingData: false })
 
   let loaded = 0
   let lastTime = Date.now()
   let lastLoaded = 0
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done)
-        break
+  const tickProgress = (force = false) => {
+    const currentTime = Date.now()
+    const timeDiff = (currentTime - lastTime) / 1000
+    if (!force && timeDiff < 0.5 && loaded !== contentLength)
+      return
 
-      await writable.write(value)
-      loaded += value.length
-
-      // Update progress and speed
-      const currentTime = Date.now()
-      const timeDiff = (currentTime - lastTime) / 1000 // seconds
-      if (timeDiff >= 0.5 || loaded === contentLength) {
-        data.progress = contentLength ? loaded / contentLength : 0
-        const bytesDiff = loaded - lastLoaded
-        const rate = timeDiff > 0 ? bytesDiff / timeDiff : 0
-
-        data.speedInfo = {
-          loaded,
-          total: contentLength,
-          rate,
-          bytes: bytesDiff,
-        }
-
-        lastTime = currentTime
-        lastLoaded = loaded
-      }
+    data.progress = contentLength ? loaded / contentLength : (force && loaded > 0 ? 1 : 0)
+    const bytesDiff = loaded - lastLoaded
+    const rate = timeDiff > 0 ? bytesDiff / timeDiff : 0
+    data.speedInfo = {
+      loaded,
+      total: contentLength,
+      rate,
+      bytes: bytesDiff,
     }
+    lastTime = currentTime
+    lastLoaded = loaded
   }
-  finally {
-    await writable.close()
-    reader.releaseLock()
+
+  const progressStream = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      loaded += chunk.byteLength
+      tickProgress()
+      controller.enqueue(chunk)
+    },
+    flush() {
+      tickProgress(true)
+    },
+  })
+
+  try {
+    await body.pipeThrough(progressStream).pipeTo(writable, {
+      signal: abortController.signal,
+    })
+  }
+  catch (e) {
+    await writable.abort().catch(() => {})
+    throw e
   }
 }
 

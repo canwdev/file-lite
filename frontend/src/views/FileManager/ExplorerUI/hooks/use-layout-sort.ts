@@ -6,7 +6,9 @@ import { SortType } from '@/types/server'
 import { sortMethodMap } from '../../utils/sort'
 
 export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {
-  const isGridView = ref(false)
+  const isGridView = useStorage(LsKeys.IS_GRID_VIEW, false, localStorage, {
+    listenToStorageChanges: false,
+  })
 
   const sortOptions = computed((): MenuItem[] => {
     return [
