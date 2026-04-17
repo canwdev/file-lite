@@ -103,6 +103,7 @@ async function handleSaveFile() {
 const menuOptions = computed((): MenuBarOptions => {
   return {
     theme: contextMenuTheme.value,
+    closeWhenScroll: false, // ← 防止滚动关闭菜单
     items: [
       {
         label: `Save${isChanged.value ? '*' : ''}`,

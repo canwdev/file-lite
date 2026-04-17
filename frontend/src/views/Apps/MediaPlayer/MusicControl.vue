@@ -51,6 +51,7 @@ function showSpeedMenu(event: MouseEvent) {
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
     theme: contextMenuTheme.value,
+    closeWhenScroll: false, // ← 防止歌词滚动关闭菜单
     items: PLAYBACK_RATE_OPTIONS.map((opt) => {
       const selected = rateMatches(mediaStore.playbackRate, opt.value)
       return {
@@ -71,6 +72,7 @@ function showLoopMenu(event: MouseEvent) {
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
     theme: contextMenuTheme.value,
+    closeWhenScroll: false, // ← 防止歌词滚动关闭菜单
     items: LoopModeTypeValues.map((mode) => {
       const info = loopModeMap[mode]
       const selected = mSettingsStore.loopMode === mode
