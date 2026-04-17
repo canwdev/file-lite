@@ -118,6 +118,15 @@ export function useFileActions({
       .catch()
   }
 
+  const handleOpen = () => {
+    if (!selectedItems.value.length) {
+      return
+    }
+    emit('open', {
+      item: selectedItems.value[0],
+    })
+  }
+
   const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
@@ -136,9 +145,7 @@ export function useFileActions({
       isSingle && {
         label: 'Open',
         onClick: () => {
-          return emit('open', {
-            item: selectedItems.value[0],
-          })
+          handleOpen()
         },
       },
       isSingle
@@ -222,6 +229,7 @@ export function useFileActions({
     return selectedItems.value.length > 0
   })
   return {
+    handleOpen,
     handleCreateFile,
     handleCreateFolder,
     handleRename,
