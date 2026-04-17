@@ -17,7 +17,7 @@ const isCurrent = computed(() => {
 </script>
 
 <template>
-  <div class="playlist-item" :class="{ active: isCurrent }">
+  <div class="playlist-item" :class="{ active: isCurrent }" :title="item.filename">
     <div class="item-left">
       <div v-if="isCurrent" class="status-icon">
         <template v-if="!mediaStore.paused">

@@ -74,6 +74,18 @@ onUnmounted(() => {
   if (rafId)
     cancelAnimationFrame(rafId)
 })
+
+const borderStyle = computed(() => ({
+  // 使用 radial-gradient 模拟手电筒照在边框上的效果
+  background: `radial-gradient(
+    circle at ${state.glareX}% ${state.glareY}%, 
+    rgba(255, 255, 255, 0.8) 0%, 
+    rgba(255, 255, 255, 0.1) 25%, 
+    transparent 50%
+  )`,
+  opacity: state.isHover ? 1 : 0,
+  transition: 'opacity 0.3s ease',
+}))
 </script>
 
 <template>
@@ -86,6 +98,8 @@ onUnmounted(() => {
     <div class="card-shadow" :style="shadowStyle" />
 
     <div class="steam-card-wrapper" :style="wrapperStyle">
+      <div class="card-border" :style="borderStyle" />
+
       <div class="inner-content">
         <img :src="src" class="card-image" alt="steam-card" @dragstart.prevent>
         <div class="card-glare" :style="glareStyle" />
@@ -113,8 +127,42 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   z-index: 2;
-  /* 确保子元素在 3D 空间 */
   transform-style: preserve-3d;
+  /* 确保边框和内容对齐 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 动态边框层 */
+.card-border {
+  position: absolute;
+  /* 比内容稍大一点点，或者重合利用 padding */
+  inset: -2px;
+  z-index: -1;
+  border-radius: clamp(8px, 1.5vw, 15px); /* 比 inner-content 稍微大一点点点 */
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude; /* 关键：只显示 border 部分，不遮挡中间 */
+  -webkit-mask-composite: destination-out;
+  padding: 2px; /* 边框厚度 */
+  pointer-events: none;
+  will-change: background;
+}
+
+.inner-content {
+  width: 100%;
+  height: 100%;
+  border-radius: clamp(8px, 1.5vw, 14px);
+  overflow: hidden;
+  position: relative;
+  backface-visibility: hidden;
+  /* 修改 box-shadow，去掉原本的 1px inset，改用我们精准控制的 border 层 */
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.07),
+    0 22px 48px rgba(0, 0, 0, 0.28);
+  background: #1a1a1a; /* 兜底背景色 */
 }
 
 .inner-content {

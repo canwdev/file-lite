@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { MediaItem } from '../utils/music-state'
+import { refDebounced } from '@vueuse/core'
 import { MusicEvents, useMediaStore } from '../utils/media-store'
 import PlaylistItem from './PlaylistItem.vue'
 
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
+
 const filterText = ref('')
+const filterTextDebounced = refDebounced(filterText, 500)
 
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -25,11 +28,11 @@ function handleItemClick(item: MediaItem) {
 }
 
 const playlistFiltered = computed(() => {
-  if (!filterText.value.trim()) {
+  if (!filterTextDebounced.value.trim()) {
     return mediaStore.playingList
   }
 
-  const reg = new RegExp(escapeRegExp(filterText.value.trim()), 'gi')
+  const reg = new RegExp(escapeRegExp(filterTextDebounced.value.trim()), 'gi')
   return mediaStore.playingList.filter((item: MediaItem) => {
     return reg.test(item.titleDisplay) || reg.test(item.artistsAlbumDisplay ?? '')
   })
@@ -37,18 +40,24 @@ const playlistFiltered = computed(() => {
 
 const isPlaylistEmpty = computed(() => mediaStore.playingList.length === 0)
 const isFilterEmpty = computed(
-  () => !!filterText.value.trim() && playlistFiltered.value.length === 0,
+  () => !!filterTextDebounced.value.trim() && playlistFiltered.value.length === 0,
 )
+
+const listRef = ref<HTMLElement>()
+
+function scrollToCurrent() {
+  const el = listRef.value?.querySelector('.playlist-item.active')
+  el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+}
 </script>
 
 <template>
   <div class="music-play-list">
     <div class="vgo-bg playlist-action-bar">
-      <input v-model="filterText" class="vgo-input" placeholder="Filter by name">
-
-      <span class="number-display">{{ mediaStore.playingIndex + 1 }} / {{ mediaStore.playingList.length }}</span>
+      <input v-model="filterText" class="vgo-input" :placeholder="`Filter by name, ${mediaStore.playingIndex + 1}/${mediaStore.playingList.length} items`">
+      <button class="btn-no-style mdi mdi-crosshairs-gps" @click="scrollToCurrent" />
     </div>
-    <div class="music-list">
+    <div ref="listRef" class="music-list">
       <template v-if="isPlaylistEmpty">
         <div class="playlist-empty">
           No media in this list
@@ -92,6 +101,10 @@ const isFilterEmpty = computed(
     font-size: 12px;
     padding: 3px 4px;
     border-bottom: 1px solid var(--vgo-color-border);
+
+    .vgo-input {
+      flex: 1;
+    }
   }
 
   .number-display {
