@@ -24,7 +24,23 @@ export function parseLrcString(raw: string): LyricLine[] {
       offsetSec = Number.parseInt(offsetMatch[1]!, 10) / 1000
       continue
     }
-    if (/^\[(ar|ti|al|by|tool|length|ve):/i.test(trimmed)) {
+    // 解析元数据标签 [ar:][ti:][al:] 等，时间戳设为 0
+    const metaMatch = trimmed.match(/^\[(ar|ti|al|by|tool|length|ve):\s*([\s\S]*?)\]/i)
+    if (metaMatch) {
+      const tagName = metaMatch[1]!.toLowerCase()
+      const tagValue = metaMatch[2]!.trim()
+      if (tagValue) {
+        const labelMap: Record<string, string> = {
+          ar: '艺术家',
+          ti: '标题',
+          al: '专辑',
+          by: '制作',
+          tool: '工具',
+          length: '长度',
+          ve: '版本',
+        }
+        out.push({ time: 0, text: `${labelMap[tagName] || tagName}: ${tagValue}` })
+      }
       continue
     }
 
