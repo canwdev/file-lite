@@ -27,13 +27,13 @@ const isCurrent = computed(() => {
           <span class="mdi mdi-pause" />
         </template>
       </div>
-      <CoverMini :src="item.cover" force-show-icon :is-video="item.type === 'video'" />
+      <CoverMini :src="item.cover" :is-video="item.type === 'video'" />
     </div>
-    <div class="item-main">
+    <div class="item-main" :class="{ 'has-subtitle': !!item.artistsAlbumDisplay }">
       <div class="item-title">
         {{ item.titleDisplay }}
       </div>
-      <div class="item-subtitle">
+      <div v-if="item.artistsAlbumDisplay" class="item-subtitle">
         {{ item.artistsAlbumDisplay }}
       </div>
     </div>
@@ -43,44 +43,100 @@ const isCurrent = computed(() => {
 
 <style lang="scss" scoped>
 .playlist-item {
-  padding: 4px;
-  word-break: break-word;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  border-radius: 4px;
   cursor: pointer;
+  word-break: break-word;
+  border: 1px solid transparent;
+  background-color: transparent;
+  transition: background-color 0.12s ease;
 
-  &:nth-child(2n) {
-    background-color: rgba(134, 134, 134, 0.1);
-  }
   &:hover {
-    background-color: var(--vgo-primary-opacity);
+    background-color: var(--el-fill-color-light, rgba(128, 128, 128, 0.12));
   }
+
   &.active {
     background-color: var(--vgo-primary-opacity);
-    outline: 1px solid var(--vgo-primary);
-    outline-offset: -2px;
   }
 
   .item-left {
     display: inline-flex;
+    flex-shrink: 0;
     position: relative;
+
+    /* Finder 式小图标，仅列表内缩小 */
+    :deep(.btn-cover) {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+    }
+
+    :deep(.icon-wrap) {
+      font-size: 16px;
+    }
+
+    :deep(.cover-type-badge) {
+      width: 14px;
+      height: 14px;
+      right: 1px;
+      bottom: 1px;
+
+      .badge-icon {
+        font-size: 10px;
+      }
+    }
+
     .status-icon {
       position: absolute;
       z-index: 1;
-      font-size: 14px;
+      left: -4px;
+      top: -6px;
+      font-size: 10px;
+      line-height: 1;
+      padding: 1px 2px;
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.404);
+      color: #fff;
     }
   }
 
   .item-main {
     flex: 1;
+    min-width: 0;
+    padding: 2px 0;
+
     .item-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
+      line-height: 1.28;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
     }
+
+    &.has-subtitle .item-title {
+      -webkit-line-clamp: 1;
+    }
+
+    &:not(.has-subtitle) .item-title {
+      -webkit-line-clamp: 2;
+    }
+
     .item-subtitle {
-      font-size: 12px;
+      margin-top: 1px;
+      font-size: 11px;
       font-weight: 400;
+      line-height: 1.25;
+      color: var(--el-text-color-secondary, inherit);
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      word-break: break-word;
     }
   }
 }

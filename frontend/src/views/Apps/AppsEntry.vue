@@ -110,6 +110,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 .app-container {
   height: 100%;
   overflow: auto;
+  border-radius: 0 0 var(--vgo-radius) var(--vgo-radius);
 }
 
 .title-text {
@@ -148,7 +149,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   align-items: center;
   gap: 2px;
   padding: 2px 4px 3px;
-  border-radius: 4px;
+  border-radius: var(--vgo-radius);
   cursor: pointer;
   color: inherit;
   transition: background-color 0.12s ease;

@@ -1,8 +1,7 @@
 <script lang="ts" setup="">
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fsWebApi } from '@/api/filesystem.ts'
-import { isNativePlayer } from '@/store/index.ts'
-import VArtPlayer from './components/VArtPlayer.vue'
+import NativeOrArtVideo from './components/NativeOrArtVideo.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -32,10 +31,9 @@ watch(
 
 <template>
   <div class="media-player">
-    <video v-if="isNativePlayer" :src="mediaSrc" :controls="controls" :autoplay="autoplay" />
-    <VArtPlayer
-      v-else
+    <NativeOrArtVideo
       :src="mediaSrc"
+      :controls="controls"
       :autoplay="autoplay"
     />
   </div>
@@ -47,11 +45,5 @@ watch(
   height: 100%;
   background-color: #1c1c1c;
   overflow: hidden;
-
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
 }
 </style>
