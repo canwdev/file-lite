@@ -27,6 +27,7 @@ const props = withDefaults(
     files: IEntry[]
     isLoading: boolean
     basePath: string
+    filterText?: string
     // 是否文件(夹)选择器
     selectFileMode?: 'file' | 'folder'
     // 文件选择器允许多选
@@ -38,12 +39,13 @@ const props = withDefaults(
   }>(),
   {
     selectables: () => ['.explorer-list-wrap .selectable'],
+    filterText: '',
   },
 )
 
 const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
 
-const { basePath, files, selectFileMode, multiple } = toRefs(props)
+const { basePath, files, filterText, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -83,7 +85,12 @@ const showHidden = pathStateRef('showHidden', false)
 const iconSizeList = pathStateRef('iconSizeList', 16)
 const iconSizeGrid = pathStateRef('iconSizeGrid', 48)
 
-const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, isGridView, showHidden)
+const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
+
+const filteredFiles = computed(() => {
+  const search = filterText.value.toLowerCase()
+  return sortedFiles.value.filter(item => item.name.toLowerCase().includes(search))
+})
 
 function toggleShowHiddenFiles() {
   showHidden.value = !showHidden.value
@@ -192,7 +199,7 @@ const {
   toggleSelectAll,
   selectedPaths,
 } = useSelection({
-  sortedFiles,
+  files: filteredFiles,
   basePath,
   allowMultipleSelection,
   selectables: props.selectables,
@@ -404,6 +411,8 @@ defineExpose({
   handleShortcutKey,
   handleCreateFile,
   sortedFiles,
+  filteredFiles,
+  files,
 })
 </script>
 
@@ -561,7 +570,7 @@ defineExpose({
         <FileTable
           v-model:selected-rows="selectedItemsSet"
           :columns="tableColumns"
-          :data="sortedFiles"
+          :data="filteredFiles"
           :get-tooltip="(row) => getTooltip(row)"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
@@ -570,7 +579,7 @@ defineExpose({
       </div>
       <div v-else class="explorer-grid-view">
         <FileGridItem
-          v-for="item in sortedFiles"
+          v-for="item in filteredFiles"
           :key="item.name"
           class="selectable"
           :item="item"
@@ -587,7 +596,7 @@ defineExpose({
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar">
       <div>
-        {{ sortedFiles.length }} Item(s)
+        {{ filteredFiles.length }} Item(s)
         <template v-if="selectedItems.length">
           | {{ selectedItems.length }} item(s) selected |
           {{ bytesToSize(selectedItemsSize) }}

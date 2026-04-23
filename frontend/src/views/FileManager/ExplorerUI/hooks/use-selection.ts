@@ -5,18 +5,18 @@ import { useSelectionArea } from '@/hooks/use-selection-area'
 import { normalizePath, toggleArrayElement } from '../../utils'
 
 export function useSelection({
-  sortedFiles,
+  files,
   basePath,
   allowMultipleSelection,
   selectables = ['.selectable'],
 }: {
-  sortedFiles: Ref<IEntry[]>
+  files: Ref<IEntry[]>
   basePath: Ref<string>
   allowMultipleSelection: Ref<boolean>
   selectables: string[]
 }) {
   const selectedItemsSet = ref(new Set<IEntry>())
-  watch(sortedFiles, () => {
+  watch(files, () => {
     selectedItemsSet.value.clear()
   })
 
@@ -28,7 +28,7 @@ export function useSelection({
     },
     onStop: (stored) => {
       const map: Record<string, IEntry> = {}
-      sortedFiles.value.forEach((i) => {
+      files.value.forEach((i) => {
         map[i.name] = i
       })
       const list: IEntry[] = []
@@ -92,14 +92,14 @@ export function useSelection({
       let idx = 0
       const first = selectedItems.value[0]
       if (first) {
-        idx = sortedFiles.value.findIndex(i => i.name === first.name)
+        idx = files.value.findIndex(i => i.name === first.name)
       }
-      let itemIdx = sortedFiles.value.findIndex(i => i.name === item.name)
+      let itemIdx = files.value.findIndex(i => i.name === item.name)
       if (idx > itemIdx) {
         // 使最小的index在最前
         ;[itemIdx, idx] = [idx, itemIdx]
       }
-      selectedItemsSet.value = new Set(sortedFiles.value.slice(idx, itemIdx + 1))
+      selectedItemsSet.value = new Set(files.value.slice(idx, itemIdx + 1))
     }
     else {
       selectedItemsSet.value.clear()
@@ -108,7 +108,7 @@ export function useSelection({
   }
 
   const isAllSelected = computed(() => {
-    const allFiles = sortedFiles.value
+    const allFiles = files.value
     if (!allFiles.length) {
       return false
     }
@@ -119,7 +119,7 @@ export function useSelection({
     if (!allowMultipleSelection.value) {
       return
     }
-    const allFiles = sortedFiles.value
+    const allFiles = files.value
     if (isAllSelected.value) {
       selectedItemsSet.value.clear()
     }
