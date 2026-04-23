@@ -16,15 +16,20 @@ export function useSelection({
   selectables: string[]
 }) {
   const selectedItemsSet = ref(new Set<IEntry>())
-  watch(files, () => {
+
+  const clearSelection = () => {
     selectedItemsSet.value.clear()
+  }
+
+  watch(files, () => {
+    clearSelection()
   })
 
   const explorerContentRef = ref<HTMLElement | null>(null)
   const selectionRef = useSelectionArea({
     containerRef: explorerContentRef,
     onStart: () => {
-      selectedItemsSet.value.clear()
+      clearSelection()
     },
     onStop: (stored) => {
       const map: Record<string, IEntry> = {}
@@ -42,7 +47,7 @@ export function useSelection({
         }
       })
 
-      selectedItemsSet.value.clear()
+      clearSelection()
       list.forEach((i) => {
         selectedItemsSet.value.add(i)
       })
@@ -79,7 +84,7 @@ export function useSelection({
     toggle?: boolean
   }) => {
     if (!allowMultipleSelection.value) {
-      selectedItemsSet.value.clear()
+      clearSelection()
       selectedItemsSet.value.add(item)
       return
     }
@@ -102,7 +107,7 @@ export function useSelection({
       selectedItemsSet.value = new Set(files.value.slice(idx, itemIdx + 1))
     }
     else {
-      selectedItemsSet.value.clear()
+      clearSelection()
       selectedItemsSet.value.add(item)
     }
   }
@@ -121,10 +126,21 @@ export function useSelection({
     }
     const allFiles = files.value
     if (isAllSelected.value) {
-      selectedItemsSet.value.clear()
+      clearSelection()
     }
     else {
       selectedItemsSet.value = new Set(allFiles)
+    }
+  }
+
+  const selectByNames = (names: string[]) => {
+    clearSelection()
+    const map = new Map(files.value.map(i => [i.name, i]))
+    for (const name of names) {
+      const item = map.get(name)
+      if (item) {
+        selectedItemsSet.value.add(item)
+      }
     }
   }
 
@@ -155,6 +171,7 @@ export function useSelection({
     explorerContentRef,
     toggleSelect,
     isAllSelected,
+    selectByNames,
     toggleSelectAll,
     selectedPaths,
   }

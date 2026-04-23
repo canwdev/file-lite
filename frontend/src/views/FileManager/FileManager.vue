@@ -8,6 +8,7 @@ import FileList from './ExplorerUI/FileList.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import FileSidebar from './FileSidebar.vue'
 import { getLastDirName } from './utils'
+import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
   defineProps<{
@@ -79,6 +80,17 @@ onMounted(async () => {
   }
 })
 const fileListRef = ref()
+
+// Listen for SELECT_COLLECTED event from App windows
+useExplorerBusOn(ExplorerEvents.SELECT_COLLECTED, ({ basePath: targetBasePath, names }: { basePath: string, names: string[] }) => {
+  if (targetBasePath !== basePathNormalized.value) {
+    return
+  }
+  if (!fileListRef.value) {
+    return
+  }
+  fileListRef.value.selectByNames(names)
+})
 
 const starredPathsList = computed(() => [...starList.value])
 const currentPathForSidebar = computed(() => basePath.value)

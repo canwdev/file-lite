@@ -16,4 +16,5 @@ export const LsKeys = {
   ARTPLAYER_PLAYBACK_RATE: 'file_lite_artplayer_playback_rate',
   DEFAULT_APP_MAP: 'file_lite_default_app_map',
   EXPLORER_STATE_MAP: 'file_lite_explorer_state_map',
+  COLLECTED_ITEMS: 'file_lite_collected_items',
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AppWindowState } from './apps-store'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
+import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import { appListByOpenWith, Apps } from './apps'
 import {
   appsStoreState,
@@ -38,6 +39,16 @@ function handleWindowRestored(win: AppWindowState) {
   }, 0)
 }
 
+function handleSelectItems(win: AppWindowState, names: string[]) {
+  // Emit to FileManager to select the items
+  explorerBus.emit(ExplorerEvents.SELECT_COLLECTED, {
+    basePath: win.appParams.basePath,
+    names,
+  })
+  // Minimize the window
+  win.minimized = true
+}
+
 const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 </script>
 
@@ -72,6 +83,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
         :app-params="win.appParams"
         @exit="handleClose(win)"
         @set-title="(val: string) => { win.appTitle = val }"
+        @select-items="(names: string[]) => handleSelectItems(win, names)"
       />
     </div>
   </ViewPortWindow>

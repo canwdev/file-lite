@@ -121,7 +121,7 @@ export function bytesToSize(bytes: number, autoNo = '0 B') {
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${Number(bytes / k ** i).toFixed(2)} ${sizes[i]}`
+  return `${Number(bytes / k ** i).toFixed(2)}${sizes[i]}`
 }
 
 export function getRandomInt(min: number, max: number) {
