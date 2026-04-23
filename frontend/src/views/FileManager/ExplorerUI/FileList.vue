@@ -197,6 +197,7 @@ const {
   explorerContentRef,
   toggleSelect,
   toggleSelectAll,
+  selectByNames,
   selectedPaths,
 } = useSelection({
   files: filteredFiles,
@@ -407,6 +408,7 @@ useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
 
 defineExpose({
   selectedItems,
+  selectByNames,
   basePath,
   handleShortcutKey,
   handleCreateFile,

@@ -6,6 +6,7 @@ import {
   regSupportedImageFormat,
   regSupportedVideoFormat,
 } from '@/utils/is.ts'
+import { useCollection } from './use-collection.ts'
 
 interface MediaFile {
   name: string
@@ -17,6 +18,7 @@ const props = defineProps<{ appParams: AppParams }>()
 const emit = defineEmits<{
   (e: 'setTitle', val: string): void
   (e: 'exit'): void
+  (e: 'selectItems', names: string[]): void
 }>()
 
 // ── Media list ─────────────────────────────────────────────
@@ -71,6 +73,46 @@ watch(currentItem, (item) => {
   if (item)
     emit('setTitle', `[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
 }, { immediate: true })
+
+// ── Collection ─────────────────────────────────────────────
+
+const { collection, isCollected, toggleCollect, clearCollection, getCollectedInDirectory } = useCollection()
+
+const currentAbsPath = computed(() => {
+  if (!props.appParams?.basePath || !currentItem.value)
+    return ''
+  return `${props.appParams.basePath}/${currentItem.value.name}`
+})
+
+const collected = computed(() => isCollected(currentAbsPath.value))
+
+const hasCollection = computed(() => collection.value.length > 0)
+
+const collectedInCurrentDir = computed(() => {
+  if (!props.appParams?.basePath)
+    return []
+  return getCollectedInDirectory(props.appParams.basePath)
+})
+
+function handleToggleCollect() {
+  if (!currentItem.value || !props.appParams?.basePath)
+    return
+  toggleCollect({
+    name: currentItem.value.name,
+    basePath: props.appParams.basePath,
+    absPath: currentAbsPath.value,
+  })
+}
+
+function handleSelectCollected() {
+  if (!props.appParams?.basePath)
+    return
+  const collectedItems = getCollectedInDirectory(props.appParams.basePath)
+  if (collectedItems.length === 0)
+    return
+  emit('selectItems', collectedItems.map(i => i.name))
+  emit('exit')
+}
 
 // ── Swipe state ────────────────────────────────────────────
 
@@ -315,6 +357,14 @@ onBeforeUnmount(() => {
         <span class="mdi mdi-chevron-up" />
       </button>
       <button
+        class="nav-arrow nav-arrow--collect"
+        :class="{ active: collected }"
+        title="Collect (c)"
+        @click.stop="handleToggleCollect"
+      >
+        <span class="mdi" :class="collected ? 'mdi-star' : 'mdi-star-outline'" />
+      </button>
+      <button
         class="nav-arrow"
         :class="{ disabled: !nextItem }"
         title="Next (↓ / j)"
@@ -323,6 +373,19 @@ onBeforeUnmount(() => {
         <span class="mdi mdi-chevron-down" />
       </button>
     </div>
+
+    <!-- ─── Collection floating button ─── -->
+    <Transition name="edge-fade">
+      <div v-if="hasCollection && collectedInCurrentDir.length > 0" class="collection-fab-wrap">
+        <button class="collection-fab" title="Select collected" @click="handleSelectCollected">
+          <span class="mdi mdi-check-decagram-outline collection-fab__bg" />
+          <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
+        </button>
+        <button class="collection-fab__close" title="Clear collection" @click="clearCollection">
+          <span class="mdi mdi-close" />
+        </button>
+      </div>
+    </Transition>
 
     <!-- ─── Info overlay ─── -->
     <!-- <div v-if="currentItem" class="info-overlay">
@@ -517,6 +580,90 @@ onBeforeUnmount(() => {
     opacity: 0.25;
     cursor: default;
     pointer-events: none;
+  }
+
+  &--collect {
+    font-size: 18px;
+
+    &.active {
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.2);
+
+      &:hover { background: rgba(245, 158, 11, 0.3); }
+    }
+  }
+}
+
+// ── Collection floating button ───────────────────────────────────
+.collection-fab-wrap {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 15;
+}
+
+.collection-fab {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: #ffffff2a;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s, transform 0.15s;
+
+  &:hover {
+    background: #ffffff33;
+    transform: scale(1.08);
+  }
+  &:active {
+    transform: scale(0.95);
+  }
+
+  .collection-fab__bg {
+    position: absolute;
+    font-size: 32px;
+    color: #ffffff45;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .collection-fab__count {
+    position: relative;
+    z-index: 1;
+    color: #ffffff;
+    font-size: 16px;
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.collection-fab__close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 80, 80, 0.5);
+    color: #fff;
   }
 }
 
