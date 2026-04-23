@@ -1,15 +1,14 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
-import { useStorage } from '@vueuse/core'
-import { LsKeys } from '@/enum'
 import { SortType } from '@/types/server'
 import { sortMethodMap } from '../../utils/sort'
 
-export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {
-  const isGridView = useStorage(LsKeys.IS_GRID_VIEW, false, localStorage, {
-    listenToStorageChanges: false,
-  })
-
+export function useLayoutSort(
+  files: Ref<IEntry[]>,
+  sortMode: Ref<SortType>,
+  isGridView: Ref<boolean>,
+  showHidden: Ref<boolean>,
+) {
   const sortOptions = computed((): MenuItem[] => {
     return [
       { label: 'Default', value: SortType.default },
@@ -33,9 +32,6 @@ export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {
       }
     })
   })
-  const showHidden = useStorage(LsKeys.SHOW_HIDDEN_FILES, false, localStorage, {
-    listenToStorageChanges: false,
-  })
   const sortedFiles = computed(() => {
     return files.value
       .filter((item) => {
@@ -48,9 +44,7 @@ export function useLayoutSort(files: Ref<IEntry[]>, sortMode: Ref<SortType>) {
   })
 
   return {
-    isGridView,
     sortOptions,
     sortedFiles,
-    showHidden,
   }
 }

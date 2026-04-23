@@ -7,8 +7,12 @@ import { regSupportedImageFormat } from '@/utils/is.ts'
 const props = withDefaults(
   defineProps<{
     appParams: AppParams
+    /** 是否使用原生图片查看器 */
+    isNative?: boolean
   }>(),
-  {},
+  {
+    isNative: false,
+  },
 )
 const emit = defineEmits(['setTitle', 'exit'])
 // const { appParams } = toRefs(props)
@@ -48,12 +52,13 @@ watch(initialIndex, (val) => {
 
 <template>
   <div class="image-viewer">
-    <!-- <img :src="mediaSrc"> -->
+    <img v-if="isNative" :src="urlList[initialIndex]" class="image-viewer-native-image">
     <el-image-viewer
+      v-else
       :url-list="urlList"
       show-progress
       :initial-index="initialIndex"
-      :hide-on-click-modal="true"
+      :hide-on-click-modal="false"
       @close="emit('exit')"
       @switch="index => initialIndex = index"
     />
@@ -68,11 +73,11 @@ watch(initialIndex, (val) => {
   position: relative;
   z-index: 1;
 
-  //img {
-  //  width: 100%;
-  //  height: 100%;
-  //  object-fit: contain;
-  //}
+  .image-viewer-native-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
 
   :deep(.el-image-viewer__mask) {
     background: #212121;

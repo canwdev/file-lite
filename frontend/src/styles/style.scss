@@ -195,3 +195,10 @@ html, body, #app {
 .el-splitter-bar__dragger-active:before {
   background-color: var(--vgo-primary) !important;
 }
+
+.el-image-viewer__prev {
+  left: 10px !important;
+}
+.el-image-viewer__next {
+  right: 10px !important;
+}
