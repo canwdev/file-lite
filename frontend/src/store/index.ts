@@ -43,3 +43,6 @@ watch(
 export const isNativePlayer = useStorage(LsKeys.USE_NATIVE_PLAYER, false, localStorage, {
   listenToStorageChanges: true,
 })
+export const enablePreview = useStorage(LsKeys.ENABLE_PREVIEW, true, localStorage, {
+  listenToStorageChanges: true,
+})

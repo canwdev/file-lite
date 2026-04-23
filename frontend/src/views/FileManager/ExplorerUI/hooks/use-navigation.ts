@@ -135,14 +135,9 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     starList.value = toggleArrayElement([...starList.value], basePathNormalized.value)
   }
 
-  const filteredFiles = computed(() => {
-    const search = filterText.value.toLowerCase()
-    return files.value.filter(item => item.name.toLowerCase().includes(search))
-  })
-
   return {
     isLoading,
-    filteredFiles,
+    files,
     handleOpen,
     handleRefresh,
     basePathNormalized,

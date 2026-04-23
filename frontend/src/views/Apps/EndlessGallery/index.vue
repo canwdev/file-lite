@@ -69,7 +69,7 @@ const nextItem = computed(() =>
 
 watch(currentItem, (item) => {
   if (item)
-    emit('setTitle', item.name)
+    emit('setTitle', `[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
 }, { immediate: true })
 
 // ── Swipe state ────────────────────────────────────────────
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- ─── Info overlay ─── -->
-    <div v-if="currentItem" class="info-overlay">
+    <!-- <div v-if="currentItem" class="info-overlay">
       <div class="info-top">
         <span class="mdi mdi-folder-outline" />
         <span class="info-folder" :title="folderName">{{ folderName }}</span>
@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
           {{ currentIndex + 1 }}&thinsp;/&thinsp;{{ items.length }}
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- ─── Empty state ─── -->
     <div v-if="!items.length" class="empty-state">
@@ -489,6 +489,10 @@ onBeforeUnmount(() => {
   transition: opacity 0.2s;
 
   .endless-gallery:hover & { opacity: 1; }
+
+  @media screen and (max-width: 500px) {
+    opacity: 1;
+  }
 }
 
 .nav-arrow {
@@ -525,11 +529,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
 .info-top {
   padding: 12px 14px 40px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
+  // background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -547,7 +552,7 @@ onBeforeUnmount(() => {
 
 .info-bottom {
   padding: 40px 14px 14px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
+  // background: linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;

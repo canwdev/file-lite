@@ -11,6 +11,7 @@ export const LsKeys = {
   ICON_SIZE_LIST: 'file_lite_icon_size_list',
   ICON_SIZE_GRID: 'file_lite_icon_size_grid',
   USE_NATIVE_PLAYER: 'file_lite_use_native_player',
+  ENABLE_PREVIEW: 'file_lite_enable_preview',
   ARTPLAYER_VOLUME: 'file_lite_artplayer_volume',
   ARTPLAYER_PLAYBACK_RATE: 'file_lite_artplayer_playback_rate',
   DEFAULT_APP_MAP: 'file_lite_default_app_map',

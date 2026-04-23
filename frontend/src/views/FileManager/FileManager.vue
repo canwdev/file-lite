@@ -29,7 +29,7 @@ const rootRef = ref()
 
 const {
   isLoading,
-  filteredFiles,
+  files,
   handleOpen,
   handleRefresh,
   basePathNormalized,
@@ -108,7 +108,7 @@ function handleSelect() {
   let items = fileListRef.value.selectedItems
   // 打开文件夹
   if (isSelectAFolder.value) {
-    handleOpen({ item: items[0], list: fileListRef.value.sortedFiles })
+    handleOpen({ item: items[0], list: fileListRef.value.files })
     return
   }
   if (selectFileMode.value === 'folder') {
@@ -246,7 +246,8 @@ function handleShortcutKey(event: KeyboardEvent) {
           <FileList
             ref="fileListRef"
             v-model:is-loading="isLoading"
-            :files="filteredFiles"
+            :files="files"
+            :filter-text="filterText"
             :base-path="basePathNormalized"
             :select-file-mode="selectFileMode"
             :multiple="multiple"
