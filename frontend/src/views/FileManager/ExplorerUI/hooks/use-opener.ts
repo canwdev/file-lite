@@ -7,7 +7,7 @@ import {
   regSupportedTextFormat,
   regSupportedVideoFormat,
 } from '@/utils/is'
-import { OpenWithEnum } from '@/views/Apps/apps'
+import { getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
 
@@ -75,17 +75,23 @@ export function useOpener(basePath: { value: string }) {
       openApp(openWith)
       return
     }
-    if (regSupportedTextFormat.test(item.name)) {
-      // 1MB
-      if (await checkTooLargeFileDialog(item, 1024 * 1024)) {
-        openApp(OpenWithEnum.TextEditor)
-      }
+    const customDefault = getDefaultApp(item.name)
+    if (customDefault) {
+      openApp(customDefault)
       return
     }
+
     if (regSupportedImageFormat.test(item.name)) {
       // 50MB
       if (await checkTooLargeFileDialog(item, 1024 * 1024 * 100)) {
         openApp(OpenWithEnum.ImageViewer)
+      }
+      return
+    }
+    if (regSupportedTextFormat.test(item.name)) {
+      // 1MB
+      if (await checkTooLargeFileDialog(item, 1024 * 1024)) {
+        openApp(OpenWithEnum.TextEditor)
       }
       return
     }

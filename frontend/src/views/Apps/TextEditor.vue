@@ -5,6 +5,7 @@ import { useUnSavedChanges } from '@canwdev/vgo-ui'
 import { MenuBar } from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { bytesToSize } from '@/utils'
 import { generateTextFile } from '@/views/FileManager/utils'
 
 const props = withDefaults(
@@ -13,7 +14,12 @@ const props = withDefaults(
   }>(),
   {},
 )
+
 const emit = defineEmits(['exit', 'setTitle'])
+
+// 5 MB
+const SIZE_LIMIT = 5 * 1024 * 1024
+
 const { appParams } = toRefs(props)
 const absPath = computed(() => {
   return appParams.value?.absPath
@@ -27,19 +33,30 @@ watch(editContent, () => {
   isChanged.value = true
 })
 
+interface FileTooLarge {
+  name: string
+  size: number
+}
+const fileTooLarge = ref<FileTooLarge | null>(null)
+
 async function openFile() {
+  fileTooLarge.value = null
   try {
     isLoading.value = true
-    console.log('open file', absPath.value)
-
     emit('setTitle', absPath.value)
-
     editContent.value = ''
+
     if (!absPath.value) {
       return
     }
+
+    const { item } = props.appParams
+    if (item.size != null && item.size > SIZE_LIMIT) {
+      fileTooLarge.value = { name: item.name, size: item.size }
+      return
+    }
+
     const data = await fsWebApi.stream(absPath.value, {
-      // 以纯文本读取文件
       responseType: 'text',
     })
     editContent.value = data as unknown as string
@@ -160,6 +177,21 @@ function handleShortcutKey(event: KeyboardEvent) {
     <div v-if="isLoading" class="loading-wrapper">
       Loading...
     </div>
+    <div v-else-if="fileTooLarge" class="too-large-state">
+      <span class="mdi mdi-file-alert-outline too-large-icon" />
+      <p class="too-large-title">
+        File too large to edit
+      </p>
+      <p class="too-large-meta">
+        <strong>{{ fileTooLarge.name }}</strong>
+        is {{ bytesToSize(fileTooLarge.size) }} — limit is {{ bytesToSize(SIZE_LIMIT) }}
+      </p>
+      <div class="too-large-actions">
+        <a class="vgo-button" :href="fsWebApi.getStreamUrl(absPath!)" target="_blank" rel="noopener">
+          <span class="mdi mdi-open-in-new" /> Open in Browser
+        </a>
+      </div>
+    </div>
     <textarea
       v-else
       ref="editRef"
@@ -197,6 +229,43 @@ function handleShortcutKey(event: KeyboardEvent) {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .too-large-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 32px;
+    text-align: center;
+
+    .too-large-icon {
+      font-size: 52px;
+      color: var(--vgo-color-warning, #e6a23c);
+      opacity: 0.8;
+    }
+
+    .too-large-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .too-large-meta {
+      font-size: 13px;
+      color: var(--vgo-color-text-secondary, #888);
+      margin: 0;
+    }
+
+    .too-large-actions {
+      margin-top: 8px;
+
+      .vgo-button {
+        text-decoration: none;
+      }
+    }
   }
 }
 </style>

@@ -13,4 +13,6 @@ export const LsKeys = {
   USE_NATIVE_PLAYER: 'file_lite_use_native_player',
   ARTPLAYER_VOLUME: 'file_lite_artplayer_volume',
   ARTPLAYER_PLAYBACK_RATE: 'file_lite_artplayer_playback_rate',
+  DEFAULT_APP_MAP: 'file_lite_default_app_map',
+  EXPLORER_STATE_MAP: 'file_lite_explorer_state_map',
 }

@@ -47,36 +47,47 @@ const { basePath, files, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
-// 缓存路径状态
-const stateMap = ref<{ [key: string]: { position?: number, sortMode?: SortType } }>({})
+interface PathState {
+  position?: number
+  sortMode?: SortType
+  isGridView?: boolean
+  showHidden?: boolean
+  iconSizeList?: number
+  iconSizeGrid?: number
+}
 
-// 布局和排序方式
-const sortMode = computed<SortType>({
-  get: () => {
-    return stateMap.value[basePath.value]?.sortMode || SortType.default
-  },
-  set: (val) => {
-    if (!stateMap.value[basePath.value]) {
-      stateMap.value[basePath.value] = { sortMode: val }
-    }
-    else {
-      stateMap.value[basePath.value].sortMode = val
-    }
-  },
-})
-const { isGridView, sortOptions, sortedFiles, showHidden }
-  = useLayoutSort(files, sortMode)
+// 缓存路径状态（持久化）
+const stateMap = useStorage<Record<string, PathState>>(
+  LsKeys.EXPLORER_STATE_MAP,
+  {},
+  // 防止泄漏隐私，使用 sessionStorage 代替 localStorage
+  sessionStorage,
+  { listenToStorageChanges: false },
+)
+
+// 创建读写当前路径下某个状态字段的 computed ref
+function pathStateRef<K extends keyof PathState>(key: K, defaultVal: NonNullable<PathState[K]>) {
+  return computed({
+    get: () => (stateMap.value[basePath.value]?.[key] as NonNullable<PathState[K]>) ?? defaultVal,
+    set: (val: NonNullable<PathState[K]>) => {
+      if (!stateMap.value[basePath.value])
+        stateMap.value[basePath.value] = {}
+      stateMap.value[basePath.value][key] = val
+    },
+  })
+}
+
+const sortMode = pathStateRef('sortMode', SortType.default)
+const isGridView = pathStateRef('isGridView', false)
+const showHidden = pathStateRef('showHidden', false)
+const iconSizeList = pathStateRef('iconSizeList', 16)
+const iconSizeGrid = pathStateRef('iconSizeGrid', 48)
+
+const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, isGridView, showHidden)
 
 function toggleShowHiddenFiles() {
   showHidden.value = !showHidden.value
 }
-
-const iconSizeList = useStorage(LsKeys.ICON_SIZE_LIST, 16, localStorage, {
-  listenToStorageChanges: false,
-})
-const iconSizeGrid = useStorage(LsKeys.ICON_SIZE_GRID, 48, localStorage, {
-  listenToStorageChanges: false,
-})
 const tableColumns = computed(() => {
   return [
     {

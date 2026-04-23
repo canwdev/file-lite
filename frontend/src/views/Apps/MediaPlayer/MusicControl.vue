@@ -12,12 +12,12 @@ import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/
 defineEmits(['onCoverClick', 'onTitleClick'])
 
 const PLAYBACK_RATE_OPTIONS = [
-  { value: 0.5, label: '0.5x' },
-  { value: 0.8, label: '0.8x' },
-  { value: 1, label: '1x' },
-  { value: 1.3, label: '1.3x' },
-  { value: 1.5, label: '1.5x' },
   { value: 2, label: '2x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 1.3, label: '1.3x' },
+  { value: 1, label: '1x' },
+  { value: 0.8, label: '0.8x' },
+  { value: 0.5, label: '0.5x' },
 ] as const
 
 function rateMatches(a: number, b: number) {

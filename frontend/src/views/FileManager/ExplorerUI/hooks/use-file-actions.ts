@@ -4,7 +4,7 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import moment from 'moment/moment'
 import { fsWebApi } from '@/api/filesystem'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
-import { AppList, OpenWithEnum } from '@/views/Apps/apps'
+import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
 
@@ -162,18 +162,19 @@ export function useFileActions({
                 openWith: OpenWithEnum.Browser,
               })
             },
-          },
-          {
-            label: 'Share',
-            icon: 'mdi mdi-share-variant',
-            onClick: () => {
-              emit('open', {
-                item: selectedItems.value[0],
-                openWith: OpenWithEnum.Share,
-              })
-            },
             divided: true,
           },
+          // {
+          //   label: 'Share',
+          //   icon: 'mdi mdi-share-variant',
+          //   onClick: () => {
+          //     emit('open', {
+          //       item: selectedItems.value[0],
+          //       openWith: OpenWithEnum.Share,
+          //     })
+          //   },
+          //   divided: true,
+          // },
           ...AppList.map(app => ({
             label: app.name,
             icon: app.icon,
@@ -184,6 +185,27 @@ export function useFileActions({
               })
             },
           })),
+          {
+            label: 'Set Default App',
+            icon: 'mdi mdi-application-settings-outline',
+            children: (() => {
+              const ext = getFileExt(selectedItems.value[0].name)
+              const current = ext ? (defaultAppMap.value[ext] ?? null) : null
+              return [
+                {
+                  label: 'Default',
+                  icon: current === null ? 'mdi mdi-check' : '',
+                  onClick: () => setDefaultApp(ext, null),
+                  divided: true,
+                },
+                ...AppList.map(app => ({
+                  label: app.name,
+                  icon: current === app.openWith ? 'mdi mdi-check' : app.icon,
+                  onClick: () => setDefaultApp(ext, app.openWith),
+                })),
+              ]
+            })(),
+          },
         ],
       },
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },

@@ -113,6 +113,12 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   border-radius: 0 0 var(--vgo-radius) var(--vgo-radius);
 }
 
+.apps-vp-window._maximized {
+  .app-container {
+    border-radius: 0;
+  }
+}
+
 .title-text {
   word-break: break-word;
   font-size: 12px;

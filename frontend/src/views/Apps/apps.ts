@@ -1,5 +1,7 @@
 import type { IEntry } from '@/types/server.ts'
 import { defineAsyncComponent } from '@vue/runtime-core'
+import { useStorage } from '@vueuse/core'
+import { LsKeys } from '@/enum'
 
 export enum OpenWithEnum {
   Browser = 'Browser',
@@ -8,6 +10,7 @@ export enum OpenWithEnum {
   VideoPlayer = 'VideoPlayer',
   ImageViewer = 'ImageViewer',
   MediaPlayer = 'MediaPlayer',
+  EndlessGallery = 'EndlessGallery',
 }
 
 export interface AppParams {
@@ -18,6 +21,12 @@ export interface AppParams {
 }
 
 export const AppList = [
+  {
+    name: 'Endless Gallery',
+    openWith: OpenWithEnum.EndlessGallery,
+    icon: 'mdi mdi-view-carousel-outline',
+    component: defineAsyncComponent(() => import('./EndlessGallery/index.vue')),
+  },
   {
     name: 'Text Editor',
     openWith: OpenWithEnum.TextEditor,
@@ -62,3 +71,29 @@ export const Apps = AppList.reduce(
   },
   {} as Record<OpenWithEnum, Component>,
 )
+
+export function getFileExt(filename: string): string {
+  const dot = filename.lastIndexOf('.')
+  return dot > 0 ? filename.slice(dot).toLowerCase() : ''
+}
+
+/** Persistent map of file extension → preferred OpenWithEnum, e.g. { ".mp3": "MediaPlayer" } */
+export const defaultAppMap = useStorage<Record<string, OpenWithEnum>>(
+  LsKeys.DEFAULT_APP_MAP,
+  {},
+  localStorage,
+)
+
+export function getDefaultApp(filename: string): OpenWithEnum | null {
+  const ext = getFileExt(filename)
+  return ext ? (defaultAppMap.value[ext] ?? null) : null
+}
+
+export function setDefaultApp(ext: string, openWith: OpenWithEnum | null): void {
+  if (openWith === null) {
+    delete defaultAppMap.value[ext]
+  }
+  else {
+    defaultAppMap.value[ext] = openWith
+  }
+}
