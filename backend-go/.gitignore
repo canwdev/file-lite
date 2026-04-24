@@ -4,4 +4,4 @@
 *.exe
 *.log
 *.ico
-rsrc.syso
+*.syso
