@@ -3,7 +3,7 @@ const toIco = require('to-ico');
 const fs = require('fs');
 const path = require('path');
 
-const svgPath = path.join(__dirname, '../../frontend/public/favicon.svg');
+const svgPath = path.join(__dirname, '../../frontend/public/favicon.webp');
 const icoPath = path.join(__dirname, '../icon.ico');
 
 const sizes = [16, 32, 48, 64, 128, 256];

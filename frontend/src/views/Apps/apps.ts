@@ -25,7 +25,7 @@ export const AppList = [
     name: 'Endless Gallery',
     openWith: OpenWithEnum.EndlessGallery,
     icon: 'mdi mdi-view-carousel-outline',
-    component: defineAsyncComponent(() => import('./EndlessGallery/index.vue')),
+    component: defineAsyncComponent(() => import('./EndlessGallery/EndlessGallery.vue')),
   },
   {
     name: 'Text Editor',

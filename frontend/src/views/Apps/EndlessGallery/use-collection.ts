@@ -2,26 +2,13 @@ import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 
 export interface CollectionItem {
-  /** File name */
   name: string
-  /** Parent directory path */
   basePath: string
-  /** Full absolute path */
   absPath: string
 }
 
-export interface CollectionState {
-  items: CollectionItem[]
-}
-
-const storage = localStorage
-
 export function useCollection() {
-  const collection = useStorage<CollectionItem[]>(
-    LsKeys.COLLECTED_ITEMS,
-    [],
-    storage,
-  )
+  const collection = useStorage<CollectionItem[]>(LsKeys.COLLECTED_ITEMS, [], localStorage)
 
   /** Check if a file is collected */
   function isCollected(absPath: string): boolean {
@@ -64,6 +51,16 @@ export function useCollection() {
     return collection.value.filter(item => item.basePath === basePath)
   }
 
+  /**
+   * Remove stale collected items in a directory whose names are no longer
+   * present in the given set of existing file names.
+   */
+  function pruneDirectory(basePath: string, existingNames: Set<string>): void {
+    collection.value = collection.value.filter(
+      item => item.basePath !== basePath || existingNames.has(item.name),
+    )
+  }
+
   return {
     collection,
     isCollected,
@@ -72,5 +69,6 @@ export function useCollection() {
     removeFromCollection,
     clearCollection,
     getCollectedInDirectory,
+    pruneDirectory,
   }
 }

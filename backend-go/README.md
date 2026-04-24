@@ -6,7 +6,7 @@
 
 ## 编译
 
-- 要求 Go 1.20+。
+- 安装 [Go 1.20+](https://go.dev/dl/)。
 - 需要提前编译[前端](../frontend/package.json) `frontend:build-go`，确保 `backend-go/frontend/` 存在
 
 ```shell
@@ -72,3 +72,9 @@ air
 ```
 gofmt -w .\
 ```
+
+# icon 生成
+
+- Install rsrc tool: `go install github.com/akavel/rsrc@latest`
+- Run `bun run icon` or `rsrc -ico icon.ico -o rsrc.syso` in backend-go.
+- The go build command will automatically include rsrc.syso.

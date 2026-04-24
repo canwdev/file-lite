@@ -1,18 +1,10 @@
 <script lang="ts" setup>
+import type { MediaFile } from './use-media-list.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem.ts'
-import {
-  regSupportedAudioFormat,
-  regSupportedImageFormat,
-  regSupportedVideoFormat,
-} from '@/utils/is.ts'
 import { useCollection } from './use-collection.ts'
-
-interface MediaFile {
-  name: string
-  url: string
-  type: 'image' | 'video' | 'audio'
-}
+import { useMediaList } from './use-media-list.ts'
+import { useSwipe } from './use-swipe.ts'
+import { useZoom } from './use-zoom.ts'
 
 const props = defineProps<{ appParams: AppParams }>()
 const emit = defineEmits<{
@@ -21,62 +13,21 @@ const emit = defineEmits<{
   (e: 'selectItems', names: string[]): void
 }>()
 
+// ── Collection ─────────────────────────────────────────────
+
+const { collection, toggleCollect, clearCollection, pruneDirectory } = useCollection()
+
 // ── Media list ─────────────────────────────────────────────
 
-function getMediaType(name: string): MediaFile['type'] | null {
-  if (regSupportedImageFormat.test(name))
-    return 'image'
-  if (regSupportedVideoFormat.test(name))
-    return 'video'
-  if (regSupportedAudioFormat.test(name))
-    return 'audio'
-  return null
-}
-
-const items = ref<MediaFile[]>([])
-const currentIndex = ref(0)
-
-const folderName = computed(() => {
-  const parts = (props.appParams?.basePath || '').split('/').filter(Boolean)
-  return parts[parts.length - 1] || '/'
-})
-
-watch(
-  () => props.appParams,
-  () => {
-    if (!props.appParams)
-      return
-    const { item, list, basePath } = props.appParams
-    const result: MediaFile[] = []
-    for (const i of list) {
-      if (i.isDirectory)
-        continue
-      const type = getMediaType(i.name)
-      if (!type)
-        continue
-      result.push({ name: i.name, url: fsWebApi.getStreamUrl(`${basePath}/${i.name}`), type })
-    }
-    items.value = result
-    const idx = result.findIndex(i => i.name === item.name)
-    currentIndex.value = Math.max(0, idx)
-  },
-  { immediate: true },
-)
-
-const currentItem = computed(() => items.value[currentIndex.value] ?? null)
-const prevItem = computed(() => (currentIndex.value > 0 ? items.value[currentIndex.value - 1] : null))
-const nextItem = computed(() =>
-  currentIndex.value < items.value.length - 1 ? items.value[currentIndex.value + 1] : null,
-)
+const { items, currentIndex, currentItem, folderName }
+  = useMediaList(() => props.appParams, pruneDirectory)
 
 watch(currentItem, (item) => {
   if (item)
     emit('setTitle', `[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
 }, { immediate: true })
 
-// ── Collection ─────────────────────────────────────────────
-
-const { collection, isCollected, toggleCollect, clearCollection, getCollectedInDirectory } = useCollection()
+// ── Collection computed ─────────────────────────────────────
 
 const currentAbsPath = computed(() => {
   if (!props.appParams?.basePath || !currentItem.value)
@@ -84,18 +35,18 @@ const currentAbsPath = computed(() => {
   return `${props.appParams.basePath}/${currentItem.value.name}`
 })
 
-const collected = computed(() => isCollected(currentAbsPath.value))
+const collected = computed(() =>
+  !!currentAbsPath.value && collection.value.some(i => i.absPath === currentAbsPath.value),
+)
 
 const hasCollection = computed(() => collection.value.length > 0)
 
-const collectedInCurrentDir = computed(() => {
-  if (!props.appParams?.basePath)
-    return []
-  return getCollectedInDirectory(props.appParams.basePath)
-})
+const collectedInCurrentDir = computed(() =>
+  collection.value.filter(i => i.basePath === props.appParams?.basePath),
+)
 
-function handleToggleCollect() {
-  if (!currentItem.value || !props.appParams?.basePath)
+function handleToggleCollect(): void {
+  if (!currentAbsPath.value || !currentItem.value)
     return
   toggleCollect({
     name: currentItem.value.name,
@@ -104,244 +55,150 @@ function handleToggleCollect() {
   })
 }
 
-function handleSelectCollected() {
-  if (!props.appParams?.basePath)
-    return
-  const collectedItems = getCollectedInDirectory(props.appParams.basePath)
-  if (collectedItems.length === 0)
+function handleSelectCollected(): void {
+  const collectedItems = collectedInCurrentDir.value
+  if (!collectedItems.length)
     return
   emit('selectItems', collectedItems.map(i => i.name))
   emit('exit')
 }
 
-// ── Swipe state ────────────────────────────────────────────
+// ── Zoom ───────────────────────────────────────────────────
 
-const wrapperRef = ref<HTMLElement | null>(null)
-const dragOffset = ref(0)
-const withTransition = ref(false)
-const edgeOverlay = ref<'start' | 'end' | null>(null)
+const zoom = useZoom(() => currentItem.value?.type === 'image')
 
-let isAnimating = false
-let isDragging = false
-let startY = 0
+watch(currentIndex, zoom.resetZoom)
 
-const THRESHOLD = 60
-const DURATION = 260
+// ── Panel slots ─────────────────────────────────────────────
+// Three stable DOM nodes. Only the off-screen slot updates its src after each
+// navigation, so the visible image never has its src swapped mid-frame — this
+// eliminates the blank-frame flicker on iOS Safari and other browsers.
 
-const containerStyle = computed(() => ({
-  transform: `translateY(${dragOffset.value}px)`,
-  transition: withTransition.value
-    ? `transform ${DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`
-    : 'none',
-}))
+const panelItems = ref<(MediaFile | null)[]>([null, null, null])
+const currentSlot = ref(0)
 
-function getHeight(): number {
-  return wrapperRef.value?.offsetHeight ?? window.innerHeight
+watch(items, () => {
+  // Re-initialize when the media list itself changes (folder change).
+  // Both items and currentIndex are updated synchronously in use-media-list,
+  // so currentIndex.value is already correct when this watcher fires.
+  const ci = currentIndex.value
+  currentSlot.value = 0
+  panelItems.value[0] = items.value[ci] ?? null
+  panelItems.value[1] = items.value[ci + 1] ?? null
+  panelItems.value[2] = items.value[ci - 1] ?? null
+}, { immediate: true })
+
+function getPanelClass(slotIdx: number): string {
+  const offset = (slotIdx - currentSlot.value + 3) % 3
+  if (offset === 0)
+    return 'swipe-panel--current'
+  if (offset === 1)
+    return 'swipe-panel--next'
+  return 'swipe-panel--prev'
 }
 
-// ── Navigation ─────────────────────────────────────────────
-
-function navigate(isNext: boolean) {
-  if (isAnimating || edgeOverlay.value)
-    return
-
-  if (isNext && currentIndex.value >= items.value.length - 1) {
-    edgeOverlay.value = 'end'
-    snapBack()
-    return
-  }
-  if (!isNext && currentIndex.value <= 0) {
-    edgeOverlay.value = 'start'
-    snapBack()
-    return
-  }
-
-  isAnimating = true
-  withTransition.value = true
-  dragOffset.value = isNext ? -getHeight() : getHeight()
-
-  setTimeout(() => {
-    withTransition.value = false
-    currentIndex.value += isNext ? 1 : -1
-    dragOffset.value = 0
-    nextTick(() => { isAnimating = false })
-  }, DURATION)
+function onPanelImageLoad(e: Event, slotIdx: number): void {
+  if (slotIdx === currentSlot.value)
+    zoom.onImageLoad(e)
 }
 
-function snapBack() {
-  if (dragOffset.value === 0 && !isAnimating)
-    return
-  isAnimating = true
-  withTransition.value = true
-  dragOffset.value = 0
-  setTimeout(() => {
-    withTransition.value = false
-    isAnimating = false
-  }, DURATION)
-}
-
-function jumpToOpposite() {
-  const isEnd = edgeOverlay.value === 'end'
-  edgeOverlay.value = null
-  currentIndex.value = isEnd ? 0 : items.value.length - 1
-}
-
-// ── Pointer events ─────────────────────────────────────────
-
-function onPointerDown(e: MouseEvent | TouchEvent) {
-  const target = e.target as HTMLElement
-  if (target.closest('video, audio, button, input, a'))
-    return
-  if (isAnimating || edgeOverlay.value)
-    return
-  e.preventDefault()
-  startY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  isDragging = true
-  window.addEventListener('mousemove', onPointerMove)
-  window.addEventListener('touchmove', onPointerMove, { passive: false })
-  window.addEventListener('mouseup', onPointerUp)
-  window.addEventListener('touchend', onPointerUp)
-}
-
-function onPointerMove(e: MouseEvent | TouchEvent) {
-  if (!isDragging)
-    return
-  if ('touches' in e)
-    e.preventDefault()
-  const y = 'touches' in e ? e.touches[0].clientY : e.clientY
-  dragOffset.value = y - startY
-}
-
-function onPointerUp() {
-  if (!isDragging)
-    return
-  isDragging = false
-  cleanListeners()
-  const delta = dragOffset.value
-  if (Math.abs(delta) >= THRESHOLD) {
-    navigate(delta < 0)
+function onAfterNavigate(isNext: boolean): void {
+  // Called in the same reactive batch as currentIndex/dragOffset reset.
+  // Rotate the slot pointer and update only the now-offscreen slot.
+  const ci = currentIndex.value // already incremented/decremented
+  if (isNext) {
+    const slotToUpdate = (currentSlot.value + 2) % 3 // was prev → becomes new next
+    panelItems.value[slotToUpdate] = items.value[ci + 1] ?? null
+    currentSlot.value = (currentSlot.value + 1) % 3
   }
   else {
-    snapBack()
+    const slotToUpdate = (currentSlot.value + 1) % 3 // was next → becomes new prev
+    panelItems.value[slotToUpdate] = items.value[ci - 1] ?? null
+    currentSlot.value = (currentSlot.value + 2) % 3
   }
 }
 
-function cleanListeners() {
-  window.removeEventListener('mousemove', onPointerMove)
-  window.removeEventListener('touchmove', onPointerMove)
-  window.removeEventListener('mouseup', onPointerUp)
-  window.removeEventListener('touchend', onPointerUp)
+function onAfterJump(): void {
+  // Full re-init: jumpToOpposite skips by many indices so rotation doesn't apply.
+  const ci = currentIndex.value
+  currentSlot.value = 0
+  panelItems.value[0] = items.value[ci] ?? null
+  panelItems.value[1] = items.value[ci + 1] ?? null
+  panelItems.value[2] = items.value[ci - 1] ?? null
 }
 
-// ── Wheel ──────────────────────────────────────────────────
+// ── Swipe / navigation ─────────────────────────────────────
 
-function onWheel(e: WheelEvent) {
-  if (isAnimating)
-    return
-  navigate(e.deltaY > 0)
-}
-
-// ── Keyboard ───────────────────────────────────────────────
-
-function onKeydown(e: KeyboardEvent) {
-  if (edgeOverlay.value) {
-    if (e.key === 'Escape')
-      edgeOverlay.value = null
-    return
-  }
-  switch (e.key) {
-    case 'ArrowDown':
-    case 'PageDown':
-    case 'j':
-      e.preventDefault()
-      navigate(true)
-      break
-    case 'ArrowUp':
-    case 'PageUp':
-    case 'k':
-      e.preventDefault()
-      navigate(false)
-      break
-    case 'Escape':
-      emit('exit')
-      break
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
-  cleanListeners()
-})
+const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, jumpToOpposite, onPointerDown, onWheel }
+  = useSwipe({
+    items,
+    currentIndex,
+    zoom,
+    onDoubleTap: handleToggleCollect,
+    onExit: () => emit('exit'),
+    onAfterNavigate,
+    onAfterJump,
+  })
 </script>
 
 <template>
   <div
     ref="wrapperRef"
     class="endless-gallery"
+    @dblclick="handleToggleCollect"
     @wheel.prevent="onWheel"
     @mousedown="onPointerDown"
     @touchstart="onPointerDown"
   >
     <!-- ─── Swipe container ─── -->
-    <div class="swipe-container" :style="containerStyle">
-      <!-- Prev panel (above) -->
-      <div class="swipe-panel swipe-panel--prev">
-        <template v-if="prevItem">
-          <img v-if="prevItem.type === 'image'" :src="prevItem.url" class="media-fit" draggable="false">
-          <video v-else-if="prevItem.type === 'video'" :src="prevItem.url" class="media-fit" />
-          <div v-else class="audio-pane">
-            <span class="mdi mdi-music-circle-outline audio-bg-icon" />
-          </div>
-        </template>
-        <div v-else class="boundary-hint">
-          <span class="mdi mdi-ray-start" />
-        </div>
-      </div>
-
-      <!-- Current panel -->
-      <div class="swipe-panel swipe-panel--current">
-        <template v-if="currentItem">
+    <!-- Three slots are keyed by index (0/1/2) so Vue never destroys/recreates
+         the <img> elements. Only the off-screen slot's src is updated after
+         each navigation, preventing blank-frame flicker on iOS Safari. -->
+    <div ref="swipeContainerRef" class="swipe-container" :style="containerStyle">
+      <div
+        v-for="(panelItem, slotIndex) in panelItems"
+        :key="slotIndex"
+        class="swipe-panel"
+        :class="getPanelClass(slotIndex)"
+      >
+        <template v-if="panelItem">
           <img
-            v-if="currentItem.type === 'image'"
-            :src="currentItem.url"
+            v-if="panelItem.type === 'image'"
+            :src="panelItem.url"
             class="media-fit"
+            :style="slotIndex === currentSlot ? zoom.imageStyle.value : undefined"
             draggable="false"
+            @load="onPanelImageLoad($event, slotIndex)"
           >
           <video
-            v-else-if="currentItem.type === 'video'"
-            :key="currentItem.url"
-            :src="currentItem.url"
+            v-else-if="panelItem.type === 'video'"
+            :key="panelItem.url"
+            :src="panelItem.url"
             class="media-fit"
-            controls
-            autoplay
+            :controls="slotIndex === currentSlot"
+            :autoplay="slotIndex === currentSlot"
             loop
+            playsinline
           />
           <div v-else class="audio-pane">
             <span class="mdi mdi-music-circle-outline audio-bg-icon" />
             <audio
-              :key="currentItem.url"
-              :src="currentItem.url"
+              v-if="slotIndex === currentSlot"
+              :key="panelItem.url"
+              :src="panelItem.url"
               controls
               autoplay
               class="audio-ctrl"
               loop
+              playsinline
             />
           </div>
         </template>
-      </div>
-
-      <!-- Next panel (below) -->
-      <div class="swipe-panel swipe-panel--next">
-        <template v-if="nextItem">
-          <img v-if="nextItem.type === 'image'" :src="nextItem.url" class="media-fit" draggable="false">
-          <video v-else-if="nextItem.type === 'video'" :src="nextItem.url" class="media-fit" />
-          <div v-else class="audio-pane">
-            <span class="mdi mdi-music-circle-outline audio-bg-icon" />
-          </div>
-        </template>
         <div v-else class="boundary-hint">
-          <span class="mdi mdi-ray-end" />
+          <span
+            class="mdi"
+            :class="getPanelClass(slotIndex) === 'swipe-panel--prev' ? 'mdi-ray-start' : 'mdi-ray-end'"
+          />
         </div>
       </div>
     </div>
@@ -350,7 +207,7 @@ onBeforeUnmount(() => {
     <div v-if="!edgeOverlay" class="nav-arrows">
       <button
         class="nav-arrow"
-        :class="{ disabled: !prevItem }"
+        :class="{ disabled: currentIndex <= 0 }"
         title="Previous (↑ / k)"
         @click.stop="navigate(false)"
       >
@@ -366,13 +223,27 @@ onBeforeUnmount(() => {
       </button>
       <button
         class="nav-arrow"
-        :class="{ disabled: !nextItem }"
+        :class="{ disabled: currentIndex >= items.length - 1 }"
         title="Next (↓ / j)"
         @click.stop="navigate(true)"
       >
         <span class="mdi mdi-chevron-down" />
       </button>
     </div>
+
+    <!-- ─── Zoom toolbar (images only) ─── -->
+    <Transition name="edge-fade">
+      <div v-if="currentItem?.type === 'image'" class="zoom-toolbar">
+        <span v-if="zoom.resolution.value" class="zoom-resolution">{{ zoom.resolution.value }}</span>
+        <button class="zoom-btn" title="Zoom out (Ctrl+scroll)" @click.stop="zoom.zoomOut()">
+          <span class="mdi mdi-minus" />
+        </button>
+        <span class="zoom-scale">{{ zoom.scalePercent.value }}</span>
+        <button class="zoom-btn" title="Zoom in (Ctrl+scroll)" @click.stop="zoom.zoomIn()">
+          <span class="mdi mdi-plus" />
+        </button>
+      </div>
+    </Transition>
 
     <!-- ─── Collection floating button ─── -->
     <Transition name="edge-fade">
@@ -386,22 +257,6 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </Transition>
-
-    <!-- ─── Info overlay ─── -->
-    <!-- <div v-if="currentItem" class="info-overlay">
-      <div class="info-top">
-        <span class="mdi mdi-folder-outline" />
-        <span class="info-folder" :title="folderName">{{ folderName }}</span>
-      </div>
-      <div class="info-bottom">
-        <div class="info-filename" :title="currentItem.name">
-          {{ currentItem.name }}
-        </div>
-        <div class="info-counter">
-          {{ currentIndex + 1 }}&thinsp;/&thinsp;{{ items.length }}
-        </div>
-      </div>
-    </div> -->
 
     <!-- ─── Empty state ─── -->
     <div v-if="!items.length" class="empty-state">
@@ -474,6 +329,9 @@ onBeforeUnmount(() => {
 .swipe-container {
   position: absolute;
   inset: 0;
+  // Promote to GPU compositing layer so the browser can animate transform
+  // without triggering a repaint of the panels' contents.
+  will-change: transform;
 }
 
 .swipe-panel {
@@ -482,6 +340,9 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  // Isolate each panel's layout/paint — prevents the browser from
+  // re-painting adjacent panels when one changes.
+  contain: layout style paint;
 
   &--prev { bottom: 100%; top: auto; }
   &--current { top: 0; }
@@ -594,6 +455,66 @@ onBeforeUnmount(() => {
   }
 }
 
+// ── Zoom toolbar ─────────────────────────────────────────────
+.zoom-toolbar {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  padding: 4px 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  .endless-gallery:hover & { opacity: 1; }
+
+  @media screen and (max-width: 500px) {
+    opacity: 1;
+  }
+}
+
+.zoom-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255, 255, 255, 0.28); }
+  &:active { background: rgba(255, 255, 255, 0.38); }
+}
+
+.zoom-scale {
+  color: #fff;
+  font-size: 12px;
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-resolution {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  white-space: nowrap;
+  padding-right: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  margin-right: 2px;
+}
+
 // ── Collection floating button ───────────────────────────────────
 .collection-fab-wrap {
   position: absolute;
@@ -681,7 +602,6 @@ onBeforeUnmount(() => {
 
 .info-top {
   padding: 12px 14px 40px;
-  // background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -699,7 +619,6 @@ onBeforeUnmount(() => {
 
 .info-bottom {
   padding: 40px 14px 14px;
-  // background: linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;

@@ -49,11 +49,16 @@ jobs:
         with:
           go-version-file: backend-go/go.mod
 
-      - name: Build Go (all platforms)
+      - name: Generate icon (rsrc.syso for Windows)
         working-directory: backend-go
         run: |
           bun install
-          bun run build:all
+          go install github.com/akavel/rsrc@latest
+          bun run icon
+
+      - name: Build Go (all platforms)
+        working-directory: backend-go
+        run: bun run build:all
 
       - name: Pack Go binaries
         id: pack
