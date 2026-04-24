@@ -117,7 +117,7 @@ async function build() {
 
   console.log(`\n>>> Dist executable: ${batPath}`)
 
-  await createArchive(distDir, `file-lite-v${VERSION}`)
+  await createArchive(distDir, `file-lite-nodejs-v${VERSION}`)
 
   console.log(`>>> Update package.json version: ${VERSION}`)
   const pkgPath = path.join(backendPath, 'package.json')
