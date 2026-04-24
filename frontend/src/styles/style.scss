@@ -19,6 +19,7 @@ body {
 
 html, body, #app {
   height: 100%;
+  overscroll-behavior-y: none; // disable pull-to-refresh on mobile browsers (html is required for Safari)
 }
 
 .font-code {
@@ -201,4 +202,8 @@ html, body, #app {
 }
 .el-image-viewer__next {
   right: 10px !important;
+}
+
+.el-image-viewer__actions,.el-image-viewer__btn {
+  background-color: #2121213a !important;
 }

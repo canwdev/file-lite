@@ -44,6 +44,22 @@ async function runInDir(title: string, cwd: string, commands: string[]) {
   }
 }
 
+async function customizePatch(distDir: string, builderPath: string) {
+  // 替换 favicon（nodejs 版差异化）
+  const nodejsFavicon = path.join(builderPath, 'favicon-nodejs.webp')
+  const distFavicon = path.join(distDir, 'frontend/favicon.webp')
+  await fs.copyFile(nodejsFavicon, distFavicon)
+  console.log(`>>> Replaced favicon: ${distFavicon}`)
+
+  // 向 index.html 注入 nodejs 版专属 CSS 变量
+  const indexHtmlPath = path.join(distDir, 'frontend/index.html')
+  const injectStyle = `<style>:root{--vgo-primary-rgb:76,175,80;}</style>`
+  let html = await fs.readFile(indexHtmlPath, 'utf8')
+  html = html.replace('</head>', `${injectStyle}</head>`)
+  await fs.writeFile(indexHtmlPath, html, 'utf8')
+  console.log(`>>> Injected CSS variables into: ${indexHtmlPath}`)
+}
+
 function createArchive(fromPath, distName) {
   console.log(`>>> Creating archive: ${fromPath}`)
   const distFile = path.resolve(fromPath, `../${distName}.zip`)
@@ -87,6 +103,9 @@ async function build() {
     'bun i',
     'bun run frontend:build',
   ])
+
+  // 4. nodejs 版差异化补丁
+  await customizePatch(distDir, builderPath)
 
   const jsName = 'file-lite.min.mjs'
 
