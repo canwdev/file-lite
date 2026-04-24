@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev:go": "air",
-    "icon": "node scripts/generate_icon.js && rsrc -ico icon.ico -o rsrc.syso",
+    "icon": "node scripts/generate_icon.js && rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso && rsrc -arch arm64 -ico icon.ico -o rsrc_windows_arm64.syso",
     "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./",
     "build": "go build -ldflags=\"-s -w\" -o bin/app",
     "clean": "rimraf ./bin",

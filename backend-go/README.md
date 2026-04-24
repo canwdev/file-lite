@@ -76,5 +76,5 @@ gofmt -w .\
 # icon 生成
 
 - Install rsrc tool: `go install github.com/akavel/rsrc@latest`
-- Run `bun run icon` or `rsrc -ico icon.ico -o rsrc.syso` in backend-go.
-- The go build command will automatically include rsrc.syso.
+- Run `bun run icon` in backend-go. This generates `rsrc_windows_amd64.syso` and `rsrc_windows_arm64.syso`.
+- The go build command will automatically include the correct `.syso` for the target architecture.
