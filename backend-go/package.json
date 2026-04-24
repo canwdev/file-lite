@@ -1,12 +1,12 @@
 {
   "scripts": {
     "dev:go": "air",
-    "icon": "node scripts/generate_icon.js",
+    "icon": "node scripts/generate_icon.js && rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso && rsrc -arch arm64 -ico icon.ico -o rsrc_windows_arm64.syso",
     "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./",
     "build": "go build -ldflags=\"-s -w\" -o bin/app",
     "clean": "rimraf ./bin",
-    "build:win:amd64": "rsrc -arch amd64 -ico icon.ico -o rsrc.syso && cross-env GOOS=windows GOARCH=amd64 bun run build -- --o bin/windows_amd64/file-lite-go.exe && rimraf rsrc.syso",
-    "build:win:arm64": "rsrc -arch arm64 -ico icon.ico -o rsrc.syso && cross-env GOOS=windows GOARCH=arm64 bun run build -- --o bin/windows_arm64/file-lite-go.exe && rimraf rsrc.syso",
+    "build:win:amd64": "cross-env GOOS=windows GOARCH=amd64 bun run build -- --o bin/windows_amd64/file-lite-go.exe",
+    "build:win:arm64": "cross-env GOOS=windows GOARCH=arm64 bun run build -- --o bin/windows_arm64/file-lite-go.exe",
     "build:linux:amd64": "cross-env GOOS=linux GOARCH=amd64 bun run build -- --o bin/linux_amd64/file-lite-go",
     "build:linux:arm64": "cross-env GOOS=linux GOARCH=arm64 bun run build -- --o bin/linux_arm64/file-lite-go",
     "build:mac:amd64": "cross-env GOOS=darwin GOARCH=amd64 bun run build -- --o bin/mac_amd64/file-lite-go",
