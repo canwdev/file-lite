@@ -62,10 +62,14 @@ const isFilterEmpty = computed(
 
 const listRef = ref<HTMLElement>()
 
-function scrollToCurrent() {
+function scrollToCurrent(behavior: 'smooth' | 'auto' = 'smooth') {
   const el = listRef.value?.querySelector('.playlist-item.active')
-  el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  el?.scrollIntoView({ block: 'nearest', behavior })
 }
+onMounted(async () => {
+  await nextTick()
+  scrollToCurrent('auto')
+})
 </script>
 
 <template>
@@ -74,7 +78,7 @@ function scrollToCurrent() {
       <div class="playlist-search-row">
         <span class="mdi mdi-magnify search-icon" />
         <input v-model="filterText" class="vgo-input playlist-search" placeholder="Search music">
-        <button class="btn-no-style locate-current-btn" title="Scroll to current" @click="scrollToCurrent">
+        <button class="btn-no-style locate-current-btn" title="Scroll to current" @click="() => scrollToCurrent()">
           <span class="mdi mdi-crosshairs-gps" />
         </button>
       </div>
