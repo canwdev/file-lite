@@ -271,10 +271,16 @@ function jumpBackward() {
       <div v-if="!showControls" class="control-center" />
       <div v-else class="control-center">
         <button
-          class="btn-action btn-no-style icon-wrap" title="Previous (right-click: −5s)" @click="previous"
+          class="btn-action btn-no-style icon-wrap" title="Previous" @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
           <span class="mdi mdi-skip-previous" />
+        </button>
+        <button
+          class="btn-action btn-no-style icon-wrap" title="Rewind"
+          @click="jumpBackward"
+        >
+          <span class="mdi mdi-rewind-5" />
         </button>
 
         <button
@@ -290,8 +296,13 @@ function jumpBackward() {
         </button>
 
         <button
-          class="btn-action btn-no-style icon-wrap" title="Next (right-click: +5s)" @click="next"
-          @contextmenu.prevent="jumpForward"
+          class="btn-action btn-no-style icon-wrap" title="Fast Forward"
+          @click="jumpForward"
+        >
+          <span class="mdi mdi-fast-forward-5" />
+        </button>
+        <button
+          class="btn-action btn-no-style icon-wrap" title="Next" @click="next"
         >
           <span class="mdi mdi-skip-next" />
         </button>
@@ -536,11 +547,6 @@ function jumpBackward() {
         &>button {
           min-width: 36px;
           height: 36px;
-        }
-
-        &>button:nth-child(2) {
-          min-width: 44px;
-          height: 44px;
         }
       }
     }

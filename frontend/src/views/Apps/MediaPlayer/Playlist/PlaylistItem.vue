@@ -121,7 +121,6 @@ const isCurrent = computed(() => {
   .item-main {
     flex: 1;
     min-width: 0;
-    padding: 1px 28px 1px 0;
 
     .item-title {
       font-size: 13px;

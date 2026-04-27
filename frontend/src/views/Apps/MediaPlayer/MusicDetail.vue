@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import SteamCard from '../components/SteamCard.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
-import CoverDisplay from './CoverDisplay.vue'
-import { useMediaStore } from './utils/media-store'
+import { MusicEvents, useMediaStore } from './utils/media-store'
 
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
@@ -69,14 +68,25 @@ function autoScrollAllowed() {
   return performance.now() > userScrollLockUntil.value
 }
 
+function scrollToLineEl(el: HTMLElement, behavior: ScrollBehavior) {
+  const container = lyricScrollRef.value!
+  const elRect = el.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  const absoluteTop = container.scrollTop + (elRect.top - containerRect.top)
+  const targetTop = absoluteTop - containerRect.height / 2 + elRect.height / 2
+
+  container.scrollTo({ top: targetTop, behavior })
+}
+
 function scrollActiveLineIntoView(behavior: ScrollBehavior) {
   const idx = activeLineIndex.value
-  if (idx < 0 || !autoScrollAllowed() || !lyricScrollRef.value)
+  const container = lyricScrollRef.value
+  if (idx < 0 || !autoScrollAllowed() || !container)
     return
   const el = lineElMap.get(idx)
   if (!el)
     return
-  el.scrollIntoView({ block: 'center', behavior })
+  scrollToLineEl(el, behavior)
 }
 
 watch(
@@ -131,6 +141,14 @@ function lineState(i: number): 'active' | 'near' | 'far' | 'dim' {
   return 'dim'
 }
 
+function seekToTime(time: number, index: number) {
+  mediaStore.mediaBus.emit(MusicEvents.ACTION_CHANGE_CURRENT_TIME, time)
+  const el = lineElMap.get(index)
+  if (!el)
+    return
+  scrollToLineEl(el, 'smooth')
+}
+
 onBeforeUnmount(() => {
   if (scrollLockTimer)
     clearTimeout(scrollLockTimer)
@@ -170,6 +188,7 @@ onBeforeUnmount(() => {
                 :ref="(el) => setLineEl(i, el)"
                 class="lyric-line"
                 :data-state="lineState(i)"
+                @click="seekToTime(ln.time, i)"
               >
                 {{ ln.text }}
               </li>
@@ -213,7 +232,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: clamp(12px, 4vw, 52px);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none;
 
   background: transparent;
 }
@@ -297,13 +317,6 @@ onBeforeUnmount(() => {
   );
   mask-size: 100% 100%;
   mask-repeat: no-repeat;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black min(12%, 48px),
-    black max(88%, calc(100% - 48px)),
-    transparent 100%
-  );
   scrollbar-width: none;
 }
 
@@ -324,6 +337,11 @@ onBeforeUnmount(() => {
     opacity 0.32s ease,
     font-size 0.32s ease,
     font-weight 0.25s ease;
+
+  &:hover {
+    cursor: pointer;
+    filter: brightness(1.5);
+  }
 
   &[data-state='active'] {
     font-size: clamp(1.2rem, 3.2vw, 1.55rem);
