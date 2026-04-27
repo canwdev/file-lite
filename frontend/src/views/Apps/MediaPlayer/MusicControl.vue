@@ -4,12 +4,17 @@ import { useEventListener } from '@vueuse/core'
 import Mousetrap from 'mousetrap'
 import { contextMenuTheme } from '@/hooks/use-global-theme'
 import { formatTimeHMS } from '@/utils'
-import CoverMini from './CoverMini.vue'
 import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
 import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/music-state'
 
-defineEmits(['onCoverClick', 'onTitleClick'])
+withDefaults(defineProps<{
+  playlistOpen?: boolean
+}>(), {
+  playlistOpen: false,
+})
+
+defineEmits(['onCoverClick', 'onTitleClick', 'togglePlaylist'])
 
 const PLAYBACK_RATE_OPTIONS = [
   { value: 2, label: '2x' },
@@ -251,48 +256,7 @@ function jumpBackward() {
       <span class="time text-overflow">{{ formatTimeHMS(mediaStore.duration) }}</span>
     </div>
     <div class="actionbar">
-      <CoverMini
-        :src="mediaItem.cover"
-        :is-video="mediaItem.type === 'video'"
-        @click="$emit('onCoverClick')"
-      />
-      <button class="btn-song-info btn-no-style" @click="$emit('onTitleClick')">
-        <span class="title text-overflow">{{ mediaItem.titleDisplay }}</span>
-        <span v-show="mediaItem.artist" class="artist text-overflow">{{ mediaItem.artist }}</span>
-        <span v-show="mediaItem.album" class="album text-overflow">{{ mediaItem.album }}</span>
-      </button>
-      <div class="buttons-scroll">
-        <button
-          class="btn-action btn-no-style icon-wrap"
-          title="Previous (right-click: −5s)"
-          @click="previous"
-          @contextmenu.prevent="jumpBackward"
-        >
-          <span class="mdi mdi-skip-previous" />
-        </button>
-
-        <button
-          class="btn-action btn-no-style icon-wrap"
-          :title="mediaStore.paused ? `Play` : `Pause`"
-          @click="togglePlay"
-        >
-          <template v-if="mediaStore.paused">
-            <span class="mdi mdi-play" />
-          </template>
-          <template v-else>
-            <span class="mdi mdi-pause" />
-          </template>
-        </button>
-
-        <button
-          class="btn-action btn-no-style icon-wrap"
-          title="Next (right-click: +5s)"
-          @click="next"
-          @contextmenu.prevent="jumpForward"
-        >
-          <span class="mdi mdi-skip-next" />
-        </button>
-
+      <div class="now-playing">
         <button
           class="btn-action btn-no-style icon-wrap"
           title="Playback speed"
@@ -348,6 +312,50 @@ function jumpBackward() {
           </div>
         </el-popover>
       </div>
+
+      <div class="control-center">
+        <button
+          class="btn-action btn-no-style icon-wrap"
+          title="Previous (right-click: −5s)"
+          @click="previous"
+          @contextmenu.prevent="jumpBackward"
+        >
+          <span class="mdi mdi-skip-previous" />
+        </button>
+
+        <button
+          class="btn-action btn-no-style icon-wrap btn-play-pause"
+          :title="mediaStore.paused ? `Play` : `Pause`"
+          @click="togglePlay"
+        >
+          <template v-if="mediaStore.paused">
+            <span class="mdi mdi-play" />
+          </template>
+          <template v-else>
+            <span class="mdi mdi-pause" />
+          </template>
+        </button>
+
+        <button
+          class="btn-action btn-no-style icon-wrap"
+          title="Next (right-click: +5s)"
+          @click="next"
+          @contextmenu.prevent="jumpForward"
+        >
+          <span class="mdi mdi-skip-next" />
+        </button>
+      </div>
+
+      <div class="actionbar-right">
+        <button
+          class="btn-action btn-no-style playlist-toggle"
+          :class="{ active: playlistOpen }"
+          title="Playlist"
+          @click="$emit('togglePlaylist')"
+        >
+          <span class="mdi mdi-playlist-music" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -374,7 +382,17 @@ function jumpBackward() {
 
 .actionbar-wrapper {
   width: 100%;
+  height: 100%;
   $bottomZIndex: 2100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
 
   .icon-wrap {
     font-size: 18px;
@@ -387,86 +405,93 @@ function jumpBackward() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 25px;
+    height: 18px;
     width: 100%;
     box-sizing: border-box;
-    border-top: 1px solid var(--vgo-color-border);
-    border-bottom: 1px solid var(--vgo-color-border);
     position: relative;
     z-index: $bottomZIndex;
+    gap: 10px;
 
     .time {
-      font-size: 12px;
-      width: 62px;
+      font-size: 11px;
+      width: 54px;
       text-align: center;
+      color: var(--el-text-color-secondary);
+      font-variant-numeric: tabular-nums;
     }
   }
 
   .actionbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(44px, 1fr);
     align-items: center;
-    height: 50px;
+    height: 48px;
     user-select: none;
     position: relative;
     z-index: $bottomZIndex;
+    gap: 10px;
 
     button {
-      border-radius: 0;
+      border-radius: 999px;
     }
 
     .btn-cover {
-      border-radius: 0;
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
       flex-shrink: 0;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
     }
 
-    .btn-song-info {
-      height: 100%;
-      border-right: 1px solid var(--vgo-color-border);
-      text-align: left;
-      padding-left: 5px;
-      line-height: 1.1;
-      flex: 1;
-      overflow-x: auto;
-
-      // @media screen  and (max-width: 500px) {
-      //   // display: none;
-      // }
-
-      .title {
-        font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 2px;
-      }
-
-      .artist,
-      .album {
-        font-size: 10px;
-        font-weight: 400;
-      }
-
-      & > span {
-        display: block;
-        width: 100%;
-      }
-    }
-
-    .buttons-scroll {
-      overflow: auto;
+    .now-playing,
+    .control-center,
+    .actionbar-right {
       height: 100%;
       flex-wrap: nowrap;
       display: flex;
       align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      justify-content: center;
 
       .mdi {
-        font-size: 28px;
+        font-size: 23px;
       }
-      & > button {
-        height: 100%;
-        width: 55px;
+
+      .btn-action {
+        height: 38px;
+        min-width: 38px;
+        padding: 0 10px;
         flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
+        color: var(--el-text-color-regular);
+        background: rgba(255, 255, 255, 0.62);
+        box-shadow:
+          0 8px 22px rgba(35, 35, 45, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.72);
+        transition: transform 0.14s ease, background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+
+        &:hover {
+          color: #ff2d55;
+          background: rgba(255, 255, 255, 0.82);
+          box-shadow:
+            0 12px 28px rgba(35, 35, 45, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        &.btn-play-pause {
+          width: 46px;
+          height: 46px;
+          color: #fff;
+          background: linear-gradient(135deg, #ff2d55, #ff375f);
+          box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+
+          .mdi {
+            font-size: 28px;
+          }
+        }
 
         .reverse-x {
           text-shadow: 0 0 5px red;
@@ -474,12 +499,104 @@ function jumpBackward() {
           transform: rotateX(-180deg);
         }
 
-        &.active {
-          color: var(--vgo-primary);
+      }
+    }
+
+    .now-playing {
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .actionbar-right {
+      justify-content: flex-end;
+      overflow: visible;
+    }
+
+    .playlist-toggle {
+      min-width: 42px;
+
+      &.active {
+        color: #fff;
+        background: linear-gradient(135deg, #ff2d55, #ff6a88);
+        box-shadow: 0 10px 24px rgba(255, 45, 85, 0.26);
+      }
+    }
+  }
+}
+
+:global(.dark) :global(.media-player-scope) .actionbar-wrapper {
+  .control-center,
+  .actionbar-right {
+    & > button {
+      color: var(--el-text-color-regular);
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+
+      &:hover {
+        color: var(--vgo-primary);
+        background: var(--vgo-primary-opacity);
+        box-shadow: none;
+      }
+
+      &:nth-child(2) {
+        color: #fff;
+        background: linear-gradient(135deg, #ff2d55, #ff375f);
+        box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+      }
+    }
+  }
+}
+
+@media screen and (max-width: 700px) {
+  .actionbar-wrapper {
+    padding: 9px;
+    border-radius: 18px;
+
+    .progressbar {
+      gap: 6px;
+
+      .time {
+        width: 48px;
+        font-size: 10px;
+      }
+    }
+
+    .actionbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "controls controls"
+        "nowplaying right";
+      height: auto;
+      gap: 8px 10px;
+
+      .now-playing {
+        grid-area: nowplaying;
+      }
+
+      .btn-cover {
+        width: 44px;
+        height: 44px;
+      }
+
+      .actionbar-right {
+        grid-area: right;
+      }
+
+      .control-center {
+        grid-area: controls;
+        width: 100%;
+        justify-content: center;
+        padding-bottom: 2px;
+
+        & > button {
+          min-width: 36px;
+          height: 36px;
         }
 
-        & + button {
-          border-left: 1px solid var(--vgo-color-border);
+        & > button:nth-child(2) {
+          min-width: 44px;
+          height: 44px;
         }
       }
     }

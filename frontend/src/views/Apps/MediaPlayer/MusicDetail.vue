@@ -138,9 +138,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="music-detail-root scrollbar-mini" :class="{ 'has-cover-bg': item?.cover }">
-    <!-- 背景模糊层 -->
-    <div v-if="item?.cover" class="cover-bg-layer" :style="{ backgroundImage: `url(${item.cover})` }" />
+  <div class="music-detail-root scrollbar-mini">
     <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': lyricLines.length > 0 }">
       <!-- With lyrics: two-column AMLL / Apple Music–like -->
       <template v-if="lyricLines.length > 0">
@@ -218,39 +216,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: clamp(12px, 3vw, 28px);
+  padding: clamp(12px, 4vw, 28px);
   box-sizing: border-box;
   overflow: hidden;
 
-  background:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(var(--vgo-primary-rgb, 83, 173, 228), 0.12) 0%, transparent 55%),
-    linear-gradient(
-      165deg,
-      var(--el-fill-color-light, rgba(255, 255, 255, 0.06)) 0%,
-      var(--el-bg-color, #141414) 45%,
-      var(--el-fill-color-darker, rgba(0, 0, 0, 0.2)) 100%
-    );
-
-  /* 有封面背景时的样式 */
-  &.has-cover-bg {
-    background: transparent;
-  }
-}
-
-/* 封面背景模糊层 */
-.cover-bg-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-size: cover;
-  background-position: center;
-  filter: blur(35px) ;
-  opacity: 0.2;
-  z-index: 0;
-  // transform: scale(1.2);
-  pointer-events: none;
+  background: transparent;
 }
 
 /* 确保内容在背景层之上 */

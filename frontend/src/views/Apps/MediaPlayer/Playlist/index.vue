@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import type { MediaItem } from '../utils/music-state'
-import { refDebounced } from '@vueuse/core'
 import { MusicEvents, useMediaStore } from '../utils/media-store'
 import PlaylistItem from './PlaylistItem.vue'
 
-const storeId = inject<Ref<string>>('storeId')!
-const mediaStore = useMediaStore(storeId.value)
 const emit = defineEmits<{
   (e: 'locateItem', name: string): void
 }>()
-
+const storeId = inject<Ref<string>>('storeId')!
+const mediaStore = useMediaStore(storeId.value)
 const filterText = ref('')
-const filterTextDebounced = refDebounced(filterText, 500)
+const filterTextDebounced = ref('')
+let filterDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(filterText, (value) => {
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer)
+  }
+  filterDebounceTimer = setTimeout(() => {
+    filterTextDebounced.value = value
+  }, 500)
+})
+
+onBeforeUnmount(() => {
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer)
+  }
+})
 
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -56,11 +70,16 @@ function scrollToCurrent() {
 
 <template>
   <div class="music-play-list">
-    <div class="vgo-bg playlist-action-bar">
-      <input v-model="filterText" class="vgo-input" :placeholder="`Filter by name, ${mediaStore.playingIndex + 1}/${mediaStore.playingList.length} items`">
-      <button class="btn-no-style mdi mdi-crosshairs-gps" @click="scrollToCurrent" />
+    <div class="playlist-action-bar">
+      <div class="playlist-search-row">
+        <span class="mdi mdi-magnify search-icon" />
+        <input v-model="filterText" class="vgo-input playlist-search" placeholder="Search music">
+        <button class="btn-no-style locate-current-btn" title="Scroll to current" @click="scrollToCurrent">
+          <span class="mdi mdi-crosshairs-gps" />
+        </button>
+      </div>
     </div>
-    <div ref="listRef" class="music-list">
+    <div ref="listRef" class="music-list scrollbar-mini">
       <template v-if="isPlaylistEmpty">
         <div class="playlist-empty">
           No media in this list
@@ -93,21 +112,61 @@ function scrollToCurrent() {
   min-height: 0;
   overflow: hidden;
   position: relative;
+  padding: 10px 8px 10px 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.22)),
+    transparent;
+  box-shadow: none;
 
   .playlist-action-bar {
     position: sticky;
     top: 0;
     z-index: 10;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
     font-size: 12px;
-    padding: 3px 4px;
-    border-bottom: 1px solid var(--vgo-color-border);
+    padding: 0 4px 10px;
+    margin-bottom: 2px;
 
-    .vgo-input {
+    .playlist-search-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      border-radius: 999px;
+      padding: 4px 6px 4px 10px;
+      background: rgba(0, 0, 0, 0.055);
+    }
+
+    .search-icon {
+      flex-shrink: 0;
+      color: var(--el-text-color-secondary);
+    }
+
+    .playlist-search {
       flex: 1;
+      min-width: 0;
+      height: 24px;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      box-shadow: none;
+    }
+
+    .locate-current-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--el-text-color-secondary);
+
+      &:hover {
+        color: var(--vgo-primary);
+        background: var(--vgo-primary-opacity);
+      }
     }
   }
 
@@ -123,19 +182,44 @@ function scrollToCurrent() {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    padding: 2px 4px;
+    gap: 4px;
+    padding: 2px 3px 10px 0;
   }
 
   .playlist-empty {
-    padding: 16px 12px;
+    margin: 18px 8px;
+    padding: 24px 12px;
     text-align: center;
     font-size: 13px;
     color: var(--el-text-color-secondary, inherit);
+    border-radius: 14px;
+    background: rgba(128, 128, 128, 0.08);
   }
 
   .media-open-actions {
     padding: 8px;
+  }
+}
+
+:global(.dark) {
+  .music-play-list {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+      transparent;
+
+    .playlist-search-row {
+      background: rgba(128, 128, 128, 0.14);
+    }
+  }
+}
+
+@media screen and (max-width: 700px) {
+  .music-play-list {
+    padding: 8px;
+
+    .playlist-action-bar {
+      padding: 0 0 8px;
+    }
   }
 }
 </style>

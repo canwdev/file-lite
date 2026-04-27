@@ -22,8 +22,10 @@ withDefaults(defineProps<Props>(), {
   position: relative;
   width: 50px;
   height: 50px;
-  border-radius: 0;
   overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+    rgba(128, 128, 128, 0.12);
 
   .cover-display {
     width: 100%;
@@ -31,6 +33,7 @@ withDefaults(defineProps<Props>(), {
   }
   .icon-wrap {
     font-size: 24px;
+    color: var(--el-text-color-secondary);
   }
 }
 </style>

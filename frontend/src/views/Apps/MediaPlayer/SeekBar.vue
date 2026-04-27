@@ -78,7 +78,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <div class="tk-seekbar" :class="{ vertical }">
+  <div class="v-seekbar" :class="{ vertical }">
     <div v-if="!vertical" class="seekbar-fill" :style="`width:${progress}%`" />
     <input
       ref="seekBar"
@@ -99,17 +99,33 @@ export default defineComponent({
 </template>
 
 <style lang="scss" scoped>
-.tk-seekbar {
+.v-seekbar {
   height: 100%;
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 
-  $bar_height: 3px;
+  $bar_height: 5px;
+  $thumb_size: 14px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: $bar_height;
+    transform: translateY(-50%);
+    background: rgba(128, 128, 128, 0.2);
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 0;
+  }
 
   &.vertical {
     input {
       writing-mode: bt-lr; /* IE */
+      appearance: slider-vertical;
       -webkit-appearance: slider-vertical; /* WebKit */
       height: 100%;
       outline: none;
@@ -122,11 +138,11 @@ export default defineComponent({
     transform: translateY(-50%);
     height: $bar_height;
     width: 0;
-    background: var(--vgo-primary);
+    background: linear-gradient(90deg, #ff2d55, var(--vgo-primary));
     user-select: none;
     pointer-events: none;
     z-index: 1;
-    border-radius: 2px;
+    border-radius: 999px;
   }
 
   input {
@@ -138,11 +154,18 @@ export default defineComponent({
     right: 0;
     appearance: none;
     height: $bar_height;
-    background: var(--vgo-color-border);
+    background: transparent;
     outline: none;
-    border-radius: 2px;
+    border-radius: 999px;
     box-shadow: none;
     margin: 0;
+    z-index: 2;
+
+    &::-webkit-slider-runnable-track {
+      height: $bar_height;
+      background: transparent;
+      border-radius: 999px;
+    }
 
     &:disabled {
       cursor: not-allowed;
@@ -152,26 +175,28 @@ export default defineComponent({
     @mixin mixin-thumb {
       position: relative;
       appearance: none;
-      width: 12px;
-      height: 12px;
+      width: $thumb_size;
+      height: $thumb_size;
       border-radius: 50%;
-      background: var(--vgo-primary);
+      background: #fff;
       z-index: 10;
-      border: none;
-      //box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.2);
+      border: 2px solid #ff2d55;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
       cursor: pointer;
     }
 
     &::-webkit-slider-thumb {
       @include mixin-thumb;
-      margin: 0;
+      margin-top: -4.5px;
       opacity: 0;
-      transition: all 0.3s;
+      transform: scale(0.72);
+      transition: opacity 0.16s ease, transform 0.16s ease;
     }
 
     &:hover {
       &::-webkit-slider-thumb {
         opacity: 1;
+        transform: scale(1);
       }
     }
 

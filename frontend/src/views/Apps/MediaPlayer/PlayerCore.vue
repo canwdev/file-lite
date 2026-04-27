@@ -368,10 +368,16 @@ onBeforeUnmount(() => {
 .player-core {
   height: 100%;
   width: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+
   &.is-video {
     display: flex;
     flex-direction: column;
-    background-color: #1c1c1c;
+    background:
+      radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.08), transparent 34%),
+      #050505;
+
     .player-core-video-host {
       flex: 1;
       min-height: 0;
