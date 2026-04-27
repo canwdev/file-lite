@@ -157,9 +157,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <section class="lyrics-side">
-          <!-- <p class="lyrics-hint">
-            跟随播放自动滚动 · 手动滑动可暂停跟随
-          </p> -->
           <div
             ref="lyricScrollRef"
             class="lyrics-scroll"
@@ -199,9 +196,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="music-detail-empty">
-      <p class="empty-hint">
-        未选择曲目
-      </p>
+      <p class="empty-hint" />
     </div>
   </div>
 </template>
@@ -216,7 +211,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: clamp(12px, 4vw, 28px);
+  padding: clamp(12px, 4vw, 52px);
   box-sizing: border-box;
   overflow: hidden;
 
@@ -287,25 +282,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.lyrics-hint {
-  flex-shrink: 0;
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--el-text-color-secondary, rgba(245, 245, 247, 0.42));
-  text-align: center;
-  opacity: 0.9;
-}
-
-@media (min-width: 720px) {
-  .lyrics-hint {
-    text-align: left;
-    padding-left: 4px;
-  }
-}
-
 .lyrics-scroll {
   flex: 1;
   min-height: 160px;
@@ -334,7 +310,7 @@ onBeforeUnmount(() => {
 .lyrics-list {
   list-style: none;
   margin: 0;
-  padding: min(32vh, 200px) 20px min(36vh, 220px);
+  padding: min(32vh, 100px) 20px min(36vh, 120px);
 }
 
 .lyric-line {
@@ -343,7 +319,6 @@ onBeforeUnmount(() => {
   text-align: center;
   line-height: 1.45;
   letter-spacing: -0.02em;
-  color: var(--el-text-color-primary, #f5f5f7);
   transition:
     transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.32s ease,
@@ -401,7 +376,7 @@ onBeforeUnmount(() => {
 @media (min-width: 720px) {
   .music-detail-inner {
     flex-direction: row;
-    gap: clamp(28px, 4vw, 56px);
+    gap: clamp(28px, 4vw, 42px);
     text-align: left;
   }
 
@@ -431,7 +406,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.15;
-  color: var(--el-text-color-primary, #f5f5f7);
   text-wrap: balance;
   max-width: 100%;
 }

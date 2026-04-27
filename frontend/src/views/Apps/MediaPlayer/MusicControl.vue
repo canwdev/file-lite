@@ -10,8 +10,10 @@ import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/
 
 withDefaults(defineProps<{
   playlistOpen?: boolean
+  showControls?: boolean
 }>(), {
   playlistOpen: false,
+  showControls: true,
 })
 
 defineEmits(['onCoverClick', 'onTitleClick', 'togglePlaylist'])
@@ -86,7 +88,6 @@ function showLoopMenu(event: MouseEvent) {
         icon: selected ? 'mdi mdi-check' : (info.className || ''),
         onClick: () => {
           mSettingsStore.loopMode = mode
-          window.$message.info(info.i18nKey)
         },
       }
     }),
@@ -242,14 +243,11 @@ function jumpBackward() {
 
 <template>
   <div v-if="mediaItem" class="actionbar-wrapper">
-    <div class="progressbar">
+    <div v-if="showControls" class="progressbar">
       <span class="time text-overflow">{{ formatTimeHMS(mCurrentTime) }}</span>
 
       <Seekbar
-        :max="mediaStore.duration"
-        :value="mCurrentTime"
-        :disabled="!canSeek"
-        @input="progressSeeking"
+        :max="mediaStore.duration" :value="mCurrentTime" :disabled="!canSeek" @input="progressSeeking"
         @change="progressChange"
       />
 
@@ -257,33 +255,53 @@ function jumpBackward() {
     </div>
     <div class="actionbar">
       <div class="now-playing">
-        <button
-          class="btn-action btn-no-style icon-wrap"
-          title="Playback speed"
-          @click="showSpeedMenu"
-        >
+        <button v-if="showControls" class="btn-action btn-no-style icon-wrap" title="Playback speed" @click="showSpeedMenu">
           {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
         </button>
 
         <button
-          v-if="currentLoopMode"
-          class="btn-action btn-no-style icon-wrap"
-          :title="currentLoopMode.i18nKey"
+          v-if="currentLoopMode" class="btn-action btn-no-style icon-wrap" :title="currentLoopMode.i18nKey"
           @click="showLoopMenu"
         >
-          <span
-            v-if="currentLoopMode.className"
-            class="mdi"
-            :class="currentLoopMode.className"
-          />
+          <span v-if="currentLoopMode.className" class="mdi" :class="currentLoopMode.className" />
           <span v-else>{{ currentLoopMode.i18nKey }}</span>
         </button>
+      </div>
 
-        <el-popover placement="top" trigger="click" popper-class="popover-volume">
+      <div v-if="!showControls" class="control-center" />
+      <div v-else class="control-center">
+        <button
+          class="btn-action btn-no-style icon-wrap" title="Previous (right-click: −5s)" @click="previous"
+          @contextmenu.prevent="jumpBackward"
+        >
+          <span class="mdi mdi-skip-previous" />
+        </button>
+
+        <button
+          class="btn-action btn-no-style icon-wrap btn-play-pause" :title="mediaStore.paused ? `Play` : `Pause`"
+          @click="togglePlay"
+        >
+          <template v-if="mediaStore.paused">
+            <span class="mdi mdi-play" />
+          </template>
+          <template v-else>
+            <span class="mdi mdi-pause" />
+          </template>
+        </button>
+
+        <button
+          class="btn-action btn-no-style icon-wrap" title="Next (right-click: +5s)" @click="next"
+          @contextmenu.prevent="jumpForward"
+        >
+          <span class="mdi mdi-skip-next" />
+        </button>
+      </div>
+
+      <div class="actionbar-right">
+        <el-popover v-if="showControls" placement="top" trigger="click" popper-class="popover-volume">
           <template #reference>
             <button
-              ref="volumeIconBtnRef"
-              class="btn-action btn-no-style icon-wrap"
+              ref="volumeIconBtnRef" class="btn-action btn-no-style icon-wrap"
               title="Volume (scroll wheel to adjust)"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
@@ -296,61 +314,14 @@ function jumpBackward() {
           </template>
           <div class="popover-col popover-col--volume">
             <el-slider
-              :model-value="mSettingsStore.audioVolume"
-              :max="100"
-              :step="1"
-              :min="0"
-              :tooltip="false"
-              vertical
-              height="100px"
-              @update:model-value="(v) => mSettingsStore.setAudioVolume(Array.isArray(v) ? v[0]! : v)"
+              :model-value="mSettingsStore.audioVolume" :max="100" :step="1" :min="0" :tooltip="false" vertical
+              height="100px" @update:model-value="(v) => mSettingsStore.setAudioVolume(Array.isArray(v) ? v[0]! : v)"
             />
-            <span
-              class="popover-volume-label"
-              @click="toggleMute"
-            >{{ mSettingsStore.audioVolume }}</span>
+            <span class="popover-volume-label" @click="toggleMute">{{ mSettingsStore.audioVolume }}</span>
           </div>
         </el-popover>
-      </div>
-
-      <div class="control-center">
         <button
-          class="btn-action btn-no-style icon-wrap"
-          title="Previous (right-click: −5s)"
-          @click="previous"
-          @contextmenu.prevent="jumpBackward"
-        >
-          <span class="mdi mdi-skip-previous" />
-        </button>
-
-        <button
-          class="btn-action btn-no-style icon-wrap btn-play-pause"
-          :title="mediaStore.paused ? `Play` : `Pause`"
-          @click="togglePlay"
-        >
-          <template v-if="mediaStore.paused">
-            <span class="mdi mdi-play" />
-          </template>
-          <template v-else>
-            <span class="mdi mdi-pause" />
-          </template>
-        </button>
-
-        <button
-          class="btn-action btn-no-style icon-wrap"
-          title="Next (right-click: +5s)"
-          @click="next"
-          @contextmenu.prevent="jumpForward"
-        >
-          <span class="mdi mdi-skip-next" />
-        </button>
-      </div>
-
-      <div class="actionbar-right">
-        <button
-          class="btn-action btn-no-style playlist-toggle"
-          :class="{ active: playlistOpen }"
-          title="Playlist"
+          class="btn-action btn-no-style playlist-toggle" :class="{ active: playlistOpen }" title="Playlist"
           @click="$emit('togglePlaylist')"
         >
           <span class="mdi mdi-playlist-music" />
@@ -387,7 +358,6 @@ function jumpBackward() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 2px 4px;
   border-radius: 0;
   background: transparent;
   border: 0;
@@ -396,6 +366,7 @@ function jumpBackward() {
 
   .icon-wrap {
     font-size: 18px;
+
     &._lg {
       font-size: 28px;
     }
@@ -457,49 +428,6 @@ function jumpBackward() {
       .mdi {
         font-size: 23px;
       }
-
-      .btn-action {
-        height: 38px;
-        min-width: 38px;
-        padding: 0 10px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--el-text-color-regular);
-        background: rgba(255, 255, 255, 0.62);
-        box-shadow:
-          0 8px 22px rgba(35, 35, 45, 0.08),
-          inset 0 1px 0 rgba(255, 255, 255, 0.72);
-        transition: transform 0.14s ease, background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
-
-        &:hover {
-          color: #ff2d55;
-          background: rgba(255, 255, 255, 0.82);
-          box-shadow:
-            0 12px 28px rgba(35, 35, 45, 0.12),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
-        }
-
-        &.btn-play-pause {
-          width: 46px;
-          height: 46px;
-          color: #fff;
-          background: linear-gradient(135deg, #ff2d55, #ff375f);
-          box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
-
-          .mdi {
-            font-size: 28px;
-          }
-        }
-
-        .reverse-x {
-          text-shadow: 0 0 5px red;
-          color: red;
-          transform: rotateX(-180deg);
-        }
-
-      }
     }
 
     .now-playing {
@@ -512,38 +440,54 @@ function jumpBackward() {
       overflow: visible;
     }
 
-    .playlist-toggle {
-      min-width: 42px;
-
-      &.active {
-        color: #fff;
-        background: linear-gradient(135deg, #ff2d55, #ff6a88);
-        box-shadow: 0 10px 24px rgba(255, 45, 85, 0.26);
-      }
-    }
-  }
-}
-
-:global(.dark) :global(.media-player-scope) .actionbar-wrapper {
-  .control-center,
-  .actionbar-right {
-    & > button {
+    .btn-action {
+      height: 38px;
+      min-width: 38px;
+      padding: 0 10px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: var(--el-text-color-regular);
-      background: rgba(255, 255, 255, 0.12);
-      box-shadow: none;
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow:
+        0 8px 22px rgba(35, 35, 45, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      transition: transform 0.14s ease, background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 
       &:hover {
-        color: var(--vgo-primary);
-        background: var(--vgo-primary-opacity);
-        box-shadow: none;
+        filter: brightness(1.2) contrast(1.2);
       }
 
-      &:nth-child(2) {
+      &.btn-play-pause {
+        width: 46px;
+        height: 46px;
         color: #fff;
         background: linear-gradient(135deg, #ff2d55, #ff375f);
         box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+
+        .mdi {
+          font-size: 28px;
+        }
       }
+
+      &.playlist-toggle {
+        min-width: 42px;
+
+        &.active {
+          color: #fff;
+          background: linear-gradient(135deg, #ff2d55, #ff6a88);
+          box-shadow: 0 10px 24px rgba(255, 45, 85, 0.26);
+        }
+      }
+
+      .reverse-x {
+        color: #ff2d55;
+        transform: rotateX(-180deg);
+      }
+
     }
+
   }
 }
 
@@ -589,17 +533,34 @@ function jumpBackward() {
         justify-content: center;
         padding-bottom: 2px;
 
-        & > button {
+        &>button {
           min-width: 36px;
           height: 36px;
         }
 
-        & > button:nth-child(2) {
+        &>button:nth-child(2) {
           min-width: 44px;
           height: 44px;
         }
       }
     }
   }
+}
+</style>
+
+<style lang="scss">
+.dark .media-player-wrap .actionbar-wrapper {
+  .btn-action {
+    color: var(--el-text-color-regular);
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+
+    &.btn-play-pause {
+      color: #fff;
+      background: linear-gradient(135deg, #ff2d55, #ff375f);
+      box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+    }
+  }
+
 }
 </style>

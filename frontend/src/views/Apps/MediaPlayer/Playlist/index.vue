@@ -201,7 +201,19 @@ function scrollToCurrent() {
   }
 }
 
-:global(.dark) {
+@media screen and (max-width: 700px) {
+  .music-play-list {
+    padding: 8px;
+
+    .playlist-action-bar {
+      padding: 0 0 8px;
+    }
+  }
+}
+</style>
+
+<style lang="scss">
+.dark {
   .music-play-list {
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
@@ -209,16 +221,6 @@ function scrollToCurrent() {
 
     .playlist-search-row {
       background: rgba(128, 128, 128, 0.14);
-    }
-  }
-}
-
-@media screen and (max-width: 700px) {
-  .music-play-list {
-    padding: 8px;
-
-    .playlist-action-bar {
-      padding: 0 0 8px;
     }
   }
 }
