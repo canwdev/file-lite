@@ -138,7 +138,7 @@ export default defineComponent({
     transform: translateY(-50%);
     height: $bar_height;
     width: 0;
-    background: linear-gradient(90deg, #ff2d55, var(--vgo-primary));
+    background: linear-gradient(135deg, #ff2d55, #ff6a88);
     user-select: none;
     pointer-events: none;
     z-index: 1;
@@ -160,6 +160,7 @@ export default defineComponent({
     box-shadow: none;
     margin: 0;
     z-index: 2;
+    cursor: pointer;
 
     &::-webkit-slider-runnable-track {
       height: $bar_height;

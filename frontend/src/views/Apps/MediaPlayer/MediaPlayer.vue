@@ -55,7 +55,7 @@ watch(
 
 <template>
   <div
-    class="media-player-wrap media-player-scope"
+    class="media-player-wrap"
     :class="{ 'is-video-mode': mediaStore.isVideo, 'has-cover-bg': mediaStore.mediaItem?.cover }"
     :style="coverBackgroundStyle"
   >
@@ -86,16 +86,13 @@ watch(
       </div>
     </Transition>
 
-    <!-- 视频模式无底部控制条，音量/倍速不与 VArt 内持久化抢写 Pinia -->
-    <div v-if="!mediaStore.isVideo" class="music-below">
-      <MusicControl :playlist-open="showPlaylist" @toggle-playlist="showPlaylist = !showPlaylist" />
+    <div class="music-below">
+      <MusicControl :playlist-open="showPlaylist" :show-controls="!mediaStore.isVideo" @toggle-playlist="showPlaylist = !showPlaylist" />
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-$music-control-bar-height: 96px;
-
 .media-player-wrap {
   height: 100%;
   display: flex;
@@ -126,7 +123,7 @@ $music-control-bar-height: 96px;
     background-size: cover;
     background-position: center;
     filter: blur(54px) saturate(1.08);
-    opacity: 0.18;
+    opacity: 0.05;
     transform: scale(1.12);
     pointer-events: none;
   }
@@ -143,12 +140,10 @@ $music-control-bar-height: 96px;
     overflow: hidden;
     height: 100%;
     position: relative;
-    border-radius: 24px;
     background: transparent;
   }
 
   .music-below {
-    height: $music-control-bar-height;
     flex-shrink: 0;
     padding: 10px 14px 14px;
     position: relative;
@@ -156,9 +151,6 @@ $music-control-bar-height: 96px;
   }
 
   &.is-video-mode {
-    .music-above {
-      padding-bottom: 10px;
-    }
   }
 }
 
@@ -179,7 +171,7 @@ $music-control-bar-height: 96px;
   position: absolute;
   top: 14px;
   right: 14px;
-  bottom: calc(#{$music-control-bar-height} + 18px);
+  bottom: 100px;
   width: min(360px, calc(100vw - 28px));
   display: flex;
   flex-direction: column;
@@ -188,14 +180,12 @@ $music-control-bar-height: 96px;
   pointer-events: auto;
   border-radius: 26px;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 248, 251, 0.86)),
-    rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 1);
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow:
     0 28px 80px rgba(40, 40, 50, 0.20),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(28px) saturate(1.25);
+  // backdrop-filter: blur(28px) saturate(1.25);
 
   :deep(.music-play-list) {
     flex: 1;
@@ -251,38 +241,6 @@ $music-control-bar-height: 96px;
   }
 }
 
-:global(.dark) .media-player-scope {
-  background:
-    radial-gradient(circle at 12% 8%, rgba(255, 45, 85, 0.12), transparent 28%),
-    radial-gradient(circle at 88% 0%, rgba(var(--vgo-primary-rgb), 0.16), transparent 32%),
-    linear-gradient(145deg, #141416, #1b1b20 58%, #101014);
-
-  &.has-cover-bg {
-    background:
-      linear-gradient(135deg, rgba(18, 18, 20, 0.58), rgba(18, 18, 20, 0.86)),
-      radial-gradient(circle at 18% 8%, rgba(255, 45, 85, 0.18), transparent 30%),
-      #141416;
-  }
-
-  .playlist-panel {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)),
-      rgba(22, 22, 24, 0.82);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow:
-      0 28px 80px rgba(0, 0, 0, 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  }
-
-  .playlist-close {
-    background: rgba(255, 255, 255, 0.1);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.18);
-    }
-  }
-}
-
 .playlist-panel-enter-active,
 .playlist-panel-leave-active {
   transition: opacity 0.22s ease;
@@ -308,19 +266,15 @@ $music-control-bar-height: 96px;
 }
 
 @media screen and (max-width: 700px) {
-  $music-control-bar-height-mobile: 148px;
-
   .media-player-wrap {
     .music-above {
       padding: 10px 10px 0;
     }
 
     .media-detail {
-      border-radius: 20px;
     }
 
     .music-below {
-      height: $music-control-bar-height-mobile;
       padding: 8px;
     }
   }
@@ -329,9 +283,45 @@ $music-control-bar-height: 96px;
     top: 10px;
     right: 10px;
     left: 10px;
-    bottom: calc(#{$music-control-bar-height-mobile} + 12px);
     width: auto;
     border-radius: 22px;
+  }
+}
+</style>
+
+<style lang="scss">
+.dark {
+  .media-player-wrap {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 45, 85, 0.12), transparent 28%),
+    radial-gradient(circle at 88% 0%, rgba(var(--vgo-primary-rgb), 0.16), transparent 32%),
+    linear-gradient(145deg, #141416, #1b1b20 58%, #101014);
+
+  &.has-cover-bg {
+    background:
+      linear-gradient(135deg, rgba(18, 18, 20, 0.58), rgba(18, 18, 20, 0.86)),
+      radial-gradient(circle at 18% 8%, rgba(255, 45, 85, 0.18), transparent 30%),
+      #141416;
+  }
+
+  .playlist-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)),
+      rgba(22, 22, 24, 0.82);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 28px 80px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(28px) saturate(1.25);
+  }
+
+  .playlist-close {
+    background: rgba(255, 255, 255, 0.1);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+  }
   }
 }
 </style>

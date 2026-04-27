@@ -62,7 +62,6 @@ const isCurrent = computed(() => {
   border-radius: 14px;
   cursor: pointer;
   word-break: break-word;
-  border: 1px solid transparent;
   background-color: transparent;
   position: relative;
   transition: background-color 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
@@ -72,7 +71,6 @@ const isCurrent = computed(() => {
   }
 
   &.active {
-    border-color: rgba(var(--vgo-primary-rgb), 0.3);
     background:
       linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.18), rgba(255, 45, 85, 0.10)),
       rgba(255, 255, 255, 0.64);
@@ -178,7 +176,6 @@ const isCurrent = computed(() => {
       border-radius: 50%;
       color: inherit;
       background-color: rgba(255, 255, 255, 0.68);
-      backdrop-filter: blur(10px);
       pointer-events: auto;
 
       &:hover {
@@ -191,8 +188,10 @@ const isCurrent = computed(() => {
     opacity: 1;
   }
 }
+</style>
 
-:global(.dark) {
+<style lang="scss">
+.dark {
   .playlist-item {
     &:hover {
       background-color: rgba(255, 255, 255, 0.075);
