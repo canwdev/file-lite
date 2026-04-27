@@ -44,7 +44,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'update:isLoading', 'refresh'])
+const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh'])
 
 const { basePath, files, filterText, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>

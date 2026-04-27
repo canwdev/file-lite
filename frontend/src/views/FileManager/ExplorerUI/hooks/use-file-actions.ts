@@ -151,6 +151,7 @@ export function useFileActions({
     const isSingle = selectedItems.value.length === 1
     const selectedItem = selectedItems.value[0]
     const isFile = isSingle && !selectedItem.isDirectory
+    const isDirectory = isSingle && selectedItem.isDirectory
     const openActionMeta = getOpenActionMeta(selectedItem)
     return [
       isSingle && {
@@ -158,6 +159,13 @@ export function useFileActions({
         icon: openActionMeta.icon,
         onClick: () => {
           handleOpen()
+        },
+      },
+      isDirectory && {
+        label: 'Open in new Tab',
+        icon: 'mdi mdi-open-in-new',
+        onClick: () => {
+          emit('openPathInNewTab', normalizePath(`${basePath.value}/${selectedItem.name}`))
         },
       },
       isSingle

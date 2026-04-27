@@ -30,6 +30,8 @@ const props = withDefaults(
 const emit = defineEmits(['handleSelect', 'cancelSelect'])
 const { selectFileMode, multiple } = toRefs(props)
 const rootRef = ref()
+const route = useRoute()
+const router = useRouter()
 
 const {
   isLoading,
@@ -76,7 +78,12 @@ const fileSidebarRef = ref()
 onMounted(async () => {
   if (fileSidebarRef.value) {
     await fileSidebarRef.value.loadDrives()
-    if (basePath.value) {
+    const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
+    if (navPath) {
+      await handleOpenPath(navPath)
+      router.replace({ query: { ...route.query, navPath: undefined } })
+    }
+    else if (basePath.value) {
       handleRefresh()
     }
     else {
@@ -114,6 +121,17 @@ function removeStarredPath(path: string) {
   starList.value = starList.value.filter(item => item !== path)
 }
 
+function openPathInNewTab(path: string) {
+  const routeLocation = router.resolve({
+    name: 'HomeView',
+    query: {
+      ...route.query,
+      navPath: path,
+    },
+  })
+  window.open(routeLocation.href, '_blank')
+}
+
 function showStarredPathMenu(path: string, event: MouseEvent) {
   const items: MenuItem[] = [
     {
@@ -122,11 +140,55 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
       onClick: () => handleOpenPath(path),
     },
     {
+      label: 'Open in new Tab',
+      icon: 'mdi mdi-open-in-new',
+      onClick: () => openPathInNewTab(path),
+    },
+    {
       label: 'UnStar',
       icon: 'mdi mdi-star-off-outline',
       onClick: () => removeStarredPath(path),
     },
   ]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    theme: contextMenuTheme.value,
+    closeWhenScroll: false,
+    items,
+  })
+}
+
+async function jumpToHistory(index: number) {
+  const hist = navigationHistory.value
+  const item = hist?.history[index]
+  if (!hist || !item?.path) {
+    return
+  }
+  hist.currentIndex = index
+  await handleOpenPath(item.path, false)
+}
+
+function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
+  const hist = navigationHistory.value
+  if (!hist) {
+    return
+  }
+
+  const stack = direction === 'back'
+    ? hist.history.slice(0, hist.currentIndex).map((item, index) => ({ item, index })).reverse()
+    : hist.history.slice(hist.currentIndex + 1).map((item, offset) => ({ item, index: hist.currentIndex + 1 + offset }))
+
+  if (!stack.length) {
+    return
+  }
+
+  const items: MenuItem[] = stack.map(({ item, index }) => ({
+    label: item.path,
+    icon: direction === 'back' ? 'mdi mdi-arrow-left' : 'mdi mdi-arrow-right',
+    onClick: () => jumpToHistory(index),
+  }))
 
   ContextMenu.showContextMenu({
     x: event.clientX,
@@ -221,6 +283,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             class="btn-action btn-no-style"
             title="Back (alt+left)"
             @click="goBack"
+            @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
           >
             <span class="mdi mdi-arrow-left" />
           </button>
@@ -229,6 +292,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             class="btn-action btn-no-style"
             title="Forward (alt+right)"
             @click="goForward"
+            @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
           >
             <span class="mdi mdi-arrow-right" />
           </button>
@@ -249,6 +313,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             ref="addressBarRef"
             v-model="addressBarPath"
             @navigate="handleOpenPath"
+            @open-path-in-new-tab="openPathInNewTab"
             @refresh="debounceHandleRefresh"
           />
           <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
@@ -281,6 +346,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             ref="fileSidebarRef"
             :current-path="currentPathForSidebar"
             @open-drive="(i: IDrive) => handleOpenPath(i.path)"
+            @open-path-in-new-tab="openPathInNewTab"
           >
             <div v-if="starredPathsList.length" class="file-sidebar-content star-list">
               <div v-for="path in starredPathsList" :key="path">
@@ -312,6 +378,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             :multiple="multiple"
             :content-only="contentOnly"
             @open="handleFileListOpen"
+            @open-path-in-new-tab="openPathInNewTab"
             @refresh="debounceHandleRefresh"
           />
         </el-splitter-panel>

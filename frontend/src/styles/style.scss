@@ -186,9 +186,8 @@ html, body, #app {
 }
 
 // element 样式覆盖
-.el-splitter-bar__dragger-horizontal:after ,
-.el-splitter-bar__dragger-horizontal:before {
-  width: 1px !important;
+.el-splitter-bar__dragger-horizontal:after, .el-splitter-bar__dragger-horizontal:before {
+  width: 0.5px !important;
   background-color: var(--vgo-color-border) !important;
 }
 

@@ -1,10 +1,11 @@
 import { fsWebApi } from '@/api/filesystem'
+import { useSharedRef } from '@/hooks/use-shared-ref'
 import explorerBus, { ExplorerEvents } from '../../utils/bus'
 
-const explorerStore = reactive<{
+const explorerStore = useSharedRef<{
   cutPaths: string[]
   copyPaths: string[]
-}>({
+}>('file-lite:explorer-copy-paste', {
   cutPaths: [],
   copyPaths: [],
 })
@@ -21,28 +22,28 @@ export function useCopyPaste({
   emit: any
 }) {
   const enablePaste = computed(() => {
-    return explorerStore.cutPaths.length > 0 || explorerStore.copyPaths.length > 0
+    return explorerStore.value.cutPaths.length > 0 || explorerStore.value.copyPaths.length > 0
   })
 
   const handleCut = () => {
-    explorerStore.copyPaths = []
-    explorerStore.cutPaths = selectedPaths.value
+    explorerStore.value.copyPaths = []
+    explorerStore.value.cutPaths = [...selectedPaths.value]
   }
 
   const handleCopy = () => {
-    explorerStore.cutPaths = []
-    explorerStore.copyPaths = selectedPaths.value
+    explorerStore.value.cutPaths = []
+    explorerStore.value.copyPaths = [...selectedPaths.value]
   }
 
   const handlePaste = async () => {
     let paths: string[] = []
     let isMove = false
-    if (explorerStore.cutPaths.length) {
-      paths = explorerStore.cutPaths
+    if (explorerStore.value.cutPaths.length) {
+      paths = explorerStore.value.cutPaths
       isMove = true
     }
-    else if (explorerStore.copyPaths.length) {
-      paths = explorerStore.copyPaths
+    else if (explorerStore.value.copyPaths.length) {
+      paths = explorerStore.value.copyPaths
     }
     else {
       return
@@ -57,11 +58,11 @@ export function useCopyPaste({
         isMove,
       })
       if (isMove) {
-        explorerStore.cutPaths = []
+        explorerStore.value.cutPaths = []
         explorerBus.emit(ExplorerEvents.REFRESH)
       }
       else {
-        explorerStore.copyPaths = []
+        explorerStore.value.copyPaths = []
         emit('refresh')
       }
     }
