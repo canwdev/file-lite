@@ -7,9 +7,63 @@ import {
   regSupportedTextFormat,
   regSupportedVideoFormat,
 } from '@/utils/is'
-import { getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
+import { appListByOpenWith, getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
+
+interface OpenAppInfo {
+  name: string
+  icon: string
+  openWith: OpenWithEnum
+  source: 'custom' | 'matched' | 'fallback'
+}
+
+type OpenAppMeta = Omit<OpenAppInfo, 'source'>
+
+const specialOpenApps: Partial<Record<OpenWithEnum, OpenAppMeta>> = {
+  [OpenWithEnum.Browser]: {
+    name: 'Browser',
+    icon: 'mdi mdi-open-in-new',
+    openWith: OpenWithEnum.Browser,
+  },
+  [OpenWithEnum.Share]: {
+    name: 'Share',
+    icon: 'mdi mdi-share-variant',
+    openWith: OpenWithEnum.Share,
+  },
+}
+
+function getOpenAppInfo(openWith: OpenWithEnum): OpenAppInfo {
+  const app: OpenAppMeta = appListByOpenWith[openWith] ?? specialOpenApps[openWith] ?? {
+    name: openWith,
+    icon: 'mdi mdi-open-in-app',
+    openWith,
+  }
+  return { ...app, source: 'matched' }
+}
+
+export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
+  const customDefault = getDefaultApp(item.name)
+  if (customDefault) {
+    return { ...getOpenAppInfo(customDefault), source: 'custom' }
+  }
+
+  if (regSupportedImageFormat.test(item.name)) {
+    // return getOpenAppInfo(OpenWithEnum.ImageViewer)
+    return getOpenAppInfo(OpenWithEnum.EndlessGallery)
+  }
+  if (regSupportedTextFormat.test(item.name)) {
+    return getOpenAppInfo(OpenWithEnum.TextEditor)
+  }
+  if (regSupportedAudioFormat.test(item.name)) {
+    return getOpenAppInfo(OpenWithEnum.MediaPlayer)
+  }
+  if (regSupportedVideoFormat.test(item.name)) {
+    return getOpenAppInfo(OpenWithEnum.VideoPlayer)
+  }
+
+  return { ...getOpenAppInfo(OpenWithEnum.Browser), source: 'fallback' }
+}
 
 function checkTooLargeFileDialog(item: IEntry, bytes: number) {
   return new Promise<boolean>((resolve) => {
@@ -59,48 +113,52 @@ export function useOpener(basePath: { value: string }) {
         list,
       })
     }
-    if (openWith) {
-      if (openWith === OpenWithEnum.Browser) {
+    const openSpecialApp = async (appName: OpenWithEnum) => {
+      if (appName === OpenWithEnum.Browser) {
         window.open(getStreamUrl(item))
-        return
+        return true
       }
-      if (openWith === OpenWithEnum.Share) {
+      if (appName === OpenWithEnum.Share) {
         await navigator.share({
           title: item.name,
           text: '',
           url: getStreamUrl(item),
         })
+        return true
+      }
+      return false
+    }
+    if (openWith) {
+      if (await openSpecialApp(openWith)) {
         return
       }
       openApp(openWith)
       return
     }
-    const customDefault = getDefaultApp(item.name)
-    if (customDefault) {
-      openApp(customDefault)
+    const defaultOpenApp = getDefaultOpenApp(item)
+    if (defaultOpenApp.source === 'custom') {
+      if (await openSpecialApp(defaultOpenApp.openWith)) {
+        return
+      }
+      openApp(defaultOpenApp.openWith)
       return
     }
-
-    if (regSupportedImageFormat.test(item.name)) {
+    if (defaultOpenApp.openWith === OpenWithEnum.ImageViewer) {
       // 50MB
       if (await checkTooLargeFileDialog(item, 1024 * 1024 * 100)) {
         openApp(OpenWithEnum.ImageViewer)
       }
       return
     }
-    if (regSupportedTextFormat.test(item.name)) {
+    if (defaultOpenApp.openWith === OpenWithEnum.TextEditor) {
       // 1MB
       if (await checkTooLargeFileDialog(item, 1024 * 1024)) {
         openApp(OpenWithEnum.TextEditor)
       }
       return
     }
-    if (regSupportedAudioFormat.test(item.name)) {
-      openApp(OpenWithEnum.MediaPlayer)
-      return
-    }
-    if (regSupportedVideoFormat.test(item.name)) {
-      openApp(OpenWithEnum.VideoPlayer)
+    if (defaultOpenApp.openWith !== OpenWithEnum.Browser) {
+      openApp(defaultOpenApp.openWith)
       return
     }
 

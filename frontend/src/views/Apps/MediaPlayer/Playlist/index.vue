@@ -6,6 +6,9 @@ import PlaylistItem from './PlaylistItem.vue'
 
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
+const emit = defineEmits<{
+  (e: 'locateItem', name: string): void
+}>()
 
 const filterText = ref('')
 const filterTextDebounced = refDebounced(filterText, 500)
@@ -74,6 +77,7 @@ function scrollToCurrent() {
           :key="item.guid"
           :item="item"
           @click="handleItemClick(item)"
+          @locate-item="(name: string) => emit('locateItem', name)"
         />
       </template>
     </div>

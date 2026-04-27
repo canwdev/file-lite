@@ -30,7 +30,7 @@ export const AppList = [
   {
     name: 'Text Editor',
     openWith: OpenWithEnum.TextEditor,
-    icon: 'mdi mdi-text-box',
+    icon: 'mdi mdi-text-box-edit',
     component: defineAsyncComponent(() => import('./TextEditor.vue')),
   },
   {

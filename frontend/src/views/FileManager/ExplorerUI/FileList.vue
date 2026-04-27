@@ -17,7 +17,7 @@ import TransferQueue from '../TransferQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
-import { useFileActions } from './hooks/use-file-actions'
+import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
 import { useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
 import { useTransfer } from './hooks/use-transfer'
@@ -239,29 +239,6 @@ const virtualGridItemsStyle = computed(() => ({
   transform: `translateY(${virtualGrid.offsetTop.value}px)`,
 }))
 
-watch(
-  [isGridMode, iconSizeGrid, () => virtualGrid.visibleItems.value.length],
-  () => nextTick(measureGridItemHeight),
-  { immediate: true },
-)
-
-function measureGridItemHeight() {
-  if (!isGridMode.value) {
-    return
-  }
-
-  const itemEl = explorerContentRef.value?.querySelector<HTMLElement>('.explorer-grid-items .file-grid-item')
-  if (!itemEl) {
-    return
-  }
-
-  const measuredHeight = itemEl.offsetHeight
-  if (measuredHeight > 0 && Math.abs(measuredHeight - virtualGrid.itemHeight.value) > 1) {
-    virtualGrid.itemHeight.value = measuredHeight
-    virtualGrid.refresh()
-  }
-}
-
 function getItemsInSelectionRect(rect: {
   left: number
   top: number
@@ -388,6 +365,10 @@ const {
   handleDownload,
   downloadToFolder,
   emit,
+})
+
+const openActionMeta = computed(() => {
+  return selectedItems.value.length === 1 ? getOpenActionMeta(selectedItems.value[0]) : null
 })
 
 function getMenuOptions() {
@@ -519,6 +500,33 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0) {
   }
 }
 
+function scrollToItemIndex(index: number) {
+  const el = explorerContentRef.value
+  if (!el || index < 0) {
+    return
+  }
+
+  const targetTop = isGridMode.value
+    ? 10 + Math.floor(index / virtualGrid.columns.value) * virtualGrid.rowHeight.value
+    : index * virtualList.itemHeight.value
+  const itemHeight = isGridMode.value ? virtualGrid.rowHeight.value : virtualList.itemHeight.value
+  const scrollTop = Math.max(targetTop - (el.clientHeight - itemHeight) / 2, 0)
+
+  el.scrollTop = scrollTop
+  virtualList.refresh()
+  virtualGrid.refresh()
+}
+
+function selectAndReveal(name: string) {
+  const index = filteredFiles.value.findIndex(item => item.name === name)
+  if (index === -1) {
+    return
+  }
+
+  selectByNames([name])
+  nextTick(() => scrollToItemIndex(index))
+}
+
 watchDebounced(files, () => {
   if (stateMap.value[basePath.value]) {
     const position = stateMap.value[basePath.value]?.position || 0
@@ -548,6 +556,7 @@ useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
 defineExpose({
   selectedItems,
   selectByNames,
+  selectAndReveal,
   basePath,
   handleShortcutKey,
   handleCreateFile,
@@ -668,6 +677,15 @@ defineExpose({
         </template>
       </div>
       <div class="action-group">
+        <button
+          v-if="openActionMeta"
+          class="btn-action btn-no-style"
+          :title="`${openActionMeta.label} (F3)`"
+          @click="handleOpen"
+        >
+          <span :class="openActionMeta.icon" />
+        </button>
+
         <button
           class="btn-action btn-no-style"
           title="Toggle hidden file visible (ctrl+h)"

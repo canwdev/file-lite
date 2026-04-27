@@ -11,6 +11,7 @@ const emit = defineEmits<{
   (e: 'setTitle', val: string): void
   (e: 'exit'): void
   (e: 'selectItems', names: string[]): void
+  (e: 'locateItem', name: string): void
 }>()
 
 // ── Collection ─────────────────────────────────────────────
@@ -60,6 +61,13 @@ function handleSelectCollected(): void {
   if (!collectedItems.length)
     return
   emit('selectItems', collectedItems.map(i => i.name))
+  emit('exit')
+}
+
+function handleLocateCurrent(): void {
+  if (!currentItem.value)
+    return
+  emit('locateItem', currentItem.value.name)
   emit('exit')
 }
 
@@ -223,6 +231,13 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
       </button>
       <button
         class="nav-arrow"
+        title="Locate in folder"
+        @click.stop="handleLocateCurrent"
+      >
+        <span class="mdi mdi-crosshairs-gps" />
+      </button>
+      <button
+        class="nav-arrow"
         :class="{ disabled: currentIndex >= items.length - 1 }"
         title="Next (↓ / j)"
         @click.stop="navigate(true)"
@@ -317,7 +332,9 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
   height: 100%;
   position: relative;
   overflow: hidden;
-  background: #0d0d0d;
+  background-color: #0d0d0d;
+  background-image: conic-gradient(#181818 25%, #0d0d0d 0 50%, #181818 0 75%, #0d0d0d 0);
+  background-size: 24px 24px;
   user-select: none;
   cursor: grab;
   touch-action: none;

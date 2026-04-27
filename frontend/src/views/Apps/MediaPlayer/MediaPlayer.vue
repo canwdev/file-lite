@@ -14,6 +14,9 @@ const props = withDefaults(
   }>(),
   {},
 )
+const emit = defineEmits<{
+  (e: 'locateItem', name: string): void
+}>()
 
 // const {params} = toRefs(props)
 
@@ -49,7 +52,7 @@ watch(
     <div class="music-above">
       <el-splitter lazy>
         <el-splitter-panel size="230px" collapsible>
-          <MusicPlaylist />
+          <MusicPlaylist @locate-item="(name: string) => emit('locateItem', name)" />
         </el-splitter-panel>
         <el-splitter-panel collapsible>
           <div class="media-detail">
