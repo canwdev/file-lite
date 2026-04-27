@@ -68,7 +68,7 @@ function startServer(): Promise<StartServerResult> {
       let urlIpSelector = ''
       const printUrls = () => {
         console.log(``)
-        const authParam = internalConfig.config?.noAuth ? '' : `auth=${internalConfig.authToken}`
+        const authParam = `auth=${internalConfig.authToken}`
         const protocol = isHttps ? 'https:' : 'http:'
         const { localhostUrl, ips } = printServerRunningOn({
           protocol,
@@ -77,7 +77,7 @@ function startServer(): Promise<StartServerResult> {
           params: authParam ? `?${authParam}` : '',
         })
         console.log(`IP Selector:`)
-        urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, auth: internalConfig.config?.noAuth ? '' : (internalConfig.authToken || '') }))}`
+        urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, auth: (internalConfig.authToken || '') }))}`
         console.log(urlIpSelector)
         console.log('')
       }

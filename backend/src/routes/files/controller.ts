@@ -30,13 +30,32 @@ function isPathSafe(path: string): boolean {
   if (!internalConfig.safeBaseDir) {
     return true
   }
-  const safeBaseDir = internalConfig.safeBaseDir
-  const resolvedPath = normalizePath(path)
-  const isSafe = resolvedPath.startsWith(safeBaseDir)
+  const safeBaseDir = Path.resolve(internalConfig.safeBaseDir)
+  const resolvedPath = Path.resolve(path)
+  const relativePath = Path.relative(safeBaseDir, resolvedPath)
+  const isSafe = relativePath === '' || (!relativePath.startsWith('..') && !Path.isAbsolute(relativePath))
   if (!isSafe) {
-    console.error('unsafe', { resolvedPath, safeBaseDir })
+    console.error('unsafe', { resolvedPath: normalizePath(resolvedPath), safeBaseDir: normalizePath(safeBaseDir) })
   }
   return isSafe
+}
+
+function sanitizeUploadFilename(originalName: string): string {
+  const decodedName = Buffer.from(originalName, 'latin1').toString('utf8')
+  if (
+    !decodedName
+    || decodedName !== Path.basename(decodedName)
+    || decodedName.includes('..')
+    || decodedName.includes('/')
+    || decodedName.includes('\\')
+  ) {
+    throw new Error('Invalid filename')
+  }
+  const safeName = sanitize(decodedName)
+  if (!safeName) {
+    throw new Error('Invalid filename')
+  }
+  return safeName
 }
 
 /**
@@ -136,7 +155,7 @@ export async function getDrivers(req: Request, res: Response) {
 
     return res.json([homeDrive, ...otherDrives])
   }
-  catch (error: any) {
+  catch {
     const list = (await getWindowsDrives()).map(drive => ({
       label: drive,
       path: drive,
@@ -461,11 +480,11 @@ export const multerUpload = multer({
       // console.log('upload file', file)
       // 如果文件名包含非 UTF-8 字符，尝试进行转码
       try {
-        file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8')
+        file.originalname = sanitizeUploadFilename(file.originalname)
       }
       catch (error) {
-        console.error('Error decoding filename:', error)
-        console.warn('Failed to decode filename, using original name', file.originalname)
+        console.error('Invalid upload filename:', error)
+        return cb(error as Error, '')
       }
       cb(null, file.originalname)
     },

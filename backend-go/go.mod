@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mattn/go-isatty v0.0.20
+	github.com/pablor21/echo-etag/v4 v4.0.4-0.20230225220934-502235038145
 )
 
 require (

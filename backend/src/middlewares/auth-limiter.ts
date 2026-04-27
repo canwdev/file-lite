@@ -3,14 +3,17 @@
  */
 export class IPRateLimiter {
   // 使用 private 属性封装内部状态
-  private readonly failureTracker = new Map<string, number>()
+  private readonly failureTracker = new Map<string, { attempts: number, expiresAt: number }>()
   private readonly bannedIPs = new Map<string, number>()
   private readonly maxAttempts: number
   private readonly banDurationMs: number
+  private readonly failureWindowMs: number
+  private lastCleanupAt = 0
 
-  constructor(options: { maxAttempts: number, banDurationMs: number }) {
+  constructor(options: { maxAttempts: number, banDurationMs: number, failureWindowMs?: number }) {
     this.maxAttempts = options.maxAttempts
     this.banDurationMs = options.banDurationMs
+    this.failureWindowMs = options.failureWindowMs ?? options.banDurationMs
   }
 
   /**
@@ -19,19 +22,22 @@ export class IPRateLimiter {
    * @returns 返回一个对象，指明IP是否被封禁以及剩余时间
    */
   public check(ip: string): { isBanned: boolean, timeLeft?: number } {
+    const now = Date.now()
+    this.cleanupExpired(now)
+
     const unbanTime = this.bannedIPs.get(ip)
 
     // 如果存在解封时间戳
     if (unbanTime) {
       // 检查封禁是否已过期
-      if (Date.now() > unbanTime) {
+      if (now > unbanTime) {
         this.bannedIPs.delete(ip) // 解封
         this.failureTracker.delete(ip) // 清除失败记录
         return { isBanned: false }
       }
 
       // 仍在封禁期
-      const timeLeft = Math.ceil((unbanTime - Date.now()) / 1000 / 60)
+      const timeLeft = Math.ceil((unbanTime - now) / 1000 / 60)
       return { isBanned: true, timeLeft }
     }
 
@@ -43,11 +49,23 @@ export class IPRateLimiter {
    * @param ip 失败尝试的IP地址
    */
   public recordFailure(ip: string): void {
-    const currentFailures = (this.failureTracker.get(ip) || 0) + 1
-    this.failureTracker.set(ip, currentFailures)
+    const now = Date.now()
+    this.cleanupExpired(now)
 
-    if (currentFailures > this.maxAttempts) {
-      this.ban(ip)
+    const currentRecord = this.failureTracker.get(ip)
+    const currentFailures = currentRecord && currentRecord.expiresAt > now
+      ? currentRecord.attempts + 1
+      : 1
+
+    this.failureTracker.set(ip, {
+      attempts: currentFailures,
+      expiresAt: currentRecord && currentRecord.expiresAt > now
+        ? currentRecord.expiresAt
+        : now + this.failureWindowMs,
+    })
+
+    if (currentFailures >= this.maxAttempts) {
+      this.ban(ip, now)
     }
   }
 
@@ -65,10 +83,30 @@ export class IPRateLimiter {
    * 封禁一个IP
    * @param ip 要封禁的IP地址
    */
-  private ban(ip: string): void {
+  private ban(ip: string, now = Date.now()): void {
     console.warn(`[AuthLimiter] Banning IP ${ip} for ${this.banDurationMs / 60000} minutes.`)
-    this.bannedIPs.set(ip, Date.now() + this.banDurationMs)
+    this.bannedIPs.set(ip, now + this.banDurationMs)
     // 封禁后从失败记录中移除，节省内存
     this.failureTracker.delete(ip)
+  }
+
+  private cleanupExpired(now: number): void {
+    if (now - this.lastCleanupAt < 60 * 1000) {
+      return
+    }
+
+    this.lastCleanupAt = now
+
+    for (const [ip, record] of this.failureTracker) {
+      if (record.expiresAt <= now) {
+        this.failureTracker.delete(ip)
+      }
+    }
+
+    for (const [ip, unbanTime] of this.bannedIPs) {
+      if (unbanTime <= now) {
+        this.bannedIPs.delete(ip)
+      }
+    }
   }
 }

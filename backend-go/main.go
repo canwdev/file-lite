@@ -103,10 +103,7 @@ func startServer() (*StartServerResult, error) {
 		// Construct IP selector URL
 		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
 
-		auth := ""
-		if !config.Config().NoAuth {
-			auth = config.AuthToken()
-		}
+		auth := config.AuthToken()
 
 		data := map[string]interface{}{
 			"ips":      ips,
@@ -152,10 +149,7 @@ func startServer() (*StartServerResult, error) {
 		protocol = "https:"
 	}
 	localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
-	auth := ""
-	if !config.Config().NoAuth {
-		auth = config.AuthToken()
-	}
+	auth := config.AuthToken()
 	data := map[string]interface{}{
 		"ips":      utils.GetAvailableIPs(host),
 		"port":     port,

@@ -9,6 +9,10 @@ export function normalizePath(p: string) {
   return p.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
+export function isExplicitDevMode() {
+  return process.env.FILE_LITE_DEV_MODE === 'true' || process.env.NODE_ENV === 'development'
+}
+
 function S4() {
   return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
 }
