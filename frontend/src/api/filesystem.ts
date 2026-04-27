@@ -16,10 +16,11 @@ export const fsWebApi = {
   async getDrives() {
     return (await service.get('/drives')) as unknown as IDrive[]
   },
-  async getList(params: any = {}) {
+  async getList(params: any = {}, config: any = {}) {
     const { path } = params
     return await service.get('/list', {
       params: { path },
+      ...config,
     }) as unknown as IEntry[]
   },
   createDir(params: { path: string, ignoreExisted?: boolean }) {

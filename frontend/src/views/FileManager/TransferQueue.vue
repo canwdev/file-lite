@@ -7,6 +7,8 @@ import { isDev } from '@/enum'
 import { authToken } from '@/store'
 import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
+import { useVirtualList } from './ExplorerUI/hooks/use-virtual-files'
+import { showInputPrompt } from './ExplorerUI/input-prompt'
 
 const props = withDefaults(
   defineProps<{
@@ -53,12 +55,44 @@ const listData = ref<ITransferItem[]>([])
 const isVisible = ref(false)
 const transferIndex = ref(0)
 const taskQueueRef = ref()
+const transferListRef = ref<HTMLElement | null>(null)
+const transferItemHeight = ref(54)
+const statusCounts = reactive({
+  success: 0,
+  failed: 0,
+  transferring: 0,
+})
+const virtualTransferList = useVirtualList({
+  items: listData,
+  containerRef: transferListRef,
+  itemHeight: transferItemHeight,
+  overscan: 8,
+})
+watch(
+  () => virtualTransferList.visibleItems.value.length,
+  () => nextTick(measureTransferItemHeight),
+  { immediate: true },
+)
+
+function measureTransferItemHeight() {
+  const itemEl = transferListRef.value?.querySelector<HTMLElement>('.transfer-item')
+  if (!itemEl) {
+    return
+  }
+
+  const measuredHeight = itemEl.offsetHeight
+  if (measuredHeight > 0 && Math.abs(measuredHeight - transferItemHeight.value) > 1) {
+    transferItemHeight.value = measuredHeight
+    virtualTransferList.refresh()
+  }
+}
 
 watch(isVisible, (val) => {
   if (!val) {
     transferIndex.value = 0
     cancelAll()
     listData.value = []
+    resetStatusCounts()
   }
 })
 
@@ -66,11 +100,16 @@ function cancelAll() {
   taskQueueRef.value.removeAllTask()
   listData.value.forEach((i) => {
     if (i.status === 'pending' || i.status === 'transferring' || i.abortObj) {
-      i.abortObj?.abort()
-      i.status = 'failed'
-      i.message = 'Cancelled'
+      cancelItem(i)
     }
   })
+}
+
+async function cancelItem(item: ITransferItem) {
+  item.abortObj?.abort()
+  item.abortObj = undefined
+  setItemStatus(item, 'failed')
+  item.message = 'Cancelled'
 }
 
 async function handleUpload(data: ITransferItem, abortController: AbortController) {
@@ -181,7 +220,7 @@ function taskHandler(task: TaskItem) {
       const { path, type = 'upload' } = data
 
       const abortController = new AbortController()
-      data.status = 'transferring'
+      setItemStatus(data, 'transferring')
       data.abortObj = {
         abort: async () => {
           abortController.abort()
@@ -200,7 +239,7 @@ function taskHandler(task: TaskItem) {
         await handleDownload(data, abortController)
       }
 
-      data.status = 'success'
+      setItemStatus(data, 'success')
       data.abortObj = undefined
       data.message = 'Success'
       emit('singleDone', data)
@@ -208,10 +247,16 @@ function taskHandler(task: TaskItem) {
     }
     catch (e: any) {
       if (e.name === 'AbortError') {
+        if (data.status !== 'failed') {
+          setItemStatus(data, 'failed')
+          data.message = 'Cancelled'
+          data.abortObj = undefined
+        }
+        resolve(data)
         return
       }
       console.error(e)
-      data.status = 'failed'
+      setItemStatus(data, 'failed')
       data.message = e.message
       data.abortObj = undefined
       reject(e)
@@ -230,8 +275,7 @@ onMounted(() => {
   taskQueueRef.value.on('allDone', () => {
     emit('allDone', listData.value)
     if (props.autoClose) {
-      const hasError = listData.value.some(i => i.status === 'failed')
-      if (!hasError) {
+      if (!statusCounts.failed) {
         isVisible.value = false
       }
     }
@@ -260,12 +304,26 @@ function addTask(data: IBatchFile, position: number = -1) {
   isVisible.value = true
 }
 function addTasks(data: IBatchFile[]) {
-  data.forEach((i) => {
-    addTask(i)
+  if (!data.length) {
+    return
+  }
+
+  const items = data.map((item) => {
+    return {
+      ...item,
+      index: ++transferIndex.value,
+      progress: 0,
+      status: 'pending',
+      message: 'Waiting',
+    } as ITransferItem
   })
+  listData.value.push(...items)
+  taskQueueRef.value.addTasks(items)
+  isVisible.value = true
 }
 
 function handleRetry(item: ITransferItem, index: number) {
+  decreaseStatusCount(item.status)
   listData.value.splice(index, 1)
   addTask(item, index)
 }
@@ -334,36 +392,84 @@ onMounted(() => {
         progress: 0.15,
       }),
     ]
+    refreshStatusCounts()
   }
   mockList()
 })
 
 const successNum = computed(() => {
-  return listData.value.filter(i => i.status === 'success').length
+  return statusCounts.success
 })
 const transferringNum = computed(() => {
-  return listData.value.filter(i => i.status === 'transferring').length
+  return statusCounts.transferring
 })
 const errorNum = computed(() => {
-  return listData.value.filter(i => i.status === 'failed').length
+  return statusCounts.failed
 })
 const totalProgress = computed(() => {
-  return (successNum.value / listData.value.length) * 100
+  return listData.value.length ? (successNum.value / listData.value.length) * 100 : 0
+})
+const hasActiveTasks = computed(() => {
+  return transferringNum.value > 0
 })
 function clearFailed() {
   listData.value = listData.value.filter(i => i.status !== 'failed')
+  statusCounts.failed = 0
 }
 function clearSuccess() {
   listData.value = listData.value.filter(i => i.status !== 'success')
+  statusCounts.success = 0
 }
 
-function setConcurrentNum() {
-  const num = prompt('Enter the number of concurrent tasks', String(concurrentNum.value) || '1')
-  const intNum = Number.parseInt(num || '0')
-  if (num && !Number.isNaN(intNum) && intNum > 0) {
-    concurrentNum.value = intNum
-    taskQueueRef.value.concurrent = intNum
+function setItemStatus(item: ITransferItem, status: ITransferItem['status']) {
+  if (item.status === status) {
+    return
   }
+
+  decreaseStatusCount(item.status)
+  item.status = status
+  increaseStatusCount(status)
+}
+
+function increaseStatusCount(status: ITransferItem['status']) {
+  if (status === 'success' || status === 'failed' || status === 'transferring') {
+    statusCounts[status]++
+  }
+}
+
+function decreaseStatusCount(status: ITransferItem['status']) {
+  if (status === 'success' || status === 'failed' || status === 'transferring') {
+    statusCounts[status] = Math.max(statusCounts[status] - 1, 0)
+  }
+}
+
+function resetStatusCounts() {
+  statusCounts.success = 0
+  statusCounts.failed = 0
+  statusCounts.transferring = 0
+}
+
+function refreshStatusCounts() {
+  resetStatusCounts()
+  listData.value.forEach(item => increaseStatusCount(item.status))
+}
+
+async function setConcurrentNum() {
+  const num = await showInputPrompt({
+    title: 'Set Concurrent Tasks',
+    value: String(concurrentNum.value || 1),
+    placeholder: 'Enter the number of concurrent tasks',
+    type: 'number',
+    validateFn: (val) => {
+      const intNum = Number.parseInt(val || '0')
+      if (Number.isNaN(intNum) || intNum <= 0) {
+        return 'Please enter a positive integer'
+      }
+    },
+  })
+  const intNum = Number.parseInt(num)
+  concurrentNum.value = intNum
+  taskQueueRef.value.concurrent = intNum
 }
 defineExpose({
   addTask,
@@ -374,7 +480,7 @@ defineExpose({
 <template>
   <ViewPortWindow
     v-model:visible="isVisible"
-    :show-close="!taskQueueRef?.executing?.length"
+    :show-close="!hasActiveTasks"
     :init-win-options="{
       width: '360px',
     }"
@@ -393,9 +499,14 @@ defineExpose({
         <div :style="{ width: `${totalProgress}%` }" class="bar-value" />
       </div>
 
-      <div class="transfer-list">
+      <div ref="transferListRef" class="transfer-list">
         <div
-          v-for="(item, index) in listData"
+          v-if="virtualTransferList.beforeHeight.value"
+          class="transfer-virtual-spacer"
+          :style="{ height: `${virtualTransferList.beforeHeight.value}px` }"
+        />
+        <div
+          v-for="{ item, index } in virtualTransferList.visibleItems.value"
           :key="item.index"
           :class="[item.status, item.type]"
           class="transfer-item"
@@ -449,7 +560,7 @@ defineExpose({
                 v-if="item.abortObj"
                 class="action-btn"
                 title="Cancel"
-                @click="item.abortObj.abort()"
+                @click="cancelItem(item)"
               >
                 <i class="mdi mdi-close" />
               </button>
@@ -478,6 +589,11 @@ defineExpose({
             </div>
           </div>
         </div>
+        <div
+          v-if="virtualTransferList.afterHeight.value"
+          class="transfer-virtual-spacer"
+          :style="{ height: `${virtualTransferList.afterHeight.value}px` }"
+        />
       </div>
       <div class="transfer-footer">
         <div class="footer-group">
@@ -496,7 +612,7 @@ defineExpose({
           </button>
         </div>
         <div class="footer-group">
-          <button v-if="taskQueueRef?.executing?.length" class="vgo-button danger" @click="cancelAll">
+          <button v-if="hasActiveTasks" class="vgo-button danger" @click="cancelAll">
             Cancel All
           </button>
           <button v-else class="vgo-button primary" @click="isVisible = false">
@@ -531,6 +647,10 @@ defineExpose({
     height: 400px;
     overflow-y: auto;
     padding: 0;
+
+    .transfer-virtual-spacer {
+      pointer-events: none;
+    }
 
     .transfer-item {
       display: flex;

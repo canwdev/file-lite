@@ -40,7 +40,10 @@ go build -o file-lite-go.exe ./
 ## 使用 air 热重载开发环境
 
 ```shell
-# 安装 air
+# OR use the default global proxy
+$env:GOPROXY = "https://proxy.golang.org,direct"
+
+# Then run the install
 go install github.com/air-verse/air@latest
 
 # 启动

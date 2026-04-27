@@ -4,6 +4,9 @@ import { fsWebApi } from '@/api/filesystem'
 import { downloadUrl } from '@/utils'
 import { normalizePath } from '../../utils'
 
+const DOWNLOAD_TASK_BATCH_SIZE = 200
+const DOWNLOAD_YIELD_INTERVAL = 1500
+
 export function useTransfer({
   basePath,
   isLoading,
@@ -141,31 +144,62 @@ export function useTransfer({
         return
       }
 
-      const processEntry = async (entry: IEntry, currentHandle: FileSystemDirectoryHandle, basePathStr: string) => {
+      const pendingTasks: {
+        filename: string
+        path: string
+        parentHandle: FileSystemDirectoryHandle
+        type: 'download'
+      }[] = []
+      const stack = selectedItems.value.map(item => ({
+        entry: item,
+        parentHandle: handle,
+        basePathStr: basePath.value,
+      }))
+      let processedCount = 0
+
+      const flushTasks = () => {
+        if (!pendingTasks.length) {
+          return
+        }
+
+        transferQueueRef.value.addTasks(pendingTasks.splice(0))
+      }
+
+      while (stack.length) {
+        const { entry, parentHandle, basePathStr } = stack.pop()!
         const itemPath = normalizePath(`${basePathStr}/${entry.name}`)
-        console.log('processEntry', itemPath, entry)
+
         if (entry.isDirectory) {
-          // 直接创建本地目录，不添加到任务队列
-          const dirHandle = await currentHandle.getDirectoryHandle(entry.name, { create: true })
+          const dirHandle = await parentHandle.getDirectoryHandle(entry.name, { create: true })
           const children = await fsWebApi.getList({ path: itemPath })
-          for (const child of children) {
-            await processEntry(child, dirHandle, itemPath)
+          for (let i = children.length - 1; i >= 0; i--) {
+            stack.push({
+              entry: children[i],
+              parentHandle: dirHandle,
+              basePathStr: itemPath,
+            })
           }
         }
         else {
-          // 添加文件下载任务到队列
-          transferQueueRef.value.addTask({
+          pendingTasks.push({
             filename: entry.name,
             path: itemPath,
-            parentHandle: currentHandle,
+            parentHandle,
             type: 'download',
           })
         }
+
+        processedCount++
+        if (pendingTasks.length >= DOWNLOAD_TASK_BATCH_SIZE) {
+          flushTasks()
+          await yieldToBrowser()
+        }
+        else if (processedCount % DOWNLOAD_YIELD_INTERVAL === 0) {
+          await yieldToBrowser()
+        }
       }
 
-      for (const item of selectedItems.value) {
-        await processEntry(item, handle, basePath.value)
-      }
+      flushTasks()
     }
     catch (e: any) {
       if (e.name === 'AbortError') {
@@ -202,4 +236,10 @@ export function useTransfer({
     confirmDownload,
     downloadToFolder,
   }
+}
+
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve)
+  })
 }

@@ -66,7 +66,13 @@ export class TaskQueue extends EventEmitter {
   }
 
   addTasks(dataList: any[]) {
-    dataList.forEach(data => this.addTask(data))
+    dataList.forEach((data) => {
+      const task = new TaskItem(data)
+      const key = this.getTaskMapKey(task)
+      this.taskMap[key] = task
+      this.tasks.push(task)
+    })
+    this.execute()
   }
 
   execute() {
