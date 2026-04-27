@@ -7,6 +7,9 @@ interface Props {
   item: MediaItem
 }
 const props = withDefaults(defineProps<Props>(), {})
+const emit = defineEmits<{
+  (e: 'locateItem', name: string): void
+}>()
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 
@@ -37,7 +40,15 @@ const isCurrent = computed(() => {
         {{ item.artistsAlbumDisplay }}
       </div>
     </div>
-    <div class="item-right" />
+    <div class="item-right">
+      <button
+        class="locate-btn btn-no-style"
+        title="Locate in folder"
+        @click.stop="emit('locateItem', item.filename)"
+      >
+        <span class="mdi mdi-crosshairs-gps" />
+      </button>
+    </div>
   </div>
 </template>
 
@@ -52,6 +63,7 @@ const isCurrent = computed(() => {
   word-break: break-word;
   border: 1px solid transparent;
   background-color: transparent;
+  position: relative;
   transition: background-color 0.12s ease;
 
   &:hover {
@@ -138,6 +150,36 @@ const isCurrent = computed(() => {
       overflow: hidden;
       word-break: break-word;
     }
+  }
+
+  .item-right {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    pointer-events: none;
+
+    .locate-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      color: inherit;
+      background-color: var(--el-fill-color-light, rgba(128, 128, 128, 0.18));
+      pointer-events: auto;
+
+      &:hover {
+        background-color: var(--vgo-primary-opacity);
+      }
+    }
+  }
+
+  &:hover .item-right {
+    opacity: 1;
   }
 }
 </style>

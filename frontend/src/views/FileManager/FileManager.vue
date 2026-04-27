@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { OpenWithEnum } from '../Apps/apps'
 import type { IDrive, IEntry } from '@/types/server'
+import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import { contextMenuTheme } from '@/hooks/use-global-theme'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import FileList from './ExplorerUI/FileList.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import FileSidebar from './FileSidebar.vue'
-import { getLastDirName } from './utils'
+import { getLastDirName, normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
@@ -83,19 +86,56 @@ onMounted(async () => {
 })
 const fileListRef = ref()
 
-// Listen for SELECT_COLLECTED event from App windows
-useExplorerBusOn(ExplorerEvents.SELECT_COLLECTED, ({ basePath: targetBasePath, names }: { basePath: string, names: string[] }) => {
-  if (targetBasePath !== basePathNormalized.value) {
-    return
+async function runWithFileListAtPath(targetBasePath: string, action: (fileList: any) => void) {
+  const normalizedTargetPath = normalizeListingPath(targetBasePath)
+  if (normalizedTargetPath !== basePathNormalized.value) {
+    await handleOpenPath(normalizedTargetPath)
+    await nextTick()
   }
   if (!fileListRef.value) {
     return
   }
-  fileListRef.value.selectByNames(names)
+  action(fileListRef.value)
+}
+
+// Listen for SELECT_COLLECTED event from App windows
+useExplorerBusOn(ExplorerEvents.SELECT_COLLECTED, async ({ basePath: targetBasePath, names }: { basePath: string, names: string[] }) => {
+  await runWithFileListAtPath(targetBasePath, fileList => fileList.selectByNames(names))
+})
+
+useExplorerBusOn(ExplorerEvents.REVEAL_ITEM, async ({ basePath: targetBasePath, name }: { basePath: string, name: string }) => {
+  await runWithFileListAtPath(targetBasePath, fileList => fileList.selectAndReveal(name))
 })
 
 const starredPathsList = computed(() => [...starList.value])
 const currentPathForSidebar = computed(() => basePath.value)
+
+function removeStarredPath(path: string) {
+  starList.value = starList.value.filter(item => item !== path)
+}
+
+function showStarredPathMenu(path: string, event: MouseEvent) {
+  const items: MenuItem[] = [
+    {
+      label: 'Open',
+      icon: 'mdi mdi-folder-open-outline',
+      onClick: () => handleOpenPath(path),
+    },
+    {
+      label: 'UnStar',
+      icon: 'mdi mdi-star-off-outline',
+      onClick: () => removeStarredPath(path),
+    },
+  ]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    theme: contextMenuTheme.value,
+    closeWhenScroll: false,
+    items,
+  })
+}
 
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
@@ -244,7 +284,12 @@ function handleShortcutKey(event: KeyboardEvent) {
           >
             <div v-if="starredPathsList.length" class="file-sidebar-content star-list">
               <div v-for="path in starredPathsList" :key="path">
-                <button class="drive-item btn-no-style" :title="path" @click="handleOpenPath(path)">
+                <button
+                  class="drive-item btn-no-style"
+                  :title="path"
+                  @click="handleOpenPath(path)"
+                  @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
+                >
                   <span class="drive-icon">
                     <span class="mdi mdi-star" />
                   </span>

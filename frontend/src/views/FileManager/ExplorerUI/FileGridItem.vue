@@ -21,7 +21,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 <template>
   <button
     class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
-    :title="titleDesc" :style="{ width: `${iconSize + 42}px` }"
+    :title="titleDesc" :style="{ width: `${iconSize + 42}px`, height: `${iconSize + 62}px` }"
     @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
     @dblclick.stop="$emit('open', { item })"
   >
@@ -48,7 +48,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 
 <style lang="scss" scoped>
 .file-grid-item {
-  height: fit-content;
+  height: 110px;
   display: inline-flex;
   align-items: center;
   flex-direction: column;

@@ -49,6 +49,14 @@ function handleSelectItems(win: AppWindowState, names: string[]) {
   win.minimized = true
 }
 
+function handleLocateItem(win: AppWindowState, name: string) {
+  explorerBus.emit(ExplorerEvents.REVEAL_ITEM, {
+    basePath: win.appParams.basePath,
+    name,
+  })
+  win.minimized = true
+}
+
 const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 </script>
 
@@ -84,6 +92,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
         @exit="handleClose(win)"
         @set-title="(val: string) => { win.appTitle = val }"
         @select-items="(names: string[]) => handleSelectItems(win, names)"
+        @locate-item="(name: string) => handleLocateItem(win, name)"
       />
     </div>
   </ViewPortWindow>

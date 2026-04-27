@@ -7,6 +7,15 @@ import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
+import { getDefaultOpenApp } from './use-opener'
+
+export function getOpenActionMeta(item: IEntry) {
+  const defaultOpenApp = item.isDirectory ? null : getDefaultOpenApp(item)
+  return {
+    label: defaultOpenApp ? `Open with ${defaultOpenApp.name}` : 'Open',
+    icon: defaultOpenApp?.icon ?? 'mdi mdi-folder-open-outline',
+  }
+}
 
 export function useFileActions({
   isLoading,
@@ -140,10 +149,13 @@ export function useFileActions({
       ]
     }
     const isSingle = selectedItems.value.length === 1
-    const isFile = isSingle && !selectedItems.value[0].isDirectory
+    const selectedItem = selectedItems.value[0]
+    const isFile = isSingle && !selectedItem.isDirectory
+    const openActionMeta = getOpenActionMeta(selectedItem)
     return [
       isSingle && {
-        label: 'Open',
+        label: openActionMeta.label,
+        icon: openActionMeta.icon,
         onClick: () => {
           handleOpen()
         },
@@ -158,7 +170,7 @@ export function useFileActions({
             icon: 'mdi mdi-open-in-new',
             onClick: () => {
               emit('open', {
-                item: selectedItems.value[0],
+                item: selectedItem,
                 openWith: OpenWithEnum.Browser,
               })
             },
@@ -180,7 +192,7 @@ export function useFileActions({
             icon: app.icon,
             onClick: () => {
               emit('open', {
-                item: selectedItems.value[0],
+                item: selectedItem,
                 openWith: app.openWith,
               })
             },
@@ -189,7 +201,7 @@ export function useFileActions({
             label: 'Set Default App',
             icon: 'mdi mdi-application-settings-outline',
             children: (() => {
-              const ext = getFileExt(selectedItems.value[0].name)
+              const ext = getFileExt(selectedItem.name)
               const current = ext ? (defaultAppMap.value[ext] ?? null) : null
               return [
                 {
@@ -197,6 +209,11 @@ export function useFileActions({
                   icon: current === null ? 'mdi mdi-check' : '',
                   onClick: () => setDefaultApp(ext, null),
                   divided: true,
+                },
+                {
+                  label: 'Browser',
+                  icon: current === OpenWithEnum.Browser ? 'mdi mdi-check' : 'mdi mdi-open-in-new',
+                  onClick: () => setDefaultApp(ext, OpenWithEnum.Browser),
                 },
                 ...AppList.map(app => ({
                   label: app.name,
