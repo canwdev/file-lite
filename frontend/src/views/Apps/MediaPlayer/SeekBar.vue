@@ -107,6 +107,7 @@ export default defineComponent({
 
   $bar_height: 5px;
   $thumb_size: 14px;
+  $clickable_height: 24px; // 定义你想要的实际点击区域高度
 
   &::before {
     content: '';
@@ -145,7 +146,7 @@ export default defineComponent({
     border-radius: 999px;
   }
 
-  input {
+ input {
     width: 100%;
     position: absolute;
     top: 50%;
@@ -153,8 +154,12 @@ export default defineComponent({
     left: 0;
     right: 0;
     appearance: none;
-    height: $bar_height;
+
+    /* --- 关键修改：增大高度 --- */
+    height: $clickable_height;
     background: transparent;
+    /* ------------------------ */
+
     outline: none;
     border-radius: 999px;
     box-shadow: none;
@@ -163,9 +168,12 @@ export default defineComponent({
     cursor: pointer;
 
     &::-webkit-slider-runnable-track {
+      /* --- 关键修改：让轨道在视觉上保持 $bar_height --- */
       height: $bar_height;
       background: transparent;
       border-radius: 999px;
+      // 移除可能存在的默认边距
+      border: none;
     }
 
     &:disabled {
@@ -188,7 +196,11 @@ export default defineComponent({
 
     &::-webkit-slider-thumb {
       @include mixin-thumb;
-      margin-top: -4.5px;
+      /* --- 关键修改：修正 Thumb 的垂直偏移 --- */
+      // 因为 input 高度变大了，需要计算新的 margin-top 使其居中
+      // 公式: (track_height / 2) - (thumb_height / 2)
+      margin-top: ($bar_height / 2) - ($thumb_size / 2);
+      /* --------------------------------------- */
       opacity: 0;
       transform: scale(0.72);
       transition: opacity 0.16s ease, transform 0.16s ease;
@@ -203,6 +215,14 @@ export default defineComponent({
 
     &::-moz-range-thumb {
       @include mixin-thumb;
+      // Firefox 不需要像 Webkit 那样处理 margin-top，通常会自动居中
+      border: 2px solid #ff2d55;
+    }
+
+    // 针对 Firefox 的轨道处理
+    &::-moz-range-track {
+      height: $bar_height;
+      background: transparent;
     }
   }
 }

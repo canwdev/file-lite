@@ -173,6 +173,10 @@ html, body, #app {
   }
 }
 
+.vgo-theme-default .vgo-window .vgo-window-controls button.is-close {
+  border-top-right-radius: var(--vgo-radius);
+}
+
 
 // @imengyu/vue3-context-menu 样式覆盖
 .mx-context-menu.flat {

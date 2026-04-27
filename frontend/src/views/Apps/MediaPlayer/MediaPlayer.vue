@@ -102,7 +102,7 @@ watch(
   overflow: hidden;
   isolation: isolate;
   contain: paint;
-  color: var(--el-text-color-primary);
+  // color: var(--el-text-color-primary);
   background:
     radial-gradient(circle at 14% 8%, rgba(255, 45, 85, 0.10), transparent 28%),
     radial-gradient(circle at 88% 0%, rgba(64, 156, 255, 0.12), transparent 32%),
@@ -123,7 +123,7 @@ watch(
     background-size: cover;
     background-position: center;
     filter: blur(54px) saturate(1.08);
-    opacity: 0.05;
+    opacity: 0.2;
     transform: scale(1.12);
     pointer-events: none;
   }
@@ -268,7 +268,6 @@ watch(
 @media screen and (max-width: 700px) {
   .media-player-wrap {
     .music-above {
-      padding: 10px 10px 0;
     }
 
     .media-detail {
