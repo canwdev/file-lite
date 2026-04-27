@@ -6,7 +6,7 @@ import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.
 import { normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
 import { useOpener } from './use-opener'
 
-export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]> }) {
+export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]> }) {
   const files = ref<IEntry[]>([])
 
   const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
@@ -15,8 +15,15 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
   const basePathNormalized = computed(() => normalizeListingPath(basePath.value))
   const isLoading = ref(false)
   const navigationHistory = ref<NavigationHistory | null>(null)
+  let refreshController: AbortController | null = null
+  let refreshSeq = 0
 
   const handleRefresh = async (isUpdateHistory = true) => {
+    refreshController?.abort()
+    const controller = new AbortController()
+    refreshController = controller
+    const currentSeq = ++refreshSeq
+
     try {
       basePath.value = basePathNormalized.value
 
@@ -25,7 +32,12 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
       if (!basePath.value) {
         basePath.value = '/'
       }
-      files.value = (await getListFn()) as unknown as IEntry[]
+      const list = (await getListFn({ signal: controller.signal })) as unknown as IEntry[]
+      if (controller.signal.aborted || currentSeq !== refreshSeq) {
+        return
+      }
+
+      files.value = list
 
       if (!navigationHistory.value) {
         navigationHistory.value = new NavigationHistory(basePath.value)
@@ -34,14 +46,24 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
         navigationHistory.value.go(basePath.value)
       }
     }
-    catch (e) {
+    catch (e: any) {
+      if (isAbortError(e)) {
+        return
+      }
       console.error(e)
       files.value = []
     }
     finally {
-      isLoading.value = false
+      if (currentSeq === refreshSeq) {
+        isLoading.value = false
+        refreshController = null
+      }
     }
   }
+
+  onBeforeUnmount(() => {
+    refreshController?.abort()
+  })
 
   /* 历史记录功能 START */
   const goBack = async () => {
@@ -153,4 +175,13 @@ export function useNavigation({ getListFn }: { getListFn: () => Promise<IEntry[]
     isStared,
     filterText,
   }
+}
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === 'object'
+    && error !== null
+    && ('code' in error || 'name' in error)
+    && ((error as { code?: string }).code === 'ERR_CANCELED' || (error as { name?: string }).name === 'CanceledError')
+  )
 }

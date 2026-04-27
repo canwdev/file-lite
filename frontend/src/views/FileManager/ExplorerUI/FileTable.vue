@@ -16,10 +16,19 @@ export interface Column {
   sortModes?: any[]
 }
 
+interface VirtualRow {
+  item: any
+  index: number
+}
+
 const props = withDefaults(
   defineProps<{
     columns: Column[]
     data: any[]
+    virtualRows?: VirtualRow[]
+    virtualBeforeHeight?: number
+    virtualAfterHeight?: number
+    virtualRowHeight?: number
     getTooltip?: (row: any) => string
     selectedRows: Set<any>
     customToggle?: (params: {
@@ -36,13 +45,17 @@ const emit = defineEmits(['update:selectedRows', 'open'])
 
 const { selectedRows, data } = toRefs(props)
 const mSelectedRows = ref(new Set())
+const renderedRows = computed(() => {
+  return props.virtualRows ?? data.value.map((item, index) => ({ item, index }))
+})
+const columnSpan = computed(() => props.columns.length + 1)
 
 watch(
   selectedRows,
   (newSet) => {
     mSelectedRows.value = new Set(newSet)
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
 
 const columnWidths = ref<Record<string, number>>({})
@@ -224,11 +237,15 @@ onBeforeUnmount(() => {
         </tr>
       </thead>
       <tbody>
+        <tr v-if="virtualBeforeHeight" class="virtual-spacer" aria-hidden="true">
+          <td :colspan="columnSpan" :style="{ height: `${virtualBeforeHeight}px` }" />
+        </tr>
         <tr
-          v-for="(row, index) in data"
-          :key="row.id || index"
+          v-for="{ item: row, index } in renderedRows"
+          :key="row.id || row.name || index"
           class="table-row selectable"
           :class="{ active: mSelectedRows.has(row) }"
+          :style="virtualRowHeight ? { height: `${virtualRowHeight}px` } : undefined"
           :title="getTooltip ? getTooltip(row) : ''"
           :data-name="row.name"
           @click.stop="toggleRowSelection(row, $event)"
@@ -264,6 +281,9 @@ onBeforeUnmount(() => {
               </template>
             </slot>
           </td>
+        </tr>
+        <tr v-if="virtualAfterHeight" class="virtual-spacer" aria-hidden="true">
+          <td :colspan="columnSpan" :style="{ height: `${virtualAfterHeight}px` }" />
         </tr>
       </tbody>
     </table>
@@ -329,6 +349,14 @@ onBeforeUnmount(() => {
       .checkbox-auto-hidden {
         visibility: visible;
       }
+    }
+  }
+
+  .virtual-spacer {
+    pointer-events: none;
+    td {
+      padding: 0;
+      border: 0;
     }
   }
 

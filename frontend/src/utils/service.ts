@@ -56,6 +56,10 @@ function Service(config: {
       return data
     },
     async (error) => {
+      if (axios.isCancel(error) || error.code === 'ERR_CANCELED') {
+        return Promise.reject(error)
+      }
+
       const message = error.message
       const { response } = error || {}
 

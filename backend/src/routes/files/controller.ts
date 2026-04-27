@@ -1,5 +1,6 @@
 import type { IDrive, IEntry } from '@frontend/types/server.ts'
 import type { Request, Response } from 'express'
+import type { Dirent, Stats } from 'node:fs'
 import { Buffer } from 'node:buffer'
 import * as console from 'node:console'
 import fs from 'node:fs/promises'
@@ -12,6 +13,8 @@ import nodeDiskInfo from 'node-disk-info'
 import { internalConfig, normalizePath } from '@/config/config.ts'
 import { getWindowsDrives } from '@/utils/get-drives.ts'
 import { sanitize, sanitizeAttachmentFilename } from '@/utils/sanitize-filename.ts'
+
+const READ_DIR_STAT_CONCURRENCY = 64
 
 /**
  * 安全检查：确保访问路径不超出基础目录
@@ -48,6 +51,60 @@ async function isExist(path: string): Promise<boolean> {
   }
   catch {
     return false
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = Array.from({ length: items.length }) as R[]
+  let nextIndex = 0
+  const workerCount = Math.min(concurrency, items.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+
+      if (currentIndex >= items.length) {
+        break
+      }
+
+      results[currentIndex] = await mapper(items[currentIndex] as T, currentIndex)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
+function createEntryFromStat(entryName: string, stat: Stats): IEntry {
+  const isDirectory = stat.isDirectory()
+  return {
+    name: entryName,
+    ext: isDirectory ? '' : Path.extname(entryName),
+    isDirectory,
+    hidden: entryName.startsWith('.'),
+    lastModified: stat.ctimeMs,
+    birthtime: stat.birthtimeMs,
+    size: isDirectory ? null : stat.size,
+    error: null,
+  }
+}
+
+function createEntryFromStatError(entry: Dirent, err: unknown): IEntry {
+  const entryName = entry.name
+  const isDirectory = entry.isDirectory()
+  return {
+    name: entryName,
+    ext: isDirectory ? '' : Path.extname(entryName),
+    isDirectory,
+    hidden: entryName.startsWith('.'),
+    lastModified: 0,
+    birthtime: 0,
+    size: isDirectory ? null : 0,
+    error: err instanceof Error ? err.message : String(err),
   }
 }
 
@@ -94,9 +151,6 @@ export async function getFiles(req: Request, res: Response) {
   if (!isPathSafe(path)) {
     return res.status(400).json({ message: 'Path is not safe' })
   }
-  if (!(await isExist(path))) {
-    return res.status(404).json({ message: 'Path not found' })
-  }
 
   try {
     const stats = await fs.stat(path)
@@ -104,44 +158,31 @@ export async function getFiles(req: Request, res: Response) {
       return res.status(400).json({ message: 'Path is not a directory' })
     }
 
-    const files = await fs.readdir(path)
+    const entries = await fs.readdir(path, { withFileTypes: true })
 
-    // 使用 Promise.all 并发获取所有文件/目录的 stat 信息，提高性能
-    const results: IEntry[] = await Promise.all(
-      files.map(async (entryName): Promise<IEntry> => {
+    const results = await mapWithConcurrency(
+      entries,
+      READ_DIR_STAT_CONCURRENCY,
+      async (entry): Promise<IEntry> => {
+        const entryName = entry.name
         const entryPath = Path.join(path, entryName)
         try {
           const stat = await fs.stat(entryPath)
-          const isDirectory = stat.isDirectory()
-          return {
-            name: entryName,
-            ext: isDirectory ? '' : Path.extname(entryName),
-            isDirectory,
-            hidden: entryName.startsWith('.'),
-            lastModified: stat.ctimeMs,
-            birthtime: stat.birthtimeMs,
-            size: isDirectory ? null : stat.size,
-            error: null,
-          }
+          return createEntryFromStat(entryName, stat)
         }
-        catch (err: any) {
+        catch (err: unknown) {
           // 如果获取某个文件信息失败，记录错误，但不中断整个请求
-          return {
-            name: entryName,
-            ext: Path.extname(entryName),
-            isDirectory: false,
-            hidden: entryName.startsWith('.'),
-            lastModified: 0,
-            birthtime: 0,
-            size: 0,
-            error: err.message || String(err),
-          }
+          return createEntryFromStatError(entry, err)
         }
-      }),
+      },
     )
     return res.json(results)
   }
   catch (err: any) {
+    if (err.code === 'ENOENT') {
+      return res.status(404).json({ message: 'Path not found' })
+    }
+
     return res.status(500).json({ message: err.message || 'Failed to read directory' })
   }
 }

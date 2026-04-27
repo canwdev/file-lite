@@ -4,7 +4,7 @@ import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced } from '@vueuse/core'
-import { computed, h, ref, toRefs, watch } from 'vue'
+import { computed, h, nextTick, toRefs, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
 import { SortType } from '@/types/server'
@@ -21,6 +21,7 @@ import { useFileActions } from './hooks/use-file-actions'
 import { useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
 import { useTransfer } from './hooks/use-transfer'
+import { useVirtualGrid, useVirtualList } from './hooks/use-virtual-files'
 
 const props = withDefaults(
   defineProps<{
@@ -84,6 +85,7 @@ const isGridView = pathStateRef('isGridView', false)
 const showHidden = pathStateRef('showHidden', false)
 const iconSizeList = pathStateRef('iconSizeList', 16)
 const iconSizeGrid = pathStateRef('iconSizeGrid', 48)
+const isGridMode = computed(() => isGridView.value || props.gridView)
 
 const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
 
@@ -195,6 +197,10 @@ const {
   selectedItemsSize,
   selectedItems,
   explorerContentRef,
+  selectionBoxStyle,
+  handleContentMouseDown,
+  handleContentClick,
+  handleContentClickCapture,
   toggleSelect,
   toggleSelectAll,
   selectByNames,
@@ -204,7 +210,127 @@ const {
   basePath,
   allowMultipleSelection,
   selectables: props.selectables,
+  getItemsInSelectionRect,
 })
+
+const listRowHeight = computed(() => Math.max(iconSizeList.value + 18, 37))
+const gridItemWidth = computed(() => iconSizeGrid.value + 42)
+const gridItemHeight = computed(() => iconSizeGrid.value + 62)
+const virtualList = useVirtualList({
+  items: filteredFiles,
+  containerRef: explorerContentRef,
+  itemHeight: listRowHeight,
+  overscan: 12,
+})
+const virtualGrid = useVirtualGrid({
+  items: filteredFiles,
+  containerRef: explorerContentRef,
+  itemHeight: gridItemHeight,
+  itemWidth: gridItemWidth,
+  gap: 4,
+  padding: 10,
+  overscan: 3,
+})
+const virtualGridStyle = computed(() => ({
+  height: `${virtualGrid.totalHeight.value}px`,
+}))
+const virtualGridItemsStyle = computed(() => ({
+  ...virtualGrid.gridStyle.value,
+  transform: `translateY(${virtualGrid.offsetTop.value}px)`,
+}))
+
+watch(
+  [isGridMode, iconSizeGrid, () => virtualGrid.visibleItems.value.length],
+  () => nextTick(measureGridItemHeight),
+  { immediate: true },
+)
+
+function measureGridItemHeight() {
+  if (!isGridMode.value) {
+    return
+  }
+
+  const itemEl = explorerContentRef.value?.querySelector<HTMLElement>('.explorer-grid-items .file-grid-item')
+  if (!itemEl) {
+    return
+  }
+
+  const measuredHeight = itemEl.offsetHeight
+  if (measuredHeight > 0 && Math.abs(measuredHeight - virtualGrid.itemHeight.value) > 1) {
+    virtualGrid.itemHeight.value = measuredHeight
+    virtualGrid.refresh()
+  }
+}
+
+function getItemsInSelectionRect(rect: {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}) {
+  if (isGridMode.value) {
+    return getGridItemsInSelectionRect(rect)
+  }
+
+  return getListItemsInSelectionRect(rect)
+}
+
+function getListItemsInSelectionRect(rect: { top: number, bottom: number }) {
+  const headerHeight = explorerContentRef.value?.querySelector('thead')?.getBoundingClientRect().height || listRowHeight.value
+  const startIndex = clampIndex(Math.floor((rect.top - headerHeight) / virtualList.itemHeight.value))
+  const endIndex = clampIndex(Math.floor((rect.bottom - headerHeight) / virtualList.itemHeight.value))
+
+  return filteredFiles.value.slice(startIndex, endIndex + 1)
+}
+
+function getGridItemsInSelectionRect(rect: {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}) {
+  const padding = 10
+  const gap = 4
+  const itemWidth = virtualGrid.itemWidth.value
+  const itemHeight = virtualGrid.itemHeight.value
+  const cellWidth = itemWidth + gap
+  const cellHeight = itemHeight + gap
+  const columns = virtualGrid.columns.value
+  const totalRows = Math.ceil(filteredFiles.value.length / columns)
+  const startRow = Math.max(Math.floor((rect.top - padding) / cellHeight) - 1, 0)
+  const endRow = Math.min(Math.floor((rect.bottom - padding) / cellHeight) + 1, totalRows - 1)
+  const startColumn = Math.max(Math.floor((rect.left - padding) / cellWidth) - 1, 0)
+  const endColumn = Math.min(Math.floor((rect.right - padding) / cellWidth) + 1, columns - 1)
+  const items: IEntry[] = []
+
+  for (let row = startRow; row <= endRow; row++) {
+    for (let column = startColumn; column <= endColumn; column++) {
+      const item = filteredFiles.value[row * columns + column]
+      const itemRect = {
+        left: padding + column * cellWidth,
+        top: padding + row * cellHeight,
+        right: padding + column * cellWidth + itemWidth,
+        bottom: padding + row * cellHeight + itemHeight,
+      }
+      if (item && rectsIntersect(rect, itemRect)) {
+        items.push(item)
+      }
+    }
+  }
+
+  return items
+}
+
+function clampIndex(index: number) {
+  return Math.min(Math.max(index, 0), Math.max(filteredFiles.value.length - 1, 0))
+}
+
+function rectsIntersect(
+  a: { left: number, top: number, right: number, bottom: number },
+  b: { left: number, top: number, right: number, bottom: number },
+) {
+  return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top
+}
 
 // 复制粘贴功能
 const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
@@ -225,6 +351,13 @@ const {
   confirmDownload,
   downloadToFolder,
 } = useTransfer({ basePath, isLoading, selectedItems })
+
+function handleTransferAllDone(items: Array<{ type?: 'upload' | 'download' }>) {
+  const hasUploadTask = items.some(item => (item.type ?? 'upload') === 'upload')
+  if (hasUploadTask) {
+    emit('refresh')
+  }
+}
 
 watch(isLoading, (val) => {
   if (!val) {
@@ -389,8 +522,14 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0) {
 watchDebounced(files, () => {
   if (stateMap.value[basePath.value]) {
     const position = stateMap.value[basePath.value]?.position || 0
-    getSetScrollPosition('set', position)
-    // console.log('restore', basePath.value, position)
+    nextTick(() => {
+      virtualList.refresh()
+      virtualGrid.refresh()
+      getSetScrollPosition('set', position)
+      virtualList.refresh()
+      virtualGrid.refresh()
+      // console.log('restore', basePath.value, position)
+    })
   }
 }, { debounce: 100, maxWait: 1000 })
 const debounceHandleScroll = useDebounceFn(() => {
@@ -565,35 +704,48 @@ defineExpose({
     <div
       ref="explorerContentRef"
       class="explorer-content"
-      @click="selectedItemsSet.clear()"
+      @click.capture="handleContentClickCapture"
+      @click="handleContentClick"
+      @mousedown="handleContentMouseDown"
       @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
     >
-      <div v-if="!(isGridView || gridView)" class="explorer-list-view">
+      <div
+        v-if="selectionBoxStyle"
+        class="explorer-selection-box"
+        :style="selectionBoxStyle"
+      />
+      <div v-if="!isGridMode" class="explorer-list-view">
         <FileTable
           v-model:selected-rows="selectedItemsSet"
           :columns="tableColumns"
           :data="filteredFiles"
+          :virtual-rows="virtualList.visibleItems.value"
+          :virtual-before-height="virtualList.beforeHeight.value"
+          :virtual-after-height="virtualList.afterHeight.value"
+          :virtual-row-height="virtualList.itemHeight.value"
           :get-tooltip="(row) => getTooltip(row)"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
           @open="(row) => emit('open', { item: row })"
         />
       </div>
-      <div v-else class="explorer-grid-view">
-        <FileGridItem
-          v-for="item in filteredFiles"
-          :key="item.name"
-          class="selectable"
-          :item="item"
-          :base-path="basePath"
-          :data-name="item.name"
-          :active="selectedItemsSet.has(item)"
-          :show-checkbox="allowMultipleSelection"
-          :icon-size="iconSizeGrid"
-          @open="(i) => emit('open', i)"
-          @select="toggleSelect"
-          @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
-        />
+      <div v-else class="explorer-grid-view" :style="virtualGridStyle">
+        <div class="explorer-grid-items" :style="virtualGridItemsStyle">
+          <FileGridItem
+            v-for="{ item } in virtualGrid.visibleItems.value"
+            :key="item.name"
+            class="selectable"
+            :item="item"
+            :base-path="basePath"
+            :data-name="item.name"
+            :active="selectedItemsSet.has(item)"
+            :show-checkbox="allowMultipleSelection"
+            :icon-size="iconSizeGrid"
+            @open="(i) => emit('open', i)"
+            @select="toggleSelect"
+            @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
+          />
+        </div>
       </div>
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar">
@@ -623,7 +775,7 @@ defineExpose({
       </div>
     </div>
 
-    <TransferQueue ref="transferQueueRef" auto-close @all-done="emit('refresh')" />
+    <TransferQueue ref="transferQueueRef" auto-close @all-done="handleTransferAllDone" />
   </div>
 </template>
 
@@ -720,17 +872,31 @@ defineExpose({
     position: relative;
   }
 
+  .explorer-selection-box {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    border: 1px solid var(--vgo-primary);
+    background-color: var(--vgo-primary-opacity);
+  }
+
   .explorer-list-view {
     width: fit-content;
   }
 
   .explorer-grid-view {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: 10px;
-    flex-wrap: wrap;
-    gap: 4px;
+    position: relative;
+    min-width: 100%;
+  }
+
+  .explorer-grid-items {
+    position: absolute;
+    top: 0;
+    left: 10px;
+    display: grid;
+    align-items: start;
+    justify-content: start;
+    will-change: transform;
   }
 
   .explorer-status-bar {

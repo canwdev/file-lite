@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v4"
 
@@ -17,6 +18,8 @@ import (
 	"file-lite-go/types"
 	"file-lite-go/utils"
 )
+
+const readDirStatConcurrency = 64
 
 func registerFiles(g *echo.Group) {
 	g.GET("/auth", func(c echo.Context) error { return c.JSON(http.StatusOK, map[string]any{}) })
@@ -48,6 +51,40 @@ func isPathSafe(p string) bool {
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
 
+func entryFromStat(name string, st os.FileInfo) types.Entry {
+	isDir := st.IsDir()
+	var size *int64
+	if !isDir {
+		s := st.Size()
+		size = &s
+	}
+
+	ext := ""
+	if !isDir {
+		ext = filepath.Ext(name)
+	}
+
+	modTime := st.ModTime().UnixMilli()
+	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, Hidden: strings.HasPrefix(name, "."), LastModified: modTime, Birthtime: modTime, Size: size, Error: nil}
+}
+
+func entryFromStatError(e os.DirEntry, err error) types.Entry {
+	name := e.Name()
+	isDir := e.IsDir()
+	var size *int64
+	if !isDir {
+		size = ptrI64(0)
+	}
+
+	ext := ""
+	if !isDir {
+		ext = filepath.Ext(name)
+	}
+
+	msg := err.Error()
+	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, Hidden: strings.HasPrefix(name, "."), LastModified: 0, Birthtime: 0, Size: size, Error: &msg}
+}
+
 func getDrives(c echo.Context) error {
 	if config.SafeBaseDir() != "" {
 		return c.JSON(http.StatusOK, []types.Drive{{Label: config.SafeBaseDir(), Path: config.SafeBaseDir()}})
@@ -72,10 +109,14 @@ func getFiles(c echo.Context) error {
 	if !isPathSafe(path) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe"})
 	}
-	if !isExist(path) {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
+
+	st, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
-	st, _ := os.Stat(path)
 	if !st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a directory"})
 	}
@@ -83,30 +124,42 @@ func getFiles(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read directory"})
 	}
-	res := make([]types.Entry, 0)
-	for _, e := range entries {
-		ep := filepath.Join(path, e.Name())
-		st, err2 := os.Stat(ep)
-		if err2 != nil {
-			msg := err2.Error()
-			res = append(res, types.Entry{Name: e.Name(), Ext: filepath.Ext(e.Name()), IsDirectory: false, Hidden: strings.HasPrefix(e.Name(), "."), LastModified: 0, Birthtime: 0, Size: ptrI64(0), Error: &msg})
-			continue
-		}
-		isDir := st.IsDir()
-		var size *int64
-		if isDir {
-			size = nil
-		} else {
-			s := st.Size()
-			size = &s
-		}
-		res = append(res, types.Entry{Name: e.Name(), Ext: func() string {
-			if isDir {
-				return ""
-			}
-			return filepath.Ext(e.Name())
-		}(), IsDirectory: isDir, Hidden: strings.HasPrefix(e.Name(), "."), LastModified: st.ModTime().UnixMilli(), Birthtime: st.ModTime().UnixMilli(), Size: size, Error: nil})
+
+	type statJob struct {
+		index int
+		entry os.DirEntry
 	}
+
+	res := make([]types.Entry, len(entries))
+	jobs := make(chan statJob)
+	workerCount := readDirStatConcurrency
+	if len(entries) < workerCount {
+		workerCount = len(entries)
+	}
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				ep := filepath.Join(path, job.entry.Name())
+				st, statErr := os.Stat(ep)
+				if statErr != nil {
+					res[job.index] = entryFromStatError(job.entry, statErr)
+					continue
+				}
+				res[job.index] = entryFromStat(job.entry.Name(), st)
+			}
+		}()
+	}
+
+	for i, e := range entries {
+		jobs <- statJob{index: i, entry: e}
+	}
+	close(jobs)
+	wg.Wait()
+
 	return c.JSON(http.StatusOK, res)
 }
 

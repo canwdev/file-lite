@@ -46,9 +46,11 @@ const {
   isStared,
   filterText,
 } = useNavigation({
-  getListFn: async () => {
+  getListFn: async ({ signal } = {}) => {
     const res = await fsWebApi.getList({
       path: basePath.value,
+    }, {
+      signal,
     })
     // console.log(res)
 
