@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IDrive } from '@/types/server'
+import ContextMenu from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
+import { contextMenuTheme } from '@/hooks/use-global-theme'
 import { bytesToSize } from '@/utils'
 import { normalizePath } from '@/views/FileManager/utils'
 
@@ -11,7 +14,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 })
 
-const emit = defineEmits(['openDrive'])
+const emit = defineEmits(['openDrive', 'openPathInNewTab'])
 
 const { currentPath } = toRefs(props)
 
@@ -75,6 +78,29 @@ function openDrive(item: IDrive) {
   }
 }
 
+function showDriveMenu(item: IDrive, event: MouseEvent) {
+  const items: MenuItem[] = [
+    {
+      label: 'Open',
+      icon: 'mdi mdi-folder-open-outline',
+      onClick: () => openDrive(item),
+    },
+    {
+      label: 'Open in new Tab',
+      icon: 'mdi mdi-open-in-new',
+      onClick: () => emit('openPathInNewTab', item.path),
+    },
+  ]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    theme: contextMenuTheme.value,
+    closeWhenScroll: false,
+    items,
+  })
+}
+
 function getTitle(item: IDrive) {
   let txt = `Path: ${item.path}`
 
@@ -114,6 +140,7 @@ defineExpose({
         :title="getTitle(item)"
         :class="{ active: item.path === currentPath }"
         @click="openDrive(item)"
+        @contextmenu.prevent.stop="showDriveMenu(item, $event)"
       >
         <span class="drive-icon">
           <span class="mdi" :class="[getIcon(item)]" />

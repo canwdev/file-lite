@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { MenuItem } from '@imengyu/vue3-context-menu'
+import ContextMenu from '@imengyu/vue3-context-menu'
+import { contextMenuTheme } from '@/hooks/use-global-theme'
 import { normalizeListingPath, normalizePath } from '../utils'
 
 export interface BreadcrumbSegment {
@@ -13,6 +16,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [string]
   'navigate': [string]
+  'openPathInNewTab': [string]
   'refresh': []
 }>()
 
@@ -135,6 +139,24 @@ function onCrumbClick(path: string) {
   emit('navigate', path)
 }
 
+function showCrumbMenu(path: string, event: MouseEvent) {
+  const items: MenuItem[] = [
+    {
+      label: 'Open in new Tab',
+      icon: 'mdi mdi-open-in-new',
+      onClick: () => emit('openPathInNewTab', path),
+    },
+  ]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    theme: contextMenuTheme.value,
+    closeWhenScroll: false,
+    items,
+  })
+}
+
 function onBreadcrumbBarClick(event: MouseEvent) {
   if (editing.value) {
     return
@@ -205,6 +227,7 @@ defineExpose({
             class="addr-crumb btn-no-style"
             :title="seg.path"
             @click.stop="onCrumbClick(seg.path)"
+            @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
           >
             <span class="addr-crumb-text">{{ seg.name }}</span>
           </button>
