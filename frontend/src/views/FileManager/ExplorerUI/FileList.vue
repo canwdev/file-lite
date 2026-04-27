@@ -830,7 +830,7 @@ defineExpose({
       gap: 4px;
       flex-wrap: wrap;
       @media screen and (max-width: $mq_mobile_width) {
-        justify-content: flex-end;
+        // justify-content: flex-end;
       }
 
       .split-line {

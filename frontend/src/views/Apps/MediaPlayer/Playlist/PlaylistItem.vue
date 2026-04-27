@@ -56,22 +56,26 @@ const isCurrent = computed(() => {
 .playlist-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 6px 2px 4px;
-  border-radius: 4px;
+  gap: 9px;
+  min-height: 52px;
+  padding: 7px 10px 7px 7px;
+  border-radius: 14px;
   cursor: pointer;
   word-break: break-word;
   border: 1px solid transparent;
   background-color: transparent;
   position: relative;
-  transition: background-color 0.12s ease;
+  transition: background-color 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
 
   &:hover {
-    background-color: var(--el-fill-color-light, rgba(128, 128, 128, 0.12));
+    background-color: rgba(255, 255, 255, 0.56);
   }
 
   &.active {
-    background-color: var(--vgo-primary-opacity);
+    border-color: rgba(var(--vgo-primary-rgb), 0.3);
+    background:
+      linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.18), rgba(255, 45, 85, 0.10)),
+      rgba(255, 255, 255, 0.64);
   }
 
   .item-left {
@@ -81,9 +85,9 @@ const isCurrent = computed(() => {
 
     /* Finder 式小图标，仅列表内缩小 */
     :deep(.btn-cover) {
-      width: 28px;
-      height: 28px;
-      border-radius: 4px;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
     }
 
     :deep(.icon-wrap) {
@@ -104,25 +108,26 @@ const isCurrent = computed(() => {
     .status-icon {
       position: absolute;
       z-index: 1;
-      left: -4px;
-      top: -6px;
-      font-size: 10px;
+      left: -3px;
+      top: -3px;
+      font-size: 9px;
       line-height: 1;
-      padding: 1px 2px;
-      border-radius: 2px;
-      background: rgba(0, 0, 0, 0.404);
+      padding: 2px 3px;
+      border-radius: 999px;
+      background: rgba(var(--vgo-primary-rgb), 0.86);
       color: #fff;
+      box-shadow: 0 2px 8px rgba(var(--vgo-primary-rgb), 0.3);
     }
   }
 
   .item-main {
     flex: 1;
     min-width: 0;
-    padding: 2px 0;
+    padding: 1px 28px 1px 0;
 
     .item-title {
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 650;
       line-height: 1.28;
       display: -webkit-box;
       -webkit-box-orient: vertical;
@@ -131,21 +136,24 @@ const isCurrent = computed(() => {
     }
 
     &.has-subtitle .item-title {
+      line-clamp: 1;
       -webkit-line-clamp: 1;
     }
 
     &:not(.has-subtitle) .item-title {
+      line-clamp: 2;
       -webkit-line-clamp: 2;
     }
 
     .item-subtitle {
-      margin-top: 1px;
+      margin-top: 3px;
       font-size: 11px;
       font-weight: 400;
       line-height: 1.25;
       color: var(--el-text-color-secondary, inherit);
       display: -webkit-box;
       -webkit-box-orient: vertical;
+      line-clamp: 1;
       -webkit-line-clamp: 1;
       overflow: hidden;
       word-break: break-word;
@@ -167,9 +175,10 @@ const isCurrent = computed(() => {
       justify-content: center;
       width: 24px;
       height: 24px;
-      border-radius: 4px;
+      border-radius: 50%;
       color: inherit;
-      background-color: var(--el-fill-color-light, rgba(128, 128, 128, 0.18));
+      background-color: rgba(255, 255, 255, 0.68);
+      backdrop-filter: blur(10px);
       pointer-events: auto;
 
       &:hover {
@@ -180,6 +189,25 @@ const isCurrent = computed(() => {
 
   &:hover .item-right {
     opacity: 1;
+  }
+}
+
+:global(.dark) {
+  .playlist-item {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.075);
+    }
+
+    &.active {
+      background:
+        linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.22), rgba(255, 45, 85, 0.12)),
+        rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+    }
+
+    .item-right .locate-btn {
+      background-color: rgba(255, 255, 255, 0.14);
+    }
   }
 }
 </style>

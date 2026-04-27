@@ -445,6 +445,14 @@ function handleShortcutKey(event: KeyboardEvent) {
         display: flex;
         align-items: center;
         gap: 4px;
+
+        @media screen and (max-width: $mq_mobile_width) {
+          width: 100%;
+          justify-content: space-around;
+          .btn-action {
+            flex: 1;
+          }
+        }
       }
 
       .input-wrap {
