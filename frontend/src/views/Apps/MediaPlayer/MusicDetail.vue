@@ -405,7 +405,7 @@ onBeforeUnmount(() => {
 }
 
 .meta-side .steam-card-container {
-  max-width: min(64vmin, 260px);
+  max-width: min(64vmin, 320px);
 }
 
 .text-column {
