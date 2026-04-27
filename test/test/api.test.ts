@@ -22,12 +22,8 @@ describe('鉴权', () => {
     const response = await api.get('/api/files/auth')
       .expect('Content-Type', /json/) // 期望响应类型是 JSON
 
-    // 判断noAuth，如果为true，返回200
-    if (testConfig.noAuth) {
-      expect(response.status).to.equal(200)
-    } else {
+
       expect(response.status).to.be.oneOf([403, 401])
-    }
 
     // Chai 断言：检查响应体是否是一个对象
     expect(response.body).to.be.an('object')
@@ -38,12 +34,8 @@ describe('鉴权', () => {
       .set('Authorization', '__test_error__')
       .expect('Content-Type', /json/)
 
-    // 判断noAuth，如果为true，返回200
-    if (testConfig.noAuth) {
-      expect(response.status).to.equal(200)
-    } else {
+
       expect(response.status).to.equal(401)
-    }
 
     expect(response.body).to.be.an('object')
   })

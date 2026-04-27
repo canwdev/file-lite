@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/labstack/echo/v4"
+	etag "github.com/pablor21/echo-etag/v4"
 
 	"file-lite-go/config"
 	"file-lite-go/types"
@@ -24,7 +25,7 @@ const readDirStatConcurrency = 64
 func registerFiles(g *echo.Group) {
 	g.GET("/auth", func(c echo.Context) error { return c.JSON(http.StatusOK, map[string]any{}) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
-	g.GET("/list", func(c echo.Context) error { return getFiles(c) })
+	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
 	g.POST("/rename", func(c echo.Context) error { return renamePath(c) })
 	g.POST("/copy-paste", func(c echo.Context) error { return copyPastePath(c) })
@@ -43,13 +44,33 @@ func isPathSafe(p string) bool {
 	if base == "" {
 		return true
 	}
-	rp := filepath.Clean(p)
-	rp = strings.ReplaceAll(rp, "\\", "/")
-	base = strings.ReplaceAll(base, "\\", "/")
-	return strings.HasPrefix(rp, base)
+	rp, err := filepath.Abs(p)
+	if err != nil {
+		return false
+	}
+	bp, err := filepath.Abs(base)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(bp, rp)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel))
 }
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
+
+func sanitizeUploadFilename(name string) (string, error) {
+	if name == "" || name != filepath.Base(name) || strings.Contains(name, "..") || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("invalid filename")
+	}
+	safeName := utils.Sanitize(name, "_")
+	if safeName == "" {
+		return "", fmt.Errorf("invalid filename")
+	}
+	return safeName, nil
+}
 
 func entryFromStat(name string, st os.FileInfo) types.Entry {
 	isDir := st.IsDir()
@@ -424,7 +445,10 @@ func uploadFile(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
 	}
 	defer src.Close()
-	name := f.Filename
+	name, err := sanitizeUploadFilename(f.Filename)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
+	}
 	out, err := os.Create(filepath.Join(dest, name))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})

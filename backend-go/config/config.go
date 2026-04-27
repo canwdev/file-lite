@@ -15,7 +15,6 @@ import (
 type Cfg struct {
 	Host        string `json:"host"`
 	Port        string `json:"port"`
-	NoAuth      bool   `json:"noAuth"`
 	Password    string `json:"password"`
 	SafeBaseDir string `json:"safeBaseDir"`
 	EnableLog   bool   `json:"enableLog"`
@@ -24,7 +23,7 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.2.5"
+const Version = "1.3.0"
 
 var cfg Cfg
 var dataBaseDir string
@@ -45,6 +44,9 @@ func AuthToken() string       { return authToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
 func ConfigFilePath() string  { return configFilePath }
+func IsExplicitDevMode() bool {
+	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
+}
 
 func LoadConfig(allowCreate bool) {
 	fmt.Printf("%s version: %s\n\n", PkgName, Version)
@@ -63,7 +65,6 @@ func LoadConfig(allowCreate bool) {
 	def := Cfg{
 		Host:        "",
 		Port:        "",
-		NoAuth:      false,
 		Password:    "",
 		SafeBaseDir: "./",
 		EnableLog:   true,
@@ -151,8 +152,5 @@ func Host() string {
 func IsHTTPS() bool { return cfg.SSLKey != "" && cfg.SSLCert != "" }
 
 func AuthParam() string {
-	if cfg.NoAuth {
-		return ""
-	}
 	return "auth=" + authToken
 }

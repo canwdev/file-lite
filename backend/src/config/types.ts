@@ -3,8 +3,6 @@ export interface IConfig {
   host: string
   // 监听端口，默认 '3100'
   port: string
-  // 是否开启无密码模式，开启后将不会检查密码。默认 false
-  noAuth: boolean
   // 密码，留空则每次启动随机生成。默认 ''
   password: string
   // 安全路径(支持绝对路径和相对路径)，如果访问范围超出该目录会报错，设置为空字符串不检查。默认 ''
@@ -20,7 +18,6 @@ export function getInitConfig(): IConfig {
   return {
     host: '',
     port: '',
-    noAuth: false,
     password: '',
     safeBaseDir: './',
     enableLog: true,
