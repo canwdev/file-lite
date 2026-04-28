@@ -45,13 +45,28 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const query = { ...to.query }
 
-  if (query.auth) {
-    console.log('set auth token from query')
-    authToken.value = query.auth as string
-    delete query.auth
-    return next({
-      query,
-    })
+  if (query.ticket) {
+    try {
+      const res = await fsWebApi.consumeTicket(String(query.ticket))
+      authToken.value = res.token
+      delete query.ticket
+      return next({
+        path: to.path,
+        query,
+        hash: to.hash,
+        replace: true,
+      })
+    }
+    catch (error) {
+      console.error(error)
+      delete query.ticket
+      return next({
+        name: 'LoginView',
+        query: {
+          redirect: to.path,
+        },
+      })
+    }
   }
   if (to.meta.skipLogin) {
     return next()

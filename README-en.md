@@ -38,7 +38,10 @@ The project ships **two server implementations** that share the same frontend—
   - **Endless Gallery**: vertical, short-video-style feed of supported images / videos / audio in the current folder, with touch and keyboard / mouse navigation
   - Explorer: per-path layout & sort persistence, default app per file extension, and more
 - **Security**
-  - Password auth; optional IP ban after repeated failed logins
+  - Password login issues JWT session tokens with a 1-year expiry
+  - Console URLs use a short-lived `ticket` login parameter with a 2-minute TTL; printing URLs again generates a new `ticket`
+  - “Remember login status” supports persistent cookies or browser-session cookies
+  - Optional IP ban after repeated failed logins
   - Configurable allowed root path scope
   - HTTPS including self-signed certificates
   - Request rate limiting
@@ -93,3 +96,6 @@ node file-lite.min.mjs
 - Type reference: [IConfig](backend/src/config/types.ts)
 - Environment variables example: [.env.development](./backend/.env.development)
 - [Generate and trust self-signed certificates with mkcert](./docs/mkcert.md)
+- If `password` is empty, File Lite generates a random password; when the config file already exists, the generated password is written back
+- `jwtToken` is the JWT signing secret; when an existing config file has an empty value, it is generated and written back
+- The console does not print JWTs or signing secrets; check the config file for the login password

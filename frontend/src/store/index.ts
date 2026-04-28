@@ -7,8 +7,14 @@ export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 const cookieOpts: Cookies.CookieAttributes = {
   path: '/',
   sameSite: 'strict',
+}
+const persistentCookieOpts: Cookies.CookieAttributes = {
+  ...cookieOpts,
   expires: 365, // 1 year
 }
+export const rememberAuth = useStorage(LsKeys.REMEMBER_AUTH, true, localStorage, {
+  listenToStorageChanges: true,
+})
 
 function readTokenFromCookie(): string {
   return Cookies.get(AUTH_TOKEN_COOKIE_KEY) ?? ''
@@ -19,7 +25,7 @@ function migrateLegacyLocalStorage(): void {
   try {
     const legacy = localStorage.getItem(AUTH_TOKEN_COOKIE_KEY)
     if (legacy && !Cookies.get(AUTH_TOKEN_COOKIE_KEY)) {
-      Cookies.set(AUTH_TOKEN_COOKIE_KEY, legacy, cookieOpts)
+      Cookies.set(AUTH_TOKEN_COOKIE_KEY, legacy, persistentCookieOpts)
       localStorage.removeItem(AUTH_TOKEN_COOKIE_KEY)
     }
   }
@@ -32,10 +38,13 @@ export const authToken = ref(readTokenFromCookie())
 watch(
   authToken,
   (v) => {
-    if (v)
-      Cookies.set(AUTH_TOKEN_COOKIE_KEY, v, cookieOpts)
-    else
+    if (v) {
       Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
+      Cookies.set(AUTH_TOKEN_COOKIE_KEY, v, rememberAuth.value ? persistentCookieOpts : cookieOpts)
+    }
+    else {
+      Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
+    }
   },
   { flush: 'sync' },
 )

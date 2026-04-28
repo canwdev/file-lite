@@ -12,7 +12,7 @@ import express from 'express'
 import fallback from 'express-history-api-fallback'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
-import { internalConfig, loadConfig } from '@/config/config'
+import { createAuthTicket, internalConfig, loadConfig } from '@/config/config'
 import router from '@/routes'
 import { opener, printServerRunningOn } from './utils/server-utils.ts'
 
@@ -64,25 +64,33 @@ function startServer(): Promise<StartServerResult> {
     const host = internalConfig.config?.host || process.env.HOST || '0.0.0.0'
 
     const isHttps = internalConfig.config?.sslKey && internalConfig.config?.sslCert
+    const serverResult: StartServerResult = {
+      urlIpSelector: '',
+      printUrls: () => {},
+    }
     const listenCallback = async () => {
-      let urlIpSelector = ''
       const printUrls = () => {
         console.log(``)
-        const authParam = `auth=${internalConfig.authToken}`
+        const ticket = createAuthTicket()
+        const ticketParam = `ticket=${ticket.value}`
         const protocol = isHttps ? 'https:' : 'http:'
         const { localhostUrl, ips } = printServerRunningOn({
           protocol,
           host,
           port,
-          params: authParam ? `?${authParam}` : '',
+          params: `?${ticketParam}`,
         })
         console.log(`IP Selector:`)
-        urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, auth: (internalConfig.authToken || '') }))}`
-        console.log(urlIpSelector)
+        serverResult.urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, ticket: ticket.value }))}`
+        console.log(serverResult.urlIpSelector)
+        console.log('')
+        console.log(`🗝️ Ticket: ${ticket.value}`)
+        console.log(`Ticket expires at: ${new Date(ticket.expiresAt).toLocaleString()}.`)
         console.log('')
       }
+      serverResult.printUrls = printUrls
       printUrls()
-      resolve({ urlIpSelector, printUrls })
+      resolve(serverResult)
     }
 
     if (isHttps) {
@@ -117,33 +125,41 @@ async function main() {
   let isExit = false
   let isPrint = false
   let isCreateConfig = false
-  let serverResult: StartServerResult
+  let serverResult: StartServerResult | undefined
   while (!isExit) {
     if (!server) {
-      loadConfig({ allowCreate: isCreateConfig })
-      serverResult = await startServer()
+      try {
+        loadConfig({ allowCreate: isCreateConfig })
+        serverResult = await startServer()
+      }
+      catch (e) {
+        console.error(e)
+      }
     }
-    else if (isPrint) {
+    else if (isPrint && serverResult) {
       console.clear()
-      serverResult!.printUrls()
+      serverResult.printUrls()
     }
     isPrint = false
     isCreateConfig = false
     type FnType = 'ip' | 'print' | 'openConfig' | 'createConfig' | 'reload' | 'exit'
+    const choices = [
+      ...(server ? [{ message: '🌐 Open IP selector', name: 'ip' }, { message: '🔗 Print urls', name: 'print' }] : []),
+      internalConfig.configInitialized ? { message: '⚙️ Open config file', name: 'openConfig' } : { message: '✨  Create config file', name: 'createConfig' },
+      ...(server ? [{ message: '🔄 Restart server', name: 'reload' }] : []),
+      { message: '🚪 Exit', name: 'exit' },
+    ]
     const { selectedFn }: { selectedFn: FnType } = await enquirer.prompt([{
       type: 'select',
       name: 'selectedFn',
       message: `${PKG_NAME} v${VERSION} Select function`,
-      choices: [
-        { message: '🌐 Open IP selector', name: 'ip' },
-        { message: '🔗 Print urls', name: 'print' },
-        internalConfig.configInitialized ? { message: '⚙️ Open config file', name: 'openConfig' } : { message: '✨  Create config file', name: 'createConfig' },
-        { message: '🔄 Restart server', name: 'reload' },
-        { message: '🚪 Exit', name: 'exit' },
-      ].filter(Boolean),
+      choices,
     }])
     if (selectedFn === 'ip') {
-      await opener(serverResult!.urlIpSelector)
+      if (serverResult) {
+        serverResult.printUrls()
+        await opener(serverResult.urlIpSelector)
+      }
       await sleep(1000)
       continue
     }
@@ -158,7 +174,9 @@ async function main() {
       continue
     }
     if (selectedFn === 'createConfig') {
-      await stopServer()
+      if (server) {
+        await stopServer()
+      }
       isCreateConfig = true
       continue
     }
@@ -168,7 +186,9 @@ async function main() {
       continue
     }
     if (selectedFn === 'exit') {
-      await stopServer()
+      if (server) {
+        await stopServer()
+      }
       isExit = true
       continue
     }

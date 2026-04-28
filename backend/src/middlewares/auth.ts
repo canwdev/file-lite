@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
-import { internalConfig, isExplicitDevMode } from '@/config/config.ts'
+import { internalConfig, isExplicitDevMode, verifyAuthJwt } from '@/config/config.ts'
 import { IPRateLimiter } from './auth-limiter'
 
 const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
@@ -14,7 +14,7 @@ const authLimiter = new IPRateLimiter({
 })
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  if (!internalConfig.config) {
+  if (!internalConfig.config || !internalConfig.jwtToken) {
     return res.status(500).json({ message: 'config error' })
   }
 
@@ -37,7 +37,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   const token = fromHeader || fromCookie
 
   // 2. 验证Token
-  if (token === internalConfig.authToken) {
+  if (token && verifyAuthJwt(token, internalConfig.jwtToken)) {
     if (!isExplicitDevMode() && !fromHeader && !SAFE_METHODS.has(req.method)) {
       const csrfToken = req.header(CSRF_HEADER_KEY)
       if (!csrfToken || csrfToken !== fromCookie) {

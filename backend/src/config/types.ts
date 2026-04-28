@@ -3,8 +3,10 @@ export interface IConfig {
   host: string
   // 监听端口，默认 '3100'
   port: string
-  // 密码，留空则每次启动随机生成。默认 ''
+  // 密码，必填。默认 ''
   password: string
+  // JWT 签名密钥，留空则在已有配置文件中自动生成并写回。默认 ''
+  jwtToken: string
   // 安全路径(支持绝对路径和相对路径)，如果访问范围超出该目录会报错，设置为空字符串不检查。默认 ''
   safeBaseDir: string
   // 是否开启日志。默认 true
@@ -19,6 +21,7 @@ export function getInitConfig(): IConfig {
     host: '',
     port: '',
     password: '',
+    jwtToken: '',
     safeBaseDir: './',
     enableLog: true,
     sslKey: '',
@@ -36,6 +39,8 @@ export interface InternalConfig {
   dataBaseDir: string
   // 最终的认证 token
   authToken: string
+  // JWT 签名密钥
+  jwtToken: string
   // 安全的绝对路径，如果访问范围超出该目录会报错，设置为空字符串不检查
   safeBaseDir: string
 }

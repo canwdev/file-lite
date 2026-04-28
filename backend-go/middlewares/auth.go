@@ -145,7 +145,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 				token = ck.Value
 			}
 		}
-		if token == config.AuthToken() {
+		if token != "" && config.VerifyAuthJWT(token) {
 			if !config.IsExplicitDevMode() && fromHeader == "" && !isSafeMethod(c.Request().Method) {
 				if csrfToken := c.Request().Header.Get(csrfHeaderName); csrfToken == "" || csrfToken != fromCookie {
 					return c.JSON(http.StatusForbidden, map[string]string{"message": "Forbidden"})

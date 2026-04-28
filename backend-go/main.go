@@ -91,30 +91,41 @@ func startServer() (*StartServerResult, error) {
 	isHttps := config.IsHTTPS()
 	addr := fmt.Sprintf("%s:%d", host, port)
 
+	result := &StartServerResult{}
 	printUrls := func() {
 		fmt.Println("")
 		protocol := "http:"
 		if isHttps {
 			protocol = "https:"
 		}
-		ips := utils.PrintUrls(protocol, host, port, config.AuthParam())
+		ticket, err := config.NewAuthTicket()
+		if err != nil {
+			fmt.Println("Error generating auth ticket:", err)
+		}
+		ticketParam := ""
+		if ticket.Value != "" {
+			ticketParam = "ticket=" + ticket.Value
+		}
+		ips := utils.PrintUrls(protocol, host, port, ticketParam)
 		fmt.Println("IP Selector:")
 
 		// Construct IP selector URL
 		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
 
-		auth := config.AuthToken()
-
 		data := map[string]interface{}{
 			"ips":      ips,
 			"port":     port,
 			"protocol": protocol,
-			"auth":     auth,
+			"ticket":   ticket.Value,
 		}
 		jsonData, _ := json.Marshal(data)
 		encodedData := base64.StdEncoding.EncodeToString(jsonData)
 		urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
+		result.UrlIpSelector = urlIpSelector
 		fmt.Println(urlIpSelector)
+		fmt.Println("")
+		fmt.Printf("🗝️ Ticket: %s\n", ticket.Value)
+		fmt.Printf("Ticket expires at: %s.\n", ticket.ExpiresAt.Format("2006-01-02 15:04:05"))
 		fmt.Println("")
 	}
 
@@ -144,26 +155,8 @@ func startServer() (*StartServerResult, error) {
 	// Note: The IP selector URL construction above in printUrls is a bit hacky because we didn't refactor PrintUrls to return IPs.
 	// For now, we will re-calculate it or just use a placeholder if needed, but let's try to make it work in printUrls closure.
 
-	protocol := "http:"
-	if isHttps {
-		protocol = "https:"
-	}
-	localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
-	auth := config.AuthToken()
-	data := map[string]interface{}{
-		"ips":      utils.GetAvailableIPs(host),
-		"port":     port,
-		"protocol": protocol,
-		"auth":     auth,
-	}
-	jsonData, _ := json.Marshal(data)
-	encodedData := base64.StdEncoding.EncodeToString(jsonData)
-	urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
-
-	return &StartServerResult{
-		UrlIpSelector: urlIpSelector,
-		PrintUrls:     printUrls,
-	}, nil
+	result.PrintUrls = printUrls
+	return result, nil
 }
 
 func stopServer() {
@@ -188,7 +181,10 @@ func main() {
 	// Check if running in a terminal
 	if !isatty.IsTerminal(os.Stdin.Fd()) && !isatty.IsCygwinTerminal(os.Stdin.Fd()) {
 		fmt.Println("Interactive mode disabled (not a TTY)")
-		config.LoadConfig(isCreateConfig)
+		if err := config.LoadConfig(isCreateConfig); err != nil {
+			fmt.Println("Error loading config:", err)
+			return
+		}
 		res, err := startServer()
 		if err != nil {
 			fmt.Println("Error starting server:", err)
@@ -207,14 +203,17 @@ func main() {
 
 	for !isExit {
 		if server == nil {
-			config.LoadConfig(isCreateConfig)
-			res, err := startServer()
-			if err != nil {
-				fmt.Println("Error starting server:", err)
-				return
+			if err := config.LoadConfig(isCreateConfig); err != nil {
+				fmt.Println("Error loading config:", err)
+			} else {
+				res, err := startServer()
+				if err != nil {
+					fmt.Println("Error starting server:", err)
+					return
+				}
+				serverResult = res
+				serverResult.PrintUrls()
 			}
-			serverResult = res
-			serverResult.PrintUrls()
 		} else if isPrint {
 			// Clear console? Go doesn't have a built-in clear, can use escape codes
 			fmt.Print("\033[H\033[2J")
@@ -230,16 +229,19 @@ func main() {
 				Prompt: &survey.Select{
 					Message: fmt.Sprintf("%s v%s Select function", config.PkgName, config.Version),
 					Options: func() []string {
-						opts := []string{
-							"🌐 Open IP selector",
-							"🔗 Print urls",
+						opts := []string{}
+						if server != nil {
+							opts = append(opts, "🌐 Open IP selector", "🔗 Print urls")
 						}
 						if config.ConfigInitialized() {
 							opts = append(opts, "⚙️ Open config file")
 						} else {
 							opts = append(opts, "✨ Create config file")
 						}
-						opts = append(opts, "🔄 Restart server", "🚪 Exit")
+						if server != nil {
+							opts = append(opts, "🔄 Restart server")
+						}
+						opts = append(opts, "🚪 Exit")
 						return opts
 					}(),
 				},
@@ -258,7 +260,10 @@ func main() {
 
 		switch {
 		case strings.Contains(answers.Action, "Open IP selector"):
-			utils.Opener(serverResult.UrlIpSelector)
+			if serverResult != nil {
+				serverResult.PrintUrls()
+				utils.Opener(serverResult.UrlIpSelector)
+			}
 			time.Sleep(1000 * time.Millisecond)
 		case strings.Contains(answers.Action, "Print urls"):
 			isPrint = true

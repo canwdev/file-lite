@@ -18,4 +18,5 @@ export const LsKeys = {
   EXPLORER_STATE_MAP: 'file_lite_explorer_state_map',
   COLLECTED_ITEMS: 'file_lite_collected_items',
   MUSIC_LYRICS_VISIBLE: 'file_lite_music_lyrics_visible',
+  REMEMBER_AUTH: 'file_lite_remember_auth',
 }

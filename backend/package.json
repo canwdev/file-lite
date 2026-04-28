@@ -19,12 +19,14 @@
     "publish:npm": "bun run build:auto && npm publish --access public"
   },
   "dependencies": {
-    "cookie-parser": "^1.4.7"
+    "cookie-parser": "^1.4.7",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.5.0",
     "archiver": "^7.0.1",
     "enquirer": "^2.4.1",

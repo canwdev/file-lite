@@ -2,20 +2,29 @@ package config
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/golang-jwt/jwt"
 )
+
+const authJWTSubject = "file-lite-user"
+const authJWTType = "access"
+const authTicketTTL = 2 * time.Minute
 
 type Cfg struct {
 	Host        string `json:"host"`
 	Port        string `json:"port"`
 	Password    string `json:"password"`
+	JWTToken    string `json:"jwtToken"`
 	SafeBaseDir string `json:"safeBaseDir"`
 	EnableLog   bool   `json:"enableLog"`
 	SSLKey      string `json:"sslKey"`
@@ -29,8 +38,21 @@ var cfg Cfg
 var dataBaseDir string
 var safeBaseDir string
 var authToken string
+var jwtToken string
 var configInitialized bool
 var configFilePath string
+var authTicketMu sync.Mutex
+var currentAuthTicket *authTicket
+
+type authTicket struct {
+	value     string
+	expiresAt time.Time
+}
+
+type AuthTicketInfo struct {
+	Value     string
+	ExpiresAt time.Time
+}
 
 func normalizePath(p string) string {
 	s := strings.ReplaceAll(p, "\\", "/")
@@ -41,6 +63,7 @@ func normalizePath(p string) string {
 func DataBaseDir() string     { return dataBaseDir }
 func SafeBaseDir() string     { return safeBaseDir }
 func AuthToken() string       { return authToken }
+func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
 func ConfigFilePath() string  { return configFilePath }
@@ -48,7 +71,7 @@ func IsExplicitDevMode() bool {
 	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
 }
 
-func LoadConfig(allowCreate bool) {
+func LoadConfig(allowCreate bool) error {
 	fmt.Printf("%s version: %s\n\n", PkgName, Version)
 	base := os.Getenv("ENV_DATA_BASE_DIR")
 	if base == "" {
@@ -66,6 +89,7 @@ func LoadConfig(allowCreate bool) {
 		Host:        "",
 		Port:        "",
 		Password:    "",
+		JWTToken:    "",
 		SafeBaseDir: "./",
 		EnableLog:   true,
 		SSLKey:      "",
@@ -74,6 +98,7 @@ func LoadConfig(allowCreate bool) {
 	fp := filepath.Join(dataBaseDir, "config.json")
 	configFilePath = fp
 
+	configFileExists := false
 	if _, err := os.Stat(fp); err != nil {
 		if allowCreate {
 			b, _ := json.MarshalIndent(def, "", "  ")
@@ -85,9 +110,43 @@ func LoadConfig(allowCreate bool) {
 			configInitialized = false
 		}
 	} else {
+		configFileExists = true
 		b, _ := os.ReadFile(fp)
-		_ = json.Unmarshal(b, &cfg)
+		if err := json.Unmarshal(b, &cfg); err != nil {
+			return fmt.Errorf("read config file %s: %w", fp, err)
+		}
 		configInitialized = true
+	}
+
+	shouldWriteConfig := false
+	if cfg.Password == "" {
+		password, err := generatePassword()
+		if err != nil {
+			return err
+		}
+		cfg.Password = password
+		shouldWriteConfig = configFileExists
+	}
+	if configFileExists && cfg.JWTToken == "" {
+		secret, err := generateJWTSecret()
+		if err != nil {
+			return err
+		}
+		cfg.JWTToken = secret
+		shouldWriteConfig = true
+	}
+	if cfg.JWTToken == "" {
+		secret, err := generateJWTSecret()
+		if err != nil {
+			return err
+		}
+		cfg.JWTToken = secret
+	}
+	if shouldWriteConfig {
+		b, _ := json.MarshalIndent(cfg, "", "  ")
+		if err := os.WriteFile(fp, b, 0644); err != nil {
+			return fmt.Errorf("write config file %s: %w", fp, err)
+		}
 	}
 
 	if cfg.SafeBaseDir != "" {
@@ -109,19 +168,98 @@ func LoadConfig(allowCreate bool) {
 		safeBaseDir = ""
 	}
 
-	if cfg.Password != "" {
-		authToken = cfg.Password
-	} else {
-		authToken = s4() + s4()
+	jwtToken = cfg.JWTToken
+	signedToken, err := NewAuthToken()
+	if err != nil {
+		return err
 	}
-	fmt.Printf("password: %s\n", authToken)
+	authToken = signedToken
+	fmt.Println("password: Please check config file")
+	return nil
 }
 
-func s4() string {
-	n, _ := rand.Int(rand.Reader, big.NewInt(0x10000))
-	v := int(n.Int64()) + 0x10000
-	s := strconv.FormatInt(int64(v), 16)
-	return s[1:5]
+func generateJWTSecret() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate jwtToken: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func generatePassword() (string, error) {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate password: %w", err)
+	}
+	return fmt.Sprintf("%x", b), nil
+}
+
+func NewAuthToken() (string, error) {
+	return createAuthJWT(jwtToken)
+}
+
+func NewAuthTicket() (AuthTicketInfo, error) {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return AuthTicketInfo{}, fmt.Errorf("generate auth ticket: %w", err)
+	}
+	ticket := base64.RawURLEncoding.EncodeToString(b)
+	expiresAt := time.Now().Add(authTicketTTL)
+	authTicketMu.Lock()
+	currentAuthTicket = &authTicket{
+		value:     ticket,
+		expiresAt: expiresAt,
+	}
+	authTicketMu.Unlock()
+	return AuthTicketInfo{Value: ticket, ExpiresAt: expiresAt}, nil
+}
+
+func ConsumeAuthTicket(ticket string) (string, bool) {
+	authTicketMu.Lock()
+	storedTicket := currentAuthTicket
+	authTicketMu.Unlock()
+	if storedTicket == nil || storedTicket.value != ticket || storedTicket.expiresAt.Before(time.Now()) {
+		return "", false
+	}
+	token, err := NewAuthToken()
+	if err != nil {
+		return "", false
+	}
+	return token, true
+}
+
+func createAuthJWT(secret string) (string, error) {
+	now := time.Now()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": authJWTSubject,
+		"typ": authJWTType,
+		"iat": now.Unix(),
+		"exp": now.AddDate(1, 0, 0).Unix(),
+	})
+	signed, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", fmt.Errorf("sign auth token: %w", err)
+	}
+	return signed, nil
+}
+
+func VerifyAuthJWT(tokenString string) bool {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(jwtToken), nil
+	})
+	if err != nil || token == nil || !token.Valid {
+		return false
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return false
+	}
+	sub, subOk := claims["sub"].(string)
+	typ, typOk := claims["typ"].(string)
+	return subOk && typOk && sub == authJWTSubject && typ == authJWTType
 }
 
 func Port() int {
@@ -150,7 +288,3 @@ func Host() string {
 }
 
 func IsHTTPS() bool { return cfg.SSLKey != "" && cfg.SSLCert != "" }
-
-func AuthParam() string {
-	return "auth=" + authToken
-}

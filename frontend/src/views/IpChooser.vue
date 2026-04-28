@@ -1,25 +1,23 @@
 <script setup lang="ts">
 import { useQRCode } from '@vueuse/integrations/useQRCode'
-import { authToken } from '@/store'
 import { copyWithToast } from '@/utils'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
+const ticketValue = ref('')
 const route = useRoute()
 
 function parseData() {
   try {
     const data = JSON.parse(atob(route.query.data as string))
     console.log(data)
-    const { ips, port, protocol, auth } = data as { ips: string[], host: string, port: number, protocol: string, auth: string }
-    hostUrls.value = ips.map(ip => auth ? `${protocol}//${ip}:${port}?auth=${auth}` : `${protocol}//${ip}:${port}`)
-
-    if (auth) {
-      authToken.value = auth
-    }
+    const { ips, port, protocol, ticket } = data as { ips: string[], host: string, port: number, protocol: string, ticket: string }
+    ticketValue.value = ticket || ''
+    hostUrls.value = ips.map(ip => ticket ? `${protocol}//${ip}:${port}?ticket=${ticket}` : `${protocol}//${ip}:${port}`)
   }
   catch (error) {
     console.error('Error parsing data:', error)
+    ticketValue.value = ''
     hostUrls.value = []
   }
 }
@@ -31,6 +29,7 @@ watch(
       parseData()
     }
     else {
+      ticketValue.value = ''
       hostUrls.value = []
     }
     setTimeout(() => {
@@ -62,9 +61,9 @@ function autoSelectUrl() {
 </script>
 
 <template>
-  <div class="ip-chooser">
+  <div class="ip-chooser app-soft-bg">
     <div class="ip-title">
-      <RouterLink :to="{ name: 'HomeView' }">
+      <RouterLink :to="{ name: 'HomeView', query: ticketValue ? { ticket: ticketValue } : undefined }">
         <span class="mdi mdi-home" style="font-size: 26px" />
       </RouterLink>
     </div>

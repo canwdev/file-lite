@@ -1,17 +1,26 @@
 import type { IDrive, IEntry } from '@/types/server'
 import qs from 'qs'
 import { API_PROXY_BASE } from '@/enum'
-import { authToken } from '@/store'
 import Service from '@/utils/service'
 
 const baseURL = `${API_PROXY_BASE}/api/files`
 const service = Service({
   baseURL,
 })
+const authService = Service({
+  baseURL,
+  isAuth: false,
+})
 
 export const fsWebApi = {
   auth() {
     return service.get('/auth')
+  },
+  login(password: string) {
+    return authService.post('/auth', { password }) as Promise<{ token: string }>
+  },
+  consumeTicket(ticket: string) {
+    return authService.post('/auth', { ticket }) as Promise<{ token: string }>
   },
   async getDrives() {
     return (await service.get('/drives')) as unknown as IDrive[]
@@ -52,7 +61,7 @@ export const fsWebApi = {
       return `${baseURL}/download?path=${paths[0]}`
     }
 
-    const query = qs.stringify({ paths, auth: authToken.value }, { arrayFormat: 'repeat' })
+    const query = qs.stringify({ paths }, { arrayFormat: 'repeat' })
     return `${baseURL}/download?${query}`
   },
   stream(path: string, config: any = {}, noCache = true) {
