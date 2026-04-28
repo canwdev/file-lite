@@ -180,12 +180,12 @@ watch(
   pointer-events: auto;
   border-radius: 26px;
   padding: 12px;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow:
     0 28px 80px rgba(40, 40, 50, 0.20),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  // backdrop-filter: blur(28px) saturate(1.25);
+  backdrop-filter: blur(28px) saturate(1.25);
 
   :deep(.music-play-list) {
     flex: 1;

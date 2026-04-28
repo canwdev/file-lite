@@ -190,7 +190,6 @@ onMounted(() => {
   mousetrap.bind(KEY_SPACE, togglePlay)
   mousetrap.bind(KEY_PREVIOUS, previous)
   mousetrap.bind(KEY_NEXT, next)
-  mousetrap.bind('ctrl+x', switchLoopMode)
   mousetrap.bind(KEY_UP, volumeUpFn)
   mousetrap.bind(KEY_DOWN, volumeDownFn)
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useStorage } from '@vueuse/core'
+import { LsKeys } from '@/enum'
 import SteamCard from '../components/SteamCard.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
 import { MusicEvents, useMediaStore } from './utils/media-store'
@@ -8,6 +10,8 @@ const mediaStore = useMediaStore(storeId.value)
 
 const item = computed(() => mediaStore.mediaItem)
 const lyricLines = computed(() => item.value?.lyricsLines ?? [])
+const hasLyrics = computed(() => lyricLines.value.length > 0)
+const lyricsVisible = useStorage(LsKeys.MUSIC_LYRICS_VISIBLE, true, localStorage, { listenToStorageChanges: false })
 
 const activeLineIndex = computed(() => {
   const lines = lyricLines.value
@@ -81,7 +85,7 @@ function scrollToLineEl(el: HTMLElement, behavior: ScrollBehavior) {
 function scrollActiveLineIntoView(behavior: ScrollBehavior) {
   const idx = activeLineIndex.value
   const container = lyricScrollRef.value
-  if (idx < 0 || !autoScrollAllowed() || !container)
+  if (idx < 0 || !lyricsVisible.value || !autoScrollAllowed() || !container)
     return
   const el = lineElMap.get(idx)
   if (!el)
@@ -104,6 +108,7 @@ watch(
 watch(
   () => item.value?.guid,
   () => {
+    lyricsVisible.value = true
     userScrollLockUntil.value = 0
     lineElMap = new Map()
     nextTick(() => {
@@ -123,6 +128,18 @@ watch(
         scrollActiveLineIntoView('auto')
       })
     }
+  },
+  { flush: 'post' },
+)
+
+watch(
+  lyricsVisible,
+  (visible) => {
+    if (!visible)
+      return
+    nextTick(() => {
+      scrollActiveLineIntoView('auto')
+    })
   },
   { flush: 'post' },
 )
@@ -149,6 +166,11 @@ function seekToTime(time: number, index: number) {
   scrollToLineEl(el, 'smooth')
 }
 
+function toggleLyricsVisible() {
+  if (hasLyrics.value)
+    lyricsVisible.value = !lyricsVisible.value
+}
+
 onBeforeUnmount(() => {
   if (scrollLockTimer)
     clearTimeout(scrollLockTimer)
@@ -157,11 +179,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="music-detail-root scrollbar-mini">
-    <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': lyricLines.length > 0 }">
+    <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': hasLyrics && lyricsVisible }">
       <!-- With lyrics: two-column AMLL / Apple Music–like -->
-      <template v-if="lyricLines.length > 0">
+      <template v-if="hasLyrics">
         <div class="meta-side">
-          <SteamCard :src="item.cover || defaultCoverUrl" />
+          <button
+            class="cover-toggle"
+            type="button"
+            :aria-pressed="lyricsVisible"
+            :aria-label="lyricsVisible ? '隐藏歌词' : '显示歌词'"
+            @click="toggleLyricsVisible"
+          >
+            <SteamCard :src="item.cover || defaultCoverUrl" />
+          </button>
           <div class="meta-text">
             <h1 class="track-title">
               {{ item.titleDisplay }}
@@ -174,7 +204,7 @@ onBeforeUnmount(() => {
             </p>
           </div>
         </div>
-        <section class="lyrics-side">
+        <section v-show="lyricsVisible" class="lyrics-side">
           <div
             ref="lyricScrollRef"
             class="lyrics-scroll"
@@ -293,6 +323,21 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 0.35em;
+}
+
+.cover-toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 18px;
+
+  &:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 6px;
+  }
 }
 
 .lyrics-side {
