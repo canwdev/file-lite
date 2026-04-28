@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +20,8 @@ import (
 const authJWTSubject = "file-lite-user"
 const authJWTType = "access"
 const authTicketTTL = 2 * time.Minute
+const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+const authTicketLength = 8
 
 type Cfg struct {
 	Host        string `json:"host"`
@@ -199,11 +202,10 @@ func NewAuthToken() (string, error) {
 }
 
 func NewAuthTicket() (AuthTicketInfo, error) {
-	b := make([]byte, 6)
-	if _, err := rand.Read(b); err != nil {
-		return AuthTicketInfo{}, fmt.Errorf("generate auth ticket: %w", err)
+	ticket, err := generateAuthTicket()
+	if err != nil {
+		return AuthTicketInfo{}, err
 	}
-	ticket := base64.RawURLEncoding.EncodeToString(b)
 	expiresAt := time.Now().Add(authTicketTTL)
 	authTicketMu.Lock()
 	currentAuthTicket = &authTicket{
@@ -212,6 +214,46 @@ func NewAuthTicket() (AuthTicketInfo, error) {
 	}
 	authTicketMu.Unlock()
 	return AuthTicketInfo{Value: ticket, ExpiresAt: expiresAt}, nil
+}
+
+func generateAuthTicket() (string, error) {
+	for {
+		b := make([]byte, authTicketLength)
+		for i := range b {
+			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(authTicketChars))))
+			if err != nil {
+				return "", fmt.Errorf("generate auth ticket: %w", err)
+			}
+			b[i] = authTicketChars[n.Int64()]
+		}
+		ticket := string(b)
+		if !isWeakAuthTicket(ticket) {
+			return ticket, nil
+		}
+	}
+}
+
+func isWeakAuthTicket(ticket string) bool {
+	counts := map[rune]int{}
+	maxCount := 0
+	var last rune
+	repeatRun := 0
+	for i, char := range ticket {
+		counts[char]++
+		if counts[char] > maxCount {
+			maxCount = counts[char]
+		}
+		if i == 0 || char != last {
+			repeatRun = 1
+		} else {
+			repeatRun++
+			if repeatRun >= 3 {
+				return true
+			}
+		}
+		last = char
+	}
+	return len(counts) < 4 || maxCount > 3
 }
 
 func ConsumeAuthTicket(ticket string) (string, bool) {

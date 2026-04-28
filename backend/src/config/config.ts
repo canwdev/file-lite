@@ -24,6 +24,8 @@ const AUTH_JWT_SUBJECT = 'file-lite-user'
 const AUTH_JWT_TYPE = 'access'
 const AUTH_JWT_EXPIRES_IN = '365d'
 const AUTH_TICKET_TTL_MS = 2 * 60 * 1000
+const AUTH_TICKET_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+const AUTH_TICKET_LENGTH = 8
 
 let currentAuthTicket: { value: string, expiresAt: number } | undefined
 
@@ -44,13 +46,32 @@ export function createAuthJwt(jwtToken: string) {
 }
 
 export function createAuthTicket() {
-  const value = crypto.randomBytes(6).toString('base64url')
+  const value = generateAuthTicket()
   const expiresAt = Date.now() + AUTH_TICKET_TTL_MS
   currentAuthTicket = {
     value,
     expiresAt,
   }
   return { value, expiresAt }
+}
+
+function generateAuthTicket() {
+  while (true) {
+    let value = ''
+    for (let i = 0; i < AUTH_TICKET_LENGTH; i++) {
+      value += AUTH_TICKET_CHARS[crypto.randomInt(AUTH_TICKET_CHARS.length)]
+    }
+    if (!isWeakAuthTicket(value)) {
+      return value
+    }
+  }
+}
+
+function isWeakAuthTicket(value: string) {
+  const chars = [...value]
+  const uniqueCount = new Set(chars).size
+  const maxCharCount = Math.max(...chars.map(char => chars.filter(v => v === char).length))
+  return uniqueCount < 4 || maxCharCount > 3 || /(.)\1{2}/.test(value)
 }
 
 export function consumeAuthTicket(ticket: string) {

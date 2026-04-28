@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
-import { contextMenuTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
+import { colorTheme, colorThemeOptions, contextMenuTheme, setGlobalTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
 import { enablePreview, isNativePlayer } from '@/store/index.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
@@ -19,7 +19,7 @@ function showMenu(event: MouseEvent) {
       {
         label: `Theme: ${themeMode.value}`,
         icon: 'mdi mdi-theme-light-dark',
-        children: [
+        children: [...[
           {
             label: ThemeMode.Auto,
             onClick: () => {
@@ -37,11 +37,18 @@ function showMenu(event: MouseEvent) {
             onClick: () => {
               themeMode.value = ThemeMode.Dark
             },
+            divided: true,
           },
         ].map(item => ({
           ...item,
           icon: item.label === themeMode.value ? `mdi mdi-check` : '',
-        })),
+        })), ...colorThemeOptions.map(item => ({
+          label: item.label,
+          icon: item.rgb === colorTheme.value ? 'mdi mdi-check' : '',
+          onClick: () => {
+            setGlobalTheme(item.rgb)
+          },
+        }))],
       },
       {
         label: `Config`,

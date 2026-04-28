@@ -99,7 +99,7 @@ onMounted(() => {
         <el-tab-pane label="Ticket" name="ticket">
           <div class="login-form">
             <el-input
-              v-model="ticketInput" clearable size="large"
+              v-model="ticketInput" type="password" clearable show-password size="large"
               placeholder="Input ticket" @keyup.enter="confirmTicket"
             />
             <el-button type="primary" size="large" :loading="isSubmitting" @click="confirmTicket">
