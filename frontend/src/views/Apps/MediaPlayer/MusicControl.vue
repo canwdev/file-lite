@@ -8,7 +8,7 @@ import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
 import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/music-state'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   playlistOpen?: boolean
   showControls?: boolean
 }>(), {
@@ -187,11 +187,13 @@ const currentLoopMode = computed(() => {
 
 onMounted(() => {
   const mousetrap = new Mousetrap()
-  mousetrap.bind(KEY_SPACE, togglePlay)
-  mousetrap.bind(KEY_PREVIOUS, previous)
-  mousetrap.bind(KEY_NEXT, next)
-  mousetrap.bind(KEY_UP, volumeUpFn)
-  mousetrap.bind(KEY_DOWN, volumeDownFn)
+  if (props.showControls) {
+    mousetrap.bind(KEY_SPACE, togglePlay)
+    mousetrap.bind(KEY_PREVIOUS, previous)
+    mousetrap.bind(KEY_NEXT, next)
+    mousetrap.bind(KEY_UP, volumeUpFn)
+    mousetrap.bind(KEY_DOWN, volumeDownFn)
+  }
 
   mousetrapRef.value = mousetrap
 })
@@ -270,8 +272,7 @@ function jumpBackward() {
         </button>
       </div>
 
-      <div v-if="!showControls" class="control-center" />
-      <div v-else class="control-center">
+      <div class="control-center">
         <button
           class="btn-action btn-no-style icon-wrap" title="Previous" @click="previous"
           @contextmenu.prevent="jumpBackward"

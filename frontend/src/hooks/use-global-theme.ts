@@ -65,7 +65,7 @@ export const colorTheme = useStorage(LsKeys.COLOR_THEME, '')
 
 let changeElementPlusTheme: ((color?: string) => void) | undefined
 
-function rgbToHex(rgb: string) {
+export function rgbToHex(rgb: string) {
   const [r, g, b] = rgb
     .split(',')
     .map(v => Number.parseInt(v.trim(), 10))
@@ -99,7 +99,7 @@ export function setGlobalTheme(rgb: string) {
   changeElementPlusTheme?.(hex)
 }
 
-function getCurrentPrimaryRgb() {
+export function getCurrentPrimaryRgb() {
   return getComputedStyle(document.documentElement).getPropertyValue('--vgo-primary-rgb')
 }
 

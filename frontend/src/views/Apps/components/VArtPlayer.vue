@@ -5,6 +5,7 @@ import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
+import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
 
 interface Props {
   src: string
@@ -145,7 +146,7 @@ onMounted(() => {
     fullscreen: true,
     fullscreenWeb: true,
     // autoSize: true,
-    theme: '#53ade4',
+    theme: rgbToHex(getCurrentPrimaryRgb()) || '#53ade4',
     // autoMini: true,
     aspectRatio: true,
     screenshot: true,
