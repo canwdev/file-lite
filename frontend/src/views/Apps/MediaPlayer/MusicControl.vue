@@ -254,7 +254,10 @@ function jumpBackward() {
     </div>
     <div class="actionbar">
       <div class="now-playing">
-        <button v-if="showControls" class="btn-action btn-no-style icon-wrap" title="Playback speed" @click="showSpeedMenu">
+        <button
+          v-if="showControls" class="btn-action btn-no-style icon-wrap" title="Playback speed"
+          @click="showSpeedMenu"
+        >
           {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
         </button>
 
@@ -275,10 +278,7 @@ function jumpBackward() {
         >
           <span class="mdi mdi-skip-previous" />
         </button>
-        <button
-          class="btn-action btn-no-style icon-wrap" title="Rewind"
-          @click="jumpBackward"
-        >
+        <button class="btn-action btn-no-style icon-wrap" title="Rewind" @click="jumpBackward">
           <span class="mdi mdi-rewind-5" />
         </button>
 
@@ -294,15 +294,10 @@ function jumpBackward() {
           </template>
         </button>
 
-        <button
-          class="btn-action btn-no-style icon-wrap" title="Fast Forward"
-          @click="jumpForward"
-        >
+        <button class="btn-action btn-no-style icon-wrap" title="Fast Forward" @click="jumpForward">
           <span class="mdi mdi-fast-forward-5" />
         </button>
-        <button
-          class="btn-action btn-no-style icon-wrap" title="Next" @click="next"
-        >
+        <button class="btn-action btn-no-style icon-wrap" title="Next" @click="next">
           <span class="mdi mdi-skip-next" />
         </button>
       </div>
@@ -463,18 +458,18 @@ function jumpBackward() {
       box-shadow:
         0 8px 22px rgba(35, 35, 45, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.72);
-      transition: transform 0.14s ease, background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+      transition: filter 0.14s ease;
 
       &:hover {
-        filter: brightness(1.2) contrast(1.2);
+        filter: brightness(1.1) contrast(1.1);
       }
 
       &.btn-play-pause {
         width: 46px;
         height: 46px;
         color: #fff;
-        background: linear-gradient(135deg, #ff2d55, #ff375f);
-        box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+        background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
+        box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.28);
 
         .mdi {
           font-size: 28px;
@@ -486,13 +481,13 @@ function jumpBackward() {
 
         &.active {
           color: #fff;
-          background: linear-gradient(135deg, #ff2d55, #ff6a88);
-          box-shadow: 0 10px 24px rgba(255, 45, 85, 0.26);
+        background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
+          box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.26);
         }
       }
 
       .reverse-x {
-        color: #ff2d55;
+        color: var(--vgo-primary);
         transform: rotateX(-180deg);
       }
 
@@ -562,8 +557,8 @@ function jumpBackward() {
 
     &.btn-play-pause {
       color: #fff;
-      background: linear-gradient(135deg, #ff2d55, #ff375f);
-      box-shadow: 0 10px 24px rgba(255, 45, 85, 0.28);
+      background: var(--vgo-primary);
+      box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.26);
     }
   }
 

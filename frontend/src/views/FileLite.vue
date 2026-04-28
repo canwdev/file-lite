@@ -19,36 +19,45 @@ function showMenu(event: MouseEvent) {
       {
         label: `Theme: ${themeMode.value}`,
         icon: 'mdi mdi-theme-light-dark',
-        children: [...[
-          {
-            label: ThemeMode.Auto,
-            onClick: () => {
-              themeMode.value = ThemeMode.Auto
+        children: [
+        // Light/Dark theme
+          ...[
+            {
+              label: ThemeMode.Auto,
+              onClick: () => {
+                themeMode.value = ThemeMode.Auto
+              },
             },
-          },
-          {
-            label: ThemeMode.Light,
-            onClick: () => {
-              themeMode.value = ThemeMode.Light
+            {
+              label: ThemeMode.Light,
+              onClick: () => {
+                themeMode.value = ThemeMode.Light
+              },
             },
-          },
-          {
-            label: ThemeMode.Dark,
-            onClick: () => {
-              themeMode.value = ThemeMode.Dark
+            {
+              label: ThemeMode.Dark,
+              onClick: () => {
+                themeMode.value = ThemeMode.Dark
+              },
+              divided: true,
             },
-            divided: true,
-          },
-        ].map(item => ({
-          ...item,
-          icon: item.label === themeMode.value ? `mdi mdi-check` : '',
-        })), ...colorThemeOptions.map(item => ({
-          label: item.label,
-          icon: item.rgb === colorTheme.value ? 'mdi mdi-check' : '',
-          onClick: () => {
-            setGlobalTheme(item.rgb)
-          },
-        }))],
+          ].map(item => ({
+            ...item,
+            icon: item.label === themeMode.value ? `mdi mdi-check` : '',
+          })),
+          // Color theme
+          ...colorThemeOptions.map(item => ({
+            label: item.label,
+            // icon: item.rgb === colorTheme.value ? 'mdi mdi-check' : '',
+            icon: h('span', {
+              class: `mdi ${item.rgb === colorTheme.value ? 'mdi-checkbox-marked-circle' : 'mdi-checkbox-blank-circle'}`,
+              style: { color: `rgba(${item.rgb})` },
+            }),
+            onClick: () => {
+              setGlobalTheme(item.rgb)
+            },
+          })),
+        ],
       },
       {
         label: `Config`,

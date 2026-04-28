@@ -464,10 +464,10 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
     font-size: 18px;
 
     &.active {
-      color: #f59e0b;
-      background: rgba(245, 158, 11, 0.2);
+      color: var(--vgo-primary);
+      background: rgba(var(--vgo-primary-rgb), 0.2);
 
-      &:hover { background: rgba(245, 158, 11, 0.3); }
+      &:hover { background: rgba(var(--vgo-primary-rgb), 0.3); }
     }
   }
 }

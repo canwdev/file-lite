@@ -23,6 +23,11 @@ html, body, #app {
   overscroll-behavior-y: none; // disable pull-to-refresh on mobile browsers (html is required for Safari)
 }
 
+::selection {
+    background-color: rgba(var(--vgo-primary-rgb), 0.5);
+    // color: #ffffff;
+}
+
 .font-code {
   font-family: 'Maple Mono NF', 'Cascadia Code', '等距更纱黑体 SC', 'Monaco', 'Fira Code Medium', Consolas, 'Courier New', monospace;
 }

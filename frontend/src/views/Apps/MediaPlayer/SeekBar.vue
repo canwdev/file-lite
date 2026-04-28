@@ -139,7 +139,7 @@ export default defineComponent({
     transform: translateY(-50%);
     height: $bar_height;
     width: 0;
-    background: linear-gradient(135deg, #ff2d55, #ff6a88);
+    background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
     user-select: none;
     pointer-events: none;
     z-index: 1;
@@ -189,7 +189,7 @@ export default defineComponent({
       border-radius: 50%;
       background: #fff;
       z-index: 10;
-      border: 2px solid #ff2d55;
+      border: 2px solid var(--vgo-primary);
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
       cursor: pointer;
     }
@@ -216,7 +216,7 @@ export default defineComponent({
     &::-moz-range-thumb {
       @include mixin-thumb;
       // Firefox 不需要像 Webkit 那样处理 margin-top，通常会自动居中
-      border: 2px solid #ff2d55;
+      border: 2px solid var(--vgo-primary);
     }
 
     // 针对 Firefox 的轨道处理

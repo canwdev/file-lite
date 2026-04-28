@@ -25,28 +25,24 @@ export const colorThemeOptions = [
     rgb: '247,223,30',
   },
   {
-    label: 'Java Orange',
-    rgb: '230,81,0',
+    label: 'Python Gold',
+    rgb: '255,193,7',
+  },
+  {
+    label: 'Swift Coral',
+    rgb: '255,112,67',
+  },
+  {
+    label: 'Apple Pink',
+    rgb: '255,45,85',
   },
   {
     label: 'Ruby Red',
     rgb: '198,40,40',
   },
   {
-    label: 'C Sharp Purple',
-    rgb: '142,36,170',
-  },
-  {
-    label: 'Python Gold',
-    rgb: '255,193,7',
-  },
-  {
     label: 'Rust Brown',
     rgb: '121,85,72',
-  },
-  {
-    label: 'Swift Coral',
-    rgb: '255,112,67',
   },
   {
     label: 'Kotlin Indigo',
@@ -57,24 +53,12 @@ export const colorThemeOptions = [
     rgb: '149,117,205',
   },
   {
-    label: 'Scala Crimson',
-    rgb: '183,28,28',
-  },
-  {
-    label: 'Dart Teal',
-    rgb: '0,150,136',
-  },
-  {
-    label: 'Elixir Plum',
-    rgb: '123,31,162',
-  },
-  {
     label: 'Haskell Slate',
     rgb: '96,125,139',
   },
   {
-    label: 'Lua Navy',
-    rgb: '26,35,126',
+    label: 'Dart Teal',
+    rgb: '0,150,136',
   },
 ]
 export const colorTheme = useStorage(LsKeys.COLOR_THEME, '')

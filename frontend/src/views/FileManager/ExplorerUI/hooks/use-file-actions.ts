@@ -206,6 +206,7 @@ export function useFileActions({
             },
           })),
           {
+            divided: 'up',
             label: 'Set Default App',
             icon: 'mdi mdi-application-settings-outline',
             children: (() => {

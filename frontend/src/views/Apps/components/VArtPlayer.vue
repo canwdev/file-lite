@@ -283,6 +283,7 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 100%;
+  user-select: none;
 }
 
 /* 确保播放器容器默认填满父级 */
