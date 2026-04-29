@@ -20,12 +20,21 @@ export interface AppParams {
   list: IEntry[]
 }
 
-export const AppList = [
+export interface AppListItem {
+  name: string
+  openWith: OpenWithEnum
+  icon: string
+  component: Component
+  singleInstance?: boolean
+}
+
+export const AppList: AppListItem[] = [
   {
     name: 'Endless Gallery',
     openWith: OpenWithEnum.EndlessGallery,
     icon: 'mdi mdi-view-carousel-outline',
     component: defineAsyncComponent(() => import('./EndlessGallery/EndlessGallery.vue')),
+    singleInstance: true,
   },
   {
     name: 'Text Editor',
@@ -38,22 +47,23 @@ export const AppList = [
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image',
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
+    singleInstance: true,
   },
   {
     name: 'Media Player',
     openWith: OpenWithEnum.MediaPlayer,
     icon: 'mdi mdi-music-circle',
     component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
+    singleInstance: true,
   },
   {
     name: 'Video Player',
     openWith: OpenWithEnum.VideoPlayer,
     icon: 'mdi mdi-play-circle',
     component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
+    singleInstance: true,
   },
 ]
-
-export type AppListItem = (typeof AppList)[number]
 
 /** O(1) lookup by `openWith`; entries not in AppList are absent (same as former find). */
 export const appListByOpenWith = AppList.reduce(

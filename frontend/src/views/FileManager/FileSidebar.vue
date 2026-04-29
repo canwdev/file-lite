@@ -3,7 +3,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
-import { contextMenuTheme } from '@/hooks/use-global-theme'
+import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { bytesToSize } from '@/utils'
 import { normalizePath } from '@/views/FileManager/utils'
 
@@ -95,8 +95,7 @@ function showDriveMenu(item: IDrive, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false,
+    ...menuThemeOptions,
     items,
   })
 }

@@ -2,7 +2,7 @@
 import type { IEntry } from '@/types/server.ts'
 import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
-import { enablePreview } from '@/store/index.ts'
+import { settingsStore } from '@/store/index.ts'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
 const props = withDefaults(
@@ -29,7 +29,7 @@ const previewSrc = computed(() => {
   if (absPath && item) {
     // 仅支持图片预览，且大小不超过 xMB
     if (
-      enablePreview.value
+      settingsStore.value.enablePreview
       && !item.isDirectory
       && regSupportedImageFormat.test(item.name)
       && Number(item.size) < 3 * 1024 * 1024

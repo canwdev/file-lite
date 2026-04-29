@@ -16,6 +16,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{
   (e: 'locateItem', name: string): void
+  (e: 'setTitle', val: string): void
 }>()
 
 // const {params} = toRefs(props)
@@ -62,7 +63,7 @@ watch(
     <div v-if="mediaStore.mediaItem?.cover" class="app-cover-bg" />
     <div class="music-above">
       <div class="media-detail">
-        <PlayerCore />
+        <PlayerCore @set-title="(val: string) => emit('setTitle', val)" />
       </div>
     </div>
 

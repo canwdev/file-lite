@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
-import { colorTheme, colorThemeOptions, contextMenuTheme, setGlobalTheme, ThemeMode, themeMode } from '@/hooks/use-global-theme.ts'
-import { enablePreview, isNativePlayer } from '@/store/index.ts'
+import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
+import { settingsStore } from '@/store/index.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -13,11 +13,10 @@ function showMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right || event.x,
     y: rect?.top || event.y,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false, // ← 防止滚动关闭菜单
+    ...menuThemeOptions,
     items: [
       {
-        label: `Theme: ${themeMode.value}`,
+        label: `Theme: ${settingsStore.value.themeMode}`,
         icon: 'mdi mdi-theme-light-dark',
         children: [
         // Light/Dark theme
@@ -25,32 +24,32 @@ function showMenu(event: MouseEvent) {
             {
               label: ThemeMode.Auto,
               onClick: () => {
-                themeMode.value = ThemeMode.Auto
+                settingsStore.value.themeMode = ThemeMode.Auto
               },
             },
             {
               label: ThemeMode.Light,
               onClick: () => {
-                themeMode.value = ThemeMode.Light
+                settingsStore.value.themeMode = ThemeMode.Light
               },
             },
             {
               label: ThemeMode.Dark,
               onClick: () => {
-                themeMode.value = ThemeMode.Dark
+                settingsStore.value.themeMode = ThemeMode.Dark
               },
               divided: true,
             },
           ].map(item => ({
             ...item,
-            icon: item.label === themeMode.value ? `mdi mdi-check` : '',
+            icon: item.label === settingsStore.value.themeMode ? `mdi mdi-check` : '',
           })),
           // Color theme
           ...colorThemeOptions.map(item => ({
             label: item.label,
-            // icon: item.rgb === colorTheme.value ? 'mdi mdi-check' : '',
+            // icon: item.rgb === settingsStore.value.colorTheme ? 'mdi mdi-check' : '',
             icon: h('span', {
-              class: `mdi ${item.rgb === colorTheme.value ? 'mdi-checkbox-marked-circle' : 'mdi-checkbox-blank-circle'}`,
+              class: `mdi ${item.rgb === settingsStore.value.colorTheme ? 'mdi-checkbox-marked-circle' : 'mdi-checkbox-blank-circle'}`,
               style: { color: `rgba(${item.rgb})` },
             }),
             onClick: () => {
@@ -64,17 +63,24 @@ function showMenu(event: MouseEvent) {
         icon: 'mdi mdi-cog',
         children: [
           {
-            icon: isNativePlayer.value ? 'mdi mdi-check' : '',
+            icon: settingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
             label: `Use native player`,
             onClick: () => {
-              isNativePlayer.value = !isNativePlayer.value
+              settingsStore.value.isNativePlayer = !settingsStore.value.isNativePlayer
             },
           },
           {
-            icon: enablePreview.value ? 'mdi mdi-check' : '',
+            icon: settingsStore.value.enablePreview ? 'mdi mdi-check' : '',
             label: `Enable preview`,
             onClick: () => {
-              enablePreview.value = !enablePreview.value
+              settingsStore.value.enablePreview = !settingsStore.value.enablePreview
+            },
+          },
+          {
+            icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
+            label: `Media app single instance`,
+            onClick: () => {
+              settingsStore.value.appSingleInstance = !settingsStore.value.appSingleInstance
             },
           },
 

@@ -1,5 +1,7 @@
 import type { AppParams, OpenWithEnum } from './apps'
+import { settingsStore } from '@/store'
 import { guid } from '@/utils'
+import { appListByOpenWith } from './apps'
 
 /** ViewPortWindow 实例暴露（用于置顶、聚焦） */
 export type AppWindowViewRef = {
@@ -36,10 +38,27 @@ function createWindowState(appName: OpenWithEnum, appParams: AppParams): AppWind
   }
 }
 
+function getReusableAppWindow(appName: OpenWithEnum): AppWindowState | undefined {
+  const appMeta = appListByOpenWith[appName]
+  if (!settingsStore.value.appSingleInstance || !appMeta?.singleInstance) {
+    return undefined
+  }
+  return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)
+}
+
 /**
  * 打开新 App 窗口并设为当前活动窗口
  */
 export function openAppWindow(appName: OpenWithEnum, appParams: AppParams) {
+  const reusableWin = getReusableAppWindow(appName)
+  if (reusableWin) {
+    reusableWin.appParams = appParams
+    reusableWin.appTitle = ''
+    setAppWindowActive(reusableWin)
+    reusableWin.windowRef?.focus()
+    return
+  }
+
   const win = createWindowState(appName, appParams)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id

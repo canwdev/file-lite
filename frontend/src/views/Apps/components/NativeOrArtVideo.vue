@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { nextTick, onMounted, ref, unref, watch } from 'vue'
-import { isNativePlayer } from '@/store/index'
+import { settingsStore } from '@/store/index'
 import VArtPlayer from './VArtPlayer.vue'
 
 const props = withDefaults(
@@ -35,20 +35,20 @@ function getArtplayer(): ArtplayerInstance | null {
 }
 
 function getHtmlVideo(): HTMLVideoElement | null {
-  if (isNativePlayer.value)
+  if (settingsStore.value.isNativePlayer)
     return nativeVideoRef.value
   return getArtplayer()?.video ?? null
 }
 
 async function play() {
-  if (isNativePlayer.value)
+  if (settingsStore.value.isNativePlayer)
     await nativeVideoRef.value?.play()
   else
     await getArtplayer()?.play()
 }
 
 function pause() {
-  if (isNativePlayer.value)
+  if (settingsStore.value.isNativePlayer)
     nativeVideoRef.value?.pause()
   else
     getArtplayer()?.pause()
@@ -67,13 +67,13 @@ function onArtReady(_art: ArtplayerInstance) {
 watch(
   () => props.src,
   () => {
-    if (isNativePlayer.value)
+    if (settingsStore.value.isNativePlayer)
       nextTick(() => notifyMediaReady())
   },
 )
 
 watch(
-  isNativePlayer,
+  () => settingsStore.value.isNativePlayer,
   () => {
     nextTick(() => notifyMediaReady())
   },
@@ -81,7 +81,7 @@ watch(
 
 onMounted(() => {
   nextTick(() => {
-    if (isNativePlayer.value)
+    if (settingsStore.value.isNativePlayer)
       notifyMediaReady()
   })
 })
@@ -97,7 +97,7 @@ defineExpose({
 <template>
   <div class="native-or-art-video">
     <video
-      v-if="isNativePlayer"
+      v-if="settingsStore.isNativePlayer"
       ref="nativeVideoRef"
       :src="src"
       :controls="controls"

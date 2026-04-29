@@ -3,7 +3,7 @@ import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import moment from 'moment/moment'
 import { fsWebApi } from '@/api/filesystem'
-import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
@@ -268,8 +268,7 @@ export function useFileActions({
     ContextMenu.showContextMenu({
       x,
       y,
-      theme: contextMenuTheme.value,
-      closeWhenScroll: false, // ← 防止滚动关闭菜单
+      ...menuThemeOptions,
       items: getMenuOptions(),
     })
   }

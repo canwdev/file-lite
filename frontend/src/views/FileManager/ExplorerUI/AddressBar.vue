@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { contextMenuTheme } from '@/hooks/use-global-theme'
+import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { normalizeListingPath, normalizePath } from '../utils'
 
 export interface BreadcrumbSegment {
@@ -151,8 +151,7 @@ function showCrumbMenu(path: string, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false,
+    ...menuThemeOptions,
     items,
   })
 }

@@ -2,7 +2,7 @@
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useEventListener } from '@vueuse/core'
 import Mousetrap from 'mousetrap'
-import { contextMenuTheme } from '@/hooks/use-global-theme'
+import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { formatTimeHMS } from '@/utils'
 import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
@@ -57,8 +57,7 @@ function showSpeedMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false, // ← 防止歌词滚动关闭菜单
+    ...menuThemeOptions,
     items: PLAYBACK_RATE_OPTIONS.map((opt) => {
       const selected = rateMatches(mediaStore.playbackRate, opt.value)
       return {
@@ -78,8 +77,7 @@ function showLoopMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false, // ← 防止歌词滚动关闭菜单
+    ...menuThemeOptions,
     items: LoopModeTypeValues.map((mode) => {
       const info = loopModeMap[mode]
       const selected = mSettingsStore.loopMode === mode
@@ -156,18 +154,6 @@ function toggleMute() {
   else {
     previousVolume.value = mSettingsStore.audioVolume
     mSettingsStore.audioVolume = 0
-  }
-}
-
-function switchLoopMode() {
-  let index = LoopModeTypeValues.findIndex(i => i === mSettingsStore.loopMode)
-  ++index
-  if (index > LoopModeTypeValues.length - 1) {
-    index = 0
-  }
-  if (LoopModeTypeValues[index]) {
-    mSettingsStore.loopMode = LoopModeTypeValues[index]
-    window.$message.info(currentLoopMode.value.i18nKey)
   }
 }
 

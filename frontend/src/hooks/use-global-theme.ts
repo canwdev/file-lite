@@ -1,6 +1,5 @@
 import { useElementPlusTheme } from '@canwdev/vgo-ui'
-import { useStorage } from '@vueuse/core'
-import { LsKeys } from '@/enum'
+import { settingsStore } from '@/store'
 
 export enum ThemeMode {
   Auto = 'auto',
@@ -8,8 +7,14 @@ export enum ThemeMode {
   Dark = 'dark',
 }
 
-export const themeMode = useStorage(LsKeys.THEME_MODE, ThemeMode.Auto)
-export const contextMenuTheme = ref('flat dark')
+export const menuThemeOptions = reactive({
+  theme: 'flat dark',
+  // menuTransitionProps: {
+  //   name: 'mx-fade',
+  // },
+  /** 防止滚动关闭菜单 */
+  closeWhenScroll: false,
+})
 
 export const colorThemeOptions = [
   {
@@ -61,8 +66,6 @@ export const colorThemeOptions = [
     rgb: '0,150,136',
   },
 ]
-export const colorTheme = useStorage(LsKeys.COLOR_THEME, '')
-
 let changeElementPlusTheme: ((color?: string) => void) | undefined
 
 export function rgbToHex(rgb: string) {
@@ -79,7 +82,7 @@ export function rgbToHex(rgb: string) {
 
 export function setGlobalTheme(rgb: string) {
   if (!rgb) {
-    colorTheme.value = ''
+    settingsStore.value.colorTheme = ''
     document.documentElement.style.removeProperty('--vgo-primary-rgb')
     changeElementPlusTheme?.(rgbToHex(getCurrentPrimaryRgb()))
     return
@@ -94,7 +97,7 @@ export function setGlobalTheme(rgb: string) {
     .map(v => Number.parseInt(v.trim(), 10))
     .join(',')
 
-  colorTheme.value = normalizedRgb
+  settingsStore.value.colorTheme = normalizedRgb
   document.documentElement.style.setProperty('--vgo-primary-rgb', normalizedRgb)
   changeElementPlusTheme?.(hex)
 }
@@ -112,8 +115,8 @@ export function useGlobalTheme() {
   }
 
   onBeforeMount(() => {
-    if (colorTheme.value) {
-      setGlobalTheme(colorTheme.value)
+    if (settingsStore.value.colorTheme) {
+      setGlobalTheme(settingsStore.value.colorTheme)
       return
     }
     changeTheme(rgbToHex(getCurrentPrimaryRgb()))
@@ -130,10 +133,10 @@ export function useGlobalTheme() {
   })
 
   const isAppDarkMode = computed(() => {
-    if (themeMode.value === ThemeMode.Auto) {
+    if (settingsStore.value.themeMode === ThemeMode.Auto) {
       return isSystemDarkMode.value
     }
-    return themeMode.value === ThemeMode.Dark
+    return settingsStore.value.themeMode === ThemeMode.Dark
   })
   watch(
     isAppDarkMode,
@@ -141,11 +144,11 @@ export function useGlobalTheme() {
       if (val) {
         // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
         document.documentElement.classList.add('dark')
-        contextMenuTheme.value = 'flat dark'
+        menuThemeOptions.theme = 'flat dark'
       }
       else {
         document.documentElement.classList.remove('dark')
-        contextMenuTheme.value = 'flat'
+        menuThemeOptions.theme = 'flat'
       }
     },
     { immediate: true },

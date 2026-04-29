@@ -4,7 +4,7 @@ import type { AppParams } from '@/views/Apps/apps.ts'
 import { useUnSavedChanges } from '@canwdev/vgo-ui'
 import { MenuBar } from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
-import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { bytesToSize } from '@/utils'
 import { generateTextFile } from '@/views/FileManager/utils'
 
@@ -119,8 +119,7 @@ async function handleSaveFile() {
 
 const menuOptions = computed((): MenuBarOptions => {
   return {
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false, // ← 防止滚动关闭菜单
+    ...menuThemeOptions,
     items: [
       {
         label: `Save${isChanged.value ? '*' : ''}`,

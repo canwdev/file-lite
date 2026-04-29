@@ -6,7 +6,7 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, nextTick, toRefs, watch } from 'vue'
 import { LsKeys } from '@/enum'
-import { contextMenuTheme } from '@/hooks/use-global-theme.ts'
+import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
@@ -429,8 +429,7 @@ function updateMenuOptions2(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right || event.x,
     y: rect?.top || event.y,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false, // ← 防止滚动关闭菜单
+    ...menuThemeOptions,
     items: getMenuOptions(),
   })
 }

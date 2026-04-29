@@ -23,6 +23,7 @@ const emit = defineEmits(['setTitle', 'exit'])
 const initialIndex = ref(0)
 const urlList = ref<string[]>([])
 const filteredList = ref<IEntry[]>([])
+const viewerKey = ref(0)
 // 应用启动传参
 watch(
   () => props.appParams,
@@ -40,13 +41,14 @@ watch(
       })
 
     urlList.value = filteredList.value.map(i => fsWebApi.getStreamUrl(`${basePath}/${i.name}`))
-    initialIndex.value = filteredList.value.findIndex(i => i.name === item.name)
+    initialIndex.value = Math.max(0, filteredList.value.findIndex(i => i.name === item.name))
+    viewerKey.value += 1
   },
   { immediate: true },
 )
 
 watch(initialIndex, (val) => {
-  emit('setTitle', filteredList.value[val].name || '')
+  emit('setTitle', filteredList.value[val]?.name || '')
 }, { immediate: true })
 </script>
 
@@ -55,6 +57,7 @@ watch(initialIndex, (val) => {
     <img v-if="isNative" :src="urlList[initialIndex]" class="image-viewer-native-image">
     <el-image-viewer
       v-else
+      :key="viewerKey"
       :url-list="urlList"
       show-progress
       :initial-index="initialIndex"

@@ -5,7 +5,7 @@ import type { IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
-import { contextMenuTheme } from '@/hooks/use-global-theme'
+import { menuThemeOptions } from '@/hooks/use-global-theme'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import FileList from './ExplorerUI/FileList.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
@@ -154,8 +154,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false,
+    ...menuThemeOptions,
     items,
   })
 }
@@ -193,8 +192,7 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    theme: contextMenuTheme.value,
-    closeWhenScroll: false,
+    ...menuThemeOptions,
     items,
   })
 }

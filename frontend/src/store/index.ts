@@ -49,9 +49,13 @@ watch(
   { flush: 'sync' },
 )
 
-export const isNativePlayer = useStorage(LsKeys.USE_NATIVE_PLAYER, false, localStorage, {
+export const settingsStore = useStorage(LsKeys.SETTINGS_STORE, {
+  isNativePlayer: false,
+  enablePreview: true,
+  themeMode: 'auto' as 'auto' | 'light' | 'dark',
+  colorTheme: '',
+  appSingleInstance: true,
+}, localStorage, {
   listenToStorageChanges: true,
-})
-export const enablePreview = useStorage(LsKeys.ENABLE_PREVIEW, true, localStorage, {
-  listenToStorageChanges: true,
+  mergeDefaults: true,
 })

@@ -3,7 +3,7 @@ import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
 import { fsWebApi } from '@/api/filesystem'
-import { isNativePlayer } from '@/store/index'
+import { settingsStore } from '@/store/index'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
 import MusicDetail from './MusicDetail.vue'
@@ -12,9 +12,11 @@ import { MusicEvents, useBusOn, useMediaStore } from './utils/media-store'
 import { useMusicSettingsStore } from './utils/music-state'
 import { makeStreamMetadataTokenizer } from './utils/stream-metadata-tokenizer'
 
+const emit = defineEmits<{
+  (e: 'setTitle', val: string): void
+}>()
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
-
 const audioRef = ref<HTMLAudioElement | null>(null)
 const videoHostRef = ref<InstanceType<typeof NativeOrArtVideo> | null>(null)
 
@@ -27,7 +29,7 @@ let mediaEventsAbort: AbortController | null = null
 function syncVolumeAndRateWithStore(): boolean {
   if (!mediaStore.isVideo)
     return true
-  return isNativePlayer.value
+  return settingsStore.value.isNativePlayer
 }
 
 function getActiveHtmlMedia(): HTMLMediaElement | null {
@@ -235,9 +237,11 @@ watch(
   async (item: MediaItem | null) => {
     if (!item) {
       avSrc.value = undefined
+      emit('setTitle', '')
       clearAudioMediaSessionMetadata()
       return
     }
+    emit('setTitle', item.filename || '')
     avSrc.value = fsWebApi.getStreamUrl(item.absPath)
     const playbackRate = mediaStore.playbackRate
     if (!mediaStore.isVideo) {
