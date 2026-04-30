@@ -81,7 +81,7 @@ onMounted(async () => {
     await fileSidebarRef.value.loadDrives()
     const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
     if (navPath) {
-      await handleOpenPath(navPath)
+      await handleOpenPath(navPath, true, true)
       router.replace({ query: { ...route.query, navPath: undefined } })
     }
     else if (basePath.value) {

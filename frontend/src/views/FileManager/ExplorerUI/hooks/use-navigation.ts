@@ -120,8 +120,8 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     }
     await handleOpenPath(path, true)
   }
-  const handleOpenPath = async (path: string, isUpdateHistory: boolean = true) => {
-    if (normalizeListingPath(path) === basePathNormalized.value) {
+  const handleOpenPath = async (path: string, isUpdateHistory: boolean = true, forceRefresh: boolean = false) => {
+    if (normalizeListingPath(path) === basePathNormalized.value && !forceRefresh) {
       return
     }
     basePath.value = path
