@@ -24,6 +24,13 @@ Using bun to develop and compile, the final product runs in the Node.js environm
 ```shell
 # backend
 bun i
+
+# develop
 bun run dev
+
+# build backend only
 bun run build
+
+# build frontend and backend into ./dist
+bun run build:auto
 ```

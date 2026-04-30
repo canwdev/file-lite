@@ -37,6 +37,25 @@ go build -o file-lite-go.exe ./
 ./file-lite-go.exe
 ```
 
+## 开发与构建脚本
+
+使用 Bun 执行 `backend-go/package.json` 中的脚本。
+
+```shell
+bun i
+
+# 生成 Windows 图标资源
+bun run icon
+
+# 使用 air 启动热重载开发环境
+bun run dev:go
+
+# 构建 Go 后端可执行文件
+bun run build:go
+```
+
+后端打包前，需要先在 `frontend/` 执行 `bun run frontend:build-go`，静态资源将输出到 `backend-go/frontend/`。
+
 ## 使用 air 热重载开发环境
 
 ```shell
