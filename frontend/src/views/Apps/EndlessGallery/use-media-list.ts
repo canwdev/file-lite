@@ -61,10 +61,6 @@ export function useMediaList(
   )
 
   const currentItem = computed(() => items.value[currentIndex.value] ?? null)
-  const prevItem = computed(() => (currentIndex.value > 0 ? items.value[currentIndex.value - 1] : null))
-  const nextItem = computed(() =>
-    currentIndex.value < items.value.length - 1 ? items.value[currentIndex.value + 1] : null,
-  )
 
-  return { items, currentIndex, currentItem, prevItem, nextItem, folderName }
+  return { items, currentIndex, currentItem, folderName }
 }

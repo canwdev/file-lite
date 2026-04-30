@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
 import { authToken } from '@/store'
-import FileLite from '@/views/FileLite.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,7 +9,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'HomeView',
-      component: FileLite,
+      component: () => import('@/views/FileLite.vue'),
       meta: {},
     },
     {

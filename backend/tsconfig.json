@@ -29,9 +29,8 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false,
 
-    "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@frontend/*": ["../frontend/src/*"]
     }
   }

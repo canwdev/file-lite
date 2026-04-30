@@ -39,14 +39,21 @@ function handleWindowRestored(win: AppWindowState) {
   }, 0)
 }
 
+function restoreOrMinimizeWindow(win: AppWindowState) {
+  if (win.maximized) {
+    win.maximized = false
+  }
+
+  // win.minimized = true
+}
+
 function handleSelectItems(win: AppWindowState, names: string[]) {
   // Emit to FileManager to select the items
   explorerBus.emit(ExplorerEvents.SELECT_COLLECTED, {
     basePath: win.appParams.basePath,
     names,
   })
-  // Minimize the window
-  win.minimized = true
+  restoreOrMinimizeWindow(win)
 }
 
 function handleLocateItem(win: AppWindowState, name: string) {
@@ -54,7 +61,7 @@ function handleLocateItem(win: AppWindowState, name: string) {
     basePath: win.appParams.basePath,
     name,
   })
-  win.minimized = true
+  restoreOrMinimizeWindow(win)
 }
 
 const hasOpenApps = computed(() => appsStoreState.windows.length > 0)

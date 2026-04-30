@@ -120,14 +120,11 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     }
     await handleOpenPath(path, true)
   }
-  const filterText = ref('')
-
   const handleOpenPath = async (path: string, isUpdateHistory: boolean = true) => {
     if (normalizeListingPath(path) === basePathNormalized.value) {
       return
     }
     basePath.value = path
-    filterText.value = ''
     await handleRefresh(isUpdateHistory)
   }
   const { openFile } = useOpener(basePath)
@@ -173,7 +170,6 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     basePath,
     toggleStar,
     isStared,
-    filterText,
   }
 }
 

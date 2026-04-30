@@ -7,7 +7,7 @@ interface ZoomAPI {
   startPinch: (touches: TouchList) => void
   updatePinch: (touches: TouchList) => void
   endPinch: () => void
-  zoomByWheel: (deltaY: number) => void
+  zoomByWheel: (deltaY: number, clientX: number, clientY: number) => void
   startPan: (clientX: number, clientY: number) => void
   updatePan: (clientX: number, clientY: number) => void
   endPan: () => void
@@ -33,14 +33,16 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
   const edgeOverlay = ref<'start' | 'end' | null>(null)
 
   let isAnimating = false
-  let isDragging = false   // single-finger swipe
+  let isDragging = false // single-finger swipe
   let isPanningLocal = false // single-finger pan (zoom > 1)
   let isTouchPointer = false
   let lastTapTime = 0
   let startY = 0
   let panStartClientX = 0
   let panStartClientY = 0
-  let panMoved = false     // whether pan moved beyond tap threshold
+  let panMoved = false // whether pan moved beyond tap threshold
+  let pendingDragOffset: number | null = null
+  let dragOffsetRaf = 0
 
   const DOUBLE_TAP_DELAY = 300
   const THRESHOLD = 60
@@ -82,6 +84,41 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     return wrapperRef.value?.offsetHeight ?? window.innerHeight
   }
 
+  function flushPendingDragOffset(): void {
+    if (dragOffsetRaf) {
+      cancelAnimationFrame(dragOffsetRaf)
+      dragOffsetRaf = 0
+    }
+    if (pendingDragOffset !== null) {
+      dragOffset.value = pendingDragOffset
+      pendingDragOffset = null
+    }
+  }
+
+  function setDragOffsetImmediate(value: number): void {
+    if (dragOffsetRaf) {
+      cancelAnimationFrame(dragOffsetRaf)
+      dragOffsetRaf = 0
+    }
+    pendingDragOffset = null
+    dragOffset.value = value
+  }
+
+  function setDragOffsetThrottled(value: number): void {
+    pendingDragOffset = value
+    if (dragOffsetRaf)
+      return
+
+    dragOffsetRaf = requestAnimationFrame(() => {
+      dragOffsetRaf = 0
+      if (pendingDragOffset === null)
+        return
+
+      dragOffset.value = pendingDragOffset
+      pendingDragOffset = null
+    })
+  }
+
   function navigate(isNext: boolean): void {
     if (isAnimating || edgeOverlay.value)
       return
@@ -99,12 +136,12 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
 
     isAnimating = true
     withTransition.value = true
-    dragOffset.value = isNext ? -getHeight() : getHeight()
+    setDragOffsetImmediate(isNext ? -getHeight() : getHeight())
 
     afterTransition(() => {
       withTransition.value = false
       currentIndex.value += isNext ? 1 : -1
-      dragOffset.value = 0
+      setDragOffsetImmediate(0)
       onAfterNavigate?.(isNext)
       nextTick(() => { isAnimating = false })
     })
@@ -115,7 +152,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       return
     isAnimating = true
     withTransition.value = true
-    dragOffset.value = 0
+    setDragOffsetImmediate(0)
 
     afterTransition(() => {
       withTransition.value = false
@@ -150,7 +187,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     if (isTouchPointer && (e as TouchEvent).touches.length === 2) {
       isDragging = false
       isPanningLocal = false
-      dragOffset.value = 0
+      setDragOffsetImmediate(0)
       cleanListeners()
       e.preventDefault()
       zoom.startPinch((e as TouchEvent).touches)
@@ -224,7 +261,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       return
     if ('touches' in e)
       e.preventDefault()
-    dragOffset.value = clientY - startY
+    setDragOffsetThrottled(clientY - startY)
   }
 
   function onPointerUp(): void {
@@ -259,6 +296,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       return
     isDragging = false
     cleanListeners()
+    flushPendingDragOffset()
     const delta = dragOffset.value
     if (Math.abs(delta) >= THRESHOLD) {
       navigate(delta < 0)
@@ -280,7 +318,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
 
   function onWheel(e: WheelEvent): void {
     if (e.ctrlKey) {
-      zoom.zoomByWheel(e.deltaY)
+      zoom.zoomByWheel(e.deltaY, e.clientX, e.clientY)
       return
     }
     if (isAnimating)
@@ -316,6 +354,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
   onMounted(() => window.addEventListener('keydown', onKeydown))
   onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKeydown)
+    flushPendingDragOffset()
     cleanListeners()
   })
 

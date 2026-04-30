@@ -1,10 +1,10 @@
 import rateLimit from 'express-rate-limit'
 
-const skipPathMap = {
-  '/files/stream': true,
-  '/files/download': true,
-  '/files/upload-file': true,
-}
+const skipPaths = new Set([
+  '/files/stream',
+  '/files/download',
+  '/files/upload-file',
+])
 
 // https://express-rate-limit.mintlify.app/reference/configuration
 export const limiter = rateLimit({
@@ -14,6 +14,6 @@ export const limiter = rateLimit({
   limit: 1000,
   message: { message: 'Too many requests, please try again later.' },
   skip: (req) => {
-    return skipPathMap[req.path] || false
+    return skipPaths.has(req.path)
   },
 })

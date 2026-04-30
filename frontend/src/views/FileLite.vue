@@ -2,7 +2,7 @@
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
-import { settingsStore } from '@/store/index.ts'
+import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -70,11 +70,15 @@ function showMenu(event: MouseEvent) {
             },
           },
           {
-            icon: settingsStore.value.enablePreview ? 'mdi mdi-check' : '',
-            label: `Enable preview`,
-            onClick: () => {
-              settingsStore.value.enablePreview = !settingsStore.value.enablePreview
-            },
+            icon: 'mdi mdi-image-search',
+            label: `Preview size: ${getPreviewSizeLabel(settingsStore.value.previewSize)}`,
+            children: previewSizeOptions.map(item => ({
+              icon: settingsStore.value.previewSize === item.value ? 'mdi mdi-check' : '',
+              label: item.label,
+              onClick: () => {
+                settingsStore.value.previewSize = item.value
+              },
+            })),
           },
           {
             icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',

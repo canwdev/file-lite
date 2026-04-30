@@ -99,6 +99,8 @@ export default defineComponent({
 </template>
 
 <style lang="scss" scoped>
+@use "sass:math";
+
 .v-seekbar {
   height: 100%;
   flex: 1;
@@ -199,7 +201,7 @@ export default defineComponent({
       /* --- 关键修改：修正 Thumb 的垂直偏移 --- */
       // 因为 input 高度变大了，需要计算新的 margin-top 使其居中
       // 公式: (track_height / 2) - (thumb_height / 2)
-      margin-top: ($bar_height / 2) - ($thumb_size / 2);
+      margin-top: math.div($bar_height, 2) - math.div($thumb_size, 2);
       /* --------------------------------------- */
       opacity: 0;
       transform: scale(0.72);

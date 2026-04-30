@@ -23,6 +23,7 @@ const emit = defineEmits<{
 
 const nativeVideoRef = ref<HTMLVideoElement | null>(null)
 const vArtRef = ref<InstanceType<typeof VArtPlayer> | null>(null)
+const isNativePlayer = computed(() => settingsStore.value.isNativePlayer)
 
 type ArtplayerInstance = InstanceType<typeof import('artplayer').default>
 
@@ -35,20 +36,20 @@ function getArtplayer(): ArtplayerInstance | null {
 }
 
 function getHtmlVideo(): HTMLVideoElement | null {
-  if (settingsStore.value.isNativePlayer)
+  if (isNativePlayer.value)
     return nativeVideoRef.value
   return getArtplayer()?.video ?? null
 }
 
 async function play() {
-  if (settingsStore.value.isNativePlayer)
+  if (isNativePlayer.value)
     await nativeVideoRef.value?.play()
   else
     await getArtplayer()?.play()
 }
 
 function pause() {
-  if (settingsStore.value.isNativePlayer)
+  if (isNativePlayer.value)
     nativeVideoRef.value?.pause()
   else
     getArtplayer()?.pause()
@@ -67,13 +68,13 @@ function onArtReady(_art: ArtplayerInstance) {
 watch(
   () => props.src,
   () => {
-    if (settingsStore.value.isNativePlayer)
+    if (isNativePlayer.value)
       nextTick(() => notifyMediaReady())
   },
 )
 
 watch(
-  () => settingsStore.value.isNativePlayer,
+  isNativePlayer,
   () => {
     nextTick(() => notifyMediaReady())
   },
@@ -81,7 +82,7 @@ watch(
 
 onMounted(() => {
   nextTick(() => {
-    if (settingsStore.value.isNativePlayer)
+    if (isNativePlayer.value)
       notifyMediaReady()
   })
 })
@@ -97,7 +98,7 @@ defineExpose({
 <template>
   <div class="native-or-art-video">
     <video
-      v-if="settingsStore.isNativePlayer"
+      v-if="isNativePlayer"
       ref="nativeVideoRef"
       :src="src"
       :controls="controls"

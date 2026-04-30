@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import type { MediaFile } from './use-media-list.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
+import GalleryPanels from './GalleryPanels.vue'
 import { useCollection } from './use-collection.ts'
+import { useGalleryPanels } from './use-gallery-panels.ts'
 import { useMediaList } from './use-media-list.ts'
 import { useSwipe } from './use-swipe.ts'
 import { useZoom } from './use-zoom.ts'
@@ -16,7 +17,7 @@ const emit = defineEmits<{
 
 // ── Collection ─────────────────────────────────────────────
 
-const { collection, toggleCollect, clearCollection, pruneDirectory } = useCollection()
+const { collection, collectedPathSet, getCollectedInDirectory, toggleCollect, clearCollection, pruneDirectory } = useCollection()
 
 // ── Media list ─────────────────────────────────────────────
 
@@ -37,13 +38,13 @@ const currentAbsPath = computed(() => {
 })
 
 const collected = computed(() =>
-  !!currentAbsPath.value && collection.value.some(i => i.absPath === currentAbsPath.value),
+  !!currentAbsPath.value && collectedPathSet.value.has(currentAbsPath.value),
 )
 
 const hasCollection = computed(() => collection.value.length > 0)
 
 const collectedInCurrentDir = computed(() =>
-  collection.value.filter(i => i.basePath === props.appParams?.basePath),
+  getCollectedInDirectory(props.appParams?.basePath ?? ''),
 )
 
 function handleToggleCollect(): void {
@@ -73,67 +74,28 @@ function handleLocateCurrent(): void {
 
 // ── Zoom ───────────────────────────────────────────────────
 
-const zoom = useZoom(() => currentItem.value?.type === 'image')
+const zoomViewportRef = ref<HTMLElement | null>(null)
+const zoom = useZoom(
+  () => currentItem.value?.type === 'image',
+  () => zoomViewportRef.value?.getBoundingClientRect(),
+)
 
 watch(currentIndex, zoom.resetZoom)
 
-// ── Panel slots ─────────────────────────────────────────────
-// Three stable DOM nodes. Only the off-screen slot updates its src after each
-// navigation, so the visible image never has its src swapped mid-frame — this
-// eliminates the blank-frame flicker on iOS Safari and other browsers.
-
-const panelItems = ref<(MediaFile | null)[]>([null, null, null])
-const currentSlot = ref(0)
-
-watch(items, () => {
-  // Re-initialize when the media list itself changes (folder change).
-  // Both items and currentIndex are updated synchronously in use-media-list,
-  // so currentIndex.value is already correct when this watcher fires.
-  const ci = currentIndex.value
-  currentSlot.value = 0
-  panelItems.value[0] = items.value[ci] ?? null
-  panelItems.value[1] = items.value[ci + 1] ?? null
-  panelItems.value[2] = items.value[ci - 1] ?? null
-}, { immediate: true })
-
-function getPanelClass(slotIdx: number): string {
-  const offset = (slotIdx - currentSlot.value + 3) % 3
-  if (offset === 0)
-    return 'swipe-panel--current'
-  if (offset === 1)
-    return 'swipe-panel--next'
-  return 'swipe-panel--prev'
-}
-
-function onPanelImageLoad(e: Event, slotIdx: number): void {
-  if (slotIdx === currentSlot.value)
-    zoom.onImageLoad(e)
-}
-
-function onAfterNavigate(isNext: boolean): void {
-  // Called in the same reactive batch as currentIndex/dragOffset reset.
-  // Rotate the slot pointer and update only the now-offscreen slot.
-  const ci = currentIndex.value // already incremented/decremented
-  if (isNext) {
-    const slotToUpdate = (currentSlot.value + 2) % 3 // was prev → becomes new next
-    panelItems.value[slotToUpdate] = items.value[ci + 1] ?? null
-    currentSlot.value = (currentSlot.value + 1) % 3
-  }
-  else {
-    const slotToUpdate = (currentSlot.value + 1) % 3 // was next → becomes new prev
-    panelItems.value[slotToUpdate] = items.value[ci - 1] ?? null
-    currentSlot.value = (currentSlot.value + 2) % 3
-  }
-}
-
-function onAfterJump(): void {
-  // Full re-init: jumpToOpposite skips by many indices so rotation doesn't apply.
-  const ci = currentIndex.value
-  currentSlot.value = 0
-  panelItems.value[0] = items.value[ci] ?? null
-  panelItems.value[1] = items.value[ci + 1] ?? null
-  panelItems.value[2] = items.value[ci - 1] ?? null
-}
+const {
+  panelItems,
+  panelLoadedUrls,
+  currentSlot,
+  onPanelImageLoad,
+  syncCurrentImageResolution,
+  onAfterNavigate,
+  onAfterJump,
+} = useGalleryPanels({
+  items,
+  currentIndex,
+  currentItem,
+  zoom,
+})
 
 // ── Swipe / navigation ─────────────────────────────────────
 
@@ -147,69 +109,37 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
     onAfterNavigate,
     onAfterJump,
   })
+
+function setSwipeContainerRef(el: HTMLElement | null): void {
+  swipeContainerRef.value = el
+}
+
+function setWrapperRef(el: unknown): void {
+  const element = el instanceof HTMLElement ? el : null
+  wrapperRef.value = element
+  zoomViewportRef.value = element
+}
 </script>
 
 <template>
   <div
-    ref="wrapperRef"
+    :ref="setWrapperRef"
     class="endless-gallery"
     @dblclick="handleToggleCollect"
     @wheel.prevent="onWheel"
     @mousedown="onPointerDown"
     @touchstart="onPointerDown"
   >
-    <!-- ─── Swipe container ─── -->
-    <!-- Three slots are keyed by index (0/1/2) so Vue never destroys/recreates
-         the <img> elements. Only the off-screen slot's src is updated after
-         each navigation, preventing blank-frame flicker on iOS Safari. -->
-    <div ref="swipeContainerRef" class="swipe-container" :style="containerStyle">
-      <div
-        v-for="(panelItem, slotIndex) in panelItems"
-        :key="slotIndex"
-        class="swipe-panel"
-        :class="getPanelClass(slotIndex)"
-      >
-        <template v-if="panelItem">
-          <img
-            v-if="panelItem.type === 'image'"
-            :src="panelItem.url"
-            class="media-fit"
-            :style="slotIndex === currentSlot ? zoom.imageStyle.value : undefined"
-            draggable="false"
-            @load="onPanelImageLoad($event, slotIndex)"
-          >
-          <video
-            v-else-if="panelItem.type === 'video'"
-            :key="panelItem.url"
-            :src="panelItem.url"
-            class="media-fit"
-            :controls="slotIndex === currentSlot"
-            :autoplay="slotIndex === currentSlot"
-            loop
-            playsinline
-          />
-          <div v-else class="audio-pane">
-            <span class="mdi mdi-music-circle-outline audio-bg-icon" />
-            <audio
-              v-if="slotIndex === currentSlot"
-              :key="panelItem.url"
-              :src="panelItem.url"
-              controls
-              autoplay
-              class="audio-ctrl"
-              loop
-              playsinline
-            />
-          </div>
-        </template>
-        <div v-else class="boundary-hint">
-          <span
-            class="mdi"
-            :class="getPanelClass(slotIndex) === 'swipe-panel--prev' ? 'mdi-ray-start' : 'mdi-ray-end'"
-          />
-        </div>
-      </div>
-    </div>
+    <GalleryPanels
+      :panel-items="panelItems"
+      :panel-loaded-urls="panelLoadedUrls"
+      :current-slot="currentSlot"
+      :container-style="containerStyle"
+      :current-image-style="zoom.imageStyle.value"
+      @container-ready="setSwipeContainerRef"
+      @image-load="onPanelImageLoad"
+      @current-image-ready="syncCurrentImageResolution"
+    />
 
     <!-- ─── Navigation arrows ─── -->
     <div v-if="!edgeOverlay" class="nav-arrows">
@@ -340,80 +270,6 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
   touch-action: none;
 
   &:active { cursor: grabbing; }
-}
-
-// ── Swipe panels ────────────────────────────────────────────
-.swipe-container {
-  position: absolute;
-  inset: 0;
-  // Promote to GPU compositing layer so the browser can animate transform
-  // without triggering a repaint of the panels' contents.
-  will-change: transform;
-}
-
-.swipe-panel {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  // Isolate each panel's layout/paint — prevents the browser from
-  // re-painting adjacent panels when one changes.
-  contain: layout style paint;
-
-  &--prev { bottom: 100%; top: auto; }
-  &--current { top: 0; }
-  &--next { top: 100%; }
-
-  // allow media controls to fire normally
-  &--current {
-    cursor: default;
-    video, audio, button { cursor: auto; }
-  }
-}
-
-// ── Media elements ──────────────────────────────────────────
-.media-fit {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none; // drag-safe for images; video inherits from parent
-}
-
-.swipe-panel--current .media-fit {
-  pointer-events: auto; // restore for video controls
-}
-
-// ── Audio pane ──────────────────────────────────────────────
-.audio-pane {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-
-  .audio-bg-icon {
-    font-size: 120px;
-    color: rgba(255, 255, 255, 0.12);
-    pointer-events: none;
-  }
-
-  .audio-ctrl {
-    width: min(85%, 420px);
-  }
-}
-
-// ── Boundary hint shown when prev/next is null ───────────────
-.boundary-hint {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
-  color: rgba(255, 255, 255, 0.1);
 }
 
 // ── Navigation arrows ────────────────────────────────────────

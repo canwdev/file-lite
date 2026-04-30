@@ -60,7 +60,7 @@ async function customizePatch(distDir: string, builderPath: string) {
   console.log(`>>> Injected CSS variables into: ${indexHtmlPath}`)
 }
 
-function createArchive(fromPath, distName) {
+function createArchive(fromPath: string, distName: string): Promise<void> {
   console.log(`>>> Creating archive: ${fromPath}`)
   const distFile = path.resolve(fromPath, `../${distName}.zip`)
   return new Promise((resolve, reject) => {
@@ -72,9 +72,9 @@ function createArchive(fromPath, distName) {
     })
     archive.pipe(output)
     archive.directory(fromPath, distName)
-    output.on('close', (v) => {
+    output.on('close', () => {
       console.log(`>>> Archive created successfully: ${distFile}`)
-      resolve(v)
+      resolve()
     })
     archive.on('error', reject)
     archive.finalize()

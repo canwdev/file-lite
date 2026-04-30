@@ -12,7 +12,17 @@ function pinchDist(touches: TouchList): number {
   return Math.hypot(dx, dy)
 }
 
-export function useZoom(isImage: () => boolean) {
+function pinchCenter(touches: TouchList): { clientX: number, clientY: number } {
+  return {
+    clientX: (touches[0].clientX + touches[1].clientX) / 2,
+    clientY: (touches[0].clientY + touches[1].clientY) / 2,
+  }
+}
+
+export function useZoom(
+  isImage: () => boolean,
+  getViewportRect?: () => DOMRect | undefined,
+) {
   const scale = ref(1)
   const panX = ref(0)
   const panY = ref(0)
@@ -40,10 +50,67 @@ export function useZoom(isImage: () => boolean) {
     naturalHeight.value = 0
   }
 
-  function onImageLoad(e: Event): void {
-    const img = e.target as HTMLImageElement
+  function setImageResolution(img: HTMLImageElement): void {
     naturalWidth.value = img.naturalWidth
     naturalHeight.value = img.naturalHeight
+  }
+
+  function onImageLoad(e: Event): void {
+    const img = e.target as HTMLImageElement
+    setImageResolution(img)
+  }
+
+  function viewportRect(): DOMRect | undefined {
+    return getViewportRect?.()
+  }
+
+  function viewportSize(): { width: number, height: number } {
+    const rect = viewportRect()
+    return {
+      width: rect?.width || window.innerWidth,
+      height: rect?.height || window.innerHeight,
+    }
+  }
+
+  function clampPan(x: number, y: number, nextScale = scale.value): { x: number, y: number } {
+    if (nextScale <= 1)
+      return { x: 0, y: 0 }
+
+    const { width, height } = viewportSize()
+    const maxX = ((nextScale - 1) / 2) * width
+    const maxY = ((nextScale - 1) / 2) * height
+
+    return {
+      x: clamp(x, -maxX, maxX),
+      y: clamp(y, -maxY, maxY),
+    }
+  }
+
+  function zoomAt(nextScale: number, center?: { clientX: number, clientY: number }): void {
+    const oldScale = scale.value
+    const newScale = clamp(nextScale, MIN_SCALE, MAX_SCALE)
+    if (newScale <= 1) {
+      scale.value = newScale
+      panX.value = 0
+      panY.value = 0
+      return
+    }
+
+    const rect = viewportRect()
+    const viewportCenterX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
+    const viewportCenterY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+    const zoomCenterX = (center?.clientX ?? viewportCenterX) - viewportCenterX
+    const zoomCenterY = (center?.clientY ?? viewportCenterY) - viewportCenterY
+    const ratio = newScale / oldScale
+    const nextPan = clampPan(
+      zoomCenterX - ratio * (zoomCenterX - panX.value),
+      zoomCenterY - ratio * (zoomCenterY - panY.value),
+      newScale,
+    )
+
+    scale.value = newScale
+    panX.value = nextPan.x
+    panY.value = nextPan.y
   }
 
   // ── Pinch ──────────────────────────────────────────────────
@@ -63,11 +130,7 @@ export function useZoom(isImage: () => boolean) {
       MIN_SCALE,
       MAX_SCALE,
     )
-    scale.value = newScale
-    if (newScale <= 1) {
-      panX.value = 0
-      panY.value = 0
-    }
+    zoomAt(newScale, pinchCenter(touches))
   }
 
   function endPinch(): void {
@@ -86,11 +149,12 @@ export function useZoom(isImage: () => boolean) {
   }
 
   function updatePan(clientX: number, clientY: number): void {
-    // Max translation so image edge stays within viewport
-    const maxX = ((scale.value - 1) / 2) * window.innerWidth
-    const maxY = ((scale.value - 1) / 2) * window.innerHeight
-    panX.value = clamp(panStartPanX + (clientX - panStartClientX), -maxX, maxX)
-    panY.value = clamp(panStartPanY + (clientY - panStartClientY), -maxY, maxY)
+    const nextPan = clampPan(
+      panStartPanX + (clientX - panStartClientX),
+      panStartPanY + (clientY - panStartClientY),
+    )
+    panX.value = nextPan.x
+    panY.value = nextPan.y
   }
 
   function endPan(): void {
@@ -99,32 +163,18 @@ export function useZoom(isImage: () => boolean) {
 
   // ── Wheel / button zoom ────────────────────────────────────
 
-  function zoomByWheel(deltaY: number): void {
+  function zoomByWheel(deltaY: number, clientX: number, clientY: number): void {
     if (!isImage())
       return
-    const newScale = clamp(
-      scale.value * (deltaY > 0 ? 0.85 : 1 / 0.85),
-      MIN_SCALE,
-      MAX_SCALE,
-    )
-    scale.value = newScale
-    if (newScale <= 1) {
-      panX.value = 0
-      panY.value = 0
-    }
+    zoomAt(scale.value * (deltaY > 0 ? 0.85 : 1 / 0.85), { clientX, clientY })
   }
 
   function zoomIn(): void {
-    scale.value = clamp(scale.value + STEP, MIN_SCALE, MAX_SCALE)
+    zoomAt(scale.value + STEP)
   }
 
   function zoomOut(): void {
-    const newScale = clamp(scale.value - STEP, MIN_SCALE, MAX_SCALE)
-    scale.value = newScale
-    if (newScale <= 1) {
-      panX.value = 0
-      panY.value = 0
-    }
+    zoomAt(scale.value - STEP)
   }
 
   // ── Derived state ──────────────────────────────────────────
@@ -153,6 +203,7 @@ export function useZoom(isImage: () => boolean) {
     panY,
     isPinching: () => isPinching,
     resetZoom,
+    setImageResolution,
     onImageLoad,
     startPinch,
     updatePinch,

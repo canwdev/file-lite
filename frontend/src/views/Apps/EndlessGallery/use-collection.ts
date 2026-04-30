@@ -10,9 +10,24 @@ export interface CollectionItem {
 export function useCollection() {
   const collection = useStorage<CollectionItem[]>(LsKeys.COLLECTED_ITEMS, [], localStorage)
 
+  const collectedPathSet = computed(() => new Set(collection.value.map(item => item.absPath)))
+  const collectedByDir = computed(() => {
+    const map = new Map<string, CollectionItem[]>()
+    for (const item of collection.value) {
+      const dirItems = map.get(item.basePath)
+      if (dirItems) {
+        dirItems.push(item)
+      }
+      else {
+        map.set(item.basePath, [item])
+      }
+    }
+    return map
+  })
+
   /** Check if a file is collected */
   function isCollected(absPath: string): boolean {
-    return collection.value.some(item => item.absPath === absPath)
+    return collectedPathSet.value.has(absPath)
   }
 
   /** Toggle collection status for a file */
@@ -48,7 +63,7 @@ export function useCollection() {
 
   /** Get collected items in a specific directory */
   function getCollectedInDirectory(basePath: string): CollectionItem[] {
-    return collection.value.filter(item => item.basePath === basePath)
+    return collectedByDir.value.get(basePath) ?? []
   }
 
   /**
@@ -63,6 +78,7 @@ export function useCollection() {
 
   return {
     collection,
+    collectedPathSet,
     isCollected,
     toggleCollect,
     addToCollection,

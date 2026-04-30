@@ -49,9 +49,25 @@ watch(
   { flush: 'sync' },
 )
 
+const MB = 1024 * 1024
+
+export const PREVIEW_SIZE_UNLIMITED = -1
+
+export const previewSizeOptions = [
+  { label: 'Disabled', value: 0 },
+  { label: '≤ 3 MB', value: 3 * MB },
+  { label: '≤ 6 MB', value: 6 * MB },
+  { label: '≤ 20 MB', value: 20 * MB },
+  { label: 'Unlimited', value: PREVIEW_SIZE_UNLIMITED },
+] as const
+
+export function getPreviewSizeLabel(value: number): string {
+  return previewSizeOptions.find(item => item.value === value)?.label ?? '≤ 3 MB'
+}
+
 export const settingsStore = useStorage(LsKeys.SETTINGS_STORE, {
   isNativePlayer: false,
-  enablePreview: true,
+  previewSize: 3 * MB,
   themeMode: 'auto' as 'auto' | 'light' | 'dark',
   colorTheme: '',
   appSingleInstance: true,

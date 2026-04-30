@@ -385,7 +385,7 @@ async function downloadMultiFiles(paths: string[], res: Response) {
           // 如果目录为空，使用 append 添加一个空目录条目
           // 关键：name 必须以 '/' 结尾
           // console.log(`Adding empty directory: ${entryName}/`);
-          archive.append(null, { name: `${entryName}/` })
+          archive.append('', { name: `${entryName}/` })
         }
         else {
           // 如果目录不为空，则使用 directory 添加整个目录的内容
@@ -452,13 +452,13 @@ export async function downloadPath(req: Request, res: Response) {
 export const multerUpload = multer({
   storage: multer.diskStorage({
     destination: async (req, file, cb) => {
-      const path = req.query.path || ''
+      const path = typeof req.query.path === 'string' ? req.query.path : ''
       let dest = ''
       try {
         if (path) {
           // 确保目录安全
-          if (!isPathSafe(req.query.path as string)) {
-            return cb(new Error(`Path is not safe: ${path}`))
+          if (!isPathSafe(path)) {
+            return cb(new Error(`Path is not safe: ${path}`), '')
           }
           dest = Path.dirname(path)
         }
@@ -473,7 +473,7 @@ export const multerUpload = multer({
         cb(null, dest)
       }
       catch (error) {
-        cb(error)
+        cb(error as Error, '')
       }
     },
     filename: (req, file, cb) => {

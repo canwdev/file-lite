@@ -16,6 +16,7 @@
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
     "build:auto": "bun run ./build.ts",
     "lint": "eslint src/**/*.{ts,tsx,vue} --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "publish:npm": "bun run build:auto && npm publish --access public"
   },
   "dependencies": {
@@ -24,9 +25,12 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
+    "@types/archiver": "^7.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
     "archiver": "^7.0.1",
     "enquirer": "^2.4.1",

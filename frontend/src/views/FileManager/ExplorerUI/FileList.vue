@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
@@ -15,6 +16,7 @@ import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.t
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import TransferQueue from '../TransferQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
+import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
@@ -28,7 +30,7 @@ const props = withDefaults(
     files: IEntry[]
     isLoading: boolean
     basePath: string
-    filterText?: string
+    filter?: FileFilterState
     // 是否文件(夹)选择器
     selectFileMode?: 'file' | 'folder'
     // 文件选择器允许多选
@@ -40,13 +42,13 @@ const props = withDefaults(
   }>(),
   {
     selectables: () => ['.explorer-list-wrap .selectable'],
-    filterText: '',
+    filter: () => createDefaultFileFilter(),
   },
 )
 
-const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh'])
+const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter'])
 
-const { basePath, files, filterText, selectFileMode, multiple } = toRefs(props)
+const { basePath, files, filter, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -90,8 +92,53 @@ const isGridMode = computed(() => isGridView.value || props.gridView)
 const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
 
 const filteredFiles = computed(() => {
-  const search = filterText.value.toLowerCase()
-  return sortedFiles.value.filter(item => item.name.toLowerCase().includes(search))
+  const filterValue = filter.value
+  const search = filterValue.text.trim()
+  if (!search)
+    return sortedFiles.value
+
+  if (!filterValue.regex) {
+    const needle = filterValue.caseSensitive ? search : search.toLowerCase()
+    return sortedFiles.value.filter((item) => {
+      const name = filterValue.caseSensitive ? item.name : item.name.toLowerCase()
+      return name.includes(needle)
+    })
+  }
+
+  try {
+    const reg = new RegExp(search, filterValue.caseSensitive ? '' : 'i')
+    return sortedFiles.value.filter(item => reg.test(item.name))
+  }
+  catch {
+    return []
+  }
+})
+
+const isFilterActive = computed(() => isFileFilterActive(filter.value))
+const isDirectoryEmpty = computed(() => !isLoading.value && sortedFiles.value.length === 0)
+const isFilterEmpty = computed(() =>
+  !isLoading.value && isFilterActive.value && filteredFiles.value.length === 0 && sortedFiles.value.length > 0,
+)
+const emptyState = computed(() => {
+  if (isDirectoryEmpty.value) {
+    return {
+      icon: 'mdi mdi-folder-open-outline',
+      title: 'No files',
+      description: 'This folder is empty.',
+      showClear: false,
+    }
+  }
+
+  if (isFilterEmpty.value) {
+    return {
+      icon: 'mdi mdi-filter-remove-outline',
+      title: 'No matches',
+      description: 'No files match the current filter.',
+      showClear: true,
+    }
+  }
+
+  return null
 })
 
 function toggleShowHiddenFiles() {
@@ -731,7 +778,24 @@ defineExpose({
         class="explorer-selection-box"
         :style="selectionBoxStyle"
       />
-      <div v-if="!isGridMode" class="explorer-list-view">
+      <div v-if="emptyState" class="explorer-empty-state">
+        <span class="mdi explorer-empty-state__icon" :class="emptyState.icon" />
+        <div class="explorer-empty-state__title">
+          {{ emptyState.title }}
+        </div>
+        <div class="explorer-empty-state__description">
+          {{ emptyState.description }}
+        </div>
+        <button
+          v-if="emptyState.showClear"
+          class="vgo-button"
+          @click.stop="emit('clearFilter')"
+        >
+          <span class="mdi mdi-filter-remove-outline" />
+          Clear filter
+        </button>
+      </div>
+      <div v-else-if="!isGridMode" class="explorer-list-view">
         <FileTable
           v-model:selected-rows="selectedItemsSet"
           :columns="tableColumns"
@@ -895,6 +959,40 @@ defineExpose({
     pointer-events: none;
     border: 1px solid var(--vgo-primary);
     background-color: var(--vgo-primary-opacity);
+  }
+
+  .explorer-empty-state {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    text-align: center;
+    color: var(--el-text-color-secondary, inherit);
+
+    &__icon {
+      font-size: 48px;
+      color: var(--vgo-primary);
+      opacity: 0.55;
+    }
+
+    &__title {
+      font-size: 15px;
+      color: var(--el-text-color-primary, inherit);
+    }
+
+    &__description {
+      font-size: 12px;
+    }
+
+    .vgo-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
   }
 
   .explorer-list-view {

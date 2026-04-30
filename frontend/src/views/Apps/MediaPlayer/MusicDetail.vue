@@ -12,6 +12,7 @@ const item = computed(() => mediaStore.mediaItem)
 const lyricLines = computed(() => item.value?.lyricsLines ?? [])
 const hasLyrics = computed(() => lyricLines.value.length > 0)
 const lyricsVisible = useStorage(LsKeys.MUSIC_LYRICS_VISIBLE, true, localStorage, { listenToStorageChanges: false })
+const isLyricsVisible = computed(() => lyricsVisible.value)
 
 const activeLineIndex = computed(() => {
   const lines = lyricLines.value
@@ -179,15 +180,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="music-detail-root scrollbar-mini">
-    <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': hasLyrics && lyricsVisible }">
+    <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': hasLyrics && isLyricsVisible }">
       <!-- With lyrics: two-column AMLL / Apple Music–like -->
       <template v-if="hasLyrics">
         <div class="meta-side">
           <button
             class="cover-toggle"
             type="button"
-            :aria-pressed="lyricsVisible"
-            :aria-label="lyricsVisible ? '隐藏歌词' : '显示歌词'"
+            :aria-pressed="isLyricsVisible"
+            :aria-label="isLyricsVisible ? '隐藏歌词' : '显示歌词'"
             @click="toggleLyricsVisible"
           >
             <SteamCard :src="item.cover || defaultCoverUrl" />

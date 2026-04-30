@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Option } from 'artplayer/types/option'
+import type { Option, SettingOption } from 'artplayer'
 import type { Ref } from 'vue'
 import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
@@ -34,6 +34,13 @@ const persistedVolume = useStorage(LsKeys.ARTPLAYER_VOLUME, 1, localStorage, sto
 const persistedPlaybackRate = useStorage(LsKeys.ARTPLAYER_PLAYBACK_RATE, 1, localStorage, storageOpts)
 
 const FLOAT_EPS = 1e-3
+const playbackRateOptions = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3]
+
+interface PlaybackRateSettingItem {
+  html: string
+  value: number
+  default?: boolean
+}
 
 function clamp(n: number, lo: number, hi: number, nanFallback: number): number {
   if (!Number.isFinite(n))
@@ -47,6 +54,20 @@ function clampVolume(v: number): number {
 
 function clampPlaybackRate(v: number): number {
   return clamp(v, 0.25, 4, 1)
+}
+
+function formatPlaybackRate(rate: number): string {
+  return `${rate}x`
+}
+
+function getPlaybackRateSelector(): PlaybackRateSettingItem[] {
+  const currentRate = clampPlaybackRate(persistedPlaybackRate.value)
+
+  return playbackRateOptions.map(value => ({
+    html: formatPlaybackRate(value),
+    value,
+    default: Math.abs(value - currentRate) < FLOAT_EPS,
+  }))
 }
 
 /** Subtitle type 可选 vtt、srt、ass */
@@ -141,7 +162,7 @@ onMounted(() => {
     autoplay: props.autoplay,
     // 基础控制栏配置
     setting: true,
-    playbackRate: true,
+    playbackRate: false,
     pip: true,
     fullscreen: true,
     fullscreenWeb: true,
@@ -157,6 +178,19 @@ onMounted(() => {
     subtitleOffset: true,
     subtitle: {},
     settings: [
+      {
+        name: 'custom-playback-rate',
+        html: 'Playback speed',
+        tooltip: formatPlaybackRate(clampPlaybackRate(persistedPlaybackRate.value)),
+        selector: getPlaybackRateSelector(),
+        onSelect(item: SettingOption) {
+          const rate = clampPlaybackRate(Number((item as { value?: unknown }).value))
+          persistedPlaybackRate.value = rate
+          if (artInstance.value)
+            artInstance.value.playbackRate = rate
+          return formatPlaybackRate(rate)
+        },
+      },
       {
         name: 'custom-open-local-video',
         html: 'Open local video…',

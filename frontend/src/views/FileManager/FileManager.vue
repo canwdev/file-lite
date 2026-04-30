@@ -7,7 +7,9 @@ import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import AddressBar from './ExplorerUI/AddressBar.vue'
+import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
+import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import FileSidebar from './FileSidebar.vue'
 import { getLastDirName, normalizeListingPath } from './utils'
@@ -49,7 +51,6 @@ const {
   basePath,
   toggleStar,
   isStared,
-  filterText,
 } = useNavigation({
   getListFn: async ({ signal } = {}) => {
     const res = await fsWebApi.getList({
@@ -92,6 +93,24 @@ onMounted(async () => {
   }
 })
 const fileListRef = ref()
+const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
+const filterState = ref(createDefaultFileFilter())
+const openAppWithFilteredList = ref(false)
+
+const openAppListScopeTitle = computed(() =>
+  openAppWithFilteredList.value
+    ? 'Apps open with filtered list'
+    : 'Apps open with full sorted list',
+)
+
+function clearFilter() {
+  filterState.value = {
+    ...filterState.value,
+    text: '',
+  }
+}
+
+watch(basePathNormalized, () => clearFilter())
 
 async function runWithFileListAtPath(targetBasePath: string, action: (fileList: any) => void) {
   const normalizedTargetPath = normalizeListingPath(targetBasePath)
@@ -197,6 +216,7 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
   })
 }
 
+// 启动App
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
     emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
@@ -205,7 +225,9 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenW
   return handleOpen({
     item,
     openWith,
-    list: fileListRef.value.sortedFiles,
+    list: openAppWithFilteredList.value
+      ? fileListRef.value.filteredFiles
+      : fileListRef.value.sortedFiles,
   })
 }
 
@@ -241,7 +263,6 @@ function handleSelect() {
 }
 
 const addressBarRef = ref<InstanceType<typeof AddressBar> | null>(null)
-const searchInputRef = ref()
 function handleShortcutKey(event: KeyboardEvent) {
   // console.log('handleShortcutKey', event)
   const key = event.key?.toLowerCase()
@@ -249,9 +270,9 @@ function handleShortcutKey(event: KeyboardEvent) {
     if (key === 'a') {
       addressBarRef.value?.focus()
     }
-    else if (key === 's') {
-      if (searchInputRef.value) {
-        searchInputRef.value.focus()
+    else if (key === 'f') {
+      if (filterBarRef.value) {
+        filterBarRef.value.focus()
       }
     }
     else if (key === 'd') {
@@ -323,14 +344,21 @@ function handleShortcutKey(event: KeyboardEvent) {
             </template>
           </button>
 
-          <input
-            ref="searchInputRef"
-            v-model="filterText"
-            placeholder="Filter name"
-            class="input-filter vgo-input"
-            title="Filter bar (alt+f)"
-            @keyup.esc="filterText = ''"
+          <FilterBar
+            ref="filterBarRef"
+            v-model="filterState"
+            @clear="clearFilter"
+          />
+          <button
+            class="btn-no-style btn-action"
+            :title="openAppListScopeTitle"
+            @click="openAppWithFilteredList = !openAppWithFilteredList"
           >
+            <span
+              class="mdi"
+              :class="openAppWithFilteredList ? 'mdi-filter-check-outline' : 'mdi-filter-off-outline'"
+            />
+          </button>
 
           <slot name="headerRight" />
         </div>
@@ -370,13 +398,14 @@ function handleShortcutKey(event: KeyboardEvent) {
             ref="fileListRef"
             v-model:is-loading="isLoading"
             :files="files"
-            :filter-text="filterText"
+            :filter="filterState"
             :base-path="basePathNormalized"
             :select-file-mode="selectFileMode"
             :multiple="multiple"
             :content-only="contentOnly"
             @open="handleFileListOpen"
             @open-path-in-new-tab="openPathInNewTab"
+            @clear-filter="clearFilter"
             @refresh="debounceHandleRefresh"
           />
         </el-splitter-panel>
@@ -465,16 +494,6 @@ function handleShortcutKey(event: KeyboardEvent) {
           width: 100%;
         }
 
-        .input-filter {
-          width: 200px;
-          line-height: 1;
-          padding: 4px 8px;
-          height: 26px;
-
-          @media screen and (max-width: $mq_mobile_width) {
-            width: 100px;
-          }
-        }
       }
     }
   }

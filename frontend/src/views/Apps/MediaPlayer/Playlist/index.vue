@@ -63,8 +63,16 @@ const isFilterEmpty = computed(
 const listRef = ref<HTMLElement>()
 
 function scrollToCurrent(behavior: 'smooth' | 'auto' = 'smooth') {
-  const el = listRef.value?.querySelector('.playlist-item.active')
-  el?.scrollIntoView({ block: 'nearest', behavior })
+  const list = listRef.value
+  const activeItem = list?.querySelector<HTMLElement>('.playlist-item.active')
+  if (!list || !activeItem)
+    return
+
+  const targetTop = activeItem.offsetTop - (list.clientHeight - activeItem.offsetHeight) / 2
+  const maxScrollTop = list.scrollHeight - list.clientHeight
+  const top = Math.min(Math.max(targetTop, 0), maxScrollTop)
+
+  list.scrollTo({ top, behavior })
 }
 onMounted(async () => {
   await nextTick()
