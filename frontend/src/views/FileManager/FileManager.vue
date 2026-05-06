@@ -295,72 +295,75 @@ function handleShortcutKey(event: KeyboardEvent) {
 <template>
   <div ref="rootRef" class="explorer-wrap" tabindex="0" @keydown="handleShortcutKey">
     <div v-if="!contentOnly" class="explorer-header vgo-panel">
-      <div class="nav-address-bar">
-        <div class="nav-wrap">
-          <button
-            :disabled="!navigationHistory?.canBack"
-            class="btn-action btn-no-style"
-            title="Back (alt+left)"
-            @click="goBack"
-            @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
-          >
-            <span class="mdi mdi-arrow-left" />
-          </button>
-          <button
-            :disabled="!navigationHistory?.canForward"
-            class="btn-action btn-no-style"
-            title="Forward (alt+right)"
-            @click="goForward"
-            @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
-          >
-            <span class="mdi mdi-arrow-right" />
-          </button>
-          <button
-            class="btn-action btn-no-style"
-            :disabled="!allowUp"
-            title="Up (alt+up)"
-            @click="goUp"
-          >
-            <span class="mdi mdi-arrow-up" />
-          </button>
-          <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="debounceHandleRefresh">
-            <span class="mdi mdi-refresh" />
-          </button>
-        </div>
-        <div class="input-wrap" @keydown.stop>
-          <AddressBar
-            ref="addressBarRef"
-            v-model="addressBarPath"
-            @navigate="handleOpenPath"
-            @open-path-in-new-tab="openPathInNewTab"
-            @refresh="debounceHandleRefresh"
-          />
-          <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
-            <template v-if="isStared">
-              <span class="mdi mdi-star" />
-            </template>
-            <template v-else>
-              <span class="mdi mdi-star-outline" />
-            </template>
-          </button>
-
-          <FilterBar
-            ref="filterBarRef"
-            v-model="filterState"
-            @clear="clearFilter"
-          />
-          <button
-            class="btn-no-style btn-action"
-            :title="openAppListScopeTitle"
-            @click="openAppWithFilteredList = !openAppWithFilteredList"
-          >
-            <span
-              class="mdi"
-              :class="openAppWithFilteredList ? 'mdi-filter-check-outline' : 'mdi-filter-off-outline'"
+      <div class="explorer-toolbar">
+        <div class="explorer-toolbar-stack" @keydown.stop>
+          <div class="explorer-toolbar-path">
+            <div class="explorer-toolbar-nav">
+              <button
+                :disabled="!navigationHistory?.canBack"
+                class="btn-action btn-no-style"
+                title="Back (alt+left)"
+                @click="goBack"
+                @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
+              >
+                <span class="mdi mdi-arrow-left" />
+              </button>
+              <button
+                :disabled="!navigationHistory?.canForward"
+                class="btn-action btn-no-style"
+                title="Forward (alt+right)"
+                @click="goForward"
+                @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
+              >
+                <span class="mdi mdi-arrow-right" />
+              </button>
+              <button
+                class="btn-action btn-no-style"
+                :disabled="!allowUp"
+                title="Up (alt+up)"
+                @click="goUp"
+              >
+                <span class="mdi mdi-arrow-up" />
+              </button>
+              <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="debounceHandleRefresh">
+                <span class="mdi mdi-refresh" />
+              </button>
+            </div>
+            <AddressBar
+              ref="addressBarRef"
+              v-model="addressBarPath"
+              @navigate="handleOpenPath"
+              @open-path-in-new-tab="openPathInNewTab"
+              @refresh="debounceHandleRefresh"
             />
-          </button>
+            <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
+              <template v-if="isStared">
+                <span class="mdi mdi-star" />
+              </template>
+              <template v-else>
+                <span class="mdi mdi-star-outline" />
+              </template>
+            </button>
+          </div>
+          <div class="explorer-toolbar-filters">
+            <FilterBar
+              ref="filterBarRef"
+              v-model="filterState"
+              @clear="clearFilter"
+            />
+            <button
+              class="btn-no-style btn-action"
+              :title="openAppListScopeTitle"
+              @click="openAppWithFilteredList = !openAppWithFilteredList"
+            >
+              <span
+                class="mdi"
+                :class="openAppWithFilteredList ? 'mdi-filter-check-outline' : 'mdi-filter-off-outline'"
+              />
+            </button>
 
-          <slot name="headerRight" />
+            <slot name="headerRight" />
+          </div>
         </div>
       </div>
     </div>
@@ -451,49 +454,65 @@ function handleShortcutKey(event: KeyboardEvent) {
       border-radius: 0;
     }
 
-    .nav-address-bar {
+    .explorer-toolbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 4px;
-
-      @media screen and (max-width: $mq_mobile_width) {
-        flex-direction: column-reverse;
-        align-items: center;
-      }
+      min-width: 0;
+      width: 100%;
 
       .btn-action {
         padding: 4px;
         display: flex;
       }
 
-      .nav-wrap {
+      &-nav {
         display: flex;
         align-items: center;
+        flex-shrink: 0;
         gap: 4px;
-
-        @media screen and (max-width: $mq_mobile_width) {
-          width: 100%;
-          justify-content: space-around;
-          .btn-action {
-            flex: 1;
-          }
-        }
       }
 
-      .input-wrap {
+      &-stack {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         flex: 1;
+        min-width: 0;
         gap: 4px;
         font-size: 14px;
 
         @media screen and (max-width: $mq_mobile_width) {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 6px;
           width: 100%;
         }
+      }
 
+      &-path {
+        display: flex;
+        align-items: center;
+        flex: 1;
+        min-width: 0;
+        gap: 4px;
+
+        @media screen and (max-width: $mq_mobile_width) {
+          flex: none;
+          width: 100%;
+        }
+      }
+
+      &-filters {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        gap: 4px;
+
+        @media screen and (max-width: $mq_mobile_width) {
+          flex-shrink: 1;
+          min-width: 0;
+          width: 100%;
+
+        }
       }
     }
   }

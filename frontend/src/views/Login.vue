@@ -1,11 +1,25 @@
 <script lang="ts" setup>
+import type { InputInstance } from 'element-plus'
+import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import { LsKeys } from '@/enum'
 import { authToken, rememberAuth } from '@/store'
 
 const router = useRouter()
 const route = useRoute()
 
-const activeTab = ref<'password' | 'ticket'>('password')
+type LoginTab = 'password' | 'ticket'
+
+const activeTabStored = useStorage<LoginTab>(LsKeys.LOGIN_ACTIVE_TAB, 'password', localStorage, {
+  listenToStorageChanges: false,
+})
+
+const activeTab = computed({
+  get: () => activeTabStored.value,
+  set: (v: LoginTab) => {
+    activeTabStored.value = v
+  },
+})
 const passwordInput = ref('')
 const ticketInput = ref('')
 const isSubmitting = ref(false)
@@ -57,14 +71,24 @@ async function confirmTicket() {
   }
 }
 
+const passwordInputRef = ref<InputInstance>()
+const ticketInputRef = ref<InputInstance>()
+
+function focusActiveTabInput() {
+  nextTick(() => {
+    if (activeTab.value === 'password')
+      passwordInputRef.value?.focus()
+    else
+      ticketInputRef.value?.focus()
+  })
+}
+
+watch(activeTabStored, focusActiveTabInput)
+
 onMounted(async () => {
   passwordInput.value = ''
   ticketInput.value = ''
-})
-
-const inputRef = ref<HTMLInputElement>()
-onMounted(() => {
-  inputRef.value?.focus()
+  focusActiveTabInput()
 })
 </script>
 
@@ -88,7 +112,7 @@ onMounted(() => {
         <el-tab-pane label="Password" name="password">
           <div class="login-form">
             <el-input
-              ref="inputRef" v-model="passwordInput" type="password" clearable show-password
+              ref="passwordInputRef" v-model="passwordInput" type="password" clearable show-password
               size="large" placeholder="Input password" @keyup.enter="confirmPassword"
             />
             <el-button type="primary" size="large" :loading="isSubmitting" @click="confirmPassword">
@@ -99,7 +123,7 @@ onMounted(() => {
         <el-tab-pane label="Ticket" name="ticket">
           <div class="login-form">
             <el-input
-              v-model="ticketInput" type="password" clearable show-password size="large"
+              ref="ticketInputRef" v-model="ticketInput" type="password" clearable show-password size="large"
               placeholder="Input ticket" @keyup.enter="confirmTicket"
             />
             <el-button type="primary" size="large" :loading="isSubmitting" @click="confirmTicket">

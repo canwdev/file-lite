@@ -283,6 +283,10 @@ defineExpose({
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
+
+  @media screen and (max-width: $mq_mobile_width) {
+    min-width: 120px;
+  }
   padding: 0 4px;
   gap: 0;
   scrollbar-width: thin;

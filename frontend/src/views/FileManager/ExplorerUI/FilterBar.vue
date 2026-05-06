@@ -120,6 +120,11 @@ defineExpose({
   border-radius: var(--vgo-radius);
   outline: 1px solid transparent;
 
+  @media screen and (max-width: $mq_mobile_width) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   &.is-invalid {
     outline-color: var(--el-color-danger, #f56c6c);
   }
@@ -141,10 +146,6 @@ defineExpose({
   padding: 4px 82px 4px 28px;
   height: 26px;
   background: transparent;
-
-  @media screen and (max-width: $mq_mobile_width) {
-    padding-right: 78px;
-  }
 }
 
 .filter-toggle,
