@@ -146,6 +146,8 @@ export function useFileActions({
           onClick: () => handlePaste(),
           disabled: !enablePaste.value,
         },
+        { label: 'Download Current Folder', icon: 'mdi mdi-download', onClick: handleDownload },
+        { label: 'Download Current Folder to...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder },
       ]
     }
     const isSingle = selectedItems.value.length === 1

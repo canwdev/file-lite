@@ -179,8 +179,9 @@ watch(
   min-height: 0;
   overflow: hidden;
   pointer-events: auto;
-  border-radius: 26px;
-  padding: 12px;
+  border-radius: 16px;
+  padding: 8px;
+  padding-bottom: 0;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow:
@@ -204,7 +205,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 4px 12px;
+  padding: 4px 4px;
 }
 
 .playlist-panel-title {
@@ -228,8 +229,8 @@ watch(
 }
 
 .playlist-close {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

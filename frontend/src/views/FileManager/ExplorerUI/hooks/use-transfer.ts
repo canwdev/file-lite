@@ -107,15 +107,17 @@ export function useTransfer({
     try {
       isLoading.value = true
       const paths: string[] = []
-      for (const itemsKey in selectedItems.value) {
-        const item = selectedItems.value[itemsKey]
-        paths.push(encodeURIComponent(normalizePath(`${basePath.value}/${item.name}`)))
+      if (selectedItems.value.length === 0) {
+        paths.push(encodeURIComponent(normalizePath(basePath.value)))
+      }
+      else {
+        for (const itemsKey in selectedItems.value) {
+          const item = selectedItems.value[itemsKey]
+          paths.push(encodeURIComponent(normalizePath(`${basePath.value}/${item.name}`)))
+        }
       }
 
-      // console.log(paths)
       const url = fsWebApi.getDownloadUrl(paths)
-      // console.log(url)
-      // window.open(url)
       downloadUrl(url)
     }
     finally {
@@ -123,9 +125,14 @@ export function useTransfer({
     }
   }
   const confirmDownload = async () => {
+    const isDownloadingCurrent = selectedItems.value.length === 0
+    const message = isDownloadingCurrent
+      ? 'Are you sure to download the current folder?'
+      : `Are you sure to download ${selectedItems.value.length} item(s)?`
+
     window.$dialog
       .confirm(
-        `Are you sure to download ${selectedItems.value.length} item(s)?`,
+        message,
         'Confirm Download',
         {
           type: 'info',
@@ -150,11 +157,27 @@ export function useTransfer({
         parentHandle: FileSystemDirectoryHandle
         type: 'download'
       }[] = []
-      const stack = selectedItems.value.map(item => ({
-        entry: item,
-        parentHandle: handle,
-        basePathStr: basePath.value,
-      }))
+
+      let initialStack = []
+      if (selectedItems.value.length === 0) {
+        const currentFolderName = basePath.value.split('/').filter(Boolean).pop() || 'root'
+        const dirHandle = await handle.getDirectoryHandle(currentFolderName, { create: true })
+        const children = await fsWebApi.getList({ path: basePath.value })
+        initialStack = children.map(item => ({
+          entry: item,
+          parentHandle: dirHandle,
+          basePathStr: basePath.value,
+        }))
+      }
+      else {
+        initialStack = selectedItems.value.map(item => ({
+          entry: item,
+          parentHandle: handle,
+          basePathStr: basePath.value,
+        }))
+      }
+
+      const stack = initialStack
       let processedCount = 0
 
       const flushTasks = () => {

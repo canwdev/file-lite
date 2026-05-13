@@ -662,7 +662,6 @@ defineExpose({
           </button>
           <button
             class="btn-action btn-no-style"
-            :disabled="!enableAction"
             title="Download"
             @click="confirmDownload"
           >
@@ -670,7 +669,6 @@ defineExpose({
           </button>
           <button
             class="btn-action btn-no-style"
-            :disabled="!enableAction"
             title="Download to Folder..."
             @click="downloadToFolder"
           >

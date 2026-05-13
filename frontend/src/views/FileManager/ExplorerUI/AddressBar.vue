@@ -253,6 +253,7 @@ defineExpose({
   align-items: stretch;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
   padding: 0;
+  overflow: hidden;
 
   &.is-editing {
     border: 1px solid var(--vgo-primary);

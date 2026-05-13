@@ -138,7 +138,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     font-size: 12px;
-    padding: 0 4px 10px;
+    padding: 0 4px ;
     margin-bottom: 2px;
 
     .playlist-search-row {
