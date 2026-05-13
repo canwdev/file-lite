@@ -11,15 +11,15 @@ export function defaultSorter(a: IEntry, b: IEntry) {
   const typeDirection = aVal - bVal
   if (typeDirection !== 0)
     return typeDirection
-  return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function nameSorter(a: IEntry, b: IEntry) {
-  return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function nameDescSorter(a: IEntry, b: IEntry) {
-  return -a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  return -a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function sizeSorter(a: IEntry, b: IEntry) {
@@ -31,11 +31,11 @@ export function sizeDescSorter(a: IEntry, b: IEntry) {
 }
 
 export function extensionSorter(a: IEntry, b: IEntry) {
-  return a.ext.toLowerCase().localeCompare(b.ext.toLowerCase())
+  return a.ext.localeCompare(b.ext, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function extensionDescSorter(a: IEntry, b: IEntry) {
-  return -a.ext.toLowerCase().localeCompare(b.ext.toLowerCase())
+  return -a.ext.localeCompare(b.ext, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function lastModifiedSorter(a: IEntry, b: IEntry) {
