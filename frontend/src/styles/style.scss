@@ -200,6 +200,19 @@ html, body, #app {
 .mx-context-menu.dark {
   --mx-menu-backgroud: #1F1F1F !important;
 }
+.mx-context-menu {
+  $size: 20px;
+  &::before {
+    position: absolute;
+    top: -$size;
+    left: -$size;
+    right: -$size;
+    bottom: -$size;
+    content: '';
+    z-index: -1;
+  }
+}
+
 
 // element 样式覆盖
 .el-splitter-bar__dragger-horizontal:after, .el-splitter-bar__dragger-horizontal:before {

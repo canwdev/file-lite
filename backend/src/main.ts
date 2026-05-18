@@ -14,6 +14,7 @@ import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { createAuthTicket, internalConfig, loadConfig } from '@/config/config'
 import router from '@/routes'
+import { attachTextSyncWsServer } from '@/ws/text-sync.ts'
 import { opener, printServerRunningOn } from './utils/server-utils.ts'
 
 function sleep(t: number) {
@@ -21,6 +22,7 @@ function sleep(t: number) {
 }
 
 let server: HttpsServer | HttpServer | null = null
+let detachTextSyncWs: (() => void) | null = null
 
 interface StartServerResult {
   urlIpSelector: string
@@ -104,6 +106,7 @@ function startServer(): Promise<StartServerResult> {
     else {
       server = app.listen(port, host, listenCallback)
     }
+    detachTextSyncWs = attachTextSyncWsServer(server)
   })
 }
 
@@ -114,6 +117,8 @@ function stopServer() {
       return
     }
     server.close(() => {
+      detachTextSyncWs?.()
+      detachTextSyncWs = null
       server = null
       console.log('server stopped')
       resolve(null)

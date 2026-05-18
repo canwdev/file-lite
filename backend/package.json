@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
@@ -32,6 +33,7 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.1",
     "archiver": "^7.0.1",
     "enquirer": "^2.4.1",
     "eslint": "^10.1.0",

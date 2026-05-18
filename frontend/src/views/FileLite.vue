@@ -1,10 +1,24 @@
 <script lang="ts" setup>
+import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
+import { InternalAppEnum } from '@/views/Apps/apps'
+import { openAppWindow } from '@/views/Apps/apps-store'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
+
+const internalTextSyncEntry: IEntry = {
+  name: 'TextSync',
+  ext: '',
+  isDirectory: false,
+  hidden: false,
+  lastModified: 0,
+  birthtime: 0,
+  size: 0,
+  error: null,
+}
 
 function showMenu(event: MouseEvent) {
   const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
@@ -89,6 +103,18 @@ function showMenu(event: MouseEvent) {
           },
 
         ],
+      },
+      {
+        label: 'Text Sync',
+        icon: 'mdi mdi-clipboard',
+        onClick: () => {
+          openAppWindow(InternalAppEnum.TextSync, {
+            absPath: '/__internal__/text-sync',
+            item: internalTextSyncEntry,
+            basePath: '',
+            list: [],
+          })
+        },
       },
       {
         label: `${PKG_NAME} v${VERSION}`,

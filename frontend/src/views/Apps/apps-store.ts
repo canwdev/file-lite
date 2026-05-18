@@ -1,7 +1,7 @@
-import type { AppParams, OpenWithEnum } from './apps'
+import type { AppName, AppParams } from './apps'
 import { settingsStore } from '@/store'
 import { guid } from '@/utils'
-import { appListByOpenWith } from './apps'
+import { appMetaByName } from './apps'
 
 /** ViewPortWindow 实例暴露（用于置顶、聚焦） */
 export type AppWindowViewRef = {
@@ -11,7 +11,7 @@ export type AppWindowViewRef = {
 
 export interface AppWindowState {
   id: string
-  appName: OpenWithEnum
+  appName: AppName
   appTitle: string
   appParams: AppParams
   minimized: boolean
@@ -25,7 +25,7 @@ export const appsStoreState = reactive({
   activeId: '',
 })
 
-function createWindowState(appName: OpenWithEnum, appParams: AppParams): AppWindowState {
+function createWindowState(appName: AppName, appParams: AppParams): AppWindowState {
   return {
     id: guid(),
     appName,
@@ -38,9 +38,12 @@ function createWindowState(appName: OpenWithEnum, appParams: AppParams): AppWind
   }
 }
 
-function getReusableAppWindow(appName: OpenWithEnum): AppWindowState | undefined {
-  const appMeta = appListByOpenWith[appName]
-  if (!settingsStore.value.appSingleInstance || !appMeta?.singleInstance) {
+function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
+  const appMeta = appMetaByName[appName]
+  if (!appMeta?.singleInstance) {
+    return undefined
+  }
+  if ('openWith' in appMeta && !settingsStore.value.appSingleInstance) {
     return undefined
   }
   return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)
@@ -49,7 +52,7 @@ function getReusableAppWindow(appName: OpenWithEnum): AppWindowState | undefined
 /**
  * 打开新 App 窗口并设为当前活动窗口
  */
-export function openAppWindow(appName: OpenWithEnum, appParams: AppParams) {
+export function openAppWindow(appName: AppName, appParams: AppParams) {
   const reusableWin = getReusableAppWindow(appName)
   if (reusableWin) {
     reusableWin.appParams = appParams

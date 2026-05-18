@@ -2,7 +2,7 @@
 import type { AppWindowState } from './apps-store'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
-import { appListByOpenWith, Apps } from './apps'
+import { appMetaByName, Apps } from './apps'
 import {
   appsStoreState,
   closeAppWindow,
@@ -22,7 +22,7 @@ watch(
 )
 
 function appMeta(win: AppWindowState) {
-  return appListByOpenWith[win.appName]
+  return appMetaByName[win.appName]
 }
 
 function dockTitle(win: AppWindowState) {

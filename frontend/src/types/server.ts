@@ -29,3 +29,26 @@ export enum SortType {
   birthTime = 'birthTime',
   birthTimeDesc = 'birthTimeDesc',
 }
+
+export const TEXT_SYNC_CHANNELS = ['CH1', 'CH2', 'CH3'] as const
+export type TextSyncChannel = (typeof TEXT_SYNC_CHANNELS)[number]
+
+export interface TextSyncClientMessage {
+  type: 'join'
+    | 'update'
+  channel: TextSyncChannel
+  text?: string
+}
+
+export interface TextSyncErrorMessage {
+  type: 'error'
+  message: string
+}
+
+export interface TextSyncSyncMessage {
+  type: 'sync'
+  channel: TextSyncChannel
+  text: string
+}
+
+export type TextSyncServerMessage = TextSyncSyncMessage | TextSyncErrorMessage

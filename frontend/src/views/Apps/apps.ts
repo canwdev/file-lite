@@ -13,6 +13,12 @@ export enum OpenWithEnum {
   EndlessGallery = 'EndlessGallery',
 }
 
+export enum InternalAppEnum {
+  TextSync = 'TextSync',
+}
+
+export type AppName = OpenWithEnum | InternalAppEnum
+
 export interface AppParams {
   absPath: string
   item: IEntry
@@ -23,6 +29,14 @@ export interface AppParams {
 export interface AppListItem {
   name: string
   openWith: OpenWithEnum
+  icon: string
+  component: Component
+  singleInstance?: boolean
+}
+
+export interface InternalAppListItem {
+  name: string
+  appName: InternalAppEnum
   icon: string
   component: Component
   singleInstance?: boolean
@@ -65,6 +79,16 @@ export const AppList: AppListItem[] = [
   },
 ]
 
+export const InternalAppList: InternalAppListItem[] = [
+  {
+    name: 'Text Sync',
+    appName: InternalAppEnum.TextSync,
+    icon: 'mdi mdi-clipboard',
+    component: defineAsyncComponent(() => import('./TextSync.vue')),
+    singleInstance: true,
+  },
+]
+
 /** O(1) lookup by `openWith`; entries not in AppList are absent (same as former find). */
 export const appListByOpenWith = AppList.reduce(
   (acc, app) => {
@@ -74,12 +98,22 @@ export const appListByOpenWith = AppList.reduce(
   {} as Partial<Record<OpenWithEnum, AppListItem>>,
 )
 
-export const Apps = AppList.reduce(
+export const appMetaByName = [...AppList, ...InternalAppList].reduce(
   (acc, app) => {
-    acc[app.openWith] = app.component
+    const appName = 'openWith' in app ? app.openWith : app.appName
+    acc[appName] = app
     return acc
   },
-  {} as Record<OpenWithEnum, Component>,
+  {} as Partial<Record<AppName, AppListItem | InternalAppListItem>>,
+)
+
+export const Apps = [...AppList, ...InternalAppList].reduce(
+  (acc, app) => {
+    const appName = 'openWith' in app ? app.openWith : app.appName
+    acc[appName] = app.component
+    return acc
+  },
+  {} as Record<AppName, Component>,
 )
 
 export function getFileExt(filename: string): string {

@@ -24,6 +24,7 @@ const readDirStatConcurrency = 64
 
 func registerFiles(g *echo.Group) {
 	g.GET("/auth", func(c echo.Context) error { return c.JSON(http.StatusOK, map[string]any{}) })
+	g.GET("/text-sync", handleTextSyncWebSocket)
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
 	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
