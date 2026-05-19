@@ -131,6 +131,10 @@ async function pasteText() {
   }
 }
 
+function clearText() {
+  textContent.value = ''
+}
+
 onMounted(() => {
   connect()
 })
@@ -165,11 +169,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="text-sync-actions">
-      <button type="button" class="vgo-button" @click="copyText">
+      <button type="button" class="vgo-button mdi mdi-content-copy" @click="copyText">
         Copy
       </button>
-      <button type="button" class="vgo-button" @click="pasteText">
+      <button type="button" class="vgo-button mdi mdi-content-paste" @click="pasteText">
         Paste
+      </button>
+      <button type="button" class="vgo-button mdi mdi-delete-sweep danger" @click="clearText">
+        Clear
       </button>
     </div>
 
@@ -177,7 +184,7 @@ onBeforeUnmount(() => {
       v-model="textContent"
       class="vgo-input text-sync-textarea"
       spellcheck="false"
-      placeholder="Type text here, sync in real time..."
+      :placeholder="`[${activeChannel}] Type text here, sync in real time...`"
     />
   </div>
 </template>
