@@ -1,7 +1,9 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import moment from 'moment/moment'
+import { computed, ref } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
@@ -44,6 +46,10 @@ export function useFileActions({
   downloadToFolder: () => Promise<void>
   emit: any
 }) {
+  const renamingItem = ref<IEntry | null>(null)
+  const renameName = ref('')
+  const isRenameSubmitting = ref(false)
+
   const handleCreateFile = async (name = '', content = '') => {
     try {
       name
@@ -78,21 +84,53 @@ export function useFileActions({
     }
   }
 
-  const handleRename = async () => {
+  const handleRename = () => {
+    if (selectedItems.value.length !== 1) {
+      return
+    }
+
+    const item = selectedItems.value[0]
+    renamingItem.value = item
+    renameName.value = item.name
+  }
+
+  const cancelRename = () => {
+    if (isRenameSubmitting.value) {
+      return
+    }
+
+    renamingItem.value = null
+    renameName.value = ''
+  }
+
+  const confirmRename = async () => {
+    if (!renamingItem.value || isRenameSubmitting.value) {
+      return
+    }
+
+    const item = renamingItem.value
+    const name = renameName.value.trim()
+    if (!name || name === item.name) {
+      cancelRename()
+      return
+    }
+
     try {
-      const item: IEntry = selectedItems.value[0]
-      const name = await showInputPrompt({
-        title: 'Rename',
-        value: item.name,
-      })
+      isRenameSubmitting.value = true
       isLoading.value = true
       await fsWebApi.renameEntry({
         fromPath: normalizePath(`${basePath.value}/${item.name}`),
         toPath: normalizePath(`${basePath.value}/${name}`),
       })
+      renamingItem.value = null
+      renameName.value = ''
       emit('refresh')
     }
+    catch {
+      // Keep the inline editor open so the user can correct the name and retry.
+    }
     finally {
+      isRenameSubmitting.value = false
       isLoading.value = false
     }
   }
@@ -283,6 +321,11 @@ export function useFileActions({
     handleCreateFile,
     handleCreateFolder,
     handleRename,
+    renamingItem,
+    renameName,
+    isRenameSubmitting,
+    confirmRename,
+    cancelRename,
     doDeleteSelected,
     confirmDelete,
     ctxMenuOptions,
