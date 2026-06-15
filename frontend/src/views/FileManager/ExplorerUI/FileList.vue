@@ -18,7 +18,6 @@ import TransferQueue from '../TransferQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
-import FileRenameOverlay from './FileRenameOverlay.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
 import { useLayoutSort } from './hooks/use-layout-sort'
@@ -162,9 +161,8 @@ const tableColumns = computed(() => {
           h(
             'span',
             {
-              'class': `title-text text-overflow ${item.error ? 'error' : ''}`,
-              'data-rename-target': item.name,
-              'onClick': (e) => {
+              class: `title-text text-overflow ${item.error ? 'error' : ''}`,
+              onClick: (e) => {
                 e.stopPropagation()
                 emit('open', { item })
               },
@@ -402,12 +400,7 @@ const {
   handleOpen,
   handleCreateFile,
   handleCreateFolder,
-  handleRename,
-  renamingItem,
-  renameName,
-  isRenameSubmitting,
-  confirmRename,
-  cancelRename,
+  handleRename: renameSelected,
   confirmDelete,
   ctxMenuOptions,
   handleShowCtxMenu,
@@ -432,8 +425,8 @@ const openActionMeta = computed(() => {
   return selectedItems.value.length === 1 ? getOpenActionMeta(selectedItems.value[0]) : null
 })
 
-function handleCancelRename() {
-  cancelRename()
+async function handleRename() {
+  await renameSelected()
   focusFileList()
 }
 
@@ -833,14 +826,6 @@ defineExpose({
         v-if="selectionBoxStyle"
         class="explorer-selection-box"
         :style="selectionBoxStyle"
-      />
-      <FileRenameOverlay
-        v-model="renameName"
-        :item="renamingItem"
-        :container="explorerContentRef"
-        :submitting="isRenameSubmitting"
-        @confirm="confirmRename"
-        @cancel="handleCancelRename"
       />
       <div v-if="emptyState" class="explorer-empty-state">
         <span class="mdi explorer-empty-state__icon" :class="emptyState.icon" />

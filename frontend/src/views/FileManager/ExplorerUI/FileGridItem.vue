@@ -36,7 +36,6 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="`${basePath}/${item.name}`" :icon-size="iconSize" />
     <span
       class="desktop-icon-name"
-      :data-rename-target="item.name"
       :class="{
         error: item.error,
       }"

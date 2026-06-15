@@ -26,6 +26,7 @@ const absPath = computed(() => {
 })
 
 const editRef = ref<HTMLTextAreaElement>()
+const wrapRef = ref<HTMLElement>()
 const editContent = ref('')
 const isLoading = ref(false)
 const { isChanged } = useUnSavedChanges()
@@ -38,6 +39,79 @@ interface FileTooLarge {
   size: number
 }
 const fileTooLarge = ref<FileTooLarge | null>(null)
+
+async function focusEditor() {
+  const focusTarget = () => editRef.value ?? wrapRef.value
+
+  const tryFocus = () => {
+    const el = focusTarget()
+    if (!el) {
+      return false
+    }
+    el.focus({ preventScroll: true })
+    return document.activeElement === el
+  }
+
+  for (const delay of [0, 50, 150, 300]) {
+    await new Promise(resolve => setTimeout(resolve, delay))
+    await nextTick()
+    if (tryFocus()) {
+      return
+    }
+  }
+}
+
+function isMessageBoxOpen() {
+  return !!document.querySelector('.el-message-box')
+}
+
+function shouldHandleEditorEscape() {
+  const wrap = wrapRef.value
+  if (!wrap?.isConnected) {
+    return false
+  }
+
+  const active = document.activeElement
+  if (active && wrap.contains(active)) {
+    return true
+  }
+
+  // MessageBox closes with focus on body; keep Esc working in this editor.
+  return active === document.body || active === document.documentElement
+}
+
+function onWindowKeydown(event: KeyboardEvent) {
+  if (event.key?.toLowerCase() !== 'escape') {
+    return
+  }
+  if (isMessageBoxOpen()) {
+    return
+  }
+  if (!shouldHandleEditorEscape()) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  handleExit()
+}
+
+async function confirmUnsavedChanges(message: string) {
+  try {
+    await window.$dialog.confirm(message, 'Unsaved Changes', {
+      type: 'warning',
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+    })
+    return true
+  }
+  catch {
+    return false
+  }
+  finally {
+    await focusEditor()
+  }
+}
 
 async function openFile() {
   fileTooLarge.value = null
@@ -69,6 +143,7 @@ async function openFile() {
   }
   finally {
     isLoading.value = false
+    await focusEditor()
   }
 }
 
@@ -81,10 +156,11 @@ watch(
 
 onMounted(() => {
   openFile()
+  window.addEventListener('keydown', onWindowKeydown, true)
+})
 
-  setTimeout(() => {
-    editRef.value?.focus()
-  })
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKeydown, true)
 })
 
 const isSaving = ref(false)
@@ -117,6 +193,16 @@ async function handleSaveFile() {
   }
 }
 
+async function handleExit() {
+  if (isChanged.value) {
+    const confirmed = await confirmUnsavedChanges('Changes not saved. Continue to exit?')
+    if (!confirmed) {
+      return
+    }
+  }
+  emit('exit')
+}
+
 const menuOptions = computed((): MenuBarOptions => {
   return {
     ...menuThemeOptions,
@@ -129,10 +215,10 @@ const menuOptions = computed((): MenuBarOptions => {
       },
       {
         label: `Reload`,
-        disabled: isChanged.value,
-        onClick() {
+        onClick: async () => {
           if (isChanged.value) {
-            if (!confirm('Changes not save, continue to reload?')) {
+            const confirmed = await confirmUnsavedChanges('Changes not saved. Continue to reload?')
+            if (!confirmed) {
               return
             }
           }
@@ -141,14 +227,7 @@ const menuOptions = computed((): MenuBarOptions => {
       },
       {
         label: 'Exit',
-        onClick() {
-          if (isChanged.value) {
-            if (!confirm('Changes not save, continue to exit?')) {
-              return
-            }
-          }
-          emit('exit')
-        },
+        onClick: handleExit,
       },
     ],
   }
@@ -167,6 +246,7 @@ function handleShortcutKey(event: KeyboardEvent) {
 
 <template>
   <div
+    ref="wrapRef"
     v-loading="isSaving || isLoading"
     class="text-editor-wrap"
     tabindex="0"
@@ -196,12 +276,13 @@ function handleShortcutKey(event: KeyboardEvent) {
       ref="editRef"
       v-model="editContent"
       class="vgo-input font-code text-editor-textarea"
+      @keydown="handleShortcutKey"
     />
   </div>
 </template>
 
 <style lang="scss" scoped>
-.text-editor-wrap {
+  .text-editor-wrap {
   height: 100%;
   width: 100%;
   min-height: 200px;
@@ -209,6 +290,10 @@ function handleShortcutKey(event: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   padding: 2px;
+
+  &:focus {
+    outline: none;
+  }
 
   .mx-menu-bar {
     padding: 4px 0;
