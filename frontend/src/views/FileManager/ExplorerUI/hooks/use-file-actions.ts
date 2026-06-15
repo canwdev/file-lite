@@ -6,10 +6,37 @@ import moment from 'moment/moment'
 import { computed, ref } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { copyWithToast } from '@/utils'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
 import { getDefaultOpenApp } from './use-opener'
+
+function appendCopySuffix(name: string, index?: number) {
+  const suffix = index ? `-copy-${index}` : '-copy'
+  const dotIndex = name.lastIndexOf('.')
+  if (dotIndex > 0)
+    return `${name.slice(0, dotIndex)}${suffix}${name.slice(dotIndex)}`
+  return `${name}${suffix}`
+}
+
+function buildDuplicateName(originalName: string, existingNames: Set<string>) {
+  const first = appendCopySuffix(originalName)
+  if (!existingNames.has(first))
+    return first
+
+  for (let i = 2; i < 1000; i++) {
+    const candidate = appendCopySuffix(originalName, i)
+    if (!existingNames.has(candidate))
+      return candidate
+  }
+  return `${first}-${Date.now()}`
+}
+
+function getEntryExt(name: string) {
+  const dotIndex = name.lastIndexOf('.')
+  return dotIndex > 0 ? name.slice(dotIndex) : ''
+}
 
 export function getOpenActionMeta(item: IEntry) {
   const defaultOpenApp = item.isDirectory ? null : getDefaultOpenApp(item)
@@ -25,6 +52,7 @@ export function useFileActions({
   basePath,
   selectedItemsSet,
   selectedItems,
+  entries,
   enablePaste,
   handlePaste,
   handleCut,
@@ -38,6 +66,7 @@ export function useFileActions({
   basePath: Ref<string>
   selectedItemsSet: Ref<Set<IEntry>>
   selectedItems: Ref<IEntry[]>
+  entries: Ref<IEntry[]>
   enablePaste: Ref<boolean>
   handlePaste: () => Promise<void>
   handleCut: () => void
@@ -115,6 +144,7 @@ export function useFileActions({
       return
     }
 
+    let shouldKeepLoadingForRefresh = false
     try {
       isRenameSubmitting.value = true
       isLoading.value = true
@@ -122,8 +152,19 @@ export function useFileActions({
         fromPath: normalizePath(`${basePath.value}/${item.name}`),
         toPath: normalizePath(`${basePath.value}/${name}`),
       })
+      const renamedItem: IEntry = {
+        ...item,
+        name,
+        ext: item.isDirectory ? '' : getEntryExt(name),
+      }
+      selectedItemsSet.value = new Set(
+        [...selectedItemsSet.value].map(selectedItem =>
+          selectedItem.name === item.name ? renamedItem : selectedItem,
+        ),
+      )
       renamingItem.value = null
       renameName.value = ''
+      shouldKeepLoadingForRefresh = true
       emit('refresh')
     }
     catch {
@@ -131,7 +172,9 @@ export function useFileActions({
     }
     finally {
       isRenameSubmitting.value = false
-      isLoading.value = false
+      if (!shouldKeepLoadingForRefresh) {
+        isLoading.value = false
+      }
     }
   }
   const doDeleteSelected = async () => {
@@ -147,6 +190,54 @@ export function useFileActions({
       emit('refresh')
     }
   }
+  const duplicateEntry = async (item: IEntry, destName: string) => {
+    const sourcePath = normalizePath(`${basePath.value}/${item.name}`)
+    const destPath = normalizePath(`${basePath.value}/${destName}`)
+    const tempDir = normalizePath(`${basePath.value}/.dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+
+    await fsWebApi.createDir({ path: tempDir })
+    try {
+      await fsWebApi.copyPaste({
+        fromPaths: [sourcePath],
+        toPath: tempDir,
+        isMove: false,
+      })
+      await fsWebApi.renameEntry({
+        fromPath: normalizePath(`${tempDir}/${item.name}`),
+        toPath: destPath,
+      })
+    }
+    finally {
+      await fsWebApi.deleteEntry({ path: [tempDir] }).catch(() => {})
+    }
+  }
+
+  const handleDuplicate = async () => {
+    if (!selectedItems.value.length)
+      return
+
+    const existingNames = new Set(entries.value.map(entry => entry.name))
+
+    try {
+      isLoading.value = true
+      for (const item of selectedItems.value) {
+        const destName = buildDuplicateName(item.name, existingNames)
+        existingNames.add(destName)
+        await duplicateEntry(item, destName)
+      }
+      emit('refresh')
+    }
+    finally {
+      isLoading.value = false
+    }
+  }
+
+  const handleCopyPaths = () => {
+    if (!selectedPaths.value.length)
+      return
+    copyWithToast(selectedPaths.value.join('\n'))
+  }
+
   const confirmDelete = () => {
     if (!selectedPaths.value.length) {
       return
@@ -277,7 +368,15 @@ export function useFileActions({
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
       { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
       { label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut },
-      { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy, divided: true },
+      { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy },
+      { label: 'More', icon: '', divided: true, children: [
+        {
+          label: 'Copy Path(s)',
+          icon: 'mdi mdi-clipboard-text-outline',
+          onClick: handleCopyPaths,
+        },
+        { label: 'Duplicate', icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
+      ] },
       isSingle && { label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename },
       {
         label: 'Delete',

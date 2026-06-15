@@ -27,8 +27,8 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     try {
       basePath.value = basePathNormalized.value
 
-      files.value = []
       isLoading.value = true
+      files.value = []
       if (!basePath.value) {
         basePath.value = '/'
       }

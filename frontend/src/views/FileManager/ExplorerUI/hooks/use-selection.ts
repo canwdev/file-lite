@@ -16,23 +16,79 @@ export interface SelectionRect {
 export function useSelection({
   files,
   basePath,
+  isLoading,
   allowMultipleSelection,
   selectables = ['.selectable'],
   getItemsInSelectionRect,
 }: {
   files: Ref<IEntry[]>
   basePath: Ref<string>
+  isLoading?: Ref<boolean>
   allowMultipleSelection: Ref<boolean>
   selectables: string[]
   getItemsInSelectionRect?: (rect: SelectionRect) => IEntry[]
 }) {
   const selectedItemsSet = ref(new Set<IEntry>())
+  const selectedItemNames = ref(new Set<string>())
+  let reconcilingSelection = false
 
   const clearSelection = () => {
     selectedItemsSet.value = new Set()
+    selectedItemNames.value = new Set()
   }
 
-  watch(files, () => {
+  function syncSelectedNames() {
+    selectedItemNames.value = new Set([...selectedItemsSet.value].map(item => item.name))
+  }
+
+  function setSelection(items: Iterable<IEntry>) {
+    selectedItemsSet.value = new Set(items)
+    syncSelectedNames()
+  }
+
+  watch(selectedItemsSet, () => {
+    if (!reconcilingSelection) {
+      syncSelectedNames()
+    }
+  }, { deep: true, flush: 'sync' })
+
+  function reconcileSelection(nextFiles: IEntry[]) {
+    if (!selectedItemNames.value.size) {
+      return
+    }
+
+    if (!nextFiles.length) {
+      reconcilingSelection = true
+      selectedItemsSet.value = new Set()
+      reconcilingSelection = false
+
+      if (!isLoading?.value) {
+        selectedItemNames.value = new Set()
+      }
+      return
+    }
+
+    const nextSelection = nextFiles.filter(item => selectedItemNames.value.has(item.name))
+    reconcilingSelection = true
+    selectedItemsSet.value = new Set(nextSelection)
+    reconcilingSelection = false
+    if (isLoading?.value && !nextSelection.length) {
+      return
+    }
+    syncSelectedNames()
+  }
+
+  watch(files, (nextFiles) => {
+    reconcileSelection(nextFiles)
+  })
+
+  watch(() => isLoading?.value, (loading) => {
+    if (loading === false) {
+      reconcileSelection(files.value)
+    }
+  })
+
+  watch(basePath, () => {
     clearSelection()
   })
 
@@ -61,10 +117,7 @@ export function useSelection({
             }
           })
 
-          clearSelection()
-          list.forEach((i) => {
-            selectedItemsSet.value.add(i)
-          })
+          setSelection(list)
         },
         selectables,
       })
@@ -194,7 +247,7 @@ export function useSelection({
 
     const nextSet = new Set(selectionBaseSet)
     getItemsInSelectionRect(selectionRect.value).forEach(item => nextSet.add(item))
-    selectedItemsSet.value = nextSet
+    setSelection(nextSet)
   }
 
   function getContentPoint(event: MouseEvent) {
@@ -269,13 +322,12 @@ export function useSelection({
     toggle?: boolean
   }) => {
     if (!allowMultipleSelection.value) {
-      clearSelection()
-      selectedItemsSet.value.add(item)
+      setSelection([item])
       return
     }
     if (event.ctrlKey || event.metaKey || toggle) {
       // 使用ctrl键多选
-      selectedItemsSet.value = new Set(toggleArrayElement(selectedItems.value, item))
+      setSelection(toggleArrayElement(selectedItems.value, item))
     }
     else if (event.shiftKey) {
       // 使用shift键选择范围
@@ -289,11 +341,10 @@ export function useSelection({
         // 使最小的index在最前
         ;[itemIdx, idx] = [idx, itemIdx]
       }
-      selectedItemsSet.value = new Set(files.value.slice(idx, itemIdx + 1))
+      setSelection(files.value.slice(idx, itemIdx + 1))
     }
     else {
-      clearSelection()
-      selectedItemsSet.value.add(item)
+      setSelection([item])
     }
   }
 
@@ -314,19 +365,20 @@ export function useSelection({
       clearSelection()
     }
     else {
-      selectedItemsSet.value = new Set(allFiles)
+      setSelection(allFiles)
     }
   }
 
   const selectByNames = (names: string[]) => {
-    clearSelection()
     const map = new Map(files.value.map(i => [i.name, i]))
+    const items: IEntry[] = []
     for (const name of names) {
       const item = map.get(name)
       if (item) {
-        selectedItemsSet.value.add(item)
+        items.push(item)
       }
     }
+    setSelection(items)
   }
 
   const selectedItems = computed(() => {

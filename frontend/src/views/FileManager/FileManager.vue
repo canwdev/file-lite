@@ -288,6 +288,10 @@ function handleShortcutKey(event: KeyboardEvent) {
       goForward()
     }
   }
+  if (event.key === 'Backspace') {
+    event.preventDefault()
+    goUp()
+  }
   fileListRef.value.handleShortcutKey(event)
 }
 </script>

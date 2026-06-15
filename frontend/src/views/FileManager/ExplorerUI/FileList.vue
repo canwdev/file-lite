@@ -257,6 +257,7 @@ const {
 } = useSelection({
   files: filteredFiles,
   basePath,
+  isLoading,
   allowMultipleSelection,
   selectables: props.selectables,
   getItemsInSelectionRect,
@@ -387,9 +388,14 @@ function handleTransferAllDone(items: Array<{ type?: 'upload' | 'download' }>) {
 
 watch(isLoading, (val) => {
   if (!val) {
-    dropZoneRef.value?.focus()
+    focusFileList()
   }
 })
+
+async function focusFileList() {
+  await nextTick()
+  dropZoneRef.value?.focus()
+}
 
 // 文件操作功能
 const {
@@ -411,6 +417,7 @@ const {
   selectedPaths,
   basePath,
   selectedItems,
+  entries: files,
   enablePaste,
   handlePaste,
   handleCut,
@@ -424,6 +431,11 @@ const {
 const openActionMeta = computed(() => {
   return selectedItems.value.length === 1 ? getOpenActionMeta(selectedItems.value[0]) : null
 })
+
+function handleCancelRename() {
+  cancelRename()
+  focusFileList()
+}
 
 function getMenuOptions() {
   let contextMenuOptions: MenuItem[] = []
@@ -488,6 +500,36 @@ function updateMenuOptions2(event: MouseEvent) {
   })
 }
 
+function selectKeyboardItem(index: number) {
+  const items = filteredFiles.value
+  if (!items.length) {
+    return
+  }
+
+  const nextIndex = Math.min(Math.max(index, 0), items.length - 1)
+  const nextItem = items[nextIndex]
+  if (!nextItem) {
+    return
+  }
+
+  selectByNames([nextItem.name])
+  nextTick(() => scrollToItemIndex(nextIndex))
+}
+
+function moveKeyboardSelection(offset: number) {
+  const items = filteredFiles.value
+  if (!items.length) {
+    return
+  }
+
+  const currentName = selectedItems.value[0]?.name
+  const currentIndex = currentName
+    ? items.findIndex(item => item.name === currentName)
+    : -1
+  const fallbackIndex = offset > 0 ? -1 : items.length
+  selectKeyboardItem((currentIndex === -1 ? fallbackIndex : currentIndex) + offset)
+}
+
 function handleShortcutKey(event: KeyboardEvent) {
   const key = event.key?.toLowerCase()
   const isCtrlOrMeta = event.ctrlKey || event.metaKey
@@ -529,13 +571,21 @@ function handleShortcutKey(event: KeyboardEvent) {
     event.preventDefault()
     handleRename()
   }
-  else if (key === 'f3') {
+  else if (key === 'f3' || key === 'enter') {
     event.preventDefault()
     handleOpen()
   }
   else if (key === 'f7') {
     event.preventDefault()
     handleCreateFolder()
+  }
+  else if (!event.altKey && (key === 'arrowup' || key === 'arrowdown')) {
+    event.preventDefault()
+    moveKeyboardSelection(key === 'arrowup' ? -1 : 1)
+  }
+  else if (!event.altKey && (key === 'home' || key === 'end')) {
+    event.preventDefault()
+    selectKeyboardItem(key === 'home' ? 0 : filteredFiles.value.length - 1)
   }
 }
 
@@ -624,6 +674,7 @@ defineExpose({
     ref="dropZoneRef"
     :class="{ isOverDropZone }"
     class="explorer-list-wrap"
+    tabindex="-1"
     @contextmenu.prevent
   >
     <transition name="fade">
@@ -789,7 +840,7 @@ defineExpose({
         :container="explorerContentRef"
         :submitting="isRenameSubmitting"
         @confirm="confirmRename"
-        @cancel="cancelRename"
+        @cancel="handleCancelRename"
       />
       <div v-if="emptyState" class="explorer-empty-state">
         <span class="mdi explorer-empty-state__icon" :class="emptyState.icon" />
@@ -880,6 +931,10 @@ defineExpose({
   overflow: hidden;
   display: flex;
   flex-direction: column;
+
+  &:focus {
+    outline: none;
+  }
 
   &.isOverDropZone {
     outline: 2px dashed var(--vgo-primary);

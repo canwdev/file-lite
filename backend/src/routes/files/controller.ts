@@ -40,6 +40,18 @@ function isPathSafe(path: string): boolean {
   return isSafe
 }
 
+/**
+ * 判断 target 是否等于 parent 或位于 parent 内部
+ */
+function isPathInsideOrEqual(targetPath: string, parentPath: string): boolean {
+  const parent = Path.resolve(parentPath)
+  const target = Path.resolve(targetPath)
+  if (target === parent) {
+    return true
+  }
+  return target.startsWith(`${parent}${Path.sep}`)
+}
+
 function sanitizeUploadFilename(originalName: string): string {
   const decodedName = Buffer.from(originalName, 'latin1').toString('utf8')
   if (
@@ -240,6 +252,11 @@ export async function renamePath(req: Request, res: Response) {
     return res.status(409).json({ message: 'Destination path already exists' }) // 409 Conflict 更合适
   }
 
+  const fromStat = await fs.stat(fromPath)
+  if (fromStat.isDirectory() && isPathInsideOrEqual(toPath, fromPath)) {
+    return res.status(400).json({ message: 'The destination folder is a subfolder of the source folder' })
+  }
+
   await fs.rename(fromPath, toPath)
   return res.json({ path: toPath })
 }
@@ -258,6 +275,11 @@ async function copyEntry(fromPath: string, toDir: string, isMove = false) {
   const toPath = Path.join(toDir, Path.basename(fromPath))
   if (await isExist(toPath)) {
     throw new Error(`Destination path already exists: ${toPath}`)
+  }
+
+  const fromStat = await fs.stat(fromPath)
+  if (fromStat.isDirectory() && isPathInsideOrEqual(toDir, fromPath)) {
+    throw new Error('The destination folder is a subfolder of the source folder')
   }
 
   await fs.cp(fromPath, toPath, { recursive: true })

@@ -228,6 +228,13 @@ func renamePath(c echo.Context) error {
 	if isExist(body.ToPath) {
 		return c.JSON(http.StatusConflict, map[string]string{"message": "Destination path already exists"})
 	}
+	fromInfo, err := os.Stat(body.FromPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+	}
+	if fromInfo.IsDir() && utils.IsPathInsideOrEqual(body.ToPath, body.FromPath) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "The destination folder is a subfolder of the source folder"})
+	}
 	if err := os.Rename(body.FromPath, body.ToPath); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
 	}
@@ -245,7 +252,13 @@ func copyEntry(fromPath, toDir string, isMove bool) error {
 	if isExist(toPath) {
 		return fmtError("Destination path already exists: %s", toPath)
 	}
-	st, _ := os.Stat(fromPath)
+	st, err := os.Stat(fromPath)
+	if err != nil {
+		return err
+	}
+	if st.IsDir() && utils.IsPathInsideOrEqual(toDir, fromPath) {
+		return fmtError("The destination folder is a subfolder of the source folder")
+	}
 	if st.IsDir() {
 		if err := copyDir(fromPath, toPath); err != nil {
 			return err
