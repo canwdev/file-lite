@@ -109,7 +109,7 @@ function showMenu(event: MouseEvent) {
         icon: 'mdi mdi-clipboard',
         onClick: () => {
           openAppWindow(InternalAppEnum.TextSync, {
-            absPath: '/__internal__/text-sync',
+            absPath: '',
             item: internalTextSyncEntry,
             basePath: '',
             list: [],

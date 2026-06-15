@@ -1,5 +1,5 @@
-const MIN_SCALE = 0.5
-const MAX_SCALE = 5.0
+const MIN_SCALE = 0.1
+const MAX_SCALE = 50.0
 const STEP = 0.25
 
 function clamp(val: number, min: number, max: number): number {
