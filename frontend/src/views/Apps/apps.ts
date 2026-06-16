@@ -9,6 +9,7 @@ export enum OpenWithEnum {
   TextEditor = 'TextEditor',
   VideoPlayer = 'VideoPlayer',
   ImageViewer = 'ImageViewer',
+  HtmlViewer = 'HtmlViewer',
   MediaPlayer = 'MediaPlayer',
   EndlessGallery = 'EndlessGallery',
 }
@@ -61,6 +62,13 @@ export const AppList: AppListItem[] = [
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image',
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
+    singleInstance: true,
+  },
+  {
+    name: 'HTML Viewer',
+    openWith: OpenWithEnum.HtmlViewer,
+    icon: 'mdi mdi-language-html5',
+    component: defineAsyncComponent(() => import('./HtmlViewer.vue')),
     singleInstance: true,
   },
   {

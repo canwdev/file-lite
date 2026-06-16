@@ -3,6 +3,7 @@ import { fsWebApi } from '@/api/filesystem'
 import { bytesToSize } from '@/utils'
 import {
   regSupportedAudioFormat,
+  regSupportedHtmlFormat,
   regSupportedImageFormat,
   regSupportedTextFormat,
   regSupportedVideoFormat,
@@ -51,6 +52,9 @@ export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
   if (regSupportedImageFormat.test(item.name)) {
     // return getOpenAppInfo(OpenWithEnum.ImageViewer)
     return getOpenAppInfo(OpenWithEnum.EndlessGallery)
+  }
+  if (regSupportedHtmlFormat.test(item.name)) {
+    return getOpenAppInfo(OpenWithEnum.HtmlViewer)
   }
   if (regSupportedTextFormat.test(item.name)) {
     return getOpenAppInfo(OpenWithEnum.TextEditor)
@@ -154,6 +158,12 @@ export function useOpener(basePath: { value: string }) {
       // 1MB
       if (await checkTooLargeFileDialog(item, 1024 * 1024)) {
         openApp(OpenWithEnum.TextEditor)
+      }
+      return
+    }
+    if (defaultOpenApp.openWith === OpenWithEnum.HtmlViewer) {
+      if (await checkTooLargeFileDialog(item, 100 * 1024 * 1024)) {
+        openApp(OpenWithEnum.HtmlViewer)
       }
       return
     }

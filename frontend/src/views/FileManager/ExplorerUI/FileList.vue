@@ -20,6 +20,7 @@ import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
+import { useSystemClipboardPaste } from './hooks/use-system-clipboard-paste'
 import { useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
 import { useTransfer } from './hooks/use-transfer'
@@ -365,6 +366,13 @@ const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
   emit,
 })
 
+const { handlePasteFromClipboard } = useSystemClipboardPaste({
+  basePath,
+  entries: files,
+  isLoading,
+  emit,
+})
+
 // 上传下载功能
 const {
   transferQueueRef,
@@ -413,6 +421,7 @@ const {
   entries: files,
   enablePaste,
   handlePaste,
+  handlePasteFromClipboard,
   handleCut,
   handleCopy,
   selectedItemsSet,

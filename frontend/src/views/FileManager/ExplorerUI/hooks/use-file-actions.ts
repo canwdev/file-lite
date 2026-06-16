@@ -55,6 +55,7 @@ export function useFileActions({
   entries,
   enablePaste,
   handlePaste,
+  handlePasteFromClipboard,
   handleCut,
   handleCopy,
   handleDownload,
@@ -69,6 +70,7 @@ export function useFileActions({
   entries: Ref<IEntry[]>
   enablePaste: Ref<boolean>
   handlePaste: () => Promise<void>
+  handlePasteFromClipboard: () => Promise<void>
   handleCut: () => void
   handleCopy: () => void
   handleDownload: () => Promise<void>
@@ -254,6 +256,12 @@ export function useFileActions({
           icon: 'mdi mdi-content-paste',
           onClick: () => handlePaste(),
           disabled: !enablePaste.value,
+          divided: true,
+        },
+        {
+          label: 'Paste from Clipboard',
+          icon: 'mdi mdi-clipboard-arrow-down-outline',
+          onClick: () => handlePasteFromClipboard(),
         },
         { label: 'Download Current Folder', icon: 'mdi mdi-download', onClick: handleDownload },
         { label: 'Download Current Folder to...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder },
