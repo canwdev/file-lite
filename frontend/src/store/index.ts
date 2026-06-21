@@ -1,6 +1,9 @@
-import { useStorage } from '@vueuse/core'
+import type { SerializerAsync } from '@vueuse/core'
+import { useStorage, useStorageAsync } from '@vueuse/core'
 import Cookies from 'js-cookie'
+import { settingsApi } from '@/api/settings'
 import { LsKeys } from '@/enum'
+import { createRemoteStorage } from '@/utils/create-remote-storage'
 
 export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 
@@ -65,13 +68,79 @@ export function getPreviewSizeLabel(value: number): string {
   return previewSizeOptions.find(item => item.value === value)?.label ?? '≤ 3 MB'
 }
 
-export const settingsStore = useStorage(LsKeys.SETTINGS_STORE, {
-  isNativePlayer: false,
-  previewSize: 3 * MB,
-  themeMode: 'auto' as 'auto' | 'light' | 'dark',
-  colorTheme: '',
-  appSingleInstance: true,
-}, localStorage, {
-  listenToStorageChanges: true,
-  mergeDefaults: true,
+function createDefaultSettingsStore() {
+  return {
+    isNativePlayer: false,
+    previewSize: 3 * MB,
+    themeMode: 'auto' as 'auto' | 'light' | 'dark',
+    colorTheme: '',
+    appSingleInstance: true,
+  }
+}
+
+type SettingsStoreState = ReturnType<typeof createDefaultSettingsStore>
+let initializedSettingsToken = ''
+
+function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return createDefaultSettingsStore()
+  }
+
+  return {
+    ...createDefaultSettingsStore(),
+    ...value as Partial<SettingsStoreState>,
+  }
+}
+
+const settingsStoreSerializer: SerializerAsync<SettingsStoreState> = {
+  read: async value => normalizeSettingsStoreValue(value),
+  write: async value => value as unknown as string,
+}
+
+const remoteSettingsStorage = createRemoteStorage({
+  isEnabled: () => Boolean(authToken.value),
+  getItem: settingsApi.getItem,
+  setItem: settingsApi.setItem,
+  removeItem: settingsApi.removeItem,
+})
+
+export const settingsStore = useStorageAsync<SettingsStoreState>(
+  LsKeys.SETTINGS_STORE,
+  createDefaultSettingsStore(),
+  remoteSettingsStorage,
+  {
+    mergeDefaults: true,
+    serializer: settingsStoreSerializer,
+  },
+)
+
+export async function ensureSettingsStoreInitialized() {
+  if (!authToken.value) {
+    initializedSettingsToken = ''
+    settingsStore.value = createDefaultSettingsStore()
+    return
+  }
+  if (initializedSettingsToken === authToken.value) {
+    return
+  }
+
+  try {
+    const value = await settingsApi.getItem(LsKeys.SETTINGS_STORE)
+    settingsStore.value = normalizeSettingsStoreValue(value)
+    initializedSettingsToken = authToken.value
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+watch(authToken, (value, oldValue) => {
+  if (!value && oldValue) {
+    initializedSettingsToken = ''
+    settingsStore.value = createDefaultSettingsStore()
+    return
+  }
+  if (value && value !== oldValue) {
+    initializedSettingsToken = ''
+  }
 })

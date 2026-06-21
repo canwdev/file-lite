@@ -105,6 +105,10 @@ export const internalConfig: InternalConfig = {
   safeBaseDir: '',
 }
 
+export function getFrontendStorageFilePath() {
+  return Path.resolve(internalConfig.dataBaseDir, 'frontend-storage.json')
+}
+
 export function loadConfig({ allowCreate = false }: { allowCreate?: boolean } = {}) {
   // 数据目录
   const DATA_BASE_DIR = process.env.ENV_DATA_BASE_DIR

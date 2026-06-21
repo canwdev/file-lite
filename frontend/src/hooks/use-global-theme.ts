@@ -81,8 +81,21 @@ export function rgbToHex(rgb: string) {
 }
 
 export function setGlobalTheme(rgb: string) {
+  const normalizedRgb = rgb
+    .split(',')
+    .map(v => Number.parseInt(v.trim(), 10))
+    .filter(v => !Number.isNaN(v))
+    .join(',')
+
+  settingsStore.value.colorTheme = normalizedRgb
+}
+
+export function getCurrentPrimaryRgb() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--vgo-primary-rgb')
+}
+
+function applyGlobalTheme(rgb: string) {
   if (!rgb) {
-    settingsStore.value.colorTheme = ''
     document.documentElement.style.removeProperty('--vgo-primary-rgb')
     changeElementPlusTheme?.(rgbToHex(getCurrentPrimaryRgb()))
     return
@@ -92,18 +105,8 @@ export function setGlobalTheme(rgb: string) {
   if (!hex)
     return
 
-  const normalizedRgb = rgb
-    .split(',')
-    .map(v => Number.parseInt(v.trim(), 10))
-    .join(',')
-
-  settingsStore.value.colorTheme = normalizedRgb
-  document.documentElement.style.setProperty('--vgo-primary-rgb', normalizedRgb)
+  document.documentElement.style.setProperty('--vgo-primary-rgb', rgb)
   changeElementPlusTheme?.(hex)
-}
-
-export function getCurrentPrimaryRgb() {
-  return getComputedStyle(document.documentElement).getPropertyValue('--vgo-primary-rgb')
 }
 
 export function useGlobalTheme() {
@@ -114,13 +117,6 @@ export function useGlobalTheme() {
     isSystemDarkMode.value = Boolean(event.matches)
   }
 
-  onBeforeMount(() => {
-    if (settingsStore.value.colorTheme) {
-      setGlobalTheme(settingsStore.value.colorTheme)
-      return
-    }
-    changeTheme(rgbToHex(getCurrentPrimaryRgb()))
-  })
   onBeforeUnmount(() => {
     window
       .matchMedia('(prefers-color-scheme: dark)')
@@ -138,6 +134,13 @@ export function useGlobalTheme() {
     }
     return settingsStore.value.themeMode === ThemeMode.Dark
   })
+  watch(
+    () => settingsStore.value.colorTheme,
+    (value) => {
+      applyGlobalTheme(value)
+    },
+    { immediate: true },
+  )
   watch(
     isAppDarkMode,
     (val) => {

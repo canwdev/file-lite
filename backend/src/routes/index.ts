@@ -4,6 +4,7 @@ import { authMiddleware } from '@/middlewares/auth.ts'
 import { errorHandler } from '@/middlewares/error-handler.ts'
 import { limiter } from '@/middlewares/limiter.ts'
 import filesRouter from './files/index'
+import settingsRouter from './settings'
 
 const router = express.Router()
 
@@ -27,6 +28,7 @@ router.post('/files/auth', (req, res) => {
   }
   return res.status(200).json({ token: createAuthJwt(internalConfig.jwtToken) })
 })
+router.use('/settings', authMiddleware, settingsRouter)
 router.use('/files', authMiddleware, filesRouter)
 router.use(errorHandler)
 

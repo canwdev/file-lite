@@ -1,6 +1,14 @@
 import type { Message } from 'element-plus'
 import type { SFCInstallWithContext } from 'element-plus/es/utils'
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    isAuth?: boolean
+    isToast?: boolean
+    isRawResponse?: boolean
+  }
+}
+
 declare global {
   interface Window {
     $message: SFCInstallWithContext<Message>

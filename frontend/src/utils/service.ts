@@ -1,40 +1,29 @@
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import axios from 'axios'
 import { authToken } from '@/store'
 
-function Service(config: {
-  baseURL: string
+export interface ServiceRequestConfig extends AxiosRequestConfig {
   withCredentials?: boolean
   timeout?: number
   headers?: any
   isAuth?: boolean
   isToast?: boolean
   isRawResponse?: boolean
-}) {
-  const {
-    baseURL,
-    withCredentials = false,
-    timeout,
-    headers,
-    isAuth = true,
-    isToast = true,
-    isRawResponse = false,
-  } = config || {}
+}
 
-  // 创建 axios 实例
-  const service = axios.create({
-    baseURL,
-    withCredentials, // send cookies when cross-domain requests
-    timeout, // request timeout
-    headers, // 请求头部
-  })
+function createService(): AxiosInstance {
+  const service = axios.create()
 
   // 请求 拦截器
   service.interceptors.request.use(
     (config) => {
+      const requestConfig = config as ServiceRequestConfig
+      const isAuth = requestConfig.isAuth ?? true
+
       // window.$loadingBar.start()
       if (isAuth) {
         if (!authToken.value) {
-          window.$logout(false)
+          window.$logout?.(false)
           throw new Error('No auth token')
         }
         config.headers.Authorization = authToken.value
@@ -48,6 +37,8 @@ function Service(config: {
   // 响应 拦截器
   service.interceptors.response.use(
     (response) => {
+      const requestConfig = response.config as ServiceRequestConfig
+      const isRawResponse = requestConfig.isRawResponse ?? false
       if (isRawResponse) {
         return response
       }
@@ -62,10 +53,12 @@ function Service(config: {
 
       const message = error.message
       const { response } = error || {}
+      const requestConfig = response?.config as ServiceRequestConfig | undefined
+      const isToast = requestConfig?.isToast ?? true
 
       if (response?.status === 401) {
         console.log('[401] Authorization token 失效')
-        window.$logout(true)
+        window.$logout?.(true)
       }
 
       // extract backend message
@@ -73,10 +66,10 @@ function Service(config: {
       console.log('[backendMessage]', backendMessage)
       if (isToast) {
         if (backendMessage) {
-          window.$message.error(backendMessage)
+          window.$message?.error(backendMessage)
         }
         else {
-          window.$message.error(message)
+          window.$message?.error(message)
         }
       }
       // window.$loadingBar.error()
@@ -87,4 +80,6 @@ function Service(config: {
   return service
 }
 
-export default Service
+const service = createService()
+
+export default service

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
-import { authToken } from '@/store'
+import { authToken, ensureSettingsStoreInitialized } from '@/store'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -72,6 +72,7 @@ router.beforeEach(async (to, from, next) => {
   }
   try {
     await fsWebApi.auth()
+    await ensureSettingsStoreInitialized()
   }
   catch (error) {
     console.error(error)
