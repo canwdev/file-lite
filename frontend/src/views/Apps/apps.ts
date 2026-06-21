@@ -1,7 +1,7 @@
 import type { IEntry } from '@/types/server.ts'
 import { defineAsyncComponent } from '@vue/runtime-core'
-import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
+import { useRemoteSetting } from '@/hooks/use-remote-setting'
 
 export enum OpenWithEnum {
   Browser = 'Browser',
@@ -129,12 +129,25 @@ export function getFileExt(filename: string): string {
   return dot > 0 ? filename.slice(dot).toLowerCase() : ''
 }
 
+function normalizeDefaultAppMap(value: unknown): Record<string, OpenWithEnum> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return Object.entries(value).reduce<Record<string, OpenWithEnum>>((acc, [ext, app]) => {
+    if (Object.values(OpenWithEnum).includes(app as OpenWithEnum)) {
+      acc[ext] = app as OpenWithEnum
+    }
+    return acc
+  }, {})
+}
+
 /** Persistent map of file extension → preferred OpenWithEnum, e.g. { ".mp3": "MediaPlayer" } */
-export const defaultAppMap = useStorage<Record<string, OpenWithEnum>>(
-  LsKeys.DEFAULT_APP_MAP,
-  {},
-  localStorage,
-)
+export const { state: defaultAppMap } = useRemoteSetting<Record<string, OpenWithEnum>>({
+  key: LsKeys.DEFAULT_APP_MAP,
+  createDefaultValue: () => ({}),
+  normalize: normalizeDefaultAppMap,
+})
 
 export function getDefaultApp(filename: string): OpenWithEnum | null {
   const ext = getFileExt(filename)

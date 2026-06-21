@@ -69,6 +69,9 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   if (to.meta.skipLogin) {
+    if (to.name === 'LoginView' && authToken.value) {
+      return next({ name: 'HomeView' })
+    }
     return next()
   }
   try {
