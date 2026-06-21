@@ -3,7 +3,7 @@ import type { TaskItem } from '@/utils/task-queue'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
-import { isDev } from '@/enum'
+import { isDev, LsKeys } from '@/enum'
 import { authToken } from '@/store'
 import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
@@ -264,7 +264,7 @@ function taskHandler(task: TaskItem) {
   })
 }
 
-const concurrentNum = useStorage('file_lite_concurrent_num', 1, localStorage, {
+const concurrentNum = useStorage(LsKeys.CONCURRENT_NUM, 1, localStorage, {
   listenToStorageChanges: false,
 })
 onMounted(() => {

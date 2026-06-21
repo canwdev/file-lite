@@ -32,7 +32,6 @@ function getPathNormalized(path: string) {
 async function loadDrives() {
   try {
     isLoading.value = true
-
     const drives = (await fsWebApi.getDrives())
     driveList.value = drives.map((i) => {
       return {
@@ -49,9 +48,9 @@ async function loadDrives() {
     isLoading.value = false
   }
 }
-onMounted(() => {
-  loadDrives()
-})
+// onMounted(() => {
+//   loadDrives()
+// })
 
 function openFirstDrive() {
   if (driveList.value[0]) {

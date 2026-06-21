@@ -10,6 +10,7 @@ export const LsKeys = {
   IS_GRID_VIEW: 'file_lite_is_grid_view',
   ICON_SIZE_LIST: 'file_lite_icon_size_list',
   ICON_SIZE_GRID: 'file_lite_icon_size_grid',
+  CONCURRENT_NUM: 'file_lite_concurrent_num',
   SETTINGS_STORE: 'file_lite_settings_store',
   ARTPLAYER_VOLUME: 'file_lite_artplayer_volume',
   ARTPLAYER_PLAYBACK_RATE: 'file_lite_artplayer_playback_rate',
