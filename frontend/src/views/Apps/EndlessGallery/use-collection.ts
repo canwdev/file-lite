@@ -1,5 +1,5 @@
-import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
+import { useRemoteSetting } from '@/hooks/use-remote-setting'
 
 export interface CollectionItem {
   name: string
@@ -7,8 +7,25 @@ export interface CollectionItem {
   absPath: string
 }
 
+function normalizeCollection(value: unknown): CollectionItem[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter((item): item is CollectionItem => {
+    return typeof item === 'object'
+      && item !== null
+      && typeof item.name === 'string'
+      && typeof item.basePath === 'string'
+      && typeof item.absPath === 'string'
+  })
+}
+
 export function useCollection() {
-  const collection = useStorage<CollectionItem[]>(LsKeys.COLLECTED_ITEMS, [], localStorage)
+  const { state: collection } = useRemoteSetting<CollectionItem[]>({
+    key: LsKeys.COLLECTED_ITEMS,
+    createDefaultValue: () => [],
+    normalize: normalizeCollection,
+  })
 
   const collectedPathSet = computed(() => new Set(collection.value.map(item => item.absPath)))
   const collectedByDir = computed(() => {

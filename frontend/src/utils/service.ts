@@ -1,6 +1,6 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import axios from 'axios'
-import { authToken } from '@/store'
+import { authToken } from '@/store/auth'
 
 export interface ServiceRequestConfig extends AxiosRequestConfig {
   withCredentials?: boolean

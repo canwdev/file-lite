@@ -2,6 +2,7 @@ import type { IEntry } from '@/types/server'
 import type { OpenWithEnum } from '@/views/Apps/apps'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
+import { useRemoteSetting } from '@/hooks/use-remote-setting'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
 import { useOpener } from './use-opener'
@@ -146,7 +147,14 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     }
   }
 
-  const starList = useStorage<string[]>(LsKeys.STARED_PATH, [])
+  const { state: starList } = useRemoteSetting<string[]>({
+    key: LsKeys.STARED_PATH,
+    createDefaultValue: () => [],
+    normalize: value => Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [],
+  })
+
   const isStared = computed(() => {
     return starList.value.includes(basePathNormalized.value)
   })

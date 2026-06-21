@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
-import { authToken, ensureSettingsStoreInitialized } from '@/store'
+import { ensureSettingsStoreInitialized } from '@/store'
+import { authToken } from '@/store/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

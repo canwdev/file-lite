@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
-import { authToken } from './store'
+import { authToken } from '@/store/auth'
 
 window.$message = ElMessage
 window.$dialog = ElMessageBox
