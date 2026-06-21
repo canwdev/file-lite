@@ -69,9 +69,10 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   if (to.meta.skipLogin) {
-    if (to.name === 'LoginView' && authToken.value) {
-      return next({ name: 'HomeView' })
-    }
+    // 不要加：后端服务未启动会死循环。
+    // if (to.name === 'LoginView' && authToken.value) {
+    //   return next({ name: 'HomeView' })
+    // }
     return next()
   }
   try {

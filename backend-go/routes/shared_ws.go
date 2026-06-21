@@ -115,6 +115,7 @@ func handleSharedWebSocket(c echo.Context) error {
 	}
 	sharedWSRegisterClient(client)
 	defer sharedWSUnregisterClient(client)
+	go syncSharedWSSettingsToClient(client)
 
 	for {
 		_, raw, err := conn.ReadMessage()
@@ -368,6 +369,50 @@ func broadcastSharedWSSettings(key string, value any) {
 	for _, client := range clients {
 		sendSharedWSJSON(client, message)
 	}
+}
+
+func broadcastSharedWSSettingsSnapshot(previous map[string]any, current map[string]any) {
+	keys := map[string]struct{}{}
+	for key := range previous {
+		keys[key] = struct{}{}
+	}
+	for key := range current {
+		keys[key] = struct{}{}
+	}
+	for key := range keys {
+		value, ok := current[key]
+		if !ok {
+			value = nil
+		}
+		broadcastSharedWSSettings(key, value)
+	}
+}
+
+func syncSharedWSSettingsToClient(client *sharedWSClient) {
+	store, err := utils.GetAllSettingsValues()
+	if err != nil {
+		return
+	}
+	for key, value := range store {
+		sendSharedWSJSON(client, map[string]any{
+			"scope": "settings",
+			"type":  "sync",
+			"key":   key,
+			"value": value,
+		})
+	}
+}
+
+func ReloadSharedWSSettings() error {
+	reloaded, err := utils.ReloadSettingsStore()
+	if err != nil {
+		return err
+	}
+	broadcastSharedWSSettingsSnapshot(
+		map[string]any(reloaded.Previous),
+		map[string]any(reloaded.Current),
+	)
+	return nil
 }
 
 func sendSharedWSJSON(client *sharedWSClient, payload any) {

@@ -14,7 +14,7 @@ import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { createAuthTicket, internalConfig, loadConfig } from '@/config/config'
 import router from '@/routes'
-import { attachSharedWsServer } from '@/ws/server.ts'
+import { attachSharedWsServer, reloadSharedWsSettings } from '@/ws/server.ts'
 import { opener, printServerRunningOn } from './utils/server-utils.ts'
 
 function sleep(t: number) {
@@ -187,6 +187,7 @@ async function main() {
     }
     if (selectedFn === 'reload') {
       console.clear()
+      await reloadSharedWsSettings()
       await stopServer()
       continue
     }

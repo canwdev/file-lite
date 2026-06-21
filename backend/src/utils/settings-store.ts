@@ -12,6 +12,11 @@ export type SettingsStoreValue
 
 type SettingsStoreMap = Record<string, SettingsStoreValue>
 
+export interface ReloadedSettingsStore {
+  previous: SettingsStoreMap
+  current: SettingsStoreMap
+}
+
 let settingsStoreCache: SettingsStoreMap | null = null
 let settingsStoreLoadPromise: Promise<SettingsStoreMap> | null = null
 let settingsStoreWriteQueue: Promise<void> = Promise.resolve()
@@ -57,6 +62,10 @@ async function ensureSettingsStoreLoaded(): Promise<SettingsStoreMap> {
   return settingsStoreLoadPromise
 }
 
+function cloneSettingsStoreMap(store: SettingsStoreMap): SettingsStoreMap {
+  return { ...store }
+}
+
 async function persistSettingsStore(store: SettingsStoreMap) {
   const filePath = getFrontendStorageFilePath()
   await fs.mkdir(Path.dirname(filePath), { recursive: true })
@@ -77,6 +86,24 @@ export async function getSettingsValue(key: string): Promise<SettingsStoreValue 
   await waitForPendingSettingsStoreWrites()
   const store = await ensureSettingsStoreLoaded()
   return store[key] ?? null
+}
+
+export async function getAllSettingsValues(): Promise<SettingsStoreMap> {
+  await waitForPendingSettingsStoreWrites()
+  const store = await ensureSettingsStoreLoaded()
+  return cloneSettingsStoreMap(store)
+}
+
+export async function reloadSettingsStore(): Promise<ReloadedSettingsStore> {
+  await waitForPendingSettingsStoreWrites()
+  const previous = settingsStoreCache ? cloneSettingsStoreMap(settingsStoreCache) : cloneSettingsStoreMap(await ensureSettingsStoreLoaded())
+  const current = cloneSettingsStoreMap(await readSettingsStoreFile())
+  settingsStoreCache = current
+  settingsStoreLoadPromise = null
+  return {
+    previous,
+    current,
+  }
 }
 
 export async function setSettingsValue(key: string, value: SettingsStoreValue): Promise<SettingsStoreValue> {

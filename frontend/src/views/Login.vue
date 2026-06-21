@@ -97,9 +97,9 @@ onMounted(async () => {
   <div class="auth-wrapper app-soft-bg">
     <div class="login-card vgo-panel">
       <div class="login-header">
-        <div class="login-icon">
+        <RouterLink to="/" class="login-icon">
           <span class="mdi mdi-key-outline" />
-        </div>
+        </RouterLink>
         <div>
           <div class="login-title">
             Welcome

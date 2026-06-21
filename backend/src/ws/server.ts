@@ -16,7 +16,7 @@ import { URL } from 'node:url'
 import { TEXT_SYNC_CHANNELS } from '@frontend/types/server.ts'
 import { WebSocket, WebSocketServer } from 'ws'
 import { internalConfig, verifyAuthJwt } from '@/config/config.ts'
-import { deleteSettingsValue, getSettingsValue, setSettingsValue } from '@/utils/settings-store.ts'
+import { deleteSettingsValue, getAllSettingsValues, getSettingsValue, reloadSettingsStore, setSettingsValue } from '@/utils/settings-store.ts'
 
 const SHARED_WS_PATH = '/api/ws'
 const MAX_TEXT_SYNC_LENGTH = 64 * 1024
@@ -197,6 +197,33 @@ function broadcastSettings(message: SettingsServerMessage) {
   }
 }
 
+function broadcastSettingsSnapshot(previous: Record<string, unknown>, current: Record<string, unknown>) {
+  const keys = new Set([
+    ...Object.keys(previous),
+    ...Object.keys(current),
+  ])
+  for (const key of keys) {
+    broadcastSettings({
+      scope: 'settings',
+      type: 'sync',
+      key,
+      value: key in current ? current[key] as any : null,
+    })
+  }
+}
+
+async function syncSettingsToClient(client: SharedWsClientState) {
+  const store = await getAllSettingsValues()
+  for (const [key, value] of Object.entries(store)) {
+    sendJson(client.ws, {
+      scope: 'settings',
+      type: 'sync',
+      key,
+      value,
+    })
+  }
+}
+
 async function handleSettingsMessage(client: SharedWsClientState, payload: SettingsClientMessage) {
   try {
     if (payload.type === 'get') {
@@ -347,6 +374,7 @@ export function attachSharedWsServer(server: HttpServer | HttpsServer) {
       ip: getRequestIp(request),
     }
     connectedClients.add(client)
+    void syncSettingsToClient(client)
 
     ws.on('message', (raw) => {
       if (typeof raw !== 'string' && !(raw instanceof Buffer)) {
@@ -394,4 +422,9 @@ export function attachSharedWsServer(server: HttpServer | HttpsServer) {
     connectedClients.clear()
     ipConnectionMap.clear()
   }
+}
+
+export async function reloadSharedWsSettings() {
+  const { previous, current } = await reloadSettingsStore()
+  broadcastSettingsSnapshot(previous, current)
 }

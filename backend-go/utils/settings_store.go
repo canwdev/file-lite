@@ -15,6 +15,11 @@ type SettingsStoreValue = any
 
 type settingsStoreMap map[string]SettingsStoreValue
 
+type ReloadedSettingsStore struct {
+	Previous settingsStoreMap
+	Current  settingsStoreMap
+}
+
 type settingsStoreState struct {
 	mu     sync.Mutex
 	loaded bool
@@ -34,6 +39,44 @@ func GetSettingsValue(key string) (SettingsStoreValue, error) {
 		return value, nil
 	}
 	return nil, nil
+}
+
+func GetAllSettingsValues() (settingsStoreMap, error) {
+	frontendSettingsStore.mu.Lock()
+	defer frontendSettingsStore.mu.Unlock()
+
+	if err := frontendSettingsStore.ensureLoaded(); err != nil {
+		return nil, err
+	}
+	return cloneSettingsStore(frontendSettingsStore.cache), nil
+}
+
+func ReloadSettingsStore() (ReloadedSettingsStore, error) {
+	frontendSettingsStore.mu.Lock()
+	defer frontendSettingsStore.mu.Unlock()
+
+	var previous settingsStoreMap
+	if frontendSettingsStore.loaded {
+		previous = cloneSettingsStore(frontendSettingsStore.cache)
+	} else {
+		store, err := readSettingsStoreFile()
+		if err != nil {
+			return ReloadedSettingsStore{}, err
+		}
+		previous = cloneSettingsStore(store)
+	}
+
+	current, err := readSettingsStoreFile()
+	if err != nil {
+		return ReloadedSettingsStore{}, err
+	}
+	frontendSettingsStore.cache = current
+	frontendSettingsStore.loaded = true
+
+	return ReloadedSettingsStore{
+		Previous: previous,
+		Current:  cloneSettingsStore(current),
+	}, nil
 }
 
 func SetSettingsValue(key string, value SettingsStoreValue) (SettingsStoreValue, error) {
