@@ -13,6 +13,7 @@ func Register(api *echo.Group) {
 	api.GET("/", func(c echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	})
+	api.GET("/ws", handleSharedWebSocket)
 	api.POST("/files/auth", authWithPassword)
 	files := api.Group("/files")
 	files.Use(middlewares.AuthMiddleware)

@@ -70,6 +70,9 @@ func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
 func ConfigFilePath() string  { return configFilePath }
+func FrontendStorageFilePath() string {
+	return filepath.Join(dataBaseDir, "frontend-storage.json")
+}
 func IsExplicitDevMode() bool {
 	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
 }
