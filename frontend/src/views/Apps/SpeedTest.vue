@@ -3,8 +3,9 @@ import type { SpeedMetrics } from '@/api/speed-test'
 import { runDownloadSpeedTest, runUploadSpeedTest } from '@/api/speed-test'
 
 const DEFAULT_SIZE_MB = 500
+const ONE_MB = 1024 * 1024
 type SpeedTestPhase = 'idle' | 'download' | 'upload' | 'done'
-type SpeedMetricKey = 'current' | 'avg' | 'max' | 'min'
+type SpeedMetricKey = 'avg' | 'max' | 'current'
 
 const sizeMB = ref(DEFAULT_SIZE_MB)
 const running = ref(false)
@@ -13,10 +14,9 @@ const downloadMetrics = ref<SpeedMetrics | null>(null)
 const uploadMetrics = ref<SpeedMetrics | null>(null)
 
 const metricRows: Array<{ key: SpeedMetricKey, label: string }> = [
-  { key: 'current', label: 'Current' },
   { key: 'avg', label: 'Average' },
   { key: 'max', label: 'Max' },
-  { key: 'min', label: 'Min' },
+  { key: 'current', label: 'Current' },
 ]
 
 let currentAbortController: AbortController | null = null
@@ -93,6 +93,12 @@ function formatMetricTitle(metrics: SpeedMetrics | null, key: SpeedMetricKey) {
   }
 
   return `${formatSpeed(metrics[`${key}Mbps`])} Mb/s`
+}
+
+function getProgressPercent(metrics: SpeedMetrics | null) {
+  const totalBytes = Math.max(1, Math.floor(Number(sizeMB.value) || DEFAULT_SIZE_MB) * ONE_MB)
+  const loadedBytes = metrics?.bytes ?? 0
+  return Math.min(100, Math.max(0, loadedBytes / totalBytes * 100))
 }
 
 async function runTest(target: 'download' | 'upload' | 'all') {
@@ -196,6 +202,7 @@ onBeforeUnmount(() => {
         :class="{ active: running && phase === card.phase }"
       >
         <div class="speed-card-title">
+          <div class="speed-card-progress" :style="{ width: `${getProgressPercent(card.metrics)}%` }" />
           <div class="speed-card-title-main">
             <span :class="card.icon" class="speed-card-icon" />
             <span>{{ card.title }}</span>
@@ -275,11 +282,11 @@ onBeforeUnmount(() => {
 .speed-card {
   border: 1px solid var(--vgo-color-border, #ddd);
   border-radius: 8px;
-  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   transition: border-color 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+  padding-bottom: 10px;
 }
 
 .speed-card.active {
@@ -287,18 +294,22 @@ onBeforeUnmount(() => {
 }
 
 .speed-card-title {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
-  padding-bottom: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--vgo-color-border, #ddd);
+  overflow: hidden;
   transition: color 0.2s ease;
 }
 
 .speed-card-title-main {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -313,7 +324,17 @@ onBeforeUnmount(() => {
   opacity: 0.9;
 }
 
+.speed-card-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--vgo-primary-opacity);
+  pointer-events: none;
+  transition: width 0.12s linear;
+}
+
 .speed-card-action {
+  position: relative;
+  z-index: 1;
   margin-left: auto;
 }
 
@@ -323,7 +344,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  padding: 2px 0;
+  padding: 8px 12px;
 }
 
 .speed-row-label {
