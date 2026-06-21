@@ -15,6 +15,7 @@ export enum OpenWithEnum {
 }
 
 export enum InternalAppEnum {
+  SpeedTest = 'SpeedTest',
   TextSync = 'TextSync',
 }
 
@@ -93,6 +94,13 @@ export const InternalAppList: InternalAppListItem[] = [
     appName: InternalAppEnum.TextSync,
     icon: 'mdi mdi-clipboard',
     component: defineAsyncComponent(() => import('./TextSync.vue')),
+    singleInstance: true,
+  },
+  {
+    name: 'Speed Test',
+    appName: InternalAppEnum.SpeedTest,
+    icon: 'mdi mdi-speedometer',
+    component: defineAsyncComponent(() => import('./SpeedTest.vue')),
     singleInstance: true,
   },
 ]

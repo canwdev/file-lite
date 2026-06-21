@@ -20,6 +20,17 @@ const internalTextSyncEntry: IEntry = {
   error: null,
 }
 
+const internalSpeedTestEntry: IEntry = {
+  name: 'SpeedTest',
+  ext: '',
+  isDirectory: false,
+  hidden: false,
+  lastModified: 0,
+  birthtime: 0,
+  size: 0,
+  error: null,
+}
+
 function showMenu(event: MouseEvent) {
   const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
   const rect = button?.getBoundingClientRect()
@@ -111,6 +122,18 @@ function showMenu(event: MouseEvent) {
           openAppWindow(InternalAppEnum.TextSync, {
             absPath: '',
             item: internalTextSyncEntry,
+            basePath: '',
+            list: [],
+          })
+        },
+      },
+      {
+        label: 'Speed Test',
+        icon: 'mdi mdi-speedometer',
+        onClick: () => {
+          openAppWindow(InternalAppEnum.SpeedTest, {
+            absPath: '',
+            item: internalSpeedTestEntry,
             basePath: '',
             list: [],
           })
