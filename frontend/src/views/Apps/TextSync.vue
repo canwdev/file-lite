@@ -1,104 +1,66 @@
 <script lang="ts" setup>
-import type { TextSyncChannel, TextSyncClientMessage, TextSyncServerMessage } from '@/types/server'
+import type { SharedWsServerMessage, TextSyncChannel, TextSyncClientMessage } from '@/types/server'
 import { useDebounceFn } from '@vueuse/core'
-import { API_PROXY_BASE } from '@/enum'
-import { authToken } from '@/store'
+import { ensureSharedWsConnected, sendSharedWsMessage, sharedWsConnected, subscribeSharedWsMessage } from '@/api/shared-ws'
 import { TEXT_SYNC_CHANNELS } from '@/types/server'
 
 const activeChannel = ref<TextSyncChannel>('CH1')
 const textContent = ref('')
-const isConnected = ref(false)
 
-let ws: WebSocket | null = null
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-let shouldReconnect = true
 let applyingRemoteText = false
+let stopSharedWsSubscription: (() => void) | null = null
 
-function buildTextSyncWsUrl(): string {
-  const endpoint = '/api/files/text-sync'
-  const base = API_PROXY_BASE || ''
-  if (base.startsWith('http://') || base.startsWith('https://')) {
-    const wsBase = base.replace(/^http/i, 'ws').replace(/\/$/, '')
-    return `${wsBase}${endpoint}`
-  }
-  const pathBase = base ? `/${base.replace(/^\/+/, '').replace(/\/$/, '')}` : ''
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${wsProtocol}//${window.location.host}${pathBase}${endpoint}`
-}
+const isConnected = computed(() => sharedWsConnected.value)
 
-function sendMessage(payload: TextSyncClientMessage) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    return
-  }
-  ws.send(JSON.stringify(payload))
+async function sendMessage(payload: TextSyncClientMessage) {
+  await sendSharedWsMessage(payload)
 }
 
 const sendTextUpdate = useDebounceFn((text: string) => {
-  sendMessage({
+  void sendMessage({
+    scope: 'text-sync',
     type: 'update',
     channel: activeChannel.value,
     text,
   })
 }, 120)
 
-function connect() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+function applyRemoteText(text: string) {
+  applyingRemoteText = true
+  textContent.value = text
+  setTimeout(() => {
+    applyingRemoteText = false
+  }, 0)
+}
+
+async function ensureTextSyncConnected() {
+  try {
+    await ensureSharedWsConnected()
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+function handleSharedWsMessage(message: SharedWsServerMessage) {
+  if (message.scope === 'text-sync' && message.type === 'sync') {
+    if (message.channel !== activeChannel.value) {
+      return
+    }
+    applyRemoteText(message.text)
     return
   }
-  const url = new URL(buildTextSyncWsUrl())
-  if (authToken.value) {
-    url.searchParams.set('token', authToken.value)
-  }
-  ws = new WebSocket(url)
-
-  ws.onopen = () => {
-    isConnected.value = true
-    sendMessage({
-      type: 'join',
-      channel: activeChannel.value,
-    })
-  }
-
-  ws.onmessage = (event) => {
-    let message: TextSyncServerMessage | null = null
-    try {
-      message = JSON.parse(String(event.data)) as TextSyncServerMessage
-    }
-    catch {
-      return
-    }
-    if (!message || message.type === 'error') {
-      if (message?.type === 'error') {
-        window.$message.error(message.message)
-      }
-      return
-    }
-    if (message.type !== 'sync' || message.channel !== activeChannel.value) {
-      return
-    }
-    applyingRemoteText = true
-    textContent.value = message.text
-    setTimeout(() => {
-      applyingRemoteText = false
-    }, 0)
-  }
-
-  ws.onclose = () => {
-    isConnected.value = false
-    ws = null
-    if (!shouldReconnect) {
-      return
-    }
-    reconnectTimer = setTimeout(connect, 1000)
-  }
-
-  ws.onerror = () => {
-    isConnected.value = false
+  if (message.scope === 'text-sync' && message.type === 'error') {
+    window.$message.error(message.message)
   }
 }
 
 watch(activeChannel, () => {
-  sendMessage({
+  if (!sharedWsConnected.value) {
+    return
+  }
+  void sendMessage({
+    scope: 'text-sync',
     type: 'join',
     channel: activeChannel.value,
   })
@@ -110,6 +72,21 @@ watch(textContent, (value) => {
   }
   sendTextUpdate(value)
 })
+
+watch(
+  sharedWsConnected,
+  (value) => {
+    if (!value) {
+      return
+    }
+    void sendMessage({
+      scope: 'text-sync',
+      type: 'join',
+      channel: activeChannel.value,
+    })
+  },
+  { immediate: true },
+)
 
 async function copyText() {
   try {
@@ -136,17 +113,13 @@ function clearText() {
 }
 
 onMounted(() => {
-  connect()
+  stopSharedWsSubscription = subscribeSharedWsMessage(handleSharedWsMessage)
+  void ensureTextSyncConnected()
 })
 
 onBeforeUnmount(() => {
-  shouldReconnect = false
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-  ws?.close()
-  ws = null
+  stopSharedWsSubscription?.()
+  stopSharedWsSubscription = null
 })
 </script>
 

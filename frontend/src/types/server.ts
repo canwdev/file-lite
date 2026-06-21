@@ -33,22 +33,80 @@ export enum SortType {
 export const TEXT_SYNC_CHANNELS = ['CH1', 'CH2', 'CH3'] as const
 export type TextSyncChannel = (typeof TEXT_SYNC_CHANNELS)[number]
 
-export interface TextSyncClientMessage {
+export type WsScope = 'settings' | 'text-sync' | 'ws'
+
+export interface TextSyncJoinMessage {
+  scope: 'text-sync'
   type: 'join'
-    | 'update'
+  channel: TextSyncChannel
+}
+
+export interface TextSyncUpdateMessage {
+  scope: 'text-sync'
+  type: 'update'
   channel: TextSyncChannel
   text?: string
 }
 
-export interface TextSyncErrorMessage {
+export type TextSyncClientMessage = TextSyncJoinMessage | TextSyncUpdateMessage
+
+export interface WsErrorMessage {
+  scope: WsScope
   type: 'error'
   message: string
+  requestId?: string
 }
 
 export interface TextSyncSyncMessage {
+  scope: 'text-sync'
   type: 'sync'
   channel: TextSyncChannel
   text: string
 }
 
-export type TextSyncServerMessage = TextSyncSyncMessage | TextSyncErrorMessage
+export type TextSyncServerMessage = TextSyncSyncMessage | WsErrorMessage
+
+export interface SettingsGetMessage {
+  scope: 'settings'
+  type: 'get'
+  requestId: string
+  key: string
+}
+
+export interface SettingsSetMessage {
+  scope: 'settings'
+  type: 'set'
+  requestId: string
+  key: string
+  value: unknown
+}
+
+export interface SettingsDeleteMessage {
+  scope: 'settings'
+  type: 'delete'
+  requestId: string
+  key: string
+}
+
+export type SettingsClientMessage = SettingsGetMessage | SettingsSetMessage | SettingsDeleteMessage
+
+export interface SettingsResponseMessage {
+  scope: 'settings'
+  type: 'response'
+  requestId: string
+  action: 'get' | 'set' | 'delete'
+  key: string
+  value: unknown | null
+}
+
+export interface SettingsSyncMessage {
+  scope: 'settings'
+  type: 'sync'
+  key: string
+  value: unknown | null
+}
+
+export type SettingsServerMessage = SettingsResponseMessage | SettingsSyncMessage | WsErrorMessage
+
+export type SharedWsClientMessage = TextSyncClientMessage | SettingsClientMessage
+export type SharedWsServerMessage = TextSyncServerMessage | SettingsServerMessage

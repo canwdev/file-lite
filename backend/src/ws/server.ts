@@ -1,33 +1,42 @@
-import type { TextSyncChannel, TextSyncClientMessage, TextSyncServerMessage } from '@frontend/types/server.ts'
+import type {
+  SettingsClientMessage,
+  SettingsServerMessage,
+  SharedWsClientMessage,
+  SharedWsServerMessage,
+  TextSyncChannel,
+  TextSyncClientMessage,
+  TextSyncServerMessage,
+  WsErrorMessage,
+} from '@frontend/types/server.ts'
 import type { Server as HttpServer, IncomingMessage } from 'node:http'
 import type { Server as HttpsServer } from 'node:https'
 import type { Socket } from 'node:net'
 import { Buffer } from 'node:buffer'
 import { URL } from 'node:url'
 import { TEXT_SYNC_CHANNELS } from '@frontend/types/server.ts'
-import { WebSocketServer } from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 import { internalConfig, verifyAuthJwt } from '@/config/config.ts'
+import { deleteSettingsValue, getSettingsValue, setSettingsValue } from '@/utils/settings-store.ts'
 
-const TEXT_SYNC_PATH = '/api/files/text-sync'
+const SHARED_WS_PATH = '/api/ws'
 const MAX_TEXT_SYNC_LENGTH = 64 * 1024
 const MAX_CONNECTIONS_PER_IP = 20
-const SAFE_CLOSE_WAIT_MS = 60 * 1000
-
 const textSyncChannelSet = new Set<TextSyncChannel>(TEXT_SYNC_CHANNELS)
 
-interface TextSyncClientState {
-  ws: import('ws').WebSocket
-  channel: TextSyncChannel | null
+interface SharedWsClientState {
+  ws: WebSocket
+  textSyncChannel: TextSyncChannel | null
   ip: string
 }
 
 interface TextSyncChannelState {
   text: string
-  clients: Set<TextSyncClientState>
+  clients: Set<SharedWsClientState>
 }
 
 const ipConnectionMap = new Map<string, number>()
 const channelStateMap = new Map<TextSyncChannel, TextSyncChannelState>()
+const connectedClients = new Set<SharedWsClientState>()
 
 function getCookieValue(cookie: string, name: string): string {
   const prefix = `${name}=`
@@ -93,11 +102,15 @@ function isAuthenticated(request: IncomingMessage): boolean {
   return verifyAuthJwt(token, internalConfig.jwtToken)
 }
 
-function sendJson(ws: import('ws').WebSocket, payload: TextSyncServerMessage): void {
+function sendJson(ws: WebSocket, payload: SharedWsServerMessage): void {
   if (ws.readyState !== 1) {
     return
   }
   ws.send(JSON.stringify(payload))
+}
+
+function sendError(ws: WebSocket, payload: WsErrorMessage) {
+  sendJson(ws, payload)
 }
 
 function cleanupChannelIfEmpty(channel: TextSyncChannel) {
@@ -114,24 +127,25 @@ function getOrCreateChannelState(channel: TextSyncChannel): TextSyncChannelState
   }
   const created: TextSyncChannelState = {
     text: '',
-    clients: new Set<TextSyncClientState>(),
+    clients: new Set<SharedWsClientState>(),
   }
   channelStateMap.set(channel, created)
   return created
 }
 
-function joinChannel(client: TextSyncClientState, channel: TextSyncChannel) {
-  if (client.channel) {
-    const prevState = channelStateMap.get(client.channel)
+function joinTextSyncChannel(client: SharedWsClientState, channel: TextSyncChannel) {
+  if (client.textSyncChannel) {
+    const prevState = channelStateMap.get(client.textSyncChannel)
     prevState?.clients.delete(client)
-    cleanupChannelIfEmpty(client.channel)
+    cleanupChannelIfEmpty(client.textSyncChannel)
   }
 
   const currentState = getOrCreateChannelState(channel)
   currentState.clients.add(client)
-  client.channel = channel
+  client.textSyncChannel = channel
 
   sendJson(client.ws, {
+    scope: 'text-sync',
     type: 'sync',
     channel,
     text: currentState.text,
@@ -142,29 +156,108 @@ function isTextWithinLimit(text: string): boolean {
   return Buffer.byteLength(text, 'utf8') <= MAX_TEXT_SYNC_LENGTH
 }
 
-function handleUpdate(client: TextSyncClientState, text: string) {
-  if (!client.channel) {
-    sendJson(client.ws, { type: 'error', message: 'Channel mismatch' })
+function broadcastTextSync(message: TextSyncServerMessage) {
+  if (message.type !== 'sync') {
     return
   }
-  if (!isTextWithinLimit(text)) {
-    sendJson(client.ws, { type: 'error', message: `Text exceeds ${MAX_TEXT_SYNC_LENGTH} bytes` })
+  const state = channelStateMap.get(message.channel)
+  if (!state) {
     return
   }
-  const state = getOrCreateChannelState(client.channel)
-  state.text = text
-
-  const message: TextSyncServerMessage = {
-    type: 'sync',
-    channel: client.channel,
-    text: state.text,
-  }
-  for (const member of state.clients) {
-    sendJson(member.ws, message)
+  for (const client of state.clients) {
+    sendJson(client.ws, message)
   }
 }
 
-function parseClientMessage(raw: string): TextSyncClientMessage | null {
+function handleTextSyncUpdate(client: SharedWsClientState, payload: Extract<TextSyncClientMessage, { type: 'update' }>) {
+  if (!client.textSyncChannel || payload.channel !== client.textSyncChannel) {
+    sendError(client.ws, { scope: 'text-sync', type: 'error', message: 'Channel mismatch' })
+    return
+  }
+  if (typeof payload.text !== 'string' || !isTextWithinLimit(payload.text)) {
+    sendError(client.ws, { scope: 'text-sync', type: 'error', message: `Text exceeds ${MAX_TEXT_SYNC_LENGTH} bytes` })
+    return
+  }
+  const state = getOrCreateChannelState(client.textSyncChannel)
+  state.text = payload.text
+  broadcastTextSync({
+    scope: 'text-sync',
+    type: 'sync',
+    channel: client.textSyncChannel,
+    text: state.text,
+  })
+}
+
+function broadcastSettings(message: SettingsServerMessage) {
+  if (message.type !== 'sync') {
+    return
+  }
+  for (const client of connectedClients) {
+    sendJson(client.ws, message)
+  }
+}
+
+async function handleSettingsMessage(client: SharedWsClientState, payload: SettingsClientMessage) {
+  try {
+    if (payload.type === 'get') {
+      const value = await getSettingsValue(payload.key)
+      sendJson(client.ws, {
+        scope: 'settings',
+        type: 'response',
+        requestId: payload.requestId,
+        action: 'get',
+        key: payload.key,
+        value,
+      })
+      return
+    }
+    if (payload.type === 'set') {
+      const value = await setSettingsValue(payload.key, payload.value as any)
+      const response: SettingsServerMessage = {
+        scope: 'settings',
+        type: 'response',
+        requestId: payload.requestId,
+        action: 'set',
+        key: payload.key,
+        value,
+      }
+      sendJson(client.ws, response)
+      broadcastSettings({
+        scope: 'settings',
+        type: 'sync',
+        key: payload.key,
+        value,
+      })
+      return
+    }
+
+    const value = await deleteSettingsValue(payload.key)
+    sendJson(client.ws, {
+      scope: 'settings',
+      type: 'response',
+      requestId: payload.requestId,
+      action: 'delete',
+      key: payload.key,
+      value,
+    })
+    broadcastSettings({
+      scope: 'settings',
+      type: 'sync',
+      key: payload.key,
+      value,
+    })
+  }
+  catch (error: any) {
+    sendError(client.ws, {
+      scope: 'settings',
+      type: 'error',
+      message: error?.message || 'Settings request failed',
+      requestId: payload.requestId,
+    })
+  }
+}
+
+function parseClientMessage(raw: string): SharedWsClientMessage | null {
   let data: unknown
   try {
     data = JSON.parse(raw)
@@ -175,21 +268,33 @@ function parseClientMessage(raw: string): TextSyncClientMessage | null {
   if (!data || typeof data !== 'object') {
     return null
   }
-  const payload = data as Partial<TextSyncClientMessage>
-  if (payload.type !== 'join' && payload.type !== 'update') {
-    return null
+
+  const payload = data as Partial<SharedWsClientMessage>
+  if (payload.scope === 'text-sync') {
+    if ((payload.type !== 'join' && payload.type !== 'update')
+      || typeof payload.channel !== 'string'
+      || !textSyncChannelSet.has(payload.channel as TextSyncChannel)) {
+      return null
+    }
+    if (payload.type === 'update' && typeof payload.text !== 'string') {
+      return null
+    }
+    return payload as TextSyncClientMessage
   }
-  if (typeof payload.channel !== 'string' || !textSyncChannelSet.has(payload.channel as TextSyncChannel)) {
-    return null
+
+  if (payload.scope === 'settings') {
+    if ((payload.type !== 'get' && payload.type !== 'set' && payload.type !== 'delete')
+      || typeof payload.requestId !== 'string'
+      || typeof payload.key !== 'string') {
+      return null
+    }
+    if (payload.type === 'set' && !Object.prototype.hasOwnProperty.call(payload, 'value')) {
+      return null
+    }
+    return payload as SettingsClientMessage
   }
-  if (payload.type === 'update' && typeof payload.text !== 'string') {
-    return null
-  }
-  return {
-    type: payload.type,
-    channel: payload.channel as TextSyncChannel,
-    text: payload.text,
-  }
+
+  return null
 }
 
 function consumeIpConnection(ip: string) {
@@ -206,12 +311,12 @@ function rejectUpgrade(socket: Socket, status: number, message: string) {
   socket.destroy()
 }
 
-export function attachTextSyncWsServer(server: HttpServer | HttpsServer) {
+export function attachSharedWsServer(server: HttpServer | HttpsServer) {
   const wsServer = new WebSocketServer({ noServer: true })
 
   const upgradeHandler = (request: IncomingMessage, socket: Socket, head: Buffer) => {
     const requestUrl = new URL(request.url || '/', 'http://localhost')
-    if (requestUrl.pathname !== TEXT_SYNC_PATH) {
+    if (requestUrl.pathname !== SHARED_WS_PATH) {
       return
     }
     if (!isOriginAllowed(request)) {
@@ -236,36 +341,38 @@ export function attachTextSyncWsServer(server: HttpServer | HttpsServer) {
   }
 
   wsServer.on('connection', (ws, request) => {
-    const client: TextSyncClientState = {
+    const client: SharedWsClientState = {
       ws,
-      channel: null,
+      textSyncChannel: null,
       ip: getRequestIp(request),
     }
+    connectedClients.add(client)
 
     ws.on('message', (raw) => {
       if (typeof raw !== 'string' && !(raw instanceof Buffer)) {
-        sendJson(ws, { type: 'error', message: 'Invalid payload type' })
+        sendError(ws, { scope: 'ws', type: 'error', message: 'Invalid payload type' })
         return
       }
       const payload = parseClientMessage(String(raw))
       if (!payload) {
-        sendJson(ws, { type: 'error', message: 'Invalid payload' })
+        sendError(ws, { scope: 'ws', type: 'error', message: 'Invalid payload' })
         return
       }
-      if (payload.type === 'join') {
-        joinChannel(client, payload.channel)
+      if (payload.scope === 'text-sync') {
+        if (payload.type === 'join') {
+          joinTextSyncChannel(client, payload.channel)
+          return
+        }
+        handleTextSyncUpdate(client, payload)
         return
       }
-      if (payload.channel !== client.channel || typeof payload.text !== 'string') {
-        sendJson(ws, { type: 'error', message: 'Channel mismatch' })
-        return
-      }
-      handleUpdate(client, payload.text)
+      void handleSettingsMessage(client, payload)
     })
 
     ws.on('close', () => {
-      if (client.channel) {
-        const channel = client.channel
+      connectedClients.delete(client)
+      if (client.textSyncChannel) {
+        const channel = client.textSyncChannel
         const state = channelStateMap.get(channel)
         state?.clients.delete(client)
         cleanupChannelIfEmpty(channel)
@@ -276,12 +383,6 @@ export function attachTextSyncWsServer(server: HttpServer | HttpsServer) {
     ws.on('error', () => {
       ws.close()
     })
-
-    setTimeout(() => {
-      if (ws.readyState === 1 && !client.channel) {
-        ws.close()
-      }
-    }, SAFE_CLOSE_WAIT_MS)
   })
 
   server.on('upgrade', upgradeHandler)
@@ -290,6 +391,7 @@ export function attachTextSyncWsServer(server: HttpServer | HttpsServer) {
     server.off('upgrade', upgradeHandler)
     wsServer.close()
     channelStateMap.clear()
+    connectedClients.clear()
     ipConnectionMap.clear()
   }
 }

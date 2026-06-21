@@ -1,9 +1,8 @@
-import type { SerializerAsync } from '@vueuse/core'
-import { useStorage, useStorageAsync } from '@vueuse/core'
+import { useDebounceFn, useStorage } from '@vueuse/core'
 import Cookies from 'js-cookie'
 import { settingsApi } from '@/api/settings'
+import { setSharedWsToken } from '@/api/shared-ws'
 import { LsKeys } from '@/enum'
-import { createRemoteStorage } from '@/utils/create-remote-storage'
 
 export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 
@@ -38,6 +37,7 @@ function migrateLegacyLocalStorage(): void {
 }
 migrateLegacyLocalStorage()
 export const authToken = ref(readTokenFromCookie())
+setSharedWsToken(authToken.value)
 watch(
   authToken,
   (v) => {
@@ -80,6 +80,8 @@ function createDefaultSettingsStore() {
 
 type SettingsStoreState = ReturnType<typeof createDefaultSettingsStore>
 let initializedSettingsToken = ''
+let applyingRemoteSettings = false
+let stopSettingsSubscription: (() => void) | null = null
 
 function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -92,32 +94,37 @@ function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
   }
 }
 
-const settingsStoreSerializer: SerializerAsync<SettingsStoreState> = {
-  read: async value => normalizeSettingsStoreValue(value),
-  write: async value => value as unknown as string,
+function applyRemoteSettings(value: unknown) {
+  applyingRemoteSettings = true
+  settingsStore.value = normalizeSettingsStoreValue(value)
+  queueMicrotask(() => {
+    applyingRemoteSettings = false
+  })
 }
 
-const remoteSettingsStorage = createRemoteStorage({
-  isEnabled: () => Boolean(authToken.value),
-  getItem: settingsApi.getItem,
-  setItem: settingsApi.setItem,
-  removeItem: settingsApi.removeItem,
-})
+function bindSettingsSubscription() {
+  if (stopSettingsSubscription) {
+    return
+  }
+  stopSettingsSubscription = settingsApi.subscribe((message) => {
+    if (message.key !== LsKeys.SETTINGS_STORE) {
+      return
+    }
+    applyRemoteSettings(message.value)
+  })
+}
 
-export const settingsStore = useStorageAsync<SettingsStoreState>(
-  LsKeys.SETTINGS_STORE,
-  createDefaultSettingsStore(),
-  remoteSettingsStorage,
-  {
-    mergeDefaults: true,
-    serializer: settingsStoreSerializer,
-  },
-)
+function unbindSettingsSubscription() {
+  stopSettingsSubscription?.()
+  stopSettingsSubscription = null
+}
+
+export const settingsStore = ref<SettingsStoreState>(createDefaultSettingsStore())
 
 export async function ensureSettingsStoreInitialized() {
   if (!authToken.value) {
     initializedSettingsToken = ''
-    settingsStore.value = createDefaultSettingsStore()
+    applyRemoteSettings(createDefaultSettingsStore())
     return
   }
   if (initializedSettingsToken === authToken.value) {
@@ -125,22 +132,49 @@ export async function ensureSettingsStoreInitialized() {
   }
 
   try {
+    bindSettingsSubscription()
     const value = await settingsApi.getItem(LsKeys.SETTINGS_STORE)
-    settingsStore.value = normalizeSettingsStoreValue(value)
+    applyRemoteSettings(value)
     initializedSettingsToken = authToken.value
   }
   catch (error) {
     console.error(error)
+    throw error
   }
 }
 
+const persistSettingsStore = useDebounceFn(async () => {
+  if (!authToken.value || initializedSettingsToken !== authToken.value) {
+    return
+  }
+  try {
+    await settingsApi.setItem(LsKeys.SETTINGS_STORE, settingsStore.value)
+  }
+  catch (error) {
+    console.error(error)
+  }
+}, 120)
+
 watch(authToken, (value, oldValue) => {
+  setSharedWsToken(value)
   if (!value && oldValue) {
     initializedSettingsToken = ''
-    settingsStore.value = createDefaultSettingsStore()
+    unbindSettingsSubscription()
+    applyRemoteSettings(createDefaultSettingsStore())
     return
   }
   if (value && value !== oldValue) {
     initializedSettingsToken = ''
   }
 })
+
+watch(
+  settingsStore,
+  () => {
+    if (applyingRemoteSettings) {
+      return
+    }
+    void persistSettingsStore()
+  },
+  { deep: true },
+)
