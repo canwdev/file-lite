@@ -1,8 +1,7 @@
 declare module 'ws' {
+  import type { Buffer } from 'node:buffer'
   import type { EventEmitter } from 'node:events'
-  import type { Server as HttpServer, IncomingMessage } from 'node:http'
-
-  import type { Server as HttpsServer } from 'node:https'
+  import type { IncomingMessage } from 'node:http'
   import type { Socket } from 'node:net'
 
   export class WebSocket extends EventEmitter {

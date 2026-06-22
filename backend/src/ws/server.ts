@@ -11,10 +11,11 @@ import type {
 import type { Server as HttpServer, IncomingMessage } from 'node:http'
 import type { Server as HttpsServer } from 'node:https'
 import type { Socket } from 'node:net'
+import type { WebSocket } from 'ws'
 import { Buffer } from 'node:buffer'
 import { URL } from 'node:url'
 import { TEXT_SYNC_CHANNELS } from '@frontend/types/server.ts'
-import { WebSocket, WebSocketServer } from 'ws'
+import { WebSocketServer } from 'ws'
 import { internalConfig, verifyAuthJwt } from '@/config/config.ts'
 import { deleteSettingsValue, getAllSettingsValues, getSettingsValue, reloadSettingsStore, setSettingsValue } from '@/utils/settings-store.ts'
 
@@ -315,7 +316,7 @@ function parseClientMessage(raw: string): SharedWsClientMessage | null {
       || typeof payload.key !== 'string') {
       return null
     }
-    if (payload.type === 'set' && !Object.prototype.hasOwnProperty.call(payload, 'value')) {
+    if (payload.type === 'set' && !Object.hasOwn(payload, 'value')) {
       return null
     }
     return payload as SettingsClientMessage

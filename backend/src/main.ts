@@ -29,47 +29,48 @@ interface StartServerResult {
   printUrls: () => void
 }
 
-function startServer(): Promise<StartServerResult> {
+async function startServer(): Promise<StartServerResult> {
   if (server) {
     throw new Error('server is already running')
   }
 
-  return new Promise(async (resolve) => {
-    const app = express()
-    app.set('trust proxy', 1)
-    app.use(express.json())
-    app.use(express.urlencoded({ extended: true }))
-    app.use(cookieParser())
+  const app = express()
+  app.set('trust proxy', 1)
+  app.use(express.json())
+  app.use(express.urlencoded({ extended: true }))
+  app.use(cookieParser())
 
-    // 配置静态资源服务
-    const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './frontend')
-    // console.log('frontendRoot', frontendRoot)
+  // 配置静态资源服务
+  const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './frontend')
+  // console.log('frontendRoot', frontendRoot)
 
-    app.use('/', express.static(frontendRoot))
+  app.use('/', express.static(frontendRoot))
 
-    if (internalConfig.config?.enableLog) {
-      app.use(
-        morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url', {
-          skip(req, res) {
-            return res.statusCode < 400
-          },
-        }),
-      )
-    }
-    // 路由配置
-    app.use('/api', router)
-    app.use(fallback('index.html', { root: frontendRoot }))
-
-    const port = Number(
-      internalConfig.config?.port || process.env.PORT || (await getPort({ port: portNumbers(3100, 4100) })),
+  if (internalConfig.config?.enableLog) {
+    app.use(
+      morgan('[:date[iso]] [:remote-addr] [:status] [:method] :url', {
+        skip(req, res) {
+          return res.statusCode < 400
+        },
+      }),
     )
-    const host = internalConfig.config?.host || process.env.HOST || '0.0.0.0'
+  }
+  // 路由配置
+  app.use('/api', router)
+  app.use(fallback('index.html', { root: frontendRoot }))
 
-    const isHttps = internalConfig.config?.sslKey && internalConfig.config?.sslCert
-    const serverResult: StartServerResult = {
-      urlIpSelector: '',
-      printUrls: () => {},
-    }
+  const port = Number(
+    internalConfig.config?.port || process.env.PORT || (await getPort({ port: portNumbers(3100, 4100) })),
+  )
+  const host = internalConfig.config?.host || process.env.HOST || '0.0.0.0'
+
+  const isHttps = internalConfig.config?.sslKey && internalConfig.config?.sslCert
+  const serverResult: StartServerResult = {
+    urlIpSelector: '',
+    printUrls: () => {},
+  }
+
+  return new Promise((resolve) => {
     const listenCallback = async () => {
       const printUrls = () => {
         console.log(``)
