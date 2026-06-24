@@ -68,8 +68,7 @@ function onArtReady(_art: ArtplayerInstance) {
 watch(
   () => props.src,
   () => {
-    if (isNativePlayer.value)
-      nextTick(() => notifyMediaReady())
+    nextTick(() => notifyMediaReady())
   },
 )
 
