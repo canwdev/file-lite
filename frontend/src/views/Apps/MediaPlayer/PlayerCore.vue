@@ -83,6 +83,12 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
   mediaEventsAbort = ac
   const { signal } = ac
 
+  function recordIfMediaReady(el: HTMLMediaElement) {
+    if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      recordLastOpenedMedia(mediaStore.mediaItem)
+    }
+  }
+
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', play)
     navigator.mediaSession.setActionHandler('pause', pause)
@@ -93,6 +99,7 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
   av.addEventListener('play', () => {
     mediaStore.paused = false
     mediaStore.isLoadedAutoplay = true
+    recordLastOpenedMedia(mediaStore.mediaItem)
   }, { signal })
 
   av.addEventListener('pause', () => {
@@ -131,6 +138,8 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
     console.error(error)
     window.$message.error('Load media failed')
   }, { signal })
+
+  recordIfMediaReady(av)
 }
 
 function clearMediaSessionHandlers() {

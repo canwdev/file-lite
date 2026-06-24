@@ -271,10 +271,16 @@ watch(
 watch(
   () => props.src,
   (newUrl) => {
-    if (artInstance.value && newUrl) {
-      revokeBlobRef(videoObjectUrl)
-      artInstance.value.switchUrl(newUrl)
+    const inst = artInstance.value
+    if (!inst || !newUrl) {
+      return
     }
+    revokeBlobRef(videoObjectUrl)
+    void inst.switchUrl(newUrl).then(() => {
+      if (inst.isReady) {
+        emit('ready', inst)
+      }
+    }).catch(console.error)
   },
 )
 
