@@ -20,4 +20,5 @@ export const LsKeys = {
   MUSIC_LYRICS_VISIBLE: 'file_lite_music_lyrics_visible',
   REMEMBER_AUTH: 'file_lite_remember_auth',
   LOGIN_ACTIVE_TAB: 'file_lite_login_active_tab',
+  LAST_OPENED_MEDIA_MAP: 'file_lite_last_opened_media_map',
 }

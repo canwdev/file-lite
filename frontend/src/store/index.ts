@@ -29,6 +29,7 @@ function createDefaultSettingsStore() {
     themeMode: 'auto' as 'auto' | 'light' | 'dark',
     colorTheme: '',
     appSingleInstance: true,
+    rememberLastMedia: false,
   }
 }
 

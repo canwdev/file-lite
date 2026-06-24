@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { OpenWithEnum } from '../Apps/apps'
 import type { IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
+import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
@@ -96,6 +97,23 @@ const fileListRef = ref()
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const filterState = ref(createDefaultFileFilter())
 const openAppWithFilteredList = ref(false)
+const lastOpenedMediaItem = useLastOpenedMediaItem(basePathNormalized, files)
+
+function playLastOpenedMedia() {
+  const item = lastOpenedMediaItem.value
+  if (!item) {
+    return
+  }
+  handleOpen({
+    item,
+    openWith: OpenWithEnum.MediaPlayer,
+    list: fileListRef.value?.sortedFiles ?? files.value,
+  })
+}
+
+function clearCurrentLastOpenedMedia() {
+  clearLastOpenedMediaInDir(basePathNormalized.value)
+}
 
 const openAppListScopeTitle = computed(() =>
   openAppWithFilteredList.value
@@ -401,20 +419,41 @@ function handleShortcutKey(event: KeyboardEvent) {
           </FileSidebar>
         </el-splitter-panel>
         <el-splitter-panel>
-          <FileList
-            ref="fileListRef"
-            v-model:is-loading="isLoading"
-            :files="files"
-            :filter="filterState"
-            :base-path="basePathNormalized"
-            :select-file-mode="selectFileMode"
-            :multiple="multiple"
-            :content-only="contentOnly"
-            @open="handleFileListOpen"
-            @open-path-in-new-tab="openPathInNewTab"
-            @clear-filter="clearFilter"
-            @refresh="debounceHandleRefresh"
-          />
+          <div class="explorer-file-panel">
+            <FileList
+              ref="fileListRef"
+              v-model:is-loading="isLoading"
+              :files="files"
+              :filter="filterState"
+              :base-path="basePathNormalized"
+              :select-file-mode="selectFileMode"
+              :multiple="multiple"
+              :content-only="contentOnly"
+              @open="handleFileListOpen"
+              @open-path-in-new-tab="openPathInNewTab"
+              @clear-filter="clearFilter"
+              @refresh="debounceHandleRefresh"
+            />
+            <Transition name="last-media-fab">
+              <div v-if="lastOpenedMediaItem" class="last-media-fab-wrapper">
+                <button
+                  v-if="lastOpenedMediaItem"
+                  class="last-media-fab btn-no-style vgo-panel"
+                  :title="`Play ${lastOpenedMediaItem.name}`"
+                  @click="playLastOpenedMedia"
+                >
+                  <span class="mdi mdi-play" />
+                </button>
+                <button
+                  class="btn-no-style vgo-panel btn-fab-close"
+                  title="Clear remembered media"
+                  @click.stop="clearCurrentLastOpenedMedia"
+                >
+                  <span class="mdi mdi-close" />
+                </button>
+              </div>
+            </Transition>
+          </div>
         </el-splitter-panel>
       </el-splitter>
     </div>
@@ -530,6 +569,53 @@ function handleShortcutKey(event: KeyboardEvent) {
     flex: 1;
     overflow: auto;
     display: flex;
+  }
+
+  .explorer-file-panel {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .last-media-fab-wrapper {
+    position: absolute;
+    right: 16px;
+    bottom: 48px;
+
+    .btn-fab-close {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      border-radius: 50%;
+      font-size: 12px;
+      height: 16px;
+      width: 16px;
+    }
+
+  }
+
+  .last-media-fab {
+    z-index: 15;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(var(--vgo-primary-rgb)) !important;
+    font-size: 38px;
+
+  }
+
+  .last-media-fab-enter-active,
+  .last-media-fab-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .last-media-fab-enter-from,
+  .last-media-fab-leave-to {
+    opacity: 0;
+    transform: scale(0.6);
   }
 
   .btn-action {

@@ -6,6 +6,7 @@ import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '
 import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
+import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -88,13 +89,6 @@ function showMenu(event: MouseEvent) {
         icon: 'mdi mdi-cog',
         children: [
           {
-            icon: settingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
-            label: `Use native player`,
-            onClick: () => {
-              settingsStore.value.isNativePlayer = !settingsStore.value.isNativePlayer
-            },
-          },
-          {
             icon: 'mdi mdi-image-search',
             label: `Preview size: ${getPreviewSizeLabel(settingsStore.value.previewSize)}`,
             children: previewSizeOptions.map(item => ({
@@ -106,11 +100,30 @@ function showMenu(event: MouseEvent) {
             })),
           },
           {
-            icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
-            label: `Media app single instance`,
-            onClick: () => {
-              settingsStore.value.appSingleInstance = !settingsStore.value.appSingleInstance
-            },
+            label: `App Settings`,
+            children: [
+              {
+                icon: settingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
+                label: `Use native player`,
+                onClick: () => {
+                  settingsStore.value.isNativePlayer = !settingsStore.value.isNativePlayer
+                },
+              },
+              {
+                icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
+                label: `Single instance`,
+                onClick: () => {
+                  settingsStore.value.appSingleInstance = !settingsStore.value.appSingleInstance
+                },
+              },
+              {
+                icon: settingsStore.value.rememberLastMedia ? 'mdi mdi-check' : '',
+                label: `Remember last opened media in Media Player`,
+                onClick: () => {
+                  toggleRememberLastMedia()
+                },
+              },
+            ],
           },
 
         ],

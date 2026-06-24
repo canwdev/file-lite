@@ -3,6 +3,7 @@ import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
 import { fsWebApi } from '@/api/filesystem'
+import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { settingsStore } from '@/store/index'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
@@ -22,6 +23,7 @@ const videoHostRef = ref<InstanceType<typeof NativeOrArtVideo> | null>(null)
 
 const mSettingsStore = useMusicSettingsStore()
 const avSrc = ref<string | undefined>()
+const recordLastOpenedMedia = createLastOpenedMediaRecorder()
 
 let mediaEventsAbort: AbortController | null = null
 
@@ -114,6 +116,7 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
   av.addEventListener('canplay', (evt: Event) => {
     const target = evt.target as HTMLMediaElement
     mediaStore.duration = target.duration
+    recordLastOpenedMedia(mediaStore.mediaItem)
     if (mediaStore.isLoadedAutoplay) {
       void play()
     }
