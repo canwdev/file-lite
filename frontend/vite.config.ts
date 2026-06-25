@@ -59,6 +59,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: path => path.replace(/^\/dev_proxy/, ''),
           ws: true,
+          rewriteWsOrigin: true,
         },
       },
     },

@@ -42,7 +42,21 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to, from, next) => {
+let verifiedAuthToken = ''
+
+async function ensureAuthReady() {
+  if (!authToken.value) {
+    throw new Error('No auth token')
+  }
+  if (verifiedAuthToken === authToken.value) {
+    return
+  }
+  await fsWebApi.auth()
+  await ensureSettingsStoreInitialized()
+  verifiedAuthToken = authToken.value
+}
+
+router.beforeEach(async (to) => {
   const query = { ...to.query }
 
   if (query.ticket) {
@@ -50,45 +64,49 @@ router.beforeEach(async (to, from, next) => {
       const res = await fsWebApi.consumeTicket(String(query.ticket))
       authToken.value = res.token
       delete query.ticket
-      return next({
+      return {
         path: to.path,
         query,
         hash: to.hash,
         replace: true,
-      })
+      }
     }
     catch (error) {
       console.error(error)
       delete query.ticket
-      return next({
+      return {
         name: 'LoginView',
         query: {
           redirect: to.path,
         },
-      })
+      }
     }
   }
   if (to.meta.skipLogin) {
-    // 不要加：后端服务未启动会死循环。
-    // if (to.name === 'LoginView' && authToken.value) {
-    //   return next({ name: 'HomeView' })
-    // }
-    return next()
+    if (to.name === 'LoginView' && authToken.value) {
+      try {
+        await ensureAuthReady()
+        return { name: 'HomeView' }
+      }
+      catch (error) {
+        console.error(error)
+        authToken.value = ''
+      }
+    }
+    return
   }
   try {
-    await fsWebApi.auth()
-    await ensureSettingsStoreInitialized()
+    await ensureAuthReady()
   }
   catch (error) {
     console.error(error)
-    return next({
+    return {
       name: 'LoginView',
       query: {
         redirect: to.fullPath,
       },
-    })
+    }
   }
-  return next()
 })
 
 router.afterEach((to) => {

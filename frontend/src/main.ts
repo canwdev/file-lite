@@ -16,13 +16,18 @@ import '@mdi/font/css/materialdesignicons.min.css'
 import 'normalize.css'
 import '@imengyu/vue3-context-menu/lib/vue3-context-menu.css'
 
-const app = createApp(App)
+async function bootstrap() {
+  const app = createApp(App)
 
-const pinia = createPinia()
-pinia.use(piniaPluginPersistedstate)
-app.use(pinia)
+  const pinia = createPinia()
+  pinia.use(piniaPluginPersistedstate)
+  app.use(pinia)
 
-app.use(router)
-app.use(ContextMenu)
+  app.use(router)
+  app.use(ContextMenu)
 
-app.mount('#app')
+  app.mount('#app')
+  window.__APP_READY__ = true
+}
+
+bootstrap()

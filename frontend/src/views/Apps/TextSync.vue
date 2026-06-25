@@ -103,8 +103,9 @@ async function pasteText() {
     const value = await navigator.clipboard.readText()
     textContent.value = value
   }
-  catch {
-    window.$message.error('Paste failed')
+  catch (error) {
+    console.error('[pasteText]', error)
+    window.$message.error(`Paste failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

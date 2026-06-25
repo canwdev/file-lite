@@ -3,10 +3,10 @@ import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
+import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
-import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -104,14 +104,14 @@ function showMenu(event: MouseEvent) {
             children: [
               {
                 icon: settingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
-                label: `Use native player`,
+                label: `Use native video player`,
                 onClick: () => {
                   settingsStore.value.isNativePlayer = !settingsStore.value.isNativePlayer
                 },
               },
               {
                 icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
-                label: `Single instance`,
+                label: `App Single instance`,
                 onClick: () => {
                   settingsStore.value.appSingleInstance = !settingsStore.value.appSingleInstance
                 },

@@ -12,22 +12,15 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"file-lite-go/config"
-	"file-lite-go/utils"
 )
 
 const (
 	sharedWSPath              = "/api/ws"
 	sharedWSAuthCookieName    = "file_lite_auth_token"
-	sharedWSMaxTextBytes      = 64 * 1024
 	sharedWSMaxConnectionsPer = 20
 )
 
 var (
-	sharedWSAllowedChannels = map[string]struct{}{
-		"CH1": {},
-		"CH2": {},
-		"CH3": {},
-	}
 	sharedWSIPState = struct {
 		sync.Mutex
 		counts map[string]int
@@ -36,11 +29,9 @@ var (
 	}
 	sharedWSState = struct {
 		sync.Mutex
-		channels map[string]*sharedWSTextChannelState
-		clients  map[*sharedWSClient]struct{}
+		clients map[*sharedWSClient]struct{}
 	}{
-		channels: map[string]*sharedWSTextChannelState{},
-		clients:  map[*sharedWSClient]struct{}{},
+		clients: map[*sharedWSClient]struct{}{},
 	}
 	sharedWSUpgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -54,11 +45,6 @@ type sharedWSClient struct {
 	ip              string
 	textSyncChannel string
 	writeMu         sync.Mutex
-}
-
-type sharedWSTextChannelState struct {
-	text    string
-	clients map[*sharedWSClient]struct{}
 }
 
 type sharedWSBaseMessage struct {
@@ -166,7 +152,7 @@ func parseSharedWSTextSyncMessage(raw []byte) (sharedWSTextSyncClientMessage, er
 	if (msg.Type != "join" && msg.Type != "update") || msg.Channel == "" {
 		return sharedWSTextSyncClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
 	}
-	if _, ok := sharedWSAllowedChannels[msg.Channel]; !ok {
+	if !isSharedWSTextSyncChannelAllowed(msg.Channel) {
 		return sharedWSTextSyncClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
 	}
 	return msg, nil
@@ -212,62 +198,6 @@ func parseSharedWSSettingsMessage(raw []byte) (sharedWSSettingsClientMessage, er
 	}
 }
 
-func handleSharedWSTextSyncMessage(client *sharedWSClient, msg sharedWSTextSyncClientMessage) {
-	switch msg.Type {
-	case "join":
-		sharedWSJoinTextSyncChannel(client, msg.Channel)
-	case "update":
-		if client.textSyncChannel == "" || client.textSyncChannel != msg.Channel {
-			sendSharedWSError(client, "text-sync", "", "Channel mismatch")
-			return
-		}
-		if len([]byte(msg.Text)) > sharedWSMaxTextBytes {
-			sendSharedWSError(client, "text-sync", "", "Text exceeds 65536 bytes")
-			return
-		}
-		broadcastSharedWSTextSync(msg.Channel, msg.Text)
-	default:
-		sendSharedWSError(client, "text-sync", "", "Invalid payload")
-	}
-}
-
-func handleSharedWSSettingsMessage(client *sharedWSClient, msg sharedWSSettingsClientMessage) {
-	var (
-		value any
-		err   error
-	)
-
-	switch msg.Type {
-	case "get":
-		value, err = utils.GetSettingsValue(msg.Key)
-	case "set":
-		value, err = utils.SetSettingsValue(msg.Key, msg.Value)
-	case "delete":
-		value, err = utils.DeleteSettingsValue(msg.Key)
-	default:
-		sendSharedWSError(client, "settings", msg.RequestID, "Invalid payload")
-		return
-	}
-
-	if err != nil {
-		sendSharedWSError(client, "settings", msg.RequestID, "Settings request failed")
-		return
-	}
-
-	sendSharedWSJSON(client, map[string]any{
-		"scope":     "settings",
-		"type":      "response",
-		"requestId": msg.RequestID,
-		"action":    msg.Type,
-		"key":       msg.Key,
-		"value":     value,
-	})
-
-	if msg.Type == "set" || msg.Type == "delete" {
-		broadcastSharedWSSettings(msg.Key, value)
-	}
-}
-
 func sharedWSRegisterClient(client *sharedWSClient) {
 	sharedWSState.Lock()
 	defer sharedWSState.Unlock()
@@ -279,140 +209,18 @@ func sharedWSUnregisterClient(client *sharedWSClient) {
 	defer sharedWSState.Unlock()
 
 	delete(sharedWSState.clients, client)
-	if client.textSyncChannel != "" {
-		sharedWSLeaveTextSyncChannelLocked(client, client.textSyncChannel)
-		client.textSyncChannel = ""
-	}
+	sharedWSUnregisterTextSyncClientLocked(client)
 }
 
-func sharedWSJoinTextSyncChannel(client *sharedWSClient, next string) {
+func snapshotSharedWSClients() []*sharedWSClient {
 	sharedWSState.Lock()
 	defer sharedWSState.Unlock()
 
-	if client.textSyncChannel != "" {
-		sharedWSLeaveTextSyncChannelLocked(client, client.textSyncChannel)
-	}
-
-	state := sharedWSState.channels[next]
-	if state == nil {
-		state = &sharedWSTextChannelState{
-			text:    "",
-			clients: map[*sharedWSClient]struct{}{},
-		}
-		sharedWSState.channels[next] = state
-	}
-	state.clients[client] = struct{}{}
-	client.textSyncChannel = next
-
-	sendSharedWSJSON(client, map[string]any{
-		"scope":   "text-sync",
-		"type":    "sync",
-		"channel": next,
-		"text":    state.text,
-	})
-}
-
-func sharedWSLeaveTextSyncChannelLocked(client *sharedWSClient, channel string) {
-	state := sharedWSState.channels[channel]
-	if state == nil {
-		return
-	}
-
-	delete(state.clients, client)
-	if len(state.clients) == 0 {
-		delete(sharedWSState.channels, channel)
-	}
-}
-
-func broadcastSharedWSTextSync(channel, text string) {
-	sharedWSState.Lock()
-	state := sharedWSState.channels[channel]
-	if state == nil {
-		state = &sharedWSTextChannelState{
-			text:    "",
-			clients: map[*sharedWSClient]struct{}{},
-		}
-		sharedWSState.channels[channel] = state
-	}
-	state.text = text
-	clients := make([]*sharedWSClient, 0, len(state.clients))
-	for client := range state.clients {
-		clients = append(clients, client)
-	}
-	sharedWSState.Unlock()
-
-	message := map[string]any{
-		"scope":   "text-sync",
-		"type":    "sync",
-		"channel": channel,
-		"text":    text,
-	}
-	for _, client := range clients {
-		sendSharedWSJSON(client, message)
-	}
-}
-
-func broadcastSharedWSSettings(key string, value any) {
-	sharedWSState.Lock()
 	clients := make([]*sharedWSClient, 0, len(sharedWSState.clients))
 	for client := range sharedWSState.clients {
 		clients = append(clients, client)
 	}
-	sharedWSState.Unlock()
-
-	message := map[string]any{
-		"scope": "settings",
-		"type":  "sync",
-		"key":   key,
-		"value": value,
-	}
-	for _, client := range clients {
-		sendSharedWSJSON(client, message)
-	}
-}
-
-func broadcastSharedWSSettingsSnapshot(previous map[string]any, current map[string]any) {
-	keys := map[string]struct{}{}
-	for key := range previous {
-		keys[key] = struct{}{}
-	}
-	for key := range current {
-		keys[key] = struct{}{}
-	}
-	for key := range keys {
-		value, ok := current[key]
-		if !ok {
-			value = nil
-		}
-		broadcastSharedWSSettings(key, value)
-	}
-}
-
-func syncSharedWSSettingsToClient(client *sharedWSClient) {
-	store, err := utils.GetAllSettingsValues()
-	if err != nil {
-		return
-	}
-	for key, value := range store {
-		sendSharedWSJSON(client, map[string]any{
-			"scope": "settings",
-			"type":  "sync",
-			"key":   key,
-			"value": value,
-		})
-	}
-}
-
-func ReloadSharedWSSettings() error {
-	reloaded, err := utils.ReloadSettingsStore()
-	if err != nil {
-		return err
-	}
-	broadcastSharedWSSettingsSnapshot(
-		map[string]any(reloaded.Previous),
-		map[string]any(reloaded.Current),
-	)
-	return nil
+	return clients
 }
 
 func sendSharedWSJSON(client *sharedWSClient, payload any) {

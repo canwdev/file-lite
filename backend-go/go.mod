@@ -4,14 +4,15 @@ go 1.20
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mattn/go-isatty v0.0.20
 	github.com/pablor21/echo-etag/v4 v4.0.4-0.20230225220934-502235038145
 )
 
 require (
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

@@ -10,6 +10,7 @@ import (
 )
 
 func Register(api *echo.Group) {
+	StartSharedWSServices()
 	api.GET("/", func(c echo.Context) error {
 		return c.NoContent(http.StatusNoContent)
 	})

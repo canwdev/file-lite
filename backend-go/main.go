@@ -160,6 +160,7 @@ func startServer() (*StartServerResult, error) {
 }
 
 func stopServer() {
+	routes.StopSharedWSServices()
 	if echoInstance != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -276,9 +277,6 @@ func main() {
 			isCreateConfig = true
 		case strings.Contains(answers.Action, "Restart server"):
 			fmt.Print("\033[H\033[2J")
-			if err := routes.ReloadSharedWSSettings(); err != nil {
-				fmt.Println("Error reloading frontend settings:", err)
-			}
 			stopServer()
 		case strings.Contains(answers.Action, "Exit"):
 			stopServer()

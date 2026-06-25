@@ -75,7 +75,7 @@ export function useSystemClipboardPaste({
     }
     catch (error) {
       console.error('[pasteFromClipboard]', error)
-      window.$message.error('Failed to paste from clipboard')
+      window.$message.error(`Failed to paste from clipboard: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
     finally {
       isLoading.value = false

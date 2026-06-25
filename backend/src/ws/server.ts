@@ -1,11 +1,9 @@
 import type {
   SettingsClientMessage,
-  SettingsServerMessage,
   SharedWsClientMessage,
   SharedWsServerMessage,
   TextSyncChannel,
   TextSyncClientMessage,
-  TextSyncServerMessage,
   WsErrorMessage,
 } from '@frontend/types/server.ts'
 import type { Server as HttpServer, IncomingMessage } from 'node:http'
@@ -17,26 +15,19 @@ import { URL } from 'node:url'
 import { TEXT_SYNC_CHANNELS } from '@frontend/types/server.ts'
 import { WebSocketServer } from 'ws'
 import { internalConfig, verifyAuthJwt } from '@/config/config.ts'
-import { deleteSettingsValue, getAllSettingsValues, getSettingsValue, reloadSettingsStore, setSettingsValue } from '@/utils/settings-store.ts'
+import { createSettingsSyncController } from '@/ws/settings-sync.ts'
+import { createTextSyncController } from '@/ws/text-sync.ts'
 
 const SHARED_WS_PATH = '/api/ws'
-const MAX_TEXT_SYNC_LENGTH = 64 * 1024
 const MAX_CONNECTIONS_PER_IP = 20
 const textSyncChannelSet = new Set<TextSyncChannel>(TEXT_SYNC_CHANNELS)
 
 interface SharedWsClientState {
   ws: WebSocket
-  textSyncChannel: TextSyncChannel | null
   ip: string
 }
 
-interface TextSyncChannelState {
-  text: string
-  clients: Set<SharedWsClientState>
-}
-
 const ipConnectionMap = new Map<string, number>()
-const channelStateMap = new Map<TextSyncChannel, TextSyncChannelState>()
 const connectedClients = new Set<SharedWsClientState>()
 
 function getCookieValue(cookie: string, name: string): string {
@@ -114,177 +105,6 @@ function sendError(ws: WebSocket, payload: WsErrorMessage) {
   sendJson(ws, payload)
 }
 
-function cleanupChannelIfEmpty(channel: TextSyncChannel) {
-  const state = channelStateMap.get(channel)
-  if (state && state.clients.size === 0) {
-    channelStateMap.delete(channel)
-  }
-}
-
-function getOrCreateChannelState(channel: TextSyncChannel): TextSyncChannelState {
-  const state = channelStateMap.get(channel)
-  if (state) {
-    return state
-  }
-  const created: TextSyncChannelState = {
-    text: '',
-    clients: new Set<SharedWsClientState>(),
-  }
-  channelStateMap.set(channel, created)
-  return created
-}
-
-function joinTextSyncChannel(client: SharedWsClientState, channel: TextSyncChannel) {
-  if (client.textSyncChannel) {
-    const prevState = channelStateMap.get(client.textSyncChannel)
-    prevState?.clients.delete(client)
-    cleanupChannelIfEmpty(client.textSyncChannel)
-  }
-
-  const currentState = getOrCreateChannelState(channel)
-  currentState.clients.add(client)
-  client.textSyncChannel = channel
-
-  sendJson(client.ws, {
-    scope: 'text-sync',
-    type: 'sync',
-    channel,
-    text: currentState.text,
-  })
-}
-
-function isTextWithinLimit(text: string): boolean {
-  return Buffer.byteLength(text, 'utf8') <= MAX_TEXT_SYNC_LENGTH
-}
-
-function broadcastTextSync(message: TextSyncServerMessage) {
-  if (message.type !== 'sync') {
-    return
-  }
-  const state = channelStateMap.get(message.channel)
-  if (!state) {
-    return
-  }
-  for (const client of state.clients) {
-    sendJson(client.ws, message)
-  }
-}
-
-function handleTextSyncUpdate(client: SharedWsClientState, payload: Extract<TextSyncClientMessage, { type: 'update' }>) {
-  if (!client.textSyncChannel || payload.channel !== client.textSyncChannel) {
-    sendError(client.ws, { scope: 'text-sync', type: 'error', message: 'Channel mismatch' })
-    return
-  }
-  if (typeof payload.text !== 'string' || !isTextWithinLimit(payload.text)) {
-    sendError(client.ws, { scope: 'text-sync', type: 'error', message: `Text exceeds ${MAX_TEXT_SYNC_LENGTH} bytes` })
-    return
-  }
-  const state = getOrCreateChannelState(client.textSyncChannel)
-  state.text = payload.text
-  broadcastTextSync({
-    scope: 'text-sync',
-    type: 'sync',
-    channel: client.textSyncChannel,
-    text: state.text,
-  })
-}
-
-function broadcastSettings(message: SettingsServerMessage) {
-  if (message.type !== 'sync') {
-    return
-  }
-  for (const client of connectedClients) {
-    sendJson(client.ws, message)
-  }
-}
-
-function broadcastSettingsSnapshot(previous: Record<string, unknown>, current: Record<string, unknown>) {
-  const keys = new Set([
-    ...Object.keys(previous),
-    ...Object.keys(current),
-  ])
-  for (const key of keys) {
-    broadcastSettings({
-      scope: 'settings',
-      type: 'sync',
-      key,
-      value: key in current ? current[key] as any : null,
-    })
-  }
-}
-
-async function syncSettingsToClient(client: SharedWsClientState) {
-  const store = await getAllSettingsValues()
-  for (const [key, value] of Object.entries(store)) {
-    sendJson(client.ws, {
-      scope: 'settings',
-      type: 'sync',
-      key,
-      value,
-    })
-  }
-}
-
-async function handleSettingsMessage(client: SharedWsClientState, payload: SettingsClientMessage) {
-  try {
-    if (payload.type === 'get') {
-      const value = await getSettingsValue(payload.key)
-      sendJson(client.ws, {
-        scope: 'settings',
-        type: 'response',
-        requestId: payload.requestId,
-        action: 'get',
-        key: payload.key,
-        value,
-      })
-      return
-    }
-    if (payload.type === 'set') {
-      const value = await setSettingsValue(payload.key, payload.value as any)
-      const response: SettingsServerMessage = {
-        scope: 'settings',
-        type: 'response',
-        requestId: payload.requestId,
-        action: 'set',
-        key: payload.key,
-        value,
-      }
-      sendJson(client.ws, response)
-      broadcastSettings({
-        scope: 'settings',
-        type: 'sync',
-        key: payload.key,
-        value,
-      })
-      return
-    }
-
-    const value = await deleteSettingsValue(payload.key)
-    sendJson(client.ws, {
-      scope: 'settings',
-      type: 'response',
-      requestId: payload.requestId,
-      action: 'delete',
-      key: payload.key,
-      value,
-    })
-    broadcastSettings({
-      scope: 'settings',
-      type: 'sync',
-      key: payload.key,
-      value,
-    })
-  }
-  catch (error: any) {
-    sendError(client.ws, {
-      scope: 'settings',
-      type: 'error',
-      message: error?.message || 'Settings request failed',
-      requestId: payload.requestId,
-    })
-  }
-}
-
 function parseClientMessage(raw: string): SharedWsClientMessage | null {
   let data: unknown
   try {
@@ -341,6 +161,16 @@ function rejectUpgrade(socket: Socket, status: number, message: string) {
 
 export function attachSharedWsServer(server: HttpServer | HttpsServer) {
   const wsServer = new WebSocketServer({ noServer: true })
+  const settingsSync = createSettingsSyncController({
+    clients: connectedClients,
+    sendError,
+    sendJson,
+  })
+  const textSync = createTextSyncController({
+    sendError,
+    sendJson,
+  })
+  const detachFrontendStorageWatcher = settingsSync.attachFrontendStorageWatcher()
 
   const upgradeHandler = (request: IncomingMessage, socket: Socket, head: Buffer) => {
     const requestUrl = new URL(request.url || '/', 'http://localhost')
@@ -371,11 +201,10 @@ export function attachSharedWsServer(server: HttpServer | HttpsServer) {
   wsServer.on('connection', (ws, request) => {
     const client: SharedWsClientState = {
       ws,
-      textSyncChannel: null,
       ip: getRequestIp(request),
     }
     connectedClients.add(client)
-    void syncSettingsToClient(client)
+    void settingsSync.syncSettingsToClient(client)
 
     ws.on('message', (raw) => {
       if (typeof raw !== 'string' && !(raw instanceof Buffer)) {
@@ -388,24 +217,15 @@ export function attachSharedWsServer(server: HttpServer | HttpsServer) {
         return
       }
       if (payload.scope === 'text-sync') {
-        if (payload.type === 'join') {
-          joinTextSyncChannel(client, payload.channel)
-          return
-        }
-        handleTextSyncUpdate(client, payload)
+        textSync.handleTextSyncMessage(client, payload)
         return
       }
-      void handleSettingsMessage(client, payload)
+      void settingsSync.handleSettingsMessage(client, payload)
     })
 
     ws.on('close', () => {
       connectedClients.delete(client)
-      if (client.textSyncChannel) {
-        const channel = client.textSyncChannel
-        const state = channelStateMap.get(channel)
-        state?.clients.delete(client)
-        cleanupChannelIfEmpty(channel)
-      }
+      textSync.removeClient(client)
       consumeIpConnection(client.ip)
     })
 
@@ -417,15 +237,11 @@ export function attachSharedWsServer(server: HttpServer | HttpsServer) {
   server.on('upgrade', upgradeHandler)
 
   return () => {
+    detachFrontendStorageWatcher()
     server.off('upgrade', upgradeHandler)
     wsServer.close()
-    channelStateMap.clear()
+    textSync.clear()
     connectedClients.clear()
     ipConnectionMap.clear()
   }
-}
-
-export async function reloadSharedWsSettings() {
-  const { previous, current } = await reloadSettingsStore()
-  broadcastSettingsSnapshot(previous, current)
 }
