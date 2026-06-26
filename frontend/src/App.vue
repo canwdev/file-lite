@@ -2,6 +2,7 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
 import { authToken } from '@/store/auth'
+import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 
 window.$message = ElMessage
 window.$dialog = ElMessageBox
@@ -20,6 +21,7 @@ window.$logout = (clearToken = true) => {
 <template>
   <div class="page-root">
     <RouterView />
+    <WsStatusDisplay />
   </div>
 </template>
 

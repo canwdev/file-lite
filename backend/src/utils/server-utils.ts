@@ -13,16 +13,31 @@ export function printServerRunningOn({ protocol = 'http:', host, port, params = 
   const urls: string[] = []
   const ips: string[] = []
 
-  // 当 host 为 '0.0.0.0' 时，查找所有可用的 IPv4 地址
+  function isIPv4(family: string | number | undefined) {
+    return family === 'IPv4' || family === 4
+  }
+
+  function isIPv6(family: string | number | undefined) {
+    return family === 'IPv6' || family === 6
+  }
+
+  // 当 host 为 '0.0.0.0' 时，查找所有可用的 IPv4 / IPv6 地址（IPv6 排在 IPv4 之后）
   if (host === '0.0.0.0') {
     const ifaces = networkInterfaces()
-    Object.values(ifaces)
-      .flat() // 将多维数组扁平化为一维
-      .filter(details => details?.family === 'IPv4' && details.address) // 筛选出 IPv4 地址
-      .forEach((details) => {
-        urls.push(`${protocol}//${details!.address}:${port}${params}`)
-        ips.push(details!.address)
-      })
+    const entries = Object.values(ifaces)
+      .flat()
+      .filter((details): details is NonNullable<typeof details> =>
+        !!details?.address && (isIPv4(details.family) || isIPv6(details.family)))
+
+    function appendAddress(details: NonNullable<typeof entries[number]>) {
+      const address = details.address
+      const hostPart = isIPv6(details.family) ? `[${address}]` : address
+      urls.push(`${protocol}//${hostPart}:${port}${params}`)
+      ips.push(address)
+    }
+
+    entries.filter(details => isIPv4(details.family)).forEach(appendAddress)
+    entries.filter(details => isIPv6(details.family)).forEach(appendAddress)
 
     if (urls.length > 0) {
       console.log(`Available on:\n${urls.join('\n')}`)

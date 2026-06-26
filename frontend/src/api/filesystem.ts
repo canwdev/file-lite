@@ -1,10 +1,9 @@
 import type { IDrive, IEntry } from '@/types/server'
 import type { ServiceRequestConfig } from '@/utils/service'
 import qs from 'qs'
-import { API_PROXY_BASE } from '@/enum'
 import service from '@/utils/service'
 
-const baseURL = `${API_PROXY_BASE}/api/files`
+const baseURL = `/api/files`
 
 export const fsWebApi = {
   auth() {

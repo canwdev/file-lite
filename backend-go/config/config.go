@@ -35,7 +35,7 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.3.2"
+const Version = "1.4.0"
 
 var cfg Cfg
 var dataBaseDir string
@@ -79,7 +79,7 @@ func IsExplicitDevMode() bool {
 
 func LoadConfig(allowCreate bool) error {
 	fmt.Printf("%s version: %s\n\n", PkgName, Version)
-	base := os.Getenv("ENV_DATA_BASE_DIR")
+	base := os.Getenv("FILE_LITE_DATA_BASE_DIR")
 	if base == "" {
 		wd, _ := os.Getwd()
 		base = filepath.Join(wd, "file-lite")
@@ -318,6 +318,16 @@ func Port() int {
 	}
 	i, _ := strconv.Atoi(p)
 	return i
+}
+
+// FrontendPort 仅用于打印 dev 前端端口（不影响服务器监听）
+func FrontendPort() int {
+	if v := os.Getenv("FILE_LITE_FE_PORT"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			return i
+		}
+	}
+	return Port()
 }
 
 func Host() string {

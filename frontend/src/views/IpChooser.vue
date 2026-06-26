@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQRCode } from '@vueuse/integrations/useQRCode'
 import { copyWithToast } from '@/utils'
+import { decodeIpSelectorParams, formatHostForUrl } from '@/utils/ip-selector-codec'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
@@ -9,11 +10,14 @@ const route = useRoute()
 
 function parseData() {
   try {
-    const data = JSON.parse(atob(route.query.data as string))
+    const data = decodeIpSelectorParams(route.query.data as string)
     console.log(data)
-    const { ips, port, protocol, ticket } = data as { ips: string[], host: string, port: number, protocol: string, ticket: string }
+    const { ips, port, protocol, ticket } = data
     ticketValue.value = ticket || ''
-    hostUrls.value = ips.map(ip => ticket ? `${protocol}//${ip}:${port}?ticket=${ticket}` : `${protocol}//${ip}:${port}`)
+    hostUrls.value = ips.map((ip) => {
+      const host = formatHostForUrl(ip)
+      return ticket ? `${protocol}//${host}:${port}?ticket=${ticket}` : `${protocol}//${host}:${port}`
+    })
   }
   catch (error) {
     console.error('Error parsing data:', error)
@@ -122,7 +126,7 @@ function autoSelectUrl() {
   }
 
   .ip-chooser-main {
-    max-width: 500px;
+    max-width: 600px;
     margin-left: auto;
     margin-right: auto;
     display: flex;

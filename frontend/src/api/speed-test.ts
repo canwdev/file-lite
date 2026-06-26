@@ -1,6 +1,5 @@
 import type { AxiosResponse } from 'axios'
 import type { ServiceRequestConfig } from '@/utils/service'
-import { API_PROXY_BASE } from '@/enum'
 import service from '@/utils/service'
 
 const ONE_MB = 1024 * 1024
@@ -8,7 +7,7 @@ const DEFAULT_SIZE_MB = 500
 const MIN_SIZE_MB = 1
 const MAX_SIZE_MB = 2048
 const SAMPLE_INTERVAL_MS = 200
-const baseURL = `${API_PROXY_BASE}/api/speed-test`
+const baseURL = `/api/speed-test`
 
 export interface SpeedMetrics {
   bytes: number

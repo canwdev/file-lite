@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "bun --watch run src/main.ts",
+    "dev": "cross-env FILE_LITE_FE_PORT=3110 bun --watch run src/main.ts",
     "build": "bun build --target=node --minify --outfile=dist/file-lite.min.mjs ./src/main.ts --banner '#!/usr/bin/env node\n'",
     "build:cjs": "bun build --target=node --format=cjs --outfile=dist/file-lite.min.cjs ./src/main.ts --banner '#!/usr/bin/env node\n'",
     "build:exe": "bun build --compile --minify --bytecode --outfile=dist/file-lite.exe ./src/main.ts",
@@ -35,6 +35,7 @@
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
     "archiver": "^7.0.1",
+    "cross-env": "^10.1.0",
     "enquirer": "^2.4.1",
     "eslint": "^10.1.0",
     "eslint-plugin-format": "^1.5.0",

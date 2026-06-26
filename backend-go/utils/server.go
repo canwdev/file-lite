@@ -5,19 +5,58 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
+func formatHostForURL(ip string) string {
+	if strings.Contains(ip, ":") {
+		return "[" + ip + "]"
+	}
+	return ip
+}
+
 func GetAvailableIPs(host string) []string {
-	var ips []string
-	if host == "0.0.0.0" {
-		addrs, _ := net.InterfaceAddrs()
+	if host != "0.0.0.0" {
+		return nil
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+
+	var ipv4s []string
+	var ipv6s []string
+
+	for _, iface := range ifaces {
+		// 与 Node.js os.networkInterfaces() 一致：仅枚举已启用的网卡
+		if iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
 		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-				ips = append(ips, ipnet.IP.String())
+			ipnet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			if v4 := ipnet.IP.To4(); v4 != nil {
+				ipv4s = append(ipv4s, v4.String())
+				continue
+			}
+
+			if ipnet.IP.To16() != nil {
+				ipv6s = append(ipv6s, ipnet.IP.String())
 			}
 		}
 	}
-	return ips
+
+	return append(ipv4s, ipv6s...)
 }
 
 func PrintUrls(protocol string, host string, port int, authParam string) []string {
@@ -39,9 +78,9 @@ func PrintUrls(protocol string, host string, port int, authParam string) []strin
 			return "?" + authParam
 		}()
 
-		fmt.Printf("Available on:\n%s//%s:%d%s\n", protocol, ips[0], port, authSuffix)
+		fmt.Printf("Available on:\n%s//%s:%d%s\n", protocol, formatHostForURL(ips[0]), port, authSuffix)
 		for i := 1; i < len(ips); i++ {
-			fmt.Printf("%s//%s:%d%s\n", protocol, ips[i], port, authSuffix)
+			fmt.Printf("%s//%s:%d%s\n", protocol, formatHostForURL(ips[i]), port, authSuffix)
 		}
 	}
 	return ips

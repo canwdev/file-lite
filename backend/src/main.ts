@@ -6,6 +6,7 @@ import path from 'node:path'
 import * as process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { PKG_NAME, VERSION } from '@frontend/enum/version.ts'
+import { encodeIpSelectorParams } from '@frontend/utils/ip-selector-codec.ts'
 import cookieParser from 'cookie-parser'
 import enquirer from 'enquirer'
 import express from 'express'
@@ -77,14 +78,18 @@ async function startServer(): Promise<StartServerResult> {
         const ticket = createAuthTicket()
         const ticketParam = `ticket=${ticket.value}`
         const protocol = isHttps ? 'https:' : 'http:'
+
+        // dev 前端端口（仅用于打印，不影响服务器监听）
+        const frontendPort = Number(process.env.FILE_LITE_FE_PORT) || port
+
         const { localhostUrl, ips } = printServerRunningOn({
           protocol,
           host,
-          port,
+          port: frontendPort,
           params: `?${ticketParam}`,
         })
         console.log(`IP Selector:`)
-        serverResult.urlIpSelector = `${localhostUrl}/ip?data=${btoa(JSON.stringify({ ips, port, protocol, ticket: ticket.value }))}`
+        serverResult.urlIpSelector = `${localhostUrl}/ip?data=${encodeIpSelectorParams({ ips, port: frontendPort, protocol, ticket: ticket.value })}`
         console.log(serverResult.urlIpSelector)
         console.log('')
         console.log(`🗝️ Ticket: ${ticket.value}`)

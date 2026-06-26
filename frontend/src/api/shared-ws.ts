@@ -1,11 +1,11 @@
 import type { SettingsClientMessage, SharedWsClientMessage, SharedWsServerMessage } from '@/types/server'
 import Cookies from 'js-cookie'
-import { API_PROXY_BASE } from '@/enum'
 
 const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 const SHARED_WS_ENDPOINT = '/api/ws'
-const RECONNECT_DELAY_MS = 1000
+const RECONNECT_DELAY_MS = 2000
 const REQUEST_TIMEOUT_MS = 10000
+const LOG_PREFIX = '[SharedWs]'
 
 type SharedWsListener = (message: SharedWsServerMessage) => void
 
@@ -16,6 +16,8 @@ interface PendingRequest {
 }
 
 export const sharedWsConnected = ref(false)
+export type SharedWsStatus = 'connected' | 'connecting' | 'reconnecting' | 'disconnected'
+export const sharedWsStatus = ref<SharedWsStatus>('disconnected')
 
 const listeners = new Set<SharedWsListener>()
 const pendingRequests = new Map<string, PendingRequest>()
@@ -32,13 +34,8 @@ function getToken() {
 }
 
 function buildSharedWsUrl(): string {
-  const base = API_PROXY_BASE || ''
-  if (base.startsWith('http://') || base.startsWith('https://')) {
-    return `${base.replace(/^http/i, 'ws').replace(/\/$/, '')}${SHARED_WS_ENDPOINT}`
-  }
-  const pathBase = base ? `/${base.replace(/^\/+/, '').replace(/\/$/, '')}` : ''
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${wsProtocol}//${window.location.host}${pathBase}${SHARED_WS_ENDPOINT}`
+  return `${wsProtocol}//${window.location.host}${SHARED_WS_ENDPOINT}`
 }
 
 function clearPendingRequests(error: Error) {
@@ -53,8 +50,12 @@ function scheduleReconnect() {
   if (!shouldReconnect || reconnectTimer || !getToken()) {
     return
   }
+  sharedWsStatus.value = 'reconnecting'
+  console.log(`${LOG_PREFIX} reconnect scheduled in ${RECONNECT_DELAY_MS}ms`)
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
+    console.log(`${LOG_PREFIX} reconnecting`)
+    sharedWsStatus.value = 'connecting'
     void ensureSharedWsConnected().catch(() => {})
   }, RECONNECT_DELAY_MS)
 }
@@ -86,6 +87,8 @@ function handleServerMessage(message: SharedWsServerMessage) {
 function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (error: Error) => void) {
   ws.onopen = () => {
     sharedWsConnected.value = true
+    sharedWsStatus.value = 'connected'
+    console.log(`${LOG_PREFIX} connected`)
     resolve(ws)
   }
 
@@ -99,18 +102,26 @@ function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (
     }
   }
 
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     sharedWsConnected.value = false
+    console.log(`${LOG_PREFIX} disconnected (code=${event.code}${event.reason ? `, reason=${event.reason}` : ''})`)
     if (sharedWs === ws) {
       sharedWs = null
     }
     connectPromise = null
     clearPendingRequests(new Error('WebSocket disconnected'))
-    scheduleReconnect()
+    if (shouldReconnect && getToken()) {
+      scheduleReconnect()
+    }
+    else {
+      sharedWsStatus.value = 'disconnected'
+    }
   }
 
   ws.onerror = () => {
     sharedWsConnected.value = false
+    sharedWsStatus.value = 'disconnected'
+    console.warn(`${LOG_PREFIX} connection error`)
     if (connectPromise) {
       reject(new Error('WebSocket connection failed'))
     }
@@ -123,15 +134,19 @@ export async function ensureSharedWsConnected(): Promise<WebSocket> {
     return sharedWs
   }
   if (connectPromise) {
+    console.log(`${LOG_PREFIX} waiting for in-flight connection`)
     return await connectPromise
   }
 
   const token = getToken()
   if (!token) {
+    console.warn(`${LOG_PREFIX} connect aborted: no auth token`)
     throw new Error('No auth token')
   }
 
   shouldReconnect = true
+  sharedWsStatus.value = 'connecting'
+  console.log(`${LOG_PREFIX} connecting to ${buildSharedWsUrl()}`)
   connectPromise = new Promise<WebSocket>((resolve, reject) => {
     const url = new URL(buildSharedWsUrl())
     url.searchParams.set('token', token)
@@ -152,8 +167,12 @@ export function closeSharedWs() {
   }
   connectPromise = null
   sharedWsConnected.value = false
+  sharedWsStatus.value = 'disconnected'
   clearPendingRequests(new Error('WebSocket closed'))
-  sharedWs?.close()
+  if (sharedWs) {
+    console.log(`${LOG_PREFIX} closed intentionally`)
+    sharedWs.close()
+  }
   sharedWs = null
 }
 
@@ -161,11 +180,13 @@ export function setSharedWsToken(token: string) {
   const prevToken = currentToken
   currentToken = token
   if (!token) {
+    console.log(`${LOG_PREFIX} token cleared`)
     closeSharedWs()
     return
   }
   shouldReconnect = true
   if (prevToken && prevToken !== token) {
+    console.log(`${LOG_PREFIX} token changed, reconnecting`)
     sharedWs?.close()
   }
 }

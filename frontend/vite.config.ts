@@ -54,10 +54,9 @@ export default defineConfig(({ mode }) => {
       // host: '0.0.0.0',
       port: 3110,
       proxy: {
-        '/dev_proxy': {
+        '/api': {
           target: 'http://localhost:3111',
           changeOrigin: true,
-          rewrite: path => path.replace(/^\/dev_proxy/, ''),
           ws: true,
           rewriteWsOrigin: true,
         },

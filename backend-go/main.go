@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -106,20 +104,24 @@ func startServer() (*StartServerResult, error) {
 		if ticket.Value != "" {
 			ticketParam = "ticket=" + ticket.Value
 		}
-		ips := utils.PrintUrls(protocol, host, port, ticketParam)
+		// dev 前端端口（仅用于打印，不影响服务器监听）
+		frontendPort := config.FrontendPort()
+
+		ips := utils.PrintUrls(protocol, host, frontendPort, ticketParam)
 		fmt.Println("IP Selector:")
 
 		// Construct IP selector URL
-		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
+		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, frontendPort)
 
-		data := map[string]interface{}{
-			"ips":      ips,
-			"port":     port,
-			"protocol": protocol,
-			"ticket":   ticket.Value,
+		encodedData, err := utils.EncodeIpSelectorParams(utils.IpSelectorParams{
+			IPs:      ips,
+			Port:     frontendPort,
+			Protocol: protocol,
+			Ticket:   ticket.Value,
+		})
+		if err != nil {
+			fmt.Println("Error encoding IP selector data:", err)
 		}
-		jsonData, _ := json.Marshal(data)
-		encodedData := base64.StdEncoding.EncodeToString(jsonData)
 		urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
 		result.UrlIpSelector = urlIpSelector
 		fmt.Println(urlIpSelector)

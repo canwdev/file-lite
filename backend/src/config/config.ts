@@ -111,8 +111,8 @@ export function getFrontendStorageFilePath() {
 
 export function loadConfig({ allowCreate = false }: { allowCreate?: boolean } = {}) {
   // 数据目录
-  const DATA_BASE_DIR = process.env.ENV_DATA_BASE_DIR
-    ? Path.resolve(process.env.ENV_DATA_BASE_DIR)
+  const DATA_BASE_DIR = process.env.FILE_LITE_DATA_BASE_DIR
+    ? Path.resolve(process.env.FILE_LITE_DATA_BASE_DIR)
     : Path.resolve(process.cwd(), 'file-lite')
   console.log(`DATA_BASE_DIR: ${DATA_BASE_DIR}`)
 
