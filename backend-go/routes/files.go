@@ -114,9 +114,10 @@ func getDrives(c echo.Context) error {
 	homeDrive := types.Drive{Label: "Home", Path: home}
 	var list []types.Drive
 	if strings.EqualFold(os.Getenv("OS"), "Windows_NT") || runtime.GOOS == "windows" {
-		for _, d := range utils.GetWindowsDrives() {
-			list = append(list, types.Drive{Label: d, Path: d})
-		}
+	// 此时 d 直接就是 types.Drive 对象了
+	for _, d := range utils.GetWindowsDrives() {
+		list = append(list, d) 
+	}
 	} else {
 		for _, m := range utils.GetUnixMounts() {
 			list = append(list, types.Drive{Label: m, Path: m})

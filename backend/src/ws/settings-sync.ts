@@ -5,6 +5,7 @@ import type {
   WsErrorMessage,
 } from '@frontend/types/server.ts'
 import type { WebSocket } from 'ws'
+import type { SettingsStoreValue } from '@/utils/settings-store.ts'
 import fs from 'node:fs'
 import Path from 'node:path'
 import { getFrontendStorageFilePath } from '@/config/config.ts'
@@ -14,7 +15,7 @@ import {
   getSettingsValue,
   reloadSettingsStore,
   setSettingsValue,
-  type SettingsStoreValue,
+
 } from '@/utils/settings-store.ts'
 
 const SETTINGS_WATCH_DEBOUNCE_MS = 200
