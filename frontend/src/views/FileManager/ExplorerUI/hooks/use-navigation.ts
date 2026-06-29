@@ -16,6 +16,7 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
   const basePathNormalized = computed(() => normalizeListingPath(basePath.value))
   const isLoading = ref(false)
   const navigationHistory = ref<NavigationHistory | null>(null)
+  const highlightFolderName = ref<string | null>(null)
   let refreshController: AbortController | null = null
   let refreshSeq = 0
 
@@ -72,8 +73,11 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     if (!hist) {
       return
     }
+    const currentSegments = basePath.value.split('/').filter(i => !!i)
+    highlightFolderName.value = currentSegments[currentSegments.length - 1] || null
     const item = hist.back()
     if (!item?.path) {
+      highlightFolderName.value = null
       return
     }
     await handleOpenPath(item.path, false)
@@ -110,6 +114,7 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
       return
     }
     const arr = basePath.value.split('/').filter(i => !!i)
+    highlightFolderName.value = arr[arr.length - 1] || null
     arr.pop()
     if (!arr.length && !isUnix.value) {
       await handleRefresh()
@@ -178,6 +183,7 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     basePath,
     toggleStar,
     isStared,
+    highlightFolderName,
   }
 }
 

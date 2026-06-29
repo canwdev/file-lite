@@ -52,6 +52,7 @@ const {
   basePath,
   toggleStar,
   isStared,
+  highlightFolderName,
 } = useNavigation({
   getListFn: async ({ signal } = {}) => {
     const res = await fsWebApi.getList({
@@ -129,6 +130,15 @@ function clearFilter() {
 }
 
 watch(basePathNormalized, () => clearFilter())
+
+watch(isLoading, async (loading) => {
+  if (!loading && highlightFolderName.value) {
+    await nextTick()
+    const name = highlightFolderName.value
+    highlightFolderName.value = null
+    fileListRef.value?.selectByNames([name])
+  }
+})
 
 async function runWithFileListAtPath(targetBasePath: string, action: (fileList: any) => void) {
   const normalizedTargetPath = normalizeListingPath(targetBasePath)
