@@ -31,6 +31,9 @@ function createDefaultSettingsStore() {
     appSingleInstance: true,
     rememberLastMedia: false,
     showHidden: false,
+    isGridView: false,
+    iconSizeList: 16,
+    iconSizeGrid: 48,
   }
 }
 

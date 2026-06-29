@@ -5,6 +5,7 @@ import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
+import { enableEruda } from '@/utils/debug'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import FileManager from '@/views/FileManager/FileManager.vue'
@@ -125,7 +126,13 @@ function showMenu(event: MouseEvent) {
               },
             ],
           },
-
+          {
+            label: 'Enable Debug',
+            icon: enableEruda.value ? 'mdi mdi-check' : '',
+            onClick: () => {
+              enableEruda.value = !enableEruda.value
+            },
+          },
         ],
       },
       {

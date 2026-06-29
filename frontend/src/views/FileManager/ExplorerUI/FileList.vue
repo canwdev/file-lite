@@ -57,9 +57,6 @@ useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 interface PathState {
   position?: number
   sortMode?: SortType
-  isGridView?: boolean
-  iconSizeList?: number
-  iconSizeGrid?: number
 }
 
 // 缓存路径状态（持久化）
@@ -84,9 +81,18 @@ function pathStateRef<K extends keyof PathState>(key: K, defaultVal: NonNullable
 }
 
 const sortMode = pathStateRef('sortMode', SortType.default)
-const isGridView = pathStateRef('isGridView', false)
-const iconSizeList = pathStateRef('iconSizeList', 16)
-const iconSizeGrid = pathStateRef('iconSizeGrid', 48)
+const isGridView = computed({
+  get: () => settingsStore.value.isGridView,
+  set: (val: boolean) => { settingsStore.value.isGridView = val },
+})
+const iconSizeList = computed({
+  get: () => settingsStore.value.iconSizeList,
+  set: (val: number) => { settingsStore.value.iconSizeList = val },
+})
+const iconSizeGrid = computed({
+  get: () => settingsStore.value.iconSizeGrid,
+  set: (val: number) => { settingsStore.value.iconSizeGrid = val },
+})
 const showHidden = computed({
   get: () => settingsStore.value.showHidden,
   set: (val: boolean) => { settingsStore.value.showHidden = val },
