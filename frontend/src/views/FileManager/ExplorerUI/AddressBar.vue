@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [string]
-  'navigate': [string]
+  'navigate': [string, string | null]
   'openPathInNewTab': [string]
   'refresh': []
 }>()
@@ -121,7 +121,7 @@ function commitFromEdit(opts?: { refreshIfUnchanged?: boolean }) {
   }
   // Emit navigate before v-model so the parent still sees the old path when
   // handleOpenPath compares; otherwise basePath updates first and refresh is skipped.
-  emit('navigate', next)
+  emit('navigate', next, null)
   emit('update:modelValue', next)
 }
 
@@ -136,7 +136,15 @@ function onCrumbClick(path: string) {
   if (normalizeListingPath(path) === normalizeListingPath(props.modelValue)) {
     return
   }
-  emit('navigate', path)
+  // Highlight the folder name that's the direct child of the clicked parent path
+  let highlightName: string | null = null
+  const currentNormalized = normalizeListingPath(props.modelValue)
+  const targetNormalized = normalizeListingPath(path)
+  if (currentNormalized.startsWith(targetNormalized) && currentNormalized !== targetNormalized) {
+    const remaining = currentNormalized.slice(targetNormalized.length)
+    highlightName = remaining.split('/').filter(Boolean)[0] || null
+  }
+  emit('navigate', path, highlightName)
 }
 
 function showCrumbMenu(path: string, event: MouseEvent) {

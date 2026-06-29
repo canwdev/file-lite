@@ -364,7 +364,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             <AddressBar
               ref="addressBarRef"
               v-model="addressBarPath"
-              @navigate="handleOpenPath"
+              @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
               @open-path-in-new-tab="openPathInNewTab"
               @refresh="debounceHandleRefresh"
             />
