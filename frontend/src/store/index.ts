@@ -30,6 +30,7 @@ function createDefaultSettingsStore() {
     colorTheme: '',
     appSingleInstance: true,
     rememberLastMedia: false,
+    showHidden: false,
   }
 }
 

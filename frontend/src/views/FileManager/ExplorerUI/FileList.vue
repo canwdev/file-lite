@@ -8,6 +8,7 @@ import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced 
 import { computed, h, nextTick, toRefs, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { settingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
@@ -20,9 +21,9 @@ import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
-import { useSystemClipboardPaste } from './hooks/use-system-clipboard-paste'
 import { useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
+import { useSystemClipboardPaste } from './hooks/use-system-clipboard-paste'
 import { useTransfer } from './hooks/use-transfer'
 import { useVirtualGrid, useVirtualList } from './hooks/use-virtual-files'
 
@@ -57,7 +58,6 @@ interface PathState {
   position?: number
   sortMode?: SortType
   isGridView?: boolean
-  showHidden?: boolean
   iconSizeList?: number
   iconSizeGrid?: number
 }
@@ -85,9 +85,12 @@ function pathStateRef<K extends keyof PathState>(key: K, defaultVal: NonNullable
 
 const sortMode = pathStateRef('sortMode', SortType.default)
 const isGridView = pathStateRef('isGridView', false)
-const showHidden = pathStateRef('showHidden', false)
 const iconSizeList = pathStateRef('iconSizeList', 16)
 const iconSizeGrid = pathStateRef('iconSizeGrid', 48)
+const showHidden = computed({
+  get: () => settingsStore.value.showHidden,
+  set: (val: boolean) => { settingsStore.value.showHidden = val },
+})
 const isGridMode = computed(() => isGridView.value || props.gridView)
 
 const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
