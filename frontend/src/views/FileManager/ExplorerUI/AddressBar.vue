@@ -255,7 +255,7 @@ defineExpose({
 <style scoped lang="scss">
 .address-bar {
   flex: 1;
-  min-width: 0;
+  min-width: 100px;
   height: 26px;
   display: flex;
   align-items: stretch;

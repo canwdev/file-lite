@@ -114,7 +114,7 @@ defineExpose({
 <style lang="scss" scoped>
 .filter-bar {
   position: relative;
-  flex: 0 1 260px;
+  flex: 0 1 200px;
   height: 26px;
   min-width: 0;
   border-radius: var(--vgo-radius);

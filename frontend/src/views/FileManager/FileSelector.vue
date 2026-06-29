@@ -1,4 +1,5 @@
 <script lang="ts" setup="">
+import type { IEntry } from '@/types/server'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
@@ -9,21 +10,27 @@ const props = withDefaults(
     // 文件选择器允许多选
     multiple?: boolean
     showButton?: boolean
+    autoShow?: boolean
   }>(),
   {
     selectFileMode: 'file',
-    showButton: true,
+    showButton: false,
     multiple: false,
+    autoShow: false,
   },
 )
-const emit = defineEmits(['handleSelect'])
-const { selectFileMode, multiple } = toRefs(props)
+const emit = defineEmits<{
+  handleSelect: [item: { items: IEntry[], item: IEntry, basePath: string }]
+  close: []
+  open: []
+}>()
+const { selectFileMode, multiple, autoShow } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
-function handleSelect(val: unknown) {
+function handleSelect(item: { items: IEntry[], item: IEntry, basePath: string }) {
   isShowFileSelectWindow.value = false
-  emit('handleSelect', val)
+  emit('handleSelect', item)
 }
 
 const actionLabel = computed(() => {
@@ -32,6 +39,21 @@ const actionLabel = computed(() => {
       ? 'Open Files...'
       : 'Open File...'
     : 'Open Folder...'
+})
+
+onMounted(() => {
+  if (autoShow.value) {
+    isShowFileSelectWindow.value = true
+  }
+})
+
+watch(isShowFileSelectWindow, (newVal) => {
+  if (!newVal) {
+    emit('close')
+  }
+  else {
+    emit('open')
+  }
 })
 
 defineExpose({

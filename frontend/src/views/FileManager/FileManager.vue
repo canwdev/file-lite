@@ -30,7 +30,10 @@ const props = withDefaults(
     contentOnly: false,
   },
 )
-const emit = defineEmits(['handleSelect', 'cancelSelect'])
+const emit = defineEmits<{
+  handleSelect: [val: { items: IEntry[], item: IEntry, basePath: string }]
+  cancelSelect: []
+}>()
 const { selectFileMode, multiple } = toRefs(props)
 const rootRef = ref()
 const route = useRoute()

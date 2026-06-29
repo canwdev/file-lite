@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { Option, SettingOption } from 'artplayer'
 import type { Ref } from 'vue'
+import type { IEntry } from '@/types/server'
 import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { fsWebApi } from '@/api/filesystem'
 import { LsKeys } from '@/enum'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
+import FileSelector from '@/views/FileManager/FileSelector.vue'
 
 interface Props {
   src: string
@@ -83,6 +86,8 @@ function inferSubtitleType(filename: string): 'vtt' | 'srt' | 'ass' {
 const artRef = ref<HTMLDivElement | null>(null)
 const videoFileInputRef = ref<HTMLInputElement | null>(null)
 const subtitleFileInputRef = ref<HTMLInputElement | null>(null)
+const isShowFileSelector = ref<boolean>(false)
+const fileSelectorType = ref<'subtitle' | 'video'>('video')
 // 使用 shallowRef 避免 Vue 深度代理复杂的第三方类实例，提升性能
 const artInstance = shallowRef<Artplayer | null>(null)
 const videoObjectUrl = ref<string | null>(null)
@@ -200,11 +205,27 @@ onMounted(() => {
         },
       },
       {
+        name: 'custom-open-server-video',
+        html: 'Open server video…',
+        onClick() {
+          fileSelectorType.value = 'video'
+          isShowFileSelector.value = true
+        },
+      },
+      {
         name: 'custom-load-local-subtitle',
         html: 'Load local subtitle…',
         // tooltip: 'VTT, SRT, or ASS',
         onClick() {
           subtitleFileInputRef.value?.click()
+        },
+      },
+      {
+        name: 'custom-load-subtitle',
+        html: 'Load server subtitle…',
+        onClick() {
+          fileSelectorType.value = 'subtitle'
+          isShowFileSelector.value = true
         },
       },
       ...(Array.isArray(extraSettings) ? extraSettings : []),
@@ -291,6 +312,30 @@ onBeforeUnmount(() => {
   artInstance.value?.destroy(false)
 })
 
+function handleVideoSelect(val: { items: IEntry[], item: IEntry, basePath: string }) {
+  const inst = artInstance.value
+  if (!inst)
+    return
+  revokeBlobRef(videoObjectUrl)
+  const url = fsWebApi.getStreamUrl(`${val.basePath}/${val.item.name}`)
+  videoObjectUrl.value = null
+  void inst.switchUrl(url).catch(console.error)
+}
+
+function handleFileSelect(val: { items: IEntry[], item: IEntry, basePath: string }) {
+  const inst = artInstance.value
+  if (!inst)
+    return
+  if (fileSelectorType.value === 'video') {
+    handleVideoSelect(val)
+    return
+  }
+  const url = fsWebApi.getStreamUrl(`${val.basePath}/${val.item.name}`)
+  inst.subtitle.switch(url, {
+    name: val.item.name,
+    type: inferSubtitleType(val.item.name),
+  })
+}
 /**
  * `art`：供 NativeOrArtVideo / PlayerCore 等统一控制播放、取 `art.video` 做 HTML 事件同步。
  */
@@ -316,6 +361,13 @@ defineExpose({
       @change="onLocalSubtitlePicked"
     >
     <div ref="artRef" class="v-artplayer-container" />
+    <FileSelector
+      v-if="isShowFileSelector"
+      select-file-mode="file"
+      auto-show
+      @handle-select="handleFileSelect"
+      @close="isShowFileSelector = false"
+    />
   </div>
 </template>
 
