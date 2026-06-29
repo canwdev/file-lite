@@ -12,9 +12,10 @@ export const PREVIEW_SIZE_UNLIMITED = -1
 
 export const previewSizeOptions = [
   { label: 'Disabled', value: 0 },
-  { label: '≤ 3 MB', value: 3 * MB },
-  { label: '≤ 6 MB', value: 6 * MB },
-  { label: '≤ 20 MB', value: 20 * MB },
+  { label: '≤ 2 MB', value: 2 * MB }, // 满足绝大多数压缩后的 Web 图片
+  { label: '≤ 5 MB', value: 5 * MB }, // 绝大多数手机直拍原图
+  { label: '≤ 10 MB', value: 10 * MB }, // 高清单反照片或大单页 GIF
+  { label: '≤ 20 MB', value: 20 * MB }, // 极限挡位，照顾专业需求
   { label: 'Unlimited', value: PREVIEW_SIZE_UNLIMITED },
 ] as const
 

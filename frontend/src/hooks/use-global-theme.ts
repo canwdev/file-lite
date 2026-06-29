@@ -8,7 +8,7 @@ export enum ThemeMode {
 }
 
 export const menuThemeOptions = reactive({
-  theme: 'flat dark',
+  theme: 'mac dark',
   // menuTransitionProps: {
   //   name: 'mx-fade',
   // },
@@ -147,11 +147,11 @@ export function useGlobalTheme() {
       if (val) {
         // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
         document.documentElement.classList.add('dark')
-        menuThemeOptions.theme = 'flat dark'
+        menuThemeOptions.theme = 'mac dark'
       }
       else {
         document.documentElement.classList.remove('dark')
-        menuThemeOptions.theme = 'flat'
+        menuThemeOptions.theme = 'mac'
       }
     },
     { immediate: true },
