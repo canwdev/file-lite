@@ -11,6 +11,8 @@ const props = withDefaults(
     multiple?: boolean
     showButton?: boolean
     autoShow?: boolean
+    // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"，仅对 selectFileMode='file' 有效
+    fileFilterPattern?: string
   }>(),
   {
     selectFileMode: 'file',
@@ -24,7 +26,7 @@ const emit = defineEmits<{
   close: []
   open: []
 }>()
-const { selectFileMode, multiple, autoShow } = toRefs(props)
+const { selectFileMode, multiple, autoShow, fileFilterPattern } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
@@ -80,10 +82,11 @@ defineExpose({
       }"
     >
       <template #titleBarLeft>
-        {{ actionLabel }}
+        {{ actionLabel }}: {{ fileFilterPattern }}
       </template>
       <FileManager
         v-if="isShowFileSelectWindow" :select-file-mode="selectFileMode" :multiple="multiple"
+        :file-filter-pattern="fileFilterPattern"
         @cancel-select="isShowFileSelectWindow = false" @handle-select="handleSelect"
       />
     </ViewPortWindow>

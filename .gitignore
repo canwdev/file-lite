@@ -40,3 +40,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 data/
 file-lite/
+
+reasonix.toml
+/.reasonix

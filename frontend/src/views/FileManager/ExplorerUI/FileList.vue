@@ -110,6 +110,7 @@ const filteredFiles = computed(() => {
   if (!filterValue.regex) {
     const needle = filterValue.caseSensitive ? search : search.toLowerCase()
     return sortedFiles.value.filter((item) => {
+      if (item.isDirectory) return true
       const name = filterValue.caseSensitive ? item.name : item.name.toLowerCase()
       return name.includes(needle)
     })
@@ -117,7 +118,7 @@ const filteredFiles = computed(() => {
 
   try {
     const reg = new RegExp(search, filterValue.caseSensitive ? '' : 'i')
-    return sortedFiles.value.filter(item => reg.test(item.name))
+    return sortedFiles.value.filter(item => item.isDirectory || reg.test(item.name))
   }
   catch {
     return []

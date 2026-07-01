@@ -24,6 +24,8 @@ const props = withDefaults(
     multiple?: boolean
     // 只展示内容
     contentOnly?: boolean
+    // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"
+    fileFilterPattern?: string
   }>(),
   {
     multiple: false,
@@ -132,7 +134,23 @@ function clearFilter() {
   }
 }
 
-watch(basePathNormalized, () => clearFilter())
+watch(basePathNormalized, () => {
+  if (!props.fileFilterPattern) {
+    clearFilter()
+  }
+})
+
+watch(() => props.fileFilterPattern, (pattern) => {
+  if (pattern) {
+    filterState.value = {
+      text: pattern,
+      regex: true,
+      caseSensitive: false,
+    }
+  }
+}, {
+  immediate: true,
+})
 
 watch(isLoading, async (loading) => {
   if (!loading && highlightFolderName.value) {

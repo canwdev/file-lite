@@ -365,6 +365,7 @@ defineExpose({
       v-if="isShowFileSelector"
       select-file-mode="file"
       auto-show
+      :file-filter-pattern="fileSelectorType === 'video' ? '\\.(mp4|webm|mkv|ogg|m4v)$' : '\\.(vtt|srt|ass|ssa)$'"
       @handle-select="handleFileSelect"
       @close="isShowFileSelector = false"
     />
