@@ -209,22 +209,12 @@ body,
   }
 }
 
-.mx-context-menu-item {
-  &:hover {
-    background-color: var(--vgo-primary) !important;
-  }
-
-  &.open {
-    &:hover {
-      background-color: var(--vgo-primary) !important;
-    }
-  }
-
+.mx-menu-bar.mac, .mx-context-menu.mac {
+  --mx-menu-hover-backgroud: var(--vgo-primary) !important;
+  --mx-menu-active-backgroud: var(--vgo-primary) !important;
+  --mx-menu-open-hover-backgroud: var(--vgo-primary) !important;
+  --mx-menu-open-backgroud: var(--vgo-primary-opacity) !important;
 }
-
-// .mx-context-menu.dark {
-//   --mx-menu-backgroud: #1F1F1F !important;
-// }
 
 .mx-context-menu {
   $size: 10px;
@@ -242,15 +232,44 @@ body,
 
 
 // element 样式覆盖
-.el-splitter-bar__dragger-horizontal:after,
-.el-splitter-bar__dragger-horizontal:before {
-  width: 0.5px !important;
-  background-color: var(--vgo-color-border) !important;
+// lazy 模式会同时渲染 ::before/::after（默认各 2px 且叠在一起），视觉上偏粗；Firefox 不稳定渲染 0.5px。将改为 1px，并在非拖拽时隐藏 ::after。
+.el-splitter-bar__dragger-horizontal {
+  &::before,
+  &::after {
+    width: 1px !important;
+    background-color: var(--vgo-color-border) !important;
+  }
+
+  &::after {
+    display: none !important;
+  }
 }
 
-.el-splitter-bar__dragger-active:after,
-.el-splitter-bar__dragger-active:before {
-  background-color: var(--vgo-primary) !important;
+.el-splitter-bar__dragger-vertical {
+  &::before,
+  &::after {
+    height: 1px !important;
+    background-color: var(--vgo-color-border) !important;
+  }
+
+  &::after {
+    display: none !important;
+  }
+}
+
+.el-splitter-bar__dragger-active {
+  &.el-splitter-bar__dragger-horizontal,
+  &.el-splitter-bar__dragger-vertical {
+    &::before,
+    &::after {
+      background-color: var(--vgo-primary) !important;
+    }
+
+    &::after {
+      display: block !important;
+      opacity: 1 !important;
+    }
+  }
 }
 
 .el-image-viewer__prev {

@@ -547,30 +547,31 @@ function handleShortcutKey(event: KeyboardEvent) {
       }
 
       &-stack {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
         flex: 1;
+        width: 100%;
         min-width: 0;
         gap: 4px;
         font-size: 14px;
 
         @media screen and (max-width: $mq_mobile_width) {
+          display: flex;
           flex-direction: column;
           align-items: stretch;
           gap: 6px;
-          width: 100%;
         }
       }
 
       &-path {
         display: flex;
         align-items: center;
-        flex: 1;
         min-width: 0;
+        overflow: hidden;
         gap: 4px;
 
         @media screen and (max-width: $mq_mobile_width) {
-          flex: none;
           width: 100%;
         }
       }
@@ -578,14 +579,12 @@ function handleShortcutKey(event: KeyboardEvent) {
       &-filters {
         display: flex;
         align-items: center;
-        flex-shrink: 0;
+        justify-self: end;
+        min-width: 0;
         gap: 4px;
 
         @media screen and (max-width: $mq_mobile_width) {
-          flex-shrink: 1;
-          min-width: 0;
           width: 100%;
-
         }
       }
     }

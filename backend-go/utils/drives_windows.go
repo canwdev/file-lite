@@ -1,29 +1,24 @@
+//go:build windows
+
 package utils
 
 import (
-	"file-lite-go/types"
-	"bufio"
 	"fmt"
-	"os"
-	"runtime"
-	"strings"
 	"sort"
 	"syscall"
 	"unsafe"
+
+	"file-lite-go/types"
 )
 
 var (
-	modkernel32             = syscall.NewLazyDLL("kernel32.dll")
-	procGetDiskFreeSpaceExW = modkernel32.NewProc("GetDiskFreeSpaceExW")
-	procGetVolumeInformationW = modkernel32.NewProc("GetVolumeInformationW")
+	modkernel32                 = syscall.NewLazyDLL("kernel32.dll")
+	procGetDiskFreeSpaceExW     = modkernel32.NewProc("GetDiskFreeSpaceExW")
+	procGetVolumeInformationW   = modkernel32.NewProc("GetVolumeInformationW")
 	procGetLogicalDriveStringsW = modkernel32.NewProc("GetLogicalDriveStringsW")
 )
 
 func GetWindowsDrives() []types.Drive {
-	if runtime.GOOS != "windows" {
-		return []types.Drive{}
-	}
-
 	// 1. 获取所有盘符字符串 (返回类似 "C:\\0D:\\0")
 	buf := make([]uint16, 254)
 	r1, _, _ := procGetLogicalDriveStringsW.Call(uintptr(len(buf)), uintptr(unsafe.Pointer(&buf[0])))
@@ -39,7 +34,7 @@ func GetWindowsDrives() []types.Drive {
 		}
 		pathW := buf[i:]
 		path := syscall.UTF16ToString(pathW) // 例如 "C:\"
-		letter := path[:1]                  // 提取 "C"
+		letter := path[:1]                   // 提取 "C"
 		i += len(path) + 1
 
 		// 2. 获取卷标 (FileSystemLabel)
@@ -81,24 +76,5 @@ func GetWindowsDrives() []types.Drive {
 }
 
 func GetUnixMounts() []string {
-	f, err := os.Open("/proc/mounts")
-	if err != nil {
-		return []string{"/"}
-	}
-	defer f.Close()
-	var mounts []string
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		parts := strings.Fields(s.Text())
-		if len(parts) >= 2 {
-			m := parts[1]
-			if strings.HasPrefix(m, "/") {
-				mounts = append(mounts, m)
-			}
-		}
-	}
-	if len(mounts) == 0 {
-		mounts = []string{"/"}
-	}
-	return mounts
+	return []string{"/"}
 }

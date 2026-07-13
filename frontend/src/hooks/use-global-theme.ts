@@ -7,8 +7,10 @@ export enum ThemeMode {
   Dark = 'dark',
 }
 
+// https://docs.imengyu.top/vue3-context-menu-docs/en/guide/theme.html
+const mxContextMenuTheme = 'mac' // mac,win10,flat,default
 export const menuThemeOptions = reactive({
-  theme: 'mac dark',
+  theme: `${mxContextMenuTheme} dark`,
   // menuTransitionProps: {
   //   name: 'mx-fade',
   // },
@@ -147,11 +149,11 @@ export function useGlobalTheme() {
       if (val) {
         // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
         document.documentElement.classList.add('dark')
-        menuThemeOptions.theme = 'mac dark'
+        menuThemeOptions.theme = `${mxContextMenuTheme} dark`
       }
       else {
         document.documentElement.classList.remove('dark')
-        menuThemeOptions.theme = 'mac'
+        menuThemeOptions.theme = mxContextMenuTheme
       }
     },
     { immediate: true },

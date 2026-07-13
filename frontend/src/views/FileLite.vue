@@ -4,12 +4,15 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
+import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { enableEruda } from '@/utils/debug'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
+
+const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
 
 const internalTextSyncEntry: IEntry = {
   name: 'TextSync',
@@ -157,6 +160,16 @@ function showMenu(event: MouseEvent) {
             basePath: '',
             list: [],
           })
+        },
+      },
+      {
+        label: isWakeLockSupported.value
+          ? `Wake Lock: ${isWakeLockActive.value ? 'On' : 'Off'}`
+          : 'Wake Lock (unsupported)',
+        icon: isWakeLockActive.value ? 'mdi mdi-check' : 'mdi mdi-monitor-eye',
+        disabled: !isWakeLockSupported.value,
+        onClick: () => {
+          toggleWakeLock()
         },
       },
       {

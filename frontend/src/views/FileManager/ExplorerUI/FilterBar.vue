@@ -114,7 +114,8 @@ defineExpose({
 <style lang="scss" scoped>
 .filter-bar {
   position: relative;
-  flex: 0 1 200px;
+  flex: none;
+  width: 200px;
   height: 26px;
   min-width: 0;
   border-radius: var(--vgo-radius);
@@ -122,6 +123,7 @@ defineExpose({
 
   @media screen and (max-width: $mq_mobile_width) {
     flex: 1 1 auto;
+    width: auto;
     min-width: 0;
   }
 
@@ -142,6 +144,7 @@ defineExpose({
 
 .input-filter {
   width: 100%;
+  min-width: 0;
   line-height: 1;
   padding: 4px 82px 4px 28px;
   height: 26px;
