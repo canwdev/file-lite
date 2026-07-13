@@ -30,6 +30,7 @@ func registerFiles(g *echo.Group) {
 	g.POST("/rename", func(c echo.Context) error { return renamePath(c) })
 	g.POST("/copy-paste", func(c echo.Context) error { return copyPastePath(c) })
 	g.POST("/delete", func(c echo.Context) error { return deletePath(c) })
+	g.POST("/open-in-host-explorer", func(c echo.Context) error { return openInHostExplorer(c) })
 	g.GET("/stream", func(c echo.Context) error { return getFileStream(c) })
 	g.HEAD("/stream", func(c echo.Context) error { return getFileStream(c) })
 	g.GET("/download", func(c echo.Context) error { return downloadPath(c) })
@@ -362,6 +363,47 @@ func deletePath(c echo.Context) error {
 		_ = os.RemoveAll(p)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"path": v})
+}
+
+func openInHostExplorer(c echo.Context) error {
+	var body struct {
+		Paths any `json:"paths"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
+	}
+
+	var paths []string
+	switch t := body.Paths.(type) {
+	case string:
+		if t != "" {
+			paths = []string{t}
+		}
+	case []any:
+		for _, i := range t {
+			if s, ok := i.(string); ok && s != "" {
+				paths = append(paths, s)
+			}
+		}
+	}
+
+	if len(paths) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "paths parameter is required"})
+	}
+
+	for _, p := range paths {
+		if !isPathSafe(p) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe: " + p})
+		}
+		if !isExist(p) {
+			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found: " + p})
+		}
+	}
+
+	if err := utils.RevealInHostExplorer(paths); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"paths": paths})
 }
 
 func getFileStream(c echo.Context) error {

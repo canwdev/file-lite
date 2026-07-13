@@ -81,6 +81,7 @@ air
 - `POST /files/rename`：重命名
 - `POST /files/copy-paste`：复制/移动
 - `POST /files/delete`：删除
+- `POST /files/open-in-host-explorer`：在系统资源管理器中打开并选中
 - `GET /files/stream?path=`：文件内联预览
 - `GET /files/download?path=` 或 `paths[]=`：下载或打包
 - `POST /files/upload-file`：`form-data` 字段 `file`

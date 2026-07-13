@@ -12,6 +12,7 @@ import multer from 'multer'
 import nodeDiskInfo from 'node-disk-info'
 import { internalConfig, normalizePath } from '@/config/config.ts'
 import { getWindowsDrives } from '@/utils/get-drives.ts'
+import { revealInHostExplorer } from '@/utils/reveal-in-host-explorer.ts'
 import { sanitize, sanitizeAttachmentFilename } from '@/utils/sanitize-filename.ts'
 
 const READ_DIR_STAT_CONCURRENCY = 64
@@ -302,6 +303,32 @@ export async function copyPastePath(req: Request, res: Response) {
   }
   catch (err: any) {
     return res.status(400).json({ message: err.message || 'Operation failed' })
+  }
+}
+
+export async function openInHostExplorer(req: Request, res: Response) {
+  const { paths } = req.body as { paths?: string | string[] }
+  const pathsToReveal = (Array.isArray(paths) ? paths : paths ? [paths] : []).filter(Boolean)
+
+  if (pathsToReveal.length === 0) {
+    return res.status(400).json({ message: 'paths parameter is required' })
+  }
+
+  try {
+    for (const p of pathsToReveal) {
+      if (!isPathSafe(p)) {
+        return res.status(400).json({ message: `Path is not safe: ${p}` })
+      }
+      if (!(await isExist(p))) {
+        return res.status(404).json({ message: `Path not found: ${p}` })
+      }
+    }
+
+    await revealInHostExplorer(pathsToReveal)
+    return res.json({ paths: pathsToReveal })
+  }
+  catch (err: any) {
+    return res.status(500).json({ message: err.message || 'Failed to open in host explorer' })
   }
 }
 

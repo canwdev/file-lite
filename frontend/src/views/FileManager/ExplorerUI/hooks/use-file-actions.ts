@@ -220,6 +220,12 @@ export function useFileActions({
     copyWithToast(selectedPaths.value.join('\n'))
   }
 
+  const handleOpenInHostExplorer = async () => {
+    if (!selectedPaths.value.length)
+      return
+    await fsWebApi.openInHostExplorer({ paths: selectedPaths.value })
+  }
+
   const confirmDelete = () => {
     if (!selectedPaths.value.length) {
       return
@@ -358,6 +364,12 @@ export function useFileActions({
       { label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut },
       { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy },
       { label: 'More', icon: '', divided: true, children: [
+
+        {
+          label: 'Open in Host Explorer',
+          icon: 'mdi mdi-folder-outline',
+          onClick: handleOpenInHostExplorer,
+        },
         {
           label: 'Copy Path(s)',
           icon: 'mdi mdi-clipboard-text-outline',

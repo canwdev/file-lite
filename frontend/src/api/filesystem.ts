@@ -49,6 +49,9 @@ export const fsWebApi = {
   deleteEntry(params: { path: string[] }) {
     return service.post(`${baseURL}/delete`, params)
   },
+  openInHostExplorer(params: { paths: string[] }) {
+    return service.post(`${baseURL}/open-in-host-explorer`, params)
+  },
   getDownloadUrl(paths: string[]) {
     if (paths.length === 1) {
       return `${baseURL}/download?path=${paths[0]}`

@@ -8,6 +8,7 @@ import {
   getFiles,
   getFileStream,
   multerUpload,
+  openInHostExplorer,
   renamePath,
 } from '@/routes/files/controller'
 
@@ -22,6 +23,7 @@ filesRouter.post('/create-dir', createDirectory)
 filesRouter.post('/rename', renamePath)
 filesRouter.post('/copy-paste', copyPastePath)
 filesRouter.post('/delete', deletePath)
+filesRouter.post('/open-in-host-explorer', openInHostExplorer)
 
 filesRouter.get('/stream', getFileStream)
 filesRouter.get('/download', downloadPath)
