@@ -125,7 +125,7 @@ export function loadConfig({ allowCreate = false }: { allowCreate?: boolean } = 
   const configFilePath = Path.resolve(DATA_BASE_DIR, 'config.json')
 
   const configFileExists = fs.existsSync(configFilePath)
-  let config: IConfig = configFileExists
+  const config: IConfig = configFileExists
     ? JSON.parse(fs.readFileSync(configFilePath, 'utf-8'))
     : getInitConfig()
   internalConfig.configFilePath = configFilePath

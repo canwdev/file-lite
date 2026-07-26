@@ -20,8 +20,7 @@ const activeTab = computed({
     activeTabStored.value = v
   },
 })
-const passwordInput = ref('')
-const ticketInput = ref('')
+const inputValue = ref('')
 const isSubmitting = ref(false)
 const rememberLogin = computed({
   get: () => Boolean(rememberAuth.value),
@@ -29,6 +28,8 @@ const rememberLogin = computed({
     rememberAuth.value = value
   },
 })
+
+const inputPlaceholder = computed(() => activeTab.value === 'password' ? 'Input password' : 'Input ticket')
 
 async function finishLogin(res: { token: string }) {
   authToken.value = res.token
@@ -41,12 +42,15 @@ async function finishLogin(res: { token: string }) {
   }
 }
 
-async function confirmPassword() {
+async function doSubmit() {
   if (isSubmitting.value)
     return
   isSubmitting.value = true
   try {
-    await finishLogin(await fsWebApi.login(passwordInput.value))
+    if (activeTab.value === 'password')
+      await finishLogin(await fsWebApi.login(inputValue.value))
+    else
+      await finishLogin(await fsWebApi.consumeTicket(inputValue.value))
   }
   catch (error) {
     console.error(error)
@@ -56,38 +60,18 @@ async function confirmPassword() {
   }
 }
 
-async function confirmTicket() {
-  if (isSubmitting.value)
-    return
-  isSubmitting.value = true
-  try {
-    await finishLogin(await fsWebApi.consumeTicket(ticketInput.value))
-  }
-  catch (error) {
-    console.error(error)
-  }
-  finally {
-    isSubmitting.value = false
-  }
-}
-
-const passwordInputRef = ref<InputInstance>()
-const ticketInputRef = ref<InputInstance>()
+const inputRef = ref<InputInstance>()
 
 function focusActiveTabInput() {
   nextTick(() => {
-    if (activeTab.value === 'password')
-      passwordInputRef.value?.focus()
-    else
-      ticketInputRef.value?.focus()
+    inputRef.value?.focus()
   })
 }
 
 watch(activeTabStored, focusActiveTabInput)
 
 onMounted(async () => {
-  passwordInput.value = ''
-  ticketInput.value = ''
+  inputValue.value = ''
   focusActiveTabInput()
 })
 </script>
@@ -109,30 +93,19 @@ onMounted(async () => {
         </div>
       </div>
       <el-tabs v-model="activeTab" class="login-tabs">
-        <el-tab-pane label="Password" name="password">
-          <div class="login-form">
-            <el-input
-              ref="passwordInputRef" v-model="passwordInput" type="password" clearable show-password
-              size="large" placeholder="Input password" @keyup.enter="confirmPassword"
-            />
-            <el-button type="primary" size="large" :loading="isSubmitting" @click="confirmPassword">
-              Sign In
-            </el-button>
-          </div>
-        </el-tab-pane>
-        <el-tab-pane label="Ticket" name="ticket">
-          <div class="login-form">
-            <el-input
-              ref="ticketInputRef" v-model="ticketInput" type="password" clearable show-password size="large"
-              placeholder="Input ticket" @keyup.enter="confirmTicket"
-            />
-            <el-button type="primary" size="large" :loading="isSubmitting" @click="confirmTicket">
-              Sign In
-            </el-button>
-          </div>
-          <div class="login-tip" />
-        </el-tab-pane>
+        <el-tab-pane label="Password" name="password" />
+        <el-tab-pane label="Ticket" name="ticket" />
       </el-tabs>
+      <div class="login-form">
+        <el-input
+          ref="inputRef" v-model="inputValue" type="password" clearable show-password
+          size="large" :placeholder="inputPlaceholder" @keyup.enter="doSubmit"
+        />
+        <el-button type="primary" size="large" :loading="isSubmitting" @click="doSubmit">
+          Sign In
+        </el-button>
+      </div>
+      <div class="login-tip" />
       <div class="login-options">
         <el-checkbox v-model="rememberLogin" title="If unchecked, login status will be cleared when browser is closed">
           Remember login status

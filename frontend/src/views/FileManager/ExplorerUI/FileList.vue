@@ -64,7 +64,7 @@ const stateMap = useStorage<Record<string, PathState>>(
   LsKeys.EXPLORER_STATE_MAP,
   {},
   // 防止泄漏隐私，使用 sessionStorage 代替 localStorage
-  sessionStorage,
+  localStorage,
   { listenToStorageChanges: false },
 )
 
@@ -110,7 +110,8 @@ const filteredFiles = computed(() => {
   if (!filterValue.regex) {
     const needle = filterValue.caseSensitive ? search : search.toLowerCase()
     return sortedFiles.value.filter((item) => {
-      if (item.isDirectory) return true
+      if (item.isDirectory)
+        return true
       const name = filterValue.caseSensitive ? item.name : item.name.toLowerCase()
       return name.includes(needle)
     })
