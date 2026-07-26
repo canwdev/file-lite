@@ -120,6 +120,11 @@ func (s *settingsStoreState) ensureLoaded() error {
 	if s.loaded {
 		return nil
 	}
+	if !config.ConfigInitialized() {
+		s.cache = settingsStoreMap{}
+		s.loaded = true
+		return nil
+	}
 	store, err := readSettingsStoreFile()
 	if err != nil {
 		return err
@@ -130,6 +135,13 @@ func (s *settingsStoreState) ensureLoaded() error {
 }
 
 func readSettingsStoreFile() (settingsStoreMap, error) {
+	if !config.ConfigInitialized() {
+		if frontendSettingsStore.loaded {
+			return cloneSettingsStore(frontendSettingsStore.cache), nil
+		}
+		return settingsStoreMap{}, nil
+	}
+
 	content, err := os.ReadFile(config.FrontendStorageFilePath())
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -157,6 +169,9 @@ func normalizeSettingsStoreMap(value any) settingsStoreMap {
 }
 
 func persistSettingsStore(store settingsStoreMap) error {
+	if !config.ConfigInitialized() {
+		return nil
+	}
 	filePath := config.FrontendStorageFilePath()
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return fmt.Errorf("create frontend settings dir: %w", err)

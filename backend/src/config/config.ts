@@ -125,36 +125,27 @@ export function loadConfig({ allowCreate = false }: { allowCreate?: boolean } = 
   const configFilePath = Path.resolve(DATA_BASE_DIR, 'config.json')
 
   const configFileExists = fs.existsSync(configFilePath)
-  let config: IConfig
-  if (!configFileExists) {
-    const defaultConfig = getInitConfig()
-    if (allowCreate) {
-      fs.writeFileSync(configFilePath, JSON.stringify(defaultConfig, null, 2))
-    }
-    config = defaultConfig
-  }
-  else {
-    config = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'))
-  }
+  let config: IConfig = configFileExists
+    ? JSON.parse(fs.readFileSync(configFilePath, 'utf-8'))
+    : getInitConfig()
   internalConfig.configFilePath = configFilePath
-  internalConfig.configInitialized = fs.existsSync(configFilePath)
 
-  let shouldWriteConfig = false
+  let dirty = false
   if (!config.password) {
     config.password = generatePassword()
-    shouldWriteConfig = configFileExists
-  }
-
-  if (configFileExists && !config.jwtToken) {
-    config.jwtToken = generateJwtSecret()
-    shouldWriteConfig = true
+    dirty = true
   }
   if (!config.jwtToken) {
     config.jwtToken = generateJwtSecret()
+    dirty = true
   }
-  if (shouldWriteConfig) {
+
+  // Persist when file already exists (backfill) or explicitly creating config.
+  // Ephemeral mode (!allowCreate && !configFileExists): secrets stay in memory only.
+  if (dirty && (configFileExists || allowCreate)) {
     fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2))
   }
+  internalConfig.configInitialized = fs.existsSync(configFilePath)
 
   const safeBaseDir = config.safeBaseDir
     ? normalizePath(Path.resolve(config.safeBaseDir))
@@ -171,7 +162,12 @@ export function loadConfig({ allowCreate = false }: { allowCreate?: boolean } = 
 
   internalConfig.jwtToken = config.jwtToken
   internalConfig.authToken = createAuthJwt(config.jwtToken)
-  console.log(`password: Please check config file`)
+  if (internalConfig.configInitialized) {
+    console.log('password: please check config file')
+  }
+  else {
+    console.log('ephemeral mode: no config.json (use Ticket to sign in)')
+  }
 
   internalConfig.config = config
 }

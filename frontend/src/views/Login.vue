@@ -3,8 +3,7 @@ import type { InputInstance } from 'element-plus'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { LsKeys } from '@/enum'
-import { rememberAuth } from '@/store'
-import { authToken } from '@/store/auth'
+import { authToken, rememberAuth } from '@/store/auth'
 
 const router = useRouter()
 const route = useRoute()

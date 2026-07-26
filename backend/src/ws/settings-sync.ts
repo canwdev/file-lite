@@ -8,7 +8,7 @@ import type { WebSocket } from 'ws'
 import type { SettingsStoreValue } from '@/utils/settings-store.ts'
 import fs from 'node:fs'
 import Path from 'node:path'
-import { getFrontendStorageFilePath } from '@/config/config.ts'
+import { getFrontendStorageFilePath, internalConfig } from '@/config/config.ts'
 import {
   deleteSettingsValue,
   getAllSettingsValues,
@@ -66,6 +66,10 @@ export function createSettingsSyncController(options: SettingsSyncControllerOpti
   }
 
   function attachFrontendStorageWatcher() {
+    if (!internalConfig.configInitialized) {
+      return () => {}
+    }
+
     const filePath = getFrontendStorageFilePath()
     const dir = Path.dirname(filePath)
     const filename = Path.basename(filePath)
@@ -73,7 +77,9 @@ export function createSettingsSyncController(options: SettingsSyncControllerOpti
     let isReloading = false
     let hasPendingReload = false
 
-    fs.mkdirSync(dir, { recursive: true })
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
 
     async function reloadSettingsFromFile() {
       if (isReloading) {

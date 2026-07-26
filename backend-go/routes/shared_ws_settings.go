@@ -135,12 +135,17 @@ func startSharedWSFrontendStorageWatcher() {
 	if sharedWSSettingsWatcher.watcher != nil {
 		return
 	}
+	if !config.ConfigInitialized() {
+		return
+	}
 
 	filePath := config.FrontendStorageFilePath()
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		fmt.Println("Error creating frontend settings store dir:", err)
-		return
+	if _, err := os.Stat(dir); err != nil {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Println("Error creating frontend settings store dir:", err)
+			return
+		}
 	}
 
 	watcher, err := fsnotify.NewWatcher()

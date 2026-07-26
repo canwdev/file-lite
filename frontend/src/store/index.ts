@@ -1,10 +1,5 @@
-import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
-
-export const rememberAuth = useStorage(LsKeys.REMEMBER_AUTH, true, localStorage, {
-  listenToStorageChanges: true,
-})
 
 const MB = 1024 * 1024
 

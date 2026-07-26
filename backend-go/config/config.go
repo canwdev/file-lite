@@ -35,7 +35,7 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.4.0"
+const Version = "1.4.1"
 
 var cfg Cfg
 var dataBaseDir string
@@ -106,40 +106,26 @@ func LoadConfig(allowCreate bool) error {
 
 	configFileExists := false
 	if _, err := os.Stat(fp); err != nil {
-		if allowCreate {
-			b, _ := json.MarshalIndent(def, "", "  ")
-			_ = os.WriteFile(fp, b, 0644)
-			cfg = def
-			configInitialized = true
-		} else {
-			cfg = def
-			configInitialized = false
-		}
+		cfg = def
 	} else {
 		configFileExists = true
-		b, _ := os.ReadFile(fp)
+		b, err := os.ReadFile(fp)
+		if err != nil {
+			return fmt.Errorf("read config file %s: %w", fp, err)
+		}
 		if err := json.Unmarshal(b, &cfg); err != nil {
 			return fmt.Errorf("read config file %s: %w", fp, err)
 		}
-		configInitialized = true
 	}
 
-	shouldWriteConfig := false
+	dirty := false
 	if cfg.Password == "" {
 		password, err := generatePassword()
 		if err != nil {
 			return err
 		}
 		cfg.Password = password
-		shouldWriteConfig = configFileExists
-	}
-	if configFileExists && cfg.JWTToken == "" {
-		secret, err := generateJWTSecret()
-		if err != nil {
-			return err
-		}
-		cfg.JWTToken = secret
-		shouldWriteConfig = true
+		dirty = true
 	}
 	if cfg.JWTToken == "" {
 		secret, err := generateJWTSecret()
@@ -147,12 +133,24 @@ func LoadConfig(allowCreate bool) error {
 			return err
 		}
 		cfg.JWTToken = secret
+		dirty = true
 	}
-	if shouldWriteConfig {
-		b, _ := json.MarshalIndent(cfg, "", "  ")
+
+	// Persist when file already exists (backfill) or explicitly creating config.
+	// Ephemeral mode (!allowCreate && !configFileExists): secrets stay in memory only.
+	if dirty && (configFileExists || allowCreate) {
+		b, err := json.MarshalIndent(cfg, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
 		if err := os.WriteFile(fp, b, 0644); err != nil {
 			return fmt.Errorf("write config file %s: %w", fp, err)
 		}
+	}
+	if _, err := os.Stat(fp); err == nil {
+		configInitialized = true
+	} else {
+		configInitialized = false
 	}
 
 	if cfg.SafeBaseDir != "" {
@@ -180,7 +178,38 @@ func LoadConfig(allowCreate bool) error {
 		return err
 	}
 	authToken = signedToken
-	fmt.Println("password: Please check config file")
+	if configInitialized {
+		fmt.Println("password: please check config file")
+	} else {
+		fmt.Println("ephemeral mode: no config.json (use Ticket to sign in)")
+	}
+	return nil
+}
+
+// ApplyListenOverrides sets listen port/host after LoadConfig (CLI > config > env).
+func ApplyListenOverrides(port, host string) {
+	if port != "" {
+		cfg.Port = port
+	}
+	if host != "" {
+		cfg.Host = host
+	}
+}
+
+// SetSSLAndPersist updates ssl paths in config.json (relative to data dir).
+func SetSSLAndPersist(key, cert string) error {
+	cfg.SSLKey = key
+	cfg.SSLCert = cert
+	if configFilePath == "" {
+		return fmt.Errorf("config file path is empty")
+	}
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	if err := os.WriteFile(configFilePath, b, 0644); err != nil {
+		return fmt.Errorf("write config file %s: %w", configFilePath, err)
+	}
 	return nil
 }
 

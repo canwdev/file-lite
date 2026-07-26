@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mattn/go-isatty"
 
+	"file-lite-go/cli"
 	"file-lite-go/config"
 	"file-lite-go/middlewares"
 	"file-lite-go/routes"
@@ -47,13 +47,12 @@ func frontendStaticMiddleware(staticFS http.FileSystem) echo.MiddlewareFunc {
 	})
 }
 
-type StartServerResult struct {
-	UrlIpSelector string
-	PrintUrls     func()
+func isServerRunning() bool {
+	return echoInstance != nil
 }
 
-func startServer() (*StartServerResult, error) {
-	if server != nil {
+func startServer() (*cli.ServerResult, error) {
+	if isServerRunning() {
 		return nil, fmt.Errorf("server is already running")
 	}
 
@@ -89,7 +88,7 @@ func startServer() (*StartServerResult, error) {
 	isHttps := config.IsHTTPS()
 	addr := fmt.Sprintf("%s:%d", host, port)
 
-	result := &StartServerResult{}
+	result := &cli.ServerResult{}
 	printUrls := func() {
 		fmt.Println("")
 		protocol := "http:"
@@ -104,15 +103,12 @@ func startServer() (*StartServerResult, error) {
 		if ticket.Value != "" {
 			ticketParam = "ticket=" + ticket.Value
 		}
-		// dev 前端端口（仅用于打印，不影响服务器监听）
 		frontendPort := config.FrontendPort()
 
 		ips := utils.PrintUrls(protocol, host, frontendPort, ticketParam)
 		fmt.Println("IP Selector:")
 
-		// Construct IP selector URL
 		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, frontendPort)
-
 		encodedData, err := utils.EncodeIpSelectorParams(utils.IpSelectorParams{
 			IPs:      ips,
 			Port:     frontendPort,
@@ -126,7 +122,7 @@ func startServer() (*StartServerResult, error) {
 		result.UrlIpSelector = urlIpSelector
 		fmt.Println(urlIpSelector)
 		fmt.Println("")
-		fmt.Printf("🗝️ Ticket: %s\n", ticket.Value)
+		fmt.Printf("Ticket: %s\n", ticket.Value)
 		fmt.Printf("Ticket expires at: %s.\n", ticket.ExpiresAt.Format("2006-01-02 15:04:05"))
 		fmt.Println("")
 	}
@@ -138,25 +134,19 @@ func startServer() (*StartServerResult, error) {
 			key := filepath.Join(config.DataBaseDir(), config.Config().SSLKey)
 			cert := filepath.Join(config.DataBaseDir(), config.Config().SSLCert)
 			fmt.Println("HTTPS enabled")
-			server = &http.Server{Addr: addr, Handler: e} // Assign server before StartTLS
+			server = &http.Server{Addr: addr, Handler: e}
 			if err := e.StartTLS(addr, cert, key); err != nil && err != http.ErrServerClosed {
 				e.Logger.Fatal(err)
 			}
 		} else {
-			server = &http.Server{Addr: addr, Handler: e} // Assign server before Start
+			server = &http.Server{Addr: addr, Handler: e}
 			if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
-				// fmt.Fprintln(os.Stderr, err)
+				// ignore closed
 			}
 		}
 	}()
 
-	// Give it a moment to start
 	time.Sleep(100 * time.Millisecond)
-
-	// Construct result
-	// Note: The IP selector URL construction above in printUrls is a bit hacky because we didn't refactor PrintUrls to return IPs.
-	// For now, we will re-calculate it or just use a placeholder if needed, but let's try to make it work in printUrls closure.
-
 	result.PrintUrls = printUrls
 	return result, nil
 }
@@ -167,7 +157,7 @@ func stopServer() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := echoInstance.Shutdown(ctx); err != nil {
-			echoInstance.Close()
+			_ = echoInstance.Close()
 		}
 		server = nil
 		echoInstance = nil
@@ -175,114 +165,133 @@ func stopServer() {
 	}
 }
 
+func bootServer(createConfig bool, overrides cli.Overrides) (*cli.ServerResult, error) {
+	cli.ApplyDataDirOverride(overrides)
+	if err := config.LoadConfig(createConfig); err != nil {
+		return nil, err
+	}
+	cli.ApplyCliOverrides(overrides)
+	res, err := startServer()
+	if err != nil {
+		return nil, err
+	}
+	res.PrintUrls()
+	return res, nil
+}
+
+func waitForSignal() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+}
+
 func main() {
-	isExit := false
-	isPrint := false
-	isCreateConfig := false
-	var serverResult *StartServerResult
-
-	// Check if running in a terminal
-	if !isatty.IsTerminal(os.Stdin.Fd()) && !isatty.IsCygwinTerminal(os.Stdin.Fd()) {
-		fmt.Println("Interactive mode disabled (not a TTY)")
-		if err := config.LoadConfig(isCreateConfig); err != nil {
-			fmt.Println("Error loading config:", err)
-			return
-		}
-		res, err := startServer()
-		if err != nil {
-			fmt.Println("Error starting server:", err)
-			return
-		}
-		serverResult = res
-		serverResult.PrintUrls()
-
-		// Wait for interrupt signal to gracefully shutdown the server
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		<-quit
-		stopServer()
-		return
+	overrides, err := cli.ParseArgv(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, "Try 'file-lite-go --help' for more information.")
+		os.Exit(2)
+	}
+	if overrides.Version {
+		cli.PrintVersion()
+		os.Exit(0)
+	}
+	if overrides.Help {
+		cli.PrintHelp()
+		os.Exit(0)
 	}
 
-	for !isExit {
-		if server == nil {
-			if err := config.LoadConfig(isCreateConfig); err != nil {
-				fmt.Println("Error loading config:", err)
-			} else {
-				res, err := startServer()
+	if overrides.WithTLS && !overrides.CreateConfig {
+		fmt.Fprintln(os.Stderr, "--with-tls requires --create-config")
+		fmt.Fprintln(os.Stderr, "Try 'file-lite-go --help' for more information.")
+		os.Exit(2)
+	}
+	if overrides.CreateConfig {
+		cli.ApplyDataDirOverride(overrides)
+		if err := config.LoadConfig(true); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if overrides.WithTLS {
+			key, cert, generated, err := cli.EnsureSelfSignedTLS(config.DataBaseDir())
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			if err := config.SetSSLAndPersist(key, cert); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			label := "tls cert exists"
+			if generated {
+				label = "tls cert written"
+			}
+			fmt.Printf("%s: %s, %s\n", label, key, cert)
+		}
+		fmt.Printf("config written: %s\n", config.ConfigFilePath())
+		os.Exit(0)
+	}
+
+	var serverResult *cli.ServerResult
+	exited := false
+
+	ensureStarted := func() error {
+		if isServerRunning() {
+			return nil
+		}
+		res, err := bootServer(false, overrides)
+		if err != nil {
+			return err
+		}
+		serverResult = res
+		return nil
+	}
+
+	getCtx := func() cli.CmdCtx {
+		return cli.CmdCtx{
+			ServerResult: serverResult,
+			CreateConfigAndReload: func() error {
+				stopServer()
+				serverResult = nil
+				res, err := bootServer(true, overrides)
 				if err != nil {
-					fmt.Println("Error starting server:", err)
-					return
+					return err
 				}
 				serverResult = res
-				serverResult.PrintUrls()
-			}
-		} else if isPrint {
-			// Clear console? Go doesn't have a built-in clear, can use escape codes
-			fmt.Print("\033[H\033[2J")
-			serverResult.PrintUrls()
-		}
-
-		isPrint = false
-		isCreateConfig = false
-
-		var qs = []*survey.Question{
-			{
-				Name: "action",
-				Prompt: &survey.Select{
-					Message: fmt.Sprintf("%s v%s Select function", config.PkgName, config.Version),
-					Options: func() []string {
-						opts := []string{}
-						if server != nil {
-							opts = append(opts, "🌐 Open IP selector", "🔗 Print urls")
-						}
-						if config.ConfigInitialized() {
-							opts = append(opts, "⚙️ Open config file")
-						} else {
-							opts = append(opts, "✨ Create config file")
-						}
-						if server != nil {
-							opts = append(opts, "🔄 Restart server")
-						}
-						opts = append(opts, "🚪 Exit")
-						return opts
-					}(),
-				},
+				return nil
+			},
+			Reload: func() error {
+				stopServer()
+				serverResult = nil
+				res, err := bootServer(false, overrides)
+				if err != nil {
+					return err
+				}
+				serverResult = res
+				return nil
+			},
+			Exit: func() error {
+				stopServer()
+				serverResult = nil
+				exited = true
+				return nil
 			},
 		}
+	}
 
-		answers := struct {
-			Action string
-		}{}
+	if err := ensureStarted(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
-		err := survey.Ask(qs, &answers)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
+	useTui := (isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())) && !overrides.NoTui
+	if useTui {
+		if err := cli.RunTui(getCtx, func() bool { return !exited }); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
-
-		switch {
-		case strings.Contains(answers.Action, "Open IP selector"):
-			if serverResult != nil {
-				serverResult.PrintUrls()
-				utils.Opener(serverResult.UrlIpSelector)
-			}
-			time.Sleep(1000 * time.Millisecond)
-		case strings.Contains(answers.Action, "Print urls"):
-			isPrint = true
-		case strings.Contains(answers.Action, "Open config file"):
-			if config.ConfigInitialized() {
-				utils.Opener(config.ConfigFilePath())
-			}
-		case strings.Contains(answers.Action, "Create config file"):
-			stopServer()
-			isCreateConfig = true
-		case strings.Contains(answers.Action, "Restart server"):
-			fmt.Print("\033[H\033[2J")
-			stopServer()
-		case strings.Contains(answers.Action, "Exit"):
-			stopServer()
-			isExit = true
-		}
+	} else {
+		waitForSignal()
+		stopServer()
 	}
 }

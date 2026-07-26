@@ -8,6 +8,7 @@ export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 const cookieOpts: Cookies.CookieAttributes = {
   path: '/',
   sameSite: 'strict',
+  secure: typeof location !== 'undefined' && location.protocol === 'https:',
 }
 
 const persistentCookieOpts: Cookies.CookieAttributes = {
@@ -21,6 +22,11 @@ export const rememberAuth = useStorage(LsKeys.REMEMBER_AUTH, true, localStorage,
 
 function readTokenFromCookie(): string {
   return Cookies.get(AUTH_TOKEN_COOKIE_KEY) ?? ''
+}
+
+function writeAuthCookie(token: string) {
+  Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
+  Cookies.set(AUTH_TOKEN_COOKIE_KEY, token, rememberAuth.value ? persistentCookieOpts : cookieOpts)
 }
 
 function migrateLegacyLocalStorage(): void {
@@ -48,8 +54,7 @@ watch(
   (value) => {
     setSharedWsToken(value)
     if (value) {
-      Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
-      Cookies.set(AUTH_TOKEN_COOKIE_KEY, value, rememberAuth.value ? persistentCookieOpts : cookieOpts)
+      writeAuthCookie(value)
     }
     else {
       Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
@@ -57,3 +62,9 @@ watch(
   },
   { flush: 'sync' },
 )
+
+watch(rememberAuth, () => {
+  if (authToken.value) {
+    writeAuthCookie(authToken.value)
+  }
+})

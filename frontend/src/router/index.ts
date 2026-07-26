@@ -3,6 +3,7 @@ import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized } from '@/store'
 import { authToken } from '@/store/auth'
+import { isUnauthorizedError } from '@/utils/auth-error'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,16 +45,23 @@ const router = createRouter({
 
 let verifiedAuthToken = ''
 
+function warmSettingsStore() {
+  void ensureSettingsStoreInitialized().catch((error) => {
+    console.error(error)
+  })
+}
+
 async function ensureAuthReady() {
   if (!authToken.value) {
     throw new Error('No auth token')
   }
   if (verifiedAuthToken === authToken.value) {
+    warmSettingsStore()
     return
   }
   await fsWebApi.auth()
-  await ensureSettingsStoreInitialized()
   verifiedAuthToken = authToken.value
+  warmSettingsStore()
 }
 
 router.beforeEach(async (to) => {
@@ -90,7 +98,9 @@ router.beforeEach(async (to) => {
       }
       catch (error) {
         console.error(error)
-        authToken.value = ''
+        if (isUnauthorizedError(error)) {
+          authToken.value = ''
+        }
       }
     }
     return

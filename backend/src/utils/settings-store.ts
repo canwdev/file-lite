@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import Path from 'node:path'
-import { getFrontendStorageFilePath } from '@/config/config.ts'
+import { getFrontendStorageFilePath, internalConfig } from '@/config/config.ts'
 
 export type SettingsStoreValue
   = | null
@@ -29,7 +29,15 @@ function normalizeSettingsStoreMap(value: unknown): SettingsStoreMap {
   return Object.fromEntries(Object.entries(value)) as SettingsStoreMap
 }
 
+function cloneSettingsStoreMap(store: SettingsStoreMap): SettingsStoreMap {
+  return { ...store }
+}
+
 async function readSettingsStoreFile(): Promise<SettingsStoreMap> {
+  if (!internalConfig.configInitialized) {
+    return settingsStoreCache ? cloneSettingsStoreMap(settingsStoreCache) : {}
+  }
+
   try {
     const content = await fs.readFile(getFrontendStorageFilePath(), 'utf-8')
     return normalizeSettingsStoreMap(JSON.parse(content))
@@ -48,6 +56,11 @@ async function ensureSettingsStoreLoaded(): Promise<SettingsStoreMap> {
     return settingsStoreCache
   }
 
+  if (!internalConfig.configInitialized) {
+    settingsStoreCache = {}
+    return settingsStoreCache
+  }
+
   if (!settingsStoreLoadPromise) {
     settingsStoreLoadPromise = readSettingsStoreFile()
       .then((store) => {
@@ -62,11 +75,10 @@ async function ensureSettingsStoreLoaded(): Promise<SettingsStoreMap> {
   return settingsStoreLoadPromise
 }
 
-function cloneSettingsStoreMap(store: SettingsStoreMap): SettingsStoreMap {
-  return { ...store }
-}
-
 async function persistSettingsStore(store: SettingsStoreMap) {
+  if (!internalConfig.configInitialized) {
+    return
+  }
   const filePath = getFrontendStorageFilePath()
   await fs.mkdir(Path.dirname(filePath), { recursive: true })
   await fs.writeFile(filePath, JSON.stringify(store, null, 2), 'utf-8')
@@ -96,7 +108,9 @@ export async function getAllSettingsValues(): Promise<SettingsStoreMap> {
 
 export async function reloadSettingsStore(): Promise<ReloadedSettingsStore> {
   await waitForPendingSettingsStoreWrites()
-  const previous = settingsStoreCache ? cloneSettingsStoreMap(settingsStoreCache) : cloneSettingsStoreMap(await ensureSettingsStoreLoaded())
+  const previous = settingsStoreCache
+    ? cloneSettingsStoreMap(settingsStoreCache)
+    : cloneSettingsStoreMap(await ensureSettingsStoreLoaded())
   const current = cloneSettingsStoreMap(await readSettingsStoreFile())
   settingsStoreCache = current
   settingsStoreLoadPromise = null
