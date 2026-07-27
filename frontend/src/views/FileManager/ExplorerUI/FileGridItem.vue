@@ -7,10 +7,12 @@ const props = withDefaults(defineProps<{
   item: IEntry
   basePath: string
   active: boolean
+  isCut?: boolean
   showCheckbox?: boolean
   iconSize?: number
 }
 >(), {
+  isCut: false,
   iconSize: 48,
 })
 
@@ -20,7 +22,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 
 <template>
   <button
-    class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden }"
+    class="file-grid-item btn-no-style" :class="{ active, hidden: item.hidden, 'is-cut': isCut }"
     :title="titleDesc" :style="{ width: `${iconSize + 42}px`, height: `${iconSize + 62}px` }"
     @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
     @dblclick.stop="$emit('open', { item })"
@@ -77,6 +79,12 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     .desktop-icon-image,
     .desktop-icon-name {
       opacity: 0.6;
+    }
+  }
+
+  &.is-cut {
+    .desktop-icon-image {
+      opacity: 0.45;
     }
   }
 

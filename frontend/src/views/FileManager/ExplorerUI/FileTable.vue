@@ -30,6 +30,7 @@ const props = withDefaults(
     virtualAfterHeight?: number
     virtualRowHeight?: number
     getTooltip?: (row: any) => string
+    cutNames?: Set<string>
     selectedRows: Set<any>
     customToggle?: (params: {
       item: IEntry
@@ -244,7 +245,7 @@ onBeforeUnmount(() => {
           v-for="{ item: row, index } in renderedRows"
           :key="row.id || row.name || index"
           class="table-row selectable"
-          :class="{ active: mSelectedRows.has(row) }"
+          :class="{ 'active': mSelectedRows.has(row), 'is-cut': cutNames?.has(row.name) }"
           :style="virtualRowHeight ? { height: `${virtualRowHeight}px` } : undefined"
           :title="getTooltip ? getTooltip(row) : ''"
           :data-name="row.name"
@@ -348,6 +349,12 @@ onBeforeUnmount(() => {
 
       .checkbox-auto-hidden {
         visibility: visible;
+      }
+    }
+
+    &.is-cut {
+      :deep(.themed-icon) {
+        opacity: 0.45;
       }
     }
   }

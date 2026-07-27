@@ -1,5 +1,5 @@
 import type { AppName, AppParams } from './apps'
-import { settingsStore } from '@/store'
+import { localSettingsStore } from '@/store'
 import { guid } from '@/utils'
 import { appMetaByName } from './apps'
 
@@ -43,7 +43,7 @@ function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
   if (!appMeta?.singleInstance) {
     return undefined
   }
-  if ('openWith' in appMeta && !settingsStore.value.appSingleInstance) {
+  if ('openWith' in appMeta && !localSettingsStore.value.appSingleInstance) {
     return undefined
   }
   return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)

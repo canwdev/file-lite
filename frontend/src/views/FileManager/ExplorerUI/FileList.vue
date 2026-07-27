@@ -5,10 +5,10 @@ import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced } from '@vueuse/core'
-import { computed, h, nextTick, toRefs, watch } from 'vue'
+import { computed, h, nextTick, ref, toRefs, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
-import { settingsStore } from '@/store'
+import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
@@ -82,20 +82,20 @@ function pathStateRef<K extends keyof PathState>(key: K, defaultVal: NonNullable
 
 const sortMode = pathStateRef('sortMode', SortType.default)
 const isGridView = computed({
-  get: () => settingsStore.value.isGridView,
-  set: (val: boolean) => { settingsStore.value.isGridView = val },
+  get: () => localSettingsStore.value.isGridView,
+  set: (val: boolean) => { localSettingsStore.value.isGridView = val },
 })
 const iconSizeList = computed({
-  get: () => settingsStore.value.iconSizeList,
-  set: (val: number) => { settingsStore.value.iconSizeList = val },
+  get: () => localSettingsStore.value.iconSizeList,
+  set: (val: number) => { localSettingsStore.value.iconSizeList = val },
 })
 const iconSizeGrid = computed({
-  get: () => settingsStore.value.iconSizeGrid,
-  set: (val: number) => { settingsStore.value.iconSizeGrid = val },
+  get: () => localSettingsStore.value.iconSizeGrid,
+  set: (val: number) => { localSettingsStore.value.iconSizeGrid = val },
 })
 const showHidden = computed({
-  get: () => settingsStore.value.showHidden,
-  set: (val: boolean) => { settingsStore.value.showHidden = val },
+  get: () => localSettingsStore.value.showHidden,
+  set: (val: boolean) => { localSettingsStore.value.showHidden = val },
 })
 const isGridMode = computed(() => isGridView.value || props.gridView)
 
@@ -370,7 +370,7 @@ function rectsIntersect(
 }
 
 // 复制粘贴功能
-const { enablePaste, handleCut, handleCopy, handlePaste } = useCopyPaste({
+const { enablePaste, handleCut, handleCopy, handlePaste, currentCutNames } = useCopyPaste({
   selectedPaths,
   basePath,
   isLoading,
@@ -414,6 +414,9 @@ async function focusFileList() {
   dropZoneRef.value?.focus()
 }
 
+// 新建后待选中的文件名（等列表刷新出来再 selectAndReveal）
+const pendingRevealName = ref<string | null>(null)
+
 // 文件操作功能
 const {
   handleOpen,
@@ -439,6 +442,17 @@ const {
   handleDownload,
   downloadToFolder,
   emit,
+  onEntryCreated: (name) => {
+    pendingRevealName.value = name
+  },
+})
+
+watch(files, () => {
+  const name = pendingRevealName.value
+  if (!name || !files.value.some(item => item.name === name))
+    return
+  pendingRevealName.value = null
+  nextTick(() => selectAndReveal(name))
 })
 
 const openActionMeta = computed(() => {
@@ -874,6 +888,7 @@ defineExpose({
           :virtual-after-height="virtualList.afterHeight.value"
           :virtual-row-height="virtualList.itemHeight.value"
           :get-tooltip="(row) => getTooltip(row)"
+          :cut-names="currentCutNames"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
           @open="(row) => emit('open', { item: row })"
@@ -889,6 +904,7 @@ defineExpose({
             :base-path="basePath"
             :data-name="item.name"
             :active="selectedItemsSet.has(item)"
+            :is-cut="currentCutNames.has(item.name)"
             :show-checkbox="allowMultipleSelection"
             :icon-size="iconSizeGrid"
             @open="(i) => emit('open', i)"

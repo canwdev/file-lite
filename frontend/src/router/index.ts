@@ -1,7 +1,9 @@
+import type { RouteLocationNormalized } from 'vue-router'
+import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
-import { ensureSettingsStoreInitialized } from '@/store'
+import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authToken } from '@/store/auth'
 import { isUnauthorizedError } from '@/utils/auth-error'
 
@@ -119,8 +121,27 @@ router.beforeEach(async (to) => {
   }
 })
 
+/** 原始标题：`[Route Title - ]File Lite v{VERSION}` */
+export function getBaseDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {
+  const routeTitle = typeof route.meta?.title === 'string' ? route.meta.title : ''
+  return `${routeTitle ? `${routeTitle} - ` : ''}File Lite v${VERSION}`
+}
+
+export function applyDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {
+  const base = getBaseDocumentTitle(route)
+  const custom = settingsStore.value.pageTitle.trim()
+  document.title = custom ? `${custom} - ${base}` : base
+}
+
 router.afterEach((to) => {
-  document.title = `${to.meta?.title ? `${to.meta?.title} - ` : ''}File Lite v${VERSION}`
+  applyDocumentTitle(to)
 })
+
+watch(
+  () => settingsStore.value.pageTitle,
+  () => {
+    applyDocumentTitle()
+  },
+)
 
 export default router

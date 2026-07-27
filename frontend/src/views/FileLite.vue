@@ -5,14 +5,29 @@ import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
-import { getPreviewSizeLabel, previewSizeOptions, settingsStore } from '@/store/index.ts'
+import { getPreviewSizeLabel, localSettingsStore, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { enableEruda } from '@/utils/debug'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
+import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
 const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
+
+async function handleSetTitle() {
+  try {
+    const value = await showInputPrompt({
+      title: 'Set Page Title',
+      value: settingsStore.value.pageTitle,
+      allowEmpty: true,
+    })
+    settingsStore.value.pageTitle = value.trim()
+  }
+  catch {
+    // cancelled
+  }
+}
 
 const internalTextSyncEntry: IEntry = {
   name: 'TextSync',
@@ -74,6 +89,14 @@ function showMenu(event: MouseEvent) {
             ...item,
             icon: item.label === settingsStore.value.themeMode ? `mdi mdi-check` : '',
           })),
+          {
+            icon: localSettingsStore.value.einkMode ? 'mdi mdi-check' : '',
+            label: `E-ink mode`,
+            divided: true,
+            onClick: () => {
+              localSettingsStore.value.einkMode = !localSettingsStore.value.einkMode
+            },
+          },
           // Color theme
           ...colorThemeOptions.map(item => ({
             label: item.label,
@@ -94,12 +117,12 @@ function showMenu(event: MouseEvent) {
         children: [
           {
             icon: 'mdi mdi-image-search',
-            label: `Preview size: ${getPreviewSizeLabel(settingsStore.value.previewSize)}`,
+            label: `Preview size: ${getPreviewSizeLabel(localSettingsStore.value.previewSize)}`,
             children: previewSizeOptions.map(item => ({
-              icon: settingsStore.value.previewSize === item.value ? 'mdi mdi-check' : '',
+              icon: localSettingsStore.value.previewSize === item.value ? 'mdi mdi-check' : '',
               label: item.label,
               onClick: () => {
-                settingsStore.value.previewSize = item.value
+                localSettingsStore.value.previewSize = item.value
               },
             })),
           },
@@ -107,17 +130,17 @@ function showMenu(event: MouseEvent) {
             label: `App Settings`,
             children: [
               {
-                icon: settingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
+                icon: localSettingsStore.value.isNativePlayer ? 'mdi mdi-check' : '',
                 label: `Use native video player`,
                 onClick: () => {
-                  settingsStore.value.isNativePlayer = !settingsStore.value.isNativePlayer
+                  localSettingsStore.value.isNativePlayer = !localSettingsStore.value.isNativePlayer
                 },
               },
               {
-                icon: settingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
+                icon: localSettingsStore.value.appSingleInstance ? 'mdi mdi-check' : '',
                 label: `App Single instance`,
                 onClick: () => {
-                  settingsStore.value.appSingleInstance = !settingsStore.value.appSingleInstance
+                  localSettingsStore.value.appSingleInstance = !localSettingsStore.value.appSingleInstance
                 },
               },
               {
@@ -128,6 +151,16 @@ function showMenu(event: MouseEvent) {
                 },
               },
             ],
+            divided: true,
+          },
+          {
+            label: settingsStore.value.pageTitle.trim()
+              ? `Title: ${settingsStore.value.pageTitle.trim()}`
+              : 'Set Title',
+            icon: 'mdi mdi-format-title',
+            onClick: () => {
+              void handleSetTitle()
+            },
           },
           {
             label: 'Enable Debug',
@@ -164,8 +197,8 @@ function showMenu(event: MouseEvent) {
       },
       {
         label: isWakeLockSupported.value
-          ? `Wake Lock: ${isWakeLockActive.value ? 'On' : 'Off'}`
-          : 'Wake Lock (unsupported)',
+          ? `Browser Wake Lock: ${isWakeLockActive.value ? 'On' : 'Off'}`
+          : 'Browser Wake Lock (unsupported)',
         icon: isWakeLockActive.value ? 'mdi mdi-check' : 'mdi mdi-monitor-eye',
         disabled: !isWakeLockSupported.value,
         onClick: () => {

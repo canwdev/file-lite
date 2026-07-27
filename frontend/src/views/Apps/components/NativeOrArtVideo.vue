@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { nextTick, onMounted, ref, unref, watch } from 'vue'
-import { settingsStore } from '@/store/index'
+import { localSettingsStore } from '@/store/index'
 import VArtPlayer from './VArtPlayer.vue'
 
 const props = withDefaults(
@@ -23,7 +23,7 @@ const emit = defineEmits<{
 
 const nativeVideoRef = ref<HTMLVideoElement | null>(null)
 const vArtRef = ref<InstanceType<typeof VArtPlayer> | null>(null)
-const isNativePlayer = computed(() => settingsStore.value.isNativePlayer)
+const isNativePlayer = computed(() => localSettingsStore.value.isNativePlayer)
 
 type ArtplayerInstance = InstanceType<typeof import('artplayer').default>
 

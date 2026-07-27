@@ -1,3 +1,4 @@
+import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
 
@@ -18,18 +19,14 @@ export function getPreviewSizeLabel(value: number): string {
   return previewSizeOptions.find(item => item.value === value)?.label ?? '≤ 3 MB'
 }
 
+/** 需要跨设备同步的设置 */
 function createDefaultSettingsStore() {
   return {
-    isNativePlayer: false,
-    previewSize: 3 * MB,
     themeMode: 'auto' as 'auto' | 'light' | 'dark',
     colorTheme: '',
-    appSingleInstance: true,
     rememberLastMedia: false,
-    showHidden: false,
-    isGridView: false,
-    iconSizeList: 16,
-    iconSizeGrid: 48,
+    /** 自定义前缀；空则显示原始标题，有值则为「自定义 - 原始标题」 */
+    pageTitle: '',
   }
 }
 
@@ -40,9 +37,15 @@ function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
     return createDefaultSettingsStore()
   }
 
+  const defaults = createDefaultSettingsStore()
+  const raw = value as Record<string, unknown>
   return {
-    ...createDefaultSettingsStore(),
-    ...value as Partial<SettingsStoreState>,
+    themeMode: (raw.themeMode === 'auto' || raw.themeMode === 'light' || raw.themeMode === 'dark')
+      ? raw.themeMode
+      : defaults.themeMode,
+    colorTheme: typeof raw.colorTheme === 'string' ? raw.colorTheme : defaults.colorTheme,
+    rememberLastMedia: Boolean(raw.rememberLastMedia ?? defaults.rememberLastMedia),
+    pageTitle: typeof raw.pageTitle === 'string' ? raw.pageTitle : defaults.pageTitle,
   }
 }
 
@@ -56,5 +59,32 @@ const {
   autoInitialize: false,
   throwOnInitError: true,
 })
+
+/** 仅本机持久化的 UI / 设备偏好 */
+function createDefaultLocalSettingsStore() {
+  return {
+    isNativePlayer: false,
+    previewSize: 3 * MB,
+    appSingleInstance: true,
+    /** 墨水屏模式：强制亮色、禁用动画/大阴影，降低刷新负担 */
+    einkMode: false,
+    showHidden: false,
+    isGridView: false,
+    iconSizeList: 16,
+    iconSizeGrid: 48,
+  }
+}
+
+export type LocalSettingsStoreState = ReturnType<typeof createDefaultLocalSettingsStore>
+
+export const localSettingsStore = useStorage<LocalSettingsStoreState>(
+  LsKeys.LOCAL_SETTINGS_STORE,
+  createDefaultLocalSettingsStore(),
+  localStorage,
+  {
+    mergeDefaults: true,
+    listenToStorageChanges: false,
+  },
+)
 
 export { ensureSettingsStoreInitialized, settingsStore }

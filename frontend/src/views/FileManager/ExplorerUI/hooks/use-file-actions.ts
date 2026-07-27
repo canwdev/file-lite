@@ -61,6 +61,7 @@ export function useFileActions({
   handleDownload,
   downloadToFolder,
   emit,
+  onEntryCreated,
 }: {
   isLoading: Ref<boolean>
   selectedPaths: Ref<string[]>
@@ -76,6 +77,7 @@ export function useFileActions({
   handleDownload: () => Promise<void>
   downloadToFolder: () => Promise<void>
   emit: any
+  onEntryCreated?: (name: string) => void
 }) {
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -90,6 +92,7 @@ export function useFileActions({
         path: normalizePath(`${basePath.value}/${name}`),
         file: generateTextFile(content, name),
       })
+      onEntryCreated?.(name)
       emit('refresh')
     }
     finally {
@@ -104,6 +107,7 @@ export function useFileActions({
       })
       isLoading.value = true
       await fsWebApi.createDir({ path: normalizePath(`${basePath.value}/${name}`) })
+      onEntryCreated?.(name)
       emit('refresh')
     }
     finally {

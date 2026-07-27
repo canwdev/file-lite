@@ -1,5 +1,5 @@
 import { useElementPlusTheme } from '@canwdev/vgo-ui'
-import { settingsStore } from '@/store'
+import { localSettingsStore, settingsStore } from '@/store'
 
 export enum ThemeMode {
   Auto = 'auto',
@@ -131,6 +131,10 @@ export function useGlobalTheme() {
   })
 
   const isAppDarkMode = computed(() => {
+    // 墨水屏模式强制亮色
+    if (localSettingsStore.value.einkMode) {
+      return false
+    }
     if (settingsStore.value.themeMode === ThemeMode.Auto) {
       return isSystemDarkMode.value
     }
@@ -155,6 +159,13 @@ export function useGlobalTheme() {
         document.documentElement.classList.remove('dark')
         menuThemeOptions.theme = mxContextMenuTheme
       }
+    },
+    { immediate: true },
+  )
+  watch(
+    () => localSettingsStore.value.einkMode,
+    (enabled) => {
+      document.documentElement.classList.toggle('eink-mode', enabled)
     },
     { immediate: true },
   )

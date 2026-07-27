@@ -4,7 +4,7 @@ import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
 import { fsWebApi } from '@/api/filesystem'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
-import { settingsStore } from '@/store/index'
+import { localSettingsStore } from '@/store/index'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
 import MusicDetail from './MusicDetail.vue'
@@ -31,7 +31,7 @@ let mediaEventsAbort: AbortController | null = null
 function syncVolumeAndRateWithStore(): boolean {
   if (!mediaStore.isVideo)
     return true
-  return settingsStore.value.isNativePlayer
+  return localSettingsStore.value.isNativePlayer
 }
 
 function getActiveHtmlMedia(): HTMLMediaElement | null {

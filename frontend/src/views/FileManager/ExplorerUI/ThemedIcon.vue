@@ -2,7 +2,7 @@
 import type { IEntry } from '@/types/server.ts'
 import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
-import { PREVIEW_SIZE_UNLIMITED, settingsStore } from '@/store/index.ts'
+import { localSettingsStore, PREVIEW_SIZE_UNLIMITED } from '@/store/index.ts'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 import { requestPreviewLoad } from './preview-load-queue'
 
@@ -29,7 +29,7 @@ watch(
 )
 const previewSrc = computed(() => {
   const { item, absPath } = props
-  const previewSize = settingsStore.value.previewSize
+  const previewSize = localSettingsStore.value.previewSize
   if (absPath && item) {
     // 仅支持图片预览，且大小不超过配置上限
     if (

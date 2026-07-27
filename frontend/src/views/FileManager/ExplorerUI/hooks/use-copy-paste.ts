@@ -1,13 +1,18 @@
 import { fsWebApi } from '@/api/filesystem'
 import { useSharedRef } from '@/hooks/use-shared-ref'
-import explorerBus, { ExplorerEvents } from '../../utils/bus'
+import { normalizeListingPath, normalizePath } from '../../utils'
 
 const explorerStore = useSharedRef<{
   cutPaths: string[]
   copyPaths: string[]
+  cutBasePath: string
+  /** 剪切粘贴完成后通知仍停留在源目录的实例刷新 */
+  moveRefresh: { fromPath: string, token: number } | null
 }>('file-lite:explorer-copy-paste', {
   cutPaths: [],
   copyPaths: [],
+  cutBasePath: '',
+  moveRefresh: null,
 })
 
 export function useCopyPaste({
@@ -25,13 +30,27 @@ export function useCopyPaste({
     return explorerStore.value.cutPaths.length > 0 || explorerStore.value.copyPaths.length > 0
   })
 
+  /** 当前目录下被剪切的文件名集合（用于半透明样式） */
+  const currentCutNames = computed(() => {
+    const names = new Set<string>()
+    for (const p of explorerStore.value.cutPaths) {
+      const normalized = normalizePath(p)
+      const name = normalized.split('/').pop()
+      if (name && normalizePath(`${basePath.value}/${name}`) === normalized)
+        names.add(name)
+    }
+    return names
+  })
+
   const handleCut = () => {
     explorerStore.value.copyPaths = []
     explorerStore.value.cutPaths = [...selectedPaths.value]
+    explorerStore.value.cutBasePath = normalizeListingPath(basePath.value)
   }
 
   const handleCopy = () => {
     explorerStore.value.cutPaths = []
+    explorerStore.value.cutBasePath = ''
     explorerStore.value.copyPaths = [...selectedPaths.value]
   }
 
@@ -48,7 +67,8 @@ export function useCopyPaste({
     else {
       return
     }
-    // console.log(paths)
+
+    const sourceBasePath = explorerStore.value.cutBasePath
 
     try {
       isLoading.value = true
@@ -59,7 +79,17 @@ export function useCopyPaste({
       })
       if (isMove) {
         explorerStore.value.cutPaths = []
-        explorerBus.emit(ExplorerEvents.REFRESH)
+        explorerStore.value.cutBasePath = ''
+        // 始终刷新目标目录（当前目录）
+        emit('refresh')
+        // 若源目录与目标不同，通知仍停留在源目录的实例刷新（含跨窗口）
+        const destPath = normalizeListingPath(basePath.value)
+        if (sourceBasePath && sourceBasePath !== destPath) {
+          explorerStore.value.moveRefresh = {
+            fromPath: sourceBasePath,
+            token: Date.now(),
+          }
+        }
       }
       else {
         explorerStore.value.copyPaths = []
@@ -71,10 +101,22 @@ export function useCopyPaste({
     }
   }
 
+  // 剪切粘贴完成后：若当前仍在源文件夹则刷新
+  watch(
+    () => explorerStore.value.moveRefresh,
+    (val) => {
+      if (!val?.fromPath)
+        return
+      if (normalizeListingPath(basePath.value) === normalizeListingPath(val.fromPath))
+        emit('refresh')
+    },
+  )
+
   return {
     enablePaste,
     handleCut,
     handleCopy,
     handlePaste,
+    currentCutNames,
   }
 }

@@ -189,6 +189,68 @@ body,
   }
 }
 
+// 减少动态效果（压时长，避免 animation: none 打断依赖 animationend 的逻辑）
+@mixin reduce-motion {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// 墨水屏：去阴影 / 模糊 / 半透明，降低刷新负担
+@mixin eink-refresh-relief {
+  // 用 1px 实线描边替代模糊阴影，降低墨水屏刷新负担
+  --el-box-shadow: 0 0 0 1px var(--el-border-color, #000);
+  --el-box-shadow-light: 0 0 0 1px var(--el-border-color, #000);
+  --el-box-shadow-lighter: 0 0 0 1px var(--el-border-color-lighter, #000);
+  --el-box-shadow-dark: 0 0 0 1px var(--el-border-color-darker, #000);
+  --el-overlay-color: transparent;
+  --el-overlay-color-light: transparent;
+  --el-overlay-color-lighter: transparent;
+
+  *,
+  *::before,
+  *::after {
+    // box-shadow: none !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  // 去掉大面积模糊层（全屏背景模糊 / 装饰阴影模糊）
+  // .app-cover-bg,
+  // .card-shadow,
+  // .playlist-backdrop {
+  //   display: none !important;
+  // }
+
+  .playlist-panel,
+  .vgo-panel,
+  .vgo-button,
+  .vgo-theme-default .vgo-window,
+  .vgo-theme-default .vgo-panel,
+  .vgo-theme-default .vgo-button {
+    background-color: #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+// 对齐系统「减少动态效果」
+@media (prefers-reduced-motion: reduce) {
+  @include reduce-motion;
+}
+
+// 墨水屏模式（由 localSettingsStore.einkMode 挂到 html）
+html.eink-mode {
+  @include reduce-motion;
+  @include eink-refresh-relief;
+}
+
 .vgo-theme-default .vgo-window .vgo-window-controls button.is-close {
   border-top-right-radius: var(--vgo-radius);
 }
