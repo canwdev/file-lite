@@ -82,16 +82,10 @@ watch(initialIndex, (val) => {
     object-fit: contain;
   }
 
+  // vgo-allow: 看图遮罩固定为深色，与主题无关
   :deep(.el-image-viewer__mask) {
-    background: #212121;
-    background-image:
-      linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
-      linear-gradient(45deg, black 25%, transparent 25%, transparent 75%, black 75%, black);
-    background-size: 60px 60px;
-    background-position:
-      0 0,
-      30px 30px;
-    opacity: 0.8;
+    background-color: #212121;
+    opacity: 0.9;
   }
   :deep(.el-image-viewer__wrapper) {
     position: absolute !important;

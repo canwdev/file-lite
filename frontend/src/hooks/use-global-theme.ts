@@ -1,5 +1,7 @@
-import { useElementPlusTheme } from '@canwdev/vgo-ui'
+import { rgbToHex, syncPrimaryColor, useElementPlusTheme } from '@canwdev/vgo-ui'
 import { localSettingsStore, settingsStore } from '@/store'
+
+export { rgbToHex }
 
 export enum ThemeMode {
   Auto = 'auto',
@@ -70,18 +72,6 @@ export const colorThemeOptions = [
 ]
 let changeElementPlusTheme: ((color?: string) => void) | undefined
 
-export function rgbToHex(rgb: string) {
-  const [r, g, b] = rgb
-    .split(',')
-    .map(v => Number.parseInt(v.trim(), 10))
-  if ([r, g, b].some(v => Number.isNaN(v) || v < 0 || v > 255)) {
-    return ''
-  }
-  return `#${[r, g, b]
-    .map(v => v.toString(16).padStart(2, '0'))
-    .join('')}`
-}
-
 export function setGlobalTheme(rgb: string) {
   const normalizedRgb = rgb
     .split(',')
@@ -97,18 +87,7 @@ export function getCurrentPrimaryRgb() {
 }
 
 function applyGlobalTheme(rgb: string) {
-  if (!rgb) {
-    document.documentElement.style.removeProperty('--vgo-primary-rgb')
-    changeElementPlusTheme?.(rgbToHex(getCurrentPrimaryRgb()))
-    return
-  }
-
-  const hex = rgbToHex(rgb)
-  if (!hex)
-    return
-
-  document.documentElement.style.setProperty('--vgo-primary-rgb', rgb)
-  changeElementPlusTheme?.(hex)
+  syncPrimaryColor(rgb, changeElementPlusTheme!)
 }
 
 export function useGlobalTheme() {
@@ -131,10 +110,6 @@ export function useGlobalTheme() {
   })
 
   const isAppDarkMode = computed(() => {
-    // 墨水屏模式强制亮色
-    if (localSettingsStore.value.einkMode) {
-      return false
-    }
     if (settingsStore.value.themeMode === ThemeMode.Auto) {
       return isSystemDarkMode.value
     }
@@ -163,9 +138,9 @@ export function useGlobalTheme() {
     { immediate: true },
   )
   watch(
-    () => localSettingsStore.value.einkMode,
+    () => localSettingsStore.value.reduceMotion,
     (enabled) => {
-      document.documentElement.classList.toggle('eink-mode', enabled)
+      document.documentElement.classList.toggle('reduce-motion', enabled)
     },
     { immediate: true },
   )

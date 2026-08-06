@@ -31,7 +31,8 @@ withDefaults(defineProps<{
 
   .cover-icon {
     font-size: 64px;
-    opacity: .3;
+    color: var(--vgo-text-secondary);
+    opacity: 0.4;
   }
 
   img {

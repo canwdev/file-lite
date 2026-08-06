@@ -30,13 +30,7 @@ window.$logout = (clearToken = true) => {
   position: relative;
   height: 100%;
   width: 100%;
-}
-
-.dark {
-  .page-root {
-    background-color: #303030;
-    //background-image: linear-gradient(#434343, #282828);
-    color: white;
-  }
+  color: var(--vgo-text);
+  background-color: var(--vgo-surface);
 }
 </style>

@@ -70,7 +70,8 @@ watch(() => props.appParams, loadFile, { immediate: true })
 .html-viewer {
   width: 100%;
   height: 100%;
-  background: #fff;
+  // vgo-allow: 外部 HTML 自带样式，容器底色固定为白
+  background-color: #fff;
 
   &__status {
     display: flex;
@@ -78,7 +79,7 @@ watch(() => props.appParams, loadFile, { immediate: true })
     justify-content: center;
     width: 100%;
     height: 100%;
-    color: var(--vgo-text-secondary, #999);
+    color: var(--vgo-text-secondary);
   }
 
   &__frame {

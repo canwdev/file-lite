@@ -20,7 +20,7 @@ const isCurrent = computed(() => {
 </script>
 
 <template>
-  <div class="playlist-item" :class="{ active: isCurrent }" :title="item.filename">
+  <div class="vgo-list-item playlist-item" :class="{ 'is-active': isCurrent }" :title="item.filename">
     <div class="item-left">
       <div v-if="isCurrent" class="status-icon">
         <template v-if="!mediaStore.paused">
@@ -42,7 +42,7 @@ const isCurrent = computed(() => {
     </div>
     <div class="item-right">
       <button
-        class="locate-btn btn-no-style"
+        class="vgo-button vgo-button--round vgo-button--icon vgo-button--sm"
         title="Locate in folder"
         @click.stop="emit('locateItem', item.filename)"
       >
@@ -54,53 +54,24 @@ const isCurrent = computed(() => {
 
 <style lang="scss" scoped>
 .playlist-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
   min-height: 52px;
-  padding: 7px 10px 7px 7px;
-  border-radius: 14px;
-  cursor: pointer;
+  border-radius: var(--vgo-radius-lg);
   word-break: break-word;
-  background-color: transparent;
   position: relative;
-  transition: background-color 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.56);
-  }
-
-  &.active {
-    background:
-      linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.18), rgba(255, 45, 85, 0.10)),
-      rgba(255, 255, 255, 0.64);
-  }
 
   .item-left {
     display: inline-flex;
     flex-shrink: 0;
     position: relative;
 
-    /* Finder 式小图标，仅列表内缩小 */
+    // Finder 式小图标，仅列表内缩小
     :deep(.btn-cover) {
       width: 38px;
       height: 38px;
-      border-radius: 10px;
     }
 
     :deep(.icon-wrap) {
-      font-size: 16px;
-    }
-
-    :deep(.cover-type-badge) {
-      width: 14px;
-      height: 14px;
-      right: 1px;
-      bottom: 1px;
-
-      .badge-icon {
-        font-size: 10px;
-      }
+      font-size: var(--vgo-icon-sm);
     }
 
     .status-icon {
@@ -111,10 +82,9 @@ const isCurrent = computed(() => {
       font-size: 9px;
       line-height: 1;
       padding: 2px 3px;
-      border-radius: 999px;
-      background: rgba(var(--vgo-primary-rgb), 0.86);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(var(--vgo-primary-rgb), 0.3);
+      border-radius: var(--vgo-radius-pill);
+      background-color: var(--vgo-primary);
+      color: var(--vgo-on-primary);
     }
   }
 
@@ -123,8 +93,6 @@ const isCurrent = computed(() => {
     min-width: 0;
 
     .item-title {
-      font-size: 13px;
-      font-weight: 650;
       line-height: 1.28;
       display: -webkit-box;
       -webkit-box-orient: vertical;
@@ -144,10 +112,9 @@ const isCurrent = computed(() => {
 
     .item-subtitle {
       margin-top: 3px;
-      font-size: 11px;
-      font-weight: 400;
+      font-size: var(--vgo-font-sm);
       line-height: 1.25;
-      color: var(--el-text-color-secondary, inherit);
+      color: var(--vgo-text-secondary);
       display: -webkit-box;
       -webkit-box-orient: vertical;
       line-clamp: 1;
@@ -159,53 +126,20 @@ const isCurrent = computed(() => {
 
   .item-right {
     position: absolute;
-    right: 6px;
+    right: var(--vgo-space-2);
     top: 50%;
     transform: translateY(-50%);
     opacity: 0;
-    transition: opacity 0.12s ease;
+    transition: opacity var(--vgo-duration-fast) ease;
     pointer-events: none;
 
-    .locate-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      color: inherit;
-      background-color: rgba(255, 255, 255, 0.68);
+    .vgo-button {
       pointer-events: auto;
-
-      &:hover {
-        background-color: var(--vgo-primary-opacity);
-      }
     }
   }
 
   &:hover .item-right {
     opacity: 1;
-  }
-}
-</style>
-
-<style lang="scss">
-.dark {
-  .playlist-item {
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.075);
-    }
-
-    &.active {
-      background:
-        linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.22), rgba(255, 45, 85, 0.12)),
-        rgba(255, 255, 255, 0.08);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
-    }
-
-    .item-right .locate-btn {
-      background-color: rgba(255, 255, 255, 0.14);
-    }
   }
 }
 </style>

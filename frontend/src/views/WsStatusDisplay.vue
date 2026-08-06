@@ -31,10 +31,10 @@ const visible = computed(() => !!authToken.value && sharedWsStatus.value !== 'co
 .ws-status-display {
   position: fixed;
   left: 50%;
-  bottom: 6px;
-  z-index: 9999;
+  bottom: var(--vgo-space-2);
+  z-index: var(--vgo-z-preview);
   transform: translateX(-50%);
-  padding: 4px 10px;
-  font-size: 14px;
+  padding: var(--vgo-space-1) var(--vgo-space-3);
+  font-size: var(--vgo-font-md);
 }
 </style>

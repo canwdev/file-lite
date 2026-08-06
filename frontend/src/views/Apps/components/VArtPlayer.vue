@@ -2,6 +2,7 @@
 import type { Option, SettingOption } from 'artplayer'
 import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
+import type { FileSelectResult } from '@/views/FileManager/types'
 import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -312,22 +313,22 @@ onBeforeUnmount(() => {
   artInstance.value?.destroy(false)
 })
 
-function handleVideoSelect(val: { items: IEntry[], item: IEntry, basePath: string }) {
+function handleVideoSelect(val: FileSelectResult, item: IEntry) {
   const inst = artInstance.value
   if (!inst)
     return
   revokeBlobRef(videoObjectUrl)
-  const url = fsWebApi.getStreamUrl(`${val.basePath}/${val.item.name}`)
+  const url = fsWebApi.getStreamUrl(`${val.basePath}/${item.name}`)
   videoObjectUrl.value = null
   void inst.switchUrl(url).catch(console.error)
 }
 
-function handleFileSelect(val: { items: IEntry[], item: IEntry, basePath: string }) {
+function handleFileSelect(val: FileSelectResult) {
   const inst = artInstance.value
-  if (!inst)
+  if (!inst || !val.item)
     return
   if (fileSelectorType.value === 'video') {
-    handleVideoSelect(val)
+    handleVideoSelect(val, val.item)
     return
   }
   const url = fsWebApi.getStreamUrl(`${val.basePath}/${val.item.name}`)
@@ -398,18 +399,3 @@ defineExpose({
   border: 0;
 }
 </style>
-
-<!-- <style>
-.art-video-player .art-bottom {
-    background-image: linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.1), transparent) !important;
-}
-
-.art-video-player.art-mini-progress-bar .art-bottom,
-.art-video-player.art-lock .art-bottom {
-    background-image: none !important;
-}
-
-.art-mask .art-icon-state {
-    display: none !important;
-}
-</style> -->

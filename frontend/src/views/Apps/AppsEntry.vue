@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AppParams } from './apps'
 import type { AppWindowState } from './apps-store'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
@@ -92,7 +93,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
       <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
     </template>
 
-    <div class="app-container vgo-bg">
+    <div class="app-container vgo-u-surface">
       <component
         :is="Apps[win.appName]"
         :app-params="win.appParams"
@@ -100,6 +101,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
         @set-title="(val: string) => { win.appTitle = val }"
         @select-items="(names: string[]) => handleSelectItems(win, names)"
         @locate-item="(name: string) => handleLocateItem(win, name)"
+        @update-app-params="(params: AppParams) => { win.appParams = params }"
       />
     </div>
   </ViewPortWindow>
@@ -116,7 +118,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
           v-for="win in appsStoreState.windows"
           :key="win.id"
           type="button"
-          class="dock-item btn-no-style"
+          class="vgo-u-button-reset dock-item"
           :class="{
             'is-active': win.id === appsStoreState.activeId,
             'is-minimized': win.minimized,
@@ -141,7 +143,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   border-radius: 0 0 var(--vgo-radius) var(--vgo-radius);
 }
 
-.apps-vp-window._maximized {
+.apps-vp-window.is-maximized {
   .app-container {
     border-radius: 0;
   }
@@ -149,7 +151,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 
 .title-text {
   word-break: break-word;
-  font-size: 12px;
+  font-size: var(--vgo-font-sm);
 }
 
 .apps-vp-window {
@@ -161,11 +163,10 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 /* 底部 Dock */
 .app-dock {
   position: fixed;
-  bottom: 4px;
-  z-index: 10;
+  bottom: var(--vgo-space-1);
+  left: var(--vgo-space-1);
+  z-index: var(--vgo-z-sticky);
   pointer-events: none;
-  left: 4px;
-  transform: none;
 }
 
 .app-dock-inner {
@@ -182,47 +183,45 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px 3px;
+  padding: 2px var(--vgo-space-1) 3px;
   border-radius: var(--vgo-radius);
   cursor: pointer;
   color: inherit;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--vgo-duration-fast) ease;
 }
 
 .dock-item:hover {
-  background-color: color-mix(in srgb, var(--vgo-primary, #1976d2) 10%, transparent);
+  background-color: var(--vgo-hover);
 }
 
 .dock-item:active {
-  background-color: color-mix(in srgb, var(--vgo-primary, #1976d2) 16%, transparent);
+  background-color: var(--vgo-primary-opacity);
 }
 
 .dock-icon-wrap {
-  width: 32px;
-  height: 32px;
+  width: var(--vgo-control-md);
+  height: var(--vgo-control-md);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .dock-icon {
-  font-size: 24px;
+  font-size: var(--vgo-icon-lg);
   line-height: 1;
-  color: var(--vgo-primary, #1976d2);
+  color: var(--vgo-primary);
 }
 
 .dock-indicator {
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--vgo-color-text, #333) 45%, transparent);
-  opacity: 0.55;
-  transition: opacity 0.12s ease;
+  background-color: var(--vgo-text-secondary);
+  transition: opacity var(--vgo-duration-fast) ease;
 }
 
 .dock-item.is-active .dock-indicator {
-  opacity: 1;
-  background: var(--vgo-primary, #1976d2);
+  background-color: var(--vgo-primary);
 }
 
 .dock-item.is-minimized .dock-icon-wrap {
@@ -235,7 +234,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
 
 .dock-fade-enter-active,
 .dock-fade-leave-active {
-  transition: opacity 0.16s ease;
+  transition: opacity var(--vgo-duration-base) ease;
 }
 
 .dock-fade-enter-from,

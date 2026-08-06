@@ -1,10 +1,12 @@
-/* Vgo UI 全局样式在 main.ts 中通过 import '@canwdev/vgo-ui/styles' 引入 */
+/* Vgo UI core 与默认主题样式在 main.ts 中引入 */
 
 :root {
-  // --vgo-primary-rgb: 76,175,80;
   --vgo-primary-rgb: 83, 173, 228;
-  --vgo-radius: 5px;
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+}
+
+body.vgo-theme-default {
+  --vgo-radius: 5px;
 }
 
 body {
@@ -17,7 +19,6 @@ body {
   }
 }
 
-
 html,
 body,
 #app {
@@ -25,102 +26,12 @@ body,
   overscroll-behavior-y: none; // disable pull-to-refresh on mobile browsers (html is required for Safari)
 }
 
+* {
+  box-sizing: border-box;
+}
+
 ::selection {
-  background-color: rgba(var(--vgo-primary-rgb), 0.5);
-  // color: #ffffff;
-}
-
-.font-code {
-  font-family: 'Maple Mono NF', 'Cascadia Code', '等距更纱黑体 SC', 'Monaco', 'Fira Code Medium', Consolas, 'Courier New', monospace;
-}
-
-.font-emoji {
-  font-family: "Segoe UI Emoji", "SF Pro SC", "SF Pro Text", "SF Pro Icons", "PingFang SC", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
-}
-
-.app-soft-bg {
-  background:
-    radial-gradient(circle at top left, rgba(64, 158, 255, 0.22), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(103, 194, 58, 0.14), transparent 30%);
-}
-
-.btn-no-style {
-  background: none;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  color: inherit;
-  padding: 0;
-  text-decoration: none;
-
-  &:active {
-    opacity: 0.8;
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  //&:focus {
-  //  outline: 1px dashed currentColor;
-  //  outline-offset: -1px;
-  //}
-}
-
-.scrollbar-mini * {
-
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-    overflow: overlay;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 8px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-    background-color: rgba(192, 192, 192, 0.63);
-
-    &:hover {
-      background-color: #bebebe;
-    }
-  }
-
-  &::-webkit-scrollbar-track {
-    border-radius: var(--vgo-radius);
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-corner {
-    background-color: transparent;
-  }
-}
-
-.flex-row-center-gap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.error-tip-button {
-  background-color: #f44336;
-  cursor: pointer;
-  border-radius: 50%;
-  width: 16px;
-  height: 16px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-}
-
-.text-overflow {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background-color: var(--vgo-primary-opacity);
 }
 
 .os-loading-container {
@@ -129,28 +40,29 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: var(--vgo-z-overlay);
 
   &._absolute {
     position: absolute;
     top: 0;
     left: 0;
-    background-color: rgba(134, 134, 134, 0.1);
+    background-color: var(--vgo-hover);
   }
 
   &._fixed {
     position: fixed;
-    z-index: 200;
-    background-color: rgba(134, 134, 134, 0.1);
+    z-index: var(--vgo-z-window);
+    background-color: var(--vgo-hover);
   }
 
   .vgo-panel {
-    padding: 10px 20px;
+    padding: var(--vgo-space-3) var(--vgo-space-4);
   }
 }
 
+// use-selection-area 生成的框选矩形
 .selection-area {
-  background: var(--vgo-primary-opacity);
+  background-color: var(--vgo-primary-opacity);
   border: 1px solid var(--vgo-primary);
 }
 
@@ -158,191 +70,95 @@ body,
   cursor: pointer;
 }
 
-
-* {
-  box-sizing: border-box;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-    overflow: overlay;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 8px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-    background-color: rgba(192, 192, 192, 0.63);
-
-    &:hover {
-      background-color: #bebebe;
-    }
-  }
-
-  &::-webkit-scrollbar-track {
-    border-radius: var(--vgo-radius);
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-}
-
-// 减少动态效果（压时长，避免 animation: none 打断依赖 animationend 的逻辑）
-@mixin reduce-motion {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-// 墨水屏：去阴影 / 模糊 / 半透明，降低刷新负担
-@mixin eink-refresh-relief {
-  // 用 1px 实线描边替代模糊阴影，降低墨水屏刷新负担
-  --el-box-shadow: 0 0 0 1px var(--el-border-color, #000);
-  --el-box-shadow-light: 0 0 0 1px var(--el-border-color, #000);
-  --el-box-shadow-lighter: 0 0 0 1px var(--el-border-color-lighter, #000);
-  --el-box-shadow-dark: 0 0 0 1px var(--el-border-color-darker, #000);
-  --el-overlay-color: transparent;
-  --el-overlay-color-light: transparent;
-  --el-overlay-color-lighter: transparent;
-
-  *,
-  *::before,
-  *::after {
-    // box-shadow: none !important;
-    text-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  // 去掉大面积模糊层（全屏背景模糊 / 装饰阴影模糊）
-  // .app-cover-bg,
-  // .card-shadow,
-  // .playlist-backdrop {
-  //   display: none !important;
-  // }
-
-  .playlist-panel,
-  .vgo-panel,
-  .vgo-button,
-  .vgo-theme-default .vgo-window,
-  .vgo-theme-default .vgo-panel,
-  .vgo-theme-default .vgo-button {
-    background-color: #fff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-}
-
-// 对齐系统「减少动态效果」
-@media (prefers-reduced-motion: reduce) {
-  @include reduce-motion;
-}
-
-// 墨水屏模式（由 localSettingsStore.einkMode 挂到 html）
-html.eink-mode {
-  @include reduce-motion;
-  @include eink-refresh-relief;
-}
-
-.vgo-theme-default .vgo-window .vgo-window-controls button.is-close {
-  border-top-right-radius: var(--vgo-radius);
-}
-
+// 减少动态效果由库承担：`html.reduce-motion` 与系统 prefers-reduced-motion
+// 都在 vgo-ui 的 core 里实现，这里只负责用 localSettingsStore.reduceMotion
+// 把类挂到 html 上，见 hooks/use-global-theme.ts。
 
 // @imengyu/vue3-context-menu 样式覆盖
 .mx-context-menu {
+  $size: 10px;
+
   &.flat {
-    border-radius: 8px !important;
+    border-radius: var(--vgo-radius-lg) !important;
 
     .mx-context-menu-item {
-      padding: 8px 12px !important;
+      padding: var(--vgo-space-2) var(--vgo-space-3) !important;
     }
   }
 
   &.win10 {
     border-radius: var(--vgo-radius) !important;
   }
+
+  // 扩大命中区域，避免贴边时误关闭
+  &::before {
+    position: absolute;
+    inset: -$size;
+    content: '';
+    z-index: -1;
+  }
 }
 
-.mx-menu-bar.mac, .mx-context-menu.mac {
+.mx-menu-bar.mac,
+.mx-context-menu.mac {
   --mx-menu-hover-backgroud: var(--vgo-primary) !important;
   --mx-menu-active-backgroud: var(--vgo-primary) !important;
   --mx-menu-open-hover-backgroud: var(--vgo-primary) !important;
   --mx-menu-open-backgroud: var(--vgo-primary-opacity) !important;
 }
 
-.mx-context-menu {
-  $size: 10px;
-
-  &::before {
-    position: absolute;
-    top: -$size;
-    left: -$size;
-    right: -$size;
-    bottom: -$size;
-    content: '';
-    z-index: -1;
-  }
-}
-
-
 // element 样式覆盖
-// lazy 模式会同时渲染 ::before/::after（默认各 2px 且叠在一起），视觉上偏粗；Firefox 不稳定渲染 0.5px。将改为 1px，并在非拖拽时隐藏 ::after。
-.el-splitter-bar__dragger-horizontal {
+// lazy 模式会同时渲染 ::before/::after（默认各 2px 且叠在一起），视觉上偏粗；
+// Firefox 不稳定渲染 0.5px。改为 1px，并在非拖拽时隐藏 ::after。
+[class*='el-splitter-bar__dragger-'] {
   &::before,
   &::after {
+    background-color: var(--vgo-border) !important;
+  }
+
+  &::after {
+    display: none !important;
+  }
+
+  &.el-splitter-bar__dragger-horizontal::before,
+  &.el-splitter-bar__dragger-horizontal::after {
     width: 1px !important;
-    background-color: var(--vgo-color-border) !important;
   }
 
-  &::after {
-    display: none !important;
-  }
-}
-
-.el-splitter-bar__dragger-vertical {
-  &::before,
-  &::after {
+  &.el-splitter-bar__dragger-vertical::before,
+  &.el-splitter-bar__dragger-vertical::after {
     height: 1px !important;
-    background-color: var(--vgo-color-border) !important;
-  }
-
-  &::after {
-    display: none !important;
   }
 }
 
 .el-splitter-bar__dragger-active {
-  &.el-splitter-bar__dragger-horizontal,
-  &.el-splitter-bar__dragger-vertical {
-    &::before,
-    &::after {
-      background-color: var(--vgo-primary) !important;
-    }
+  &::before,
+  &::after {
+    background-color: var(--vgo-primary) !important;
+  }
 
-    &::after {
-      display: block !important;
-      opacity: 1 !important;
-    }
+  &::after {
+    display: block !important;
+    opacity: 1 !important;
   }
 }
 
 .el-image-viewer__prev {
-  left: 10px !important;
+  left: var(--vgo-space-3) !important;
 }
 
 .el-image-viewer__next {
-  right: 10px !important;
+  right: var(--vgo-space-3) !important;
+}
+
+// 竖向音量条的 popper 需要收窄
+.popover-volume {
+  width: 60px !important;
+  min-width: 60px !important;
 }
 
 .el-image-viewer__actions,
 .el-image-viewer__btn {
-  background-color: #2121213a !important;
+  // vgo-allow: 工具条浮在固定深色遮罩上，配色与主题无关
+  background-color: rgba(0, 0, 0, 0.35) !important;
 }

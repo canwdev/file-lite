@@ -49,7 +49,7 @@ function parseIpv6(ip: string): number[] {
     const leftParts = left ? left.split(':').filter(Boolean) : []
     const rightParts = right ? right.split(':').filter(Boolean) : []
     const padLen = 8 - leftParts.length - rightParts.length
-    const fullSections = [...leftParts, ...new Array(padLen).fill('0'), ...rightParts]
+    const fullSections = [...leftParts, ...Array.from<string>({ length: padLen }).fill('0'), ...rightParts]
     for (let i = 0; i < 8; i++) {
       view.setUint16(i * 2, Number.parseInt(fullSections[i]!, 16))
     }

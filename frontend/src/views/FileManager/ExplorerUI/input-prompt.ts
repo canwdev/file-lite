@@ -32,8 +32,8 @@ function applyPromptNameSelection(initialValue: string) {
 
     apply(input)
     // Focus trap may reset selection after the dialog opens.
-    setTimeout(() => apply(input), 0)
-    setTimeout(() => apply(input), 50)
+    setTimeout(apply, 0, input)
+    setTimeout(apply, 50, input)
   }
 
   requestAnimationFrame(trySelect)

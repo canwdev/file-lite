@@ -14,6 +14,24 @@ export function normalizeListingPath(path: string) {
   return p
 }
 
+/** 是否允许返回上一级：Unix 到 `/`、Windows 到盘符根为止 */
+export function canGoUp(path: string) {
+  const p = normalizeListingPath(path)
+  const segments = p.split('/').filter(Boolean)
+  return /^\//.test(p) ? segments.length > 0 : segments.length > 1
+}
+
+/** 上一级目录（listing 形态）；已在根则返回自身 */
+export function getParentPath(path: string) {
+  const p = normalizeListingPath(path)
+  if (!canGoUp(p)) {
+    return p
+  }
+  const segments = p.split('/').filter(Boolean)
+  segments.pop()
+  return normalizeListingPath(/^\//.test(p) ? `/${segments.join('/')}` : segments.join('/'))
+}
+
 export function toggleArrayElement(arr: any[], value: any) {
   const index = arr.indexOf(value)
   if (index !== -1) {

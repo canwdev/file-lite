@@ -4,7 +4,7 @@ import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
-import { normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
+import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
 import { useOpener } from './use-opener'
 
 export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]> }) {
@@ -95,36 +95,14 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
   }
   /* 历史记录功能 END */
 
-  // 检测以/开头的路径为unix路径
-  const isUnix = computed(() => {
-    return /^\//.test(basePath.value)
-  })
   // 是否允许返回上一级
-  const allowUp = computed(() => {
-    const arr = basePath.value.split('/').filter(i => !!i)
-    if (isUnix.value) {
-      return arr.length > 0
-    }
-    else {
-      return arr.length > 1
-    }
-  })
+  const allowUp = computed(() => canGoUp(basePath.value))
   const goUp = async () => {
     if (!allowUp.value) {
       return
     }
-    const arr = basePath.value.split('/').filter(i => !!i)
-    highlightFolderName.value = arr[arr.length - 1] || null
-    arr.pop()
-    if (!arr.length && !isUnix.value) {
-      await handleRefresh()
-      return
-    }
-    let path = `${arr.join('/')}/`
-    if (isUnix.value) {
-      path = `/${path}`
-    }
-    await handleOpenPath(path, true)
+    highlightFolderName.value = getLastDirName(basePath.value) || null
+    await handleOpenPath(getParentPath(basePath.value), true)
   }
   const handleOpenPath = async (path: string, isUpdateHistory: boolean = true, forceRefresh: boolean = false) => {
     if (normalizeListingPath(path) === basePathNormalized.value && !forceRefresh) {

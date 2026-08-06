@@ -256,26 +256,24 @@ function handleShortcutKey(event: KeyboardEvent) {
     <div v-if="isLoading" class="loading-wrapper">
       Loading...
     </div>
-    <div v-else-if="fileTooLarge" class="too-large-state">
-      <span class="mdi mdi-file-alert-outline too-large-icon" />
-      <p class="too-large-title">
+    <div v-else-if="fileTooLarge" class="vgo-empty too-large-state">
+      <span class="mdi mdi-file-alert-outline vgo-empty__icon too-large-icon" />
+      <p class="vgo-empty__title">
         File too large to edit
       </p>
-      <p class="too-large-meta">
+      <p class="vgo-empty__desc">
         <strong>{{ fileTooLarge.name }}</strong>
         is {{ bytesToSize(fileTooLarge.size) }} — limit is {{ bytesToSize(SIZE_LIMIT) }}
       </p>
-      <div class="too-large-actions">
-        <a class="vgo-button" :href="fsWebApi.getStreamUrl(absPath!)" target="_blank" rel="noopener">
-          <span class="mdi mdi-open-in-new" /> Open in Browser
-        </a>
-      </div>
+      <a class="vgo-button" :href="fsWebApi.getStreamUrl(absPath!)" target="_blank" rel="noopener">
+        <span class="mdi mdi-open-in-new" /> Open in Browser
+      </a>
     </div>
     <textarea
       v-else
       ref="editRef"
       v-model="editContent"
-      class="vgo-input font-code text-editor-textarea"
+      class="vgo-input vgo-u-font-code text-editor-textarea"
       @keydown="handleShortcutKey"
     />
   </div>
@@ -296,8 +294,7 @@ function handleShortcutKey(event: KeyboardEvent) {
   }
 
   .mx-menu-bar {
-    padding: 4px 0;
-    box-shadow: none;
+    padding: var(--vgo-space-1) 0;
     flex: unset;
   }
 
@@ -317,38 +314,18 @@ function handleShortcutKey(event: KeyboardEvent) {
 
   .too-large-state {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 32px;
-    text-align: center;
+
+    p {
+      margin: 0;
+    }
 
     .too-large-icon {
-      font-size: 52px;
-      color: var(--vgo-color-warning, #e6a23c);
-      opacity: 0.8;
+      color: var(--vgo-warning);
+      opacity: 1;
     }
 
-    .too-large-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .too-large-meta {
-      font-size: 13px;
-      color: var(--vgo-color-text-secondary, #888);
-      margin: 0;
-    }
-
-    .too-large-actions {
-      margin-top: 8px;
-
-      .vgo-button {
-        text-decoration: none;
-      }
+    .vgo-button {
+      text-decoration: none;
     }
   }
 }

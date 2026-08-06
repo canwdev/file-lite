@@ -117,7 +117,8 @@ defineExpose({
 .native-or-art-video {
   width: 100%;
   height: 100%;
-  background-color: #1c1c1c;
+  // vgo-allow: 视频信箱底色与主题无关，必须是黑
+  background-color: #000;
   overflow: hidden;
 
   video {

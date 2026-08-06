@@ -387,12 +387,12 @@ onBeforeUnmount(() => {
   border-radius: inherit;
   overflow: hidden;
 
+  // 视频信箱底色与主题无关，必须是黑
   &.is-video {
     display: flex;
     flex-direction: column;
-    background:
-      radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.08), transparent 34%),
-      #050505;
+    // vgo-allow: 视频信箱底色与主题无关，必须是黑
+    background-color: #000;
 
     .player-core-video-host {
       flex: 1;

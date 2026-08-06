@@ -109,7 +109,8 @@ export default defineComponent({
 
   $bar_height: 5px;
   $thumb_size: 14px;
-  $clickable_height: 24px; // 定义你想要的实际点击区域高度
+  // 轨道只有 5px，靠加高透明的 input 把命中区域撑到可点
+  $clickable_height: 24px;
 
   &::before {
     content: '';
@@ -119,8 +120,8 @@ export default defineComponent({
     right: 0;
     height: $bar_height;
     transform: translateY(-50%);
-    background: rgba(128, 128, 128, 0.2);
-    border-radius: 999px;
+    background: var(--vgo-hover);
+    border-radius: var(--vgo-radius-pill);
     pointer-events: none;
     z-index: 0;
   }
@@ -141,90 +142,69 @@ export default defineComponent({
     transform: translateY(-50%);
     height: $bar_height;
     width: 0;
-    background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
+    background-color: var(--vgo-primary);
     user-select: none;
     pointer-events: none;
     z-index: 1;
-    border-radius: 999px;
+    border-radius: var(--vgo-radius-pill);
   }
 
- input {
-    width: 100%;
+  @mixin thumb {
+    appearance: none;
+    width: $thumb_size;
+    height: $thumb_size;
+    border: 2px solid var(--vgo-primary);
+    border-radius: 50%;
+    background-color: var(--vgo-surface-raised);
+    cursor: pointer;
+  }
+
+  input {
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
     left: 0;
     right: 0;
-    appearance: none;
-
-    /* --- 关键修改：增大高度 --- */
+    width: 100%;
     height: $clickable_height;
+    transform: translateY(-50%);
+    appearance: none;
     background: transparent;
-    /* ------------------------ */
-
     outline: none;
-    border-radius: 999px;
-    box-shadow: none;
     margin: 0;
     z-index: 2;
     cursor: pointer;
-
-    &::-webkit-slider-runnable-track {
-      /* --- 关键修改：让轨道在视觉上保持 $bar_height --- */
-      height: $bar_height;
-      background: transparent;
-      border-radius: 999px;
-      // 移除可能存在的默认边距
-      border: none;
-    }
 
     &:disabled {
       cursor: not-allowed;
       opacity: 0.45;
     }
 
-    @mixin mixin-thumb {
-      position: relative;
-      appearance: none;
-      width: $thumb_size;
-      height: $thumb_size;
-      border-radius: 50%;
-      background: #fff;
-      z-index: 10;
-      border: 2px solid var(--vgo-primary);
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
-      cursor: pointer;
-    }
-
-    &::-webkit-slider-thumb {
-      @include mixin-thumb;
-      /* --- 关键修改：修正 Thumb 的垂直偏移 --- */
-      // 因为 input 高度变大了，需要计算新的 margin-top 使其居中
-      // 公式: (track_height / 2) - (thumb_height / 2)
-      margin-top: math.div($bar_height, 2) - math.div($thumb_size, 2);
-      /* --------------------------------------- */
-      opacity: 0;
-      transform: scale(0.72);
-      transition: opacity 0.16s ease, transform 0.16s ease;
-    }
-
-    &:hover {
-      &::-webkit-slider-thumb {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-
-    &::-moz-range-thumb {
-      @include mixin-thumb;
-      // Firefox 不需要像 Webkit 那样处理 margin-top，通常会自动居中
-      border: 2px solid var(--vgo-primary);
-    }
-
-    // 针对 Firefox 的轨道处理
+    &::-webkit-slider-runnable-track,
     &::-moz-range-track {
       height: $bar_height;
       background: transparent;
+      border: none;
+    }
+
+    &::-webkit-slider-thumb {
+      @include thumb;
+      // input 被加高后 thumb 不再自动居中，需按轨道高度回补
+      margin-top: math.div($bar_height - $thumb_size, 2);
+      opacity: 0;
+      transform: scale(0.72);
+      transition:
+        opacity var(--vgo-duration-fast) ease,
+        transform var(--vgo-duration-fast) ease;
+    }
+
+    &:hover::-webkit-slider-thumb {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    // Firefox 自动居中，无需补 margin
+    &::-moz-range-thumb {
+      @include thumb;
     }
   }
 }

@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { IEntry } from '@/types/server.ts'
-import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
 import { localSettingsStore, PREVIEW_SIZE_UNLIMITED } from '@/store/index.ts'
 import { regSupportedImageFormat } from '@/utils/is.ts'
@@ -144,7 +143,7 @@ onBeforeUnmount(() => {
       position: absolute;
       right: 0;
       bottom: 0;
-      font-size: 16px !important;
+      font-size: var(--vgo-icon-sm) !important;
     }
   }
 }

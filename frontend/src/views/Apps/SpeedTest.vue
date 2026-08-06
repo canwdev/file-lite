@@ -185,10 +185,10 @@ onBeforeUnmount(() => {
         <span>Size(MB)</span>
         <input v-model.number="sizeMB" type="number" min="1" max="2048" class="vgo-input size-input" :disabled="running" :step="100">
       </label>
-      <button type="button" class="vgo-button primary" :disabled="running" @click="startTest">
+      <button type="button" class="vgo-button vgo-button--primary" :disabled="running" @click="startTest">
         Test All
       </button>
-      <button type="button" class="vgo-button " :disabled="!running" @click="stopTest">
+      <button type="button" class="vgo-button" :disabled="!running" @click="stopTest">
         Stop
       </button>
       <span class="phase-text">{{ phaseText }}</span>
@@ -198,8 +198,8 @@ onBeforeUnmount(() => {
       <div
         v-for="card in cards"
         :key="card.key"
-        class="speed-card"
-        :class="{ active: running && phase === card.phase }"
+        class="speed-card vgo-panel"
+        :class="{ 'is-active': running && phase === card.phase }"
       >
         <div class="speed-card-title">
           <div class="speed-card-progress" :style="{ width: `${getProgressPercent(card.metrics)}%` }" />
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
           </div>
           <button
             type="button"
-            class="vgo-button speed-card-action"
+            class="vgo-button vgo-button--sm speed-card-action"
             :disabled="running"
             @click="startSingleTest(card.phase)"
           >
@@ -239,10 +239,10 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .speed-test-wrap {
-  padding: 8px;
+  padding: var(--vgo-space-2);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--vgo-space-2);
   max-width: 700px;
   margin: 0 auto;
 }
@@ -250,16 +250,16 @@ onBeforeUnmount(() => {
 .speed-test-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid var(--vgo-color-border, #ddd);
-  padding-bottom: 8px;
+  gap: var(--vgo-space-2);
+  border-bottom: 1px solid var(--vgo-border);
+  padding-bottom: var(--vgo-space-2);
 }
 
 .size-input-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: var(--vgo-space-2);
+  font-size: var(--vgo-font-md);
 }
 
 .size-input {
@@ -268,29 +268,31 @@ onBeforeUnmount(() => {
 
 .phase-text {
   margin-left: auto;
-  font-size: 12px;
-  opacity: 0.75;
+  font-size: var(--vgo-font-sm);
+  color: var(--vgo-text-secondary);
 }
 
 .speed-test-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 8px;
+  gap: var(--vgo-space-2);
 }
 
 .speed-card {
-  border: 1px solid var(--vgo-color-border, #ddd);
-  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition: border-color var(--vgo-duration-base) ease;
   overflow: hidden;
-  padding-bottom: 10px;
-}
+  padding-bottom: var(--vgo-space-2);
 
-.speed-card.active {
-  border-color: var(--vgo-primary, #409eff);
+  &.is-active {
+    border-color: var(--vgo-primary);
+
+    .speed-card-title {
+      color: var(--vgo-primary);
+    }
+  }
 }
 
 .speed-card-title {
@@ -298,13 +300,12 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--vgo-space-2);
   font-weight: 600;
-  font-size: 14px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--vgo-color-border, #ddd);
+  font-size: var(--vgo-font-md);
+  padding: var(--vgo-space-2) var(--vgo-space-3);
+  border-bottom: 1px solid var(--vgo-border);
   overflow: hidden;
-  transition: color 0.2s ease;
 }
 
 .speed-card-title-main {
@@ -312,24 +313,19 @@ onBeforeUnmount(() => {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.speed-card.active .speed-card-title {
-  color: var(--vgo-primary, #409eff);
+  gap: var(--vgo-space-2);
 }
 
 .speed-card-icon {
-  font-size: 20px;
-  opacity: 0.9;
+  font-size: var(--vgo-icon-md);
 }
 
 .speed-card-progress {
   position: absolute;
   inset: 0 auto 0 0;
-  background: var(--vgo-primary-opacity);
+  background-color: var(--vgo-primary-opacity);
   pointer-events: none;
-  transition: width 0.12s linear;
+  transition: width var(--vgo-duration-fast) linear;
 }
 
 .speed-card-action {
@@ -342,25 +338,24 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  padding: 8px 12px;
+  gap: var(--vgo-space-3);
+  font-size: var(--vgo-font-md);
+  padding: var(--vgo-space-1) var(--vgo-space-3);
 }
 
 .speed-row-label {
-  opacity: 0.75;
+  color: var(--vgo-text-secondary);
 }
 
 .speed-row.average .speed-row-label,
 .speed-row.average .speed-value {
-  color: var(--vgo-primary, #409eff);
+  color: var(--vgo-primary);
 }
 
 .speed-value {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 14px;
+  font-size: var(--vgo-font-md);
   font-weight: 600;
-  letter-spacing: 0.02em;
   text-align: right;
 }
 </style>

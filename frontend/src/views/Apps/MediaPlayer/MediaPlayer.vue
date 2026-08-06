@@ -70,7 +70,7 @@ watch(
     <Transition name="playlist-panel">
       <div v-if="showPlaylist" class="playlist-overlay">
         <div class="playlist-backdrop" />
-        <aside class="playlist-panel">
+        <aside class="playlist-panel vgo-panel">
           <div class="playlist-panel-header">
             <div class="playlist-panel-title">
               <h2>Playing Queue</h2>
@@ -78,7 +78,11 @@ watch(
                 {{ mediaStore.playingList.length ? mediaStore.playingIndex + 1 : 0 }}/{{ mediaStore.playingList.length }}
               </span>
             </div>
-            <button class="playlist-close btn-no-style" title="Close playlist" @click="showPlaylist = false">
+            <button
+              class="vgo-button vgo-button--text vgo-button--icon"
+              title="Close playlist"
+              @click="showPlaylist = false"
+            >
               <span class="mdi mdi-close" />
             </button>
           </div>
@@ -103,13 +107,14 @@ watch(
   overflow: hidden;
   isolation: isolate;
   contain: paint;
-  // color: var(--el-text-color-primary);
+  // vgo-allow: 播放器氛围底，刻意保留的渐变
   background:
     radial-gradient(circle at 14% 8%, rgba(255, 45, 85, 0.10), transparent 28%),
     radial-gradient(circle at 88% 0%, rgba(64, 156, 255, 0.12), transparent 32%),
     linear-gradient(145deg, #fff, #f4f4f7 58%, #ececf1);
 
   &.has-cover-bg {
+    // vgo-allow: 同上，封面模式下的氛围底
     background:
       linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(246, 246, 249, 0.88)),
       radial-gradient(circle at 18% 8%, rgba(255, 45, 85, 0.12), transparent 30%),
@@ -146,12 +151,25 @@ watch(
 
   .music-below {
     flex-shrink: 0;
-    padding: 10px 14px 14px;
+    padding: var(--vgo-space-3) var(--vgo-space-4) var(--vgo-space-4);
     position: relative;
     z-index: 3;
   }
+}
 
-  &.is-video-mode {
+.dark .media-player-wrap {
+  // vgo-allow: 暗色下的氛围底，同属豁免范围
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 45, 85, 0.12), transparent 28%),
+    radial-gradient(circle at 88% 0%, rgba(var(--vgo-primary-rgb), 0.16), transparent 32%),
+    linear-gradient(145deg, #141416, #1b1b20 58%, #101014);
+
+  &.has-cover-bg {
+    // vgo-allow: 同上，封面模式下的氛围底
+    background:
+      linear-gradient(135deg, rgba(18, 18, 20, 0.58), rgba(18, 18, 20, 0.86)),
+      radial-gradient(circle at 18% 8%, rgba(255, 45, 85, 0.18), transparent 30%),
+      #141416;
   }
 }
 
@@ -170,8 +188,8 @@ watch(
 
 .playlist-panel {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: var(--vgo-space-4);
+  right: var(--vgo-space-4);
   bottom: 100px;
   width: min(360px, calc(100vw - 28px));
   display: flex;
@@ -179,23 +197,13 @@ watch(
   min-height: 0;
   overflow: hidden;
   pointer-events: auto;
-  border-radius: 16px;
-  padding: 8px;
+  padding: var(--vgo-space-2);
   padding-bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow:
-    0 28px 80px rgba(40, 40, 50, 0.20),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(28px) saturate(1.25);
 
   :deep(.music-play-list) {
     flex: 1;
     min-height: 0;
     padding: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
   }
 }
 
@@ -204,52 +212,38 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 4px 4px;
+  gap: var(--vgo-space-3);
+  padding: var(--vgo-space-1);
 }
 
 .playlist-panel-title {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--vgo-space-2);
   min-width: 0;
 
   h2 {
     margin: 0;
-    font-size: 20px;
-    letter-spacing: -0.04em;
+    font-size: var(--vgo-font-lg);
   }
 }
 
 .playlist-panel-count {
   flex-shrink: 0;
-  color: var(--el-text-color-secondary);
-  font-size: 11px;
+  color: var(--vgo-text-secondary);
+  font-size: var(--vgo-font-sm);
   font-variant-numeric: tabular-nums;
-}
-
-.playlist-close {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.18);
-  }
 }
 
 .playlist-panel-enter-active,
 .playlist-panel-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity var(--vgo-duration-base) ease;
 
   .playlist-panel,
   .playlist-backdrop {
-    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+    transition:
+      transform var(--vgo-duration-base) ease,
+      opacity var(--vgo-duration-base) ease;
   }
 }
 
@@ -268,61 +262,15 @@ watch(
 }
 
 @media screen and (max-width: 700px) {
-  .media-player-wrap {
-    .music-above {
-    }
-
-    .media-detail {
-    }
-
-    .music-below {
-      padding: 8px;
-    }
+  .media-player-wrap .music-below {
+    padding: var(--vgo-space-2);
   }
 
   .playlist-panel {
-    top: 10px;
-    right: 10px;
-    left: 10px;
+    top: var(--vgo-space-3);
+    right: var(--vgo-space-3);
+    left: var(--vgo-space-3);
     width: auto;
-    border-radius: 22px;
-  }
-}
-</style>
-
-<style lang="scss">
-.dark {
-  .media-player-wrap {
-  background:
-    radial-gradient(circle at 12% 8%, rgba(255, 45, 85, 0.12), transparent 28%),
-    radial-gradient(circle at 88% 0%, rgba(var(--vgo-primary-rgb), 0.16), transparent 32%),
-    linear-gradient(145deg, #141416, #1b1b20 58%, #101014);
-
-  &.has-cover-bg {
-    background:
-      linear-gradient(135deg, rgba(18, 18, 20, 0.58), rgba(18, 18, 20, 0.86)),
-      radial-gradient(circle at 18% 8%, rgba(255, 45, 85, 0.18), transparent 30%),
-      #141416;
-  }
-
-  .playlist-panel {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)),
-      rgba(22, 22, 24, 0.82);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow:
-      0 28px 80px rgba(0, 0, 0, 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16);
-    backdrop-filter: blur(28px) saturate(1.25);
-  }
-
-  .playlist-close {
-    background: rgba(255, 255, 255, 0.1);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.18);
-    }
-  }
   }
 }
 </style>

@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="file-table-wrapper">
     <table>
-      <thead class="vgo-bg">
+      <thead class="vgo-u-surface">
         <tr>
           <!-- 多选列 -->
           <th
@@ -244,8 +244,8 @@ onBeforeUnmount(() => {
         <tr
           v-for="{ item: row, index } in renderedRows"
           :key="row.id || row.name || index"
-          class="table-row selectable"
-          :class="{ 'active': mSelectedRows.has(row), 'is-cut': cutNames?.has(row.name) }"
+          class="vgo-list-item table-row selectable"
+          :class="{ 'is-active': mSelectedRows.has(row), 'is-cut': cutNames?.has(row.name) }"
           :style="virtualRowHeight ? { height: `${virtualRowHeight}px` } : undefined"
           :title="getTooltip ? getTooltip(row) : ''"
           :data-name="row.name"
@@ -301,20 +301,20 @@ onBeforeUnmount(() => {
 
   th,
   td {
-    padding: 8px 8px;
+    padding: var(--vgo-space-2);
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     @media screen and (max-width: $mq_mobile_width) {
-      padding: 10px 8px;
+      padding: 10px var(--vgo-space-2);
     }
   }
 
   thead {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: var(--vgo-z-sticky);
   }
 
   th {
@@ -322,40 +322,24 @@ onBeforeUnmount(() => {
     &.clickable {
       cursor: pointer;
       &:hover {
-        background-color: rgba(134, 134, 134, 0.1);
+        background-color: var(--vgo-hover);
       }
     }
   }
+
+  // .vgo-list-item 默认是 flex 行，表格行需要还原为 table-row
   .table-row {
-    // border-radius: var(--vgo-radius);
-    font-size: 14px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    &:nth-child(2n) {
-      background-color: rgba(134, 134, 134, 0.1);
-    }
-    &:hover {
-      transition: background-color 0s;
-      background-color: var(--vgo-primary-opacity);
+    display: table-row;
+    min-height: 0;
+    padding: 0;
 
-      .checkbox-auto-hidden {
-        visibility: visible;
-      }
-    }
-    &.active {
-      background-color: var(--vgo-primary-opacity);
-      outline: 1px solid var(--vgo-primary);
-      outline-offset: -1px;
-
-      .checkbox-auto-hidden {
-        visibility: visible;
-      }
+    &:hover .checkbox-auto-hidden,
+    &.is-active .checkbox-auto-hidden {
+      visibility: visible;
     }
 
-    &.is-cut {
-      :deep(.themed-icon) {
-        opacity: 0.45;
-      }
+    &.is-cut :deep(.themed-icon) {
+      opacity: 0.45;
     }
   }
 
@@ -379,8 +363,8 @@ onBeforeUnmount(() => {
     font-weight: 500;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: var(--vgo-space-2);
+    font-size: var(--vgo-font-md);
   }
 
   .sort-icon span {
@@ -395,8 +379,8 @@ onBeforeUnmount(() => {
     width: 1px;
     height: 100%;
     cursor: col-resize;
-    z-index: 10;
-    background-color: var(--vgo-color-border);
+    z-index: var(--vgo-z-sticky);
+    background-color: var(--vgo-border);
     &:active {
       background-color: var(--vgo-primary);
       &::after {
@@ -411,7 +395,7 @@ onBeforeUnmount(() => {
       left: 50%;
       transform: translate(-50%);
       width: 8px;
-      z-index: 10;
+      z-index: var(--vgo-z-sticky);
     }
   }
 
@@ -420,7 +404,7 @@ onBeforeUnmount(() => {
     text-overflow: unset;
     cursor: pointer;
     .mdi {
-      font-size: 16px;
+      font-size: var(--vgo-icon-sm);
       vertical-align: middle;
       line-height: 14px;
     }

@@ -25,7 +25,7 @@ export function parseLrcString(raw: string): LyricLine[] {
       continue
     }
     // 解析元数据标签 [ar:][ti:][al:] 等，时间戳设为 0
-    const metaMatch = trimmed.match(/^\[(ar|ti|al|by|tool|length|ve):\s*([\s\S]*?)\]/i)
+    const metaMatch = trimmed.match(/^\[(ar|ti|al|by|tool|length|ve):([\s\S]*?)\]/i)
     if (metaMatch) {
       const tagName = metaMatch[1]!.toLowerCase()
       const tagValue = metaMatch[2]!.trim()

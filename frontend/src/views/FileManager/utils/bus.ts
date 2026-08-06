@@ -6,6 +6,8 @@ export const ExplorerEvents = {
   REVEAL_ITEM: 'REVEAL_ITEM',
 } as const
 
+// mitt 要求事件表满足 Record<EventType, unknown>，interface 没有隐式索引签名，只能用 type
+// eslint-disable-next-line ts/consistent-type-definitions
 type ExplorerBusEvents = {
   [ExplorerEvents.REFRESH]: void
   [ExplorerEvents.SELECT_COLLECTED]: { basePath: string, names: string[] }

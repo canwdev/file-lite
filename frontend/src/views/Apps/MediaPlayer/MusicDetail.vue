@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="music-detail-root scrollbar-mini">
+  <div class="music-detail-root vgo-u-scrollbar">
     <div v-if="item" class="music-detail-body" :class="{ 'has-lyrics': hasLyrics && isLyricsVisible }">
       <!-- With lyrics: two-column AMLL / Apple Music–like -->
       <template v-if="hasLyrics">

@@ -126,29 +126,32 @@ defineExpose({
       <div class="file-sidebar-content-top">
         <span>Storage</span>
         <button
-          class="btn-no-style mdi mdi-reload"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          title="Reload drives"
           :disabled="isLoading"
           @click="loadDrives"
-        />
+        >
+          <span class="mdi mdi-reload vgo-u-icon-sm" />
+        </button>
       </div>
       <button
         v-for="(item, index) in driveList"
         :key="index"
-        class="drive-item btn-no-style"
+        class="vgo-u-button-reset vgo-list-item drive-item"
         :title="getTitle(item)"
-        :class="{ active: item.path === currentPath }"
+        :class="{ 'is-active': item.path === currentPath }"
         @click="openDrive(item)"
         @contextmenu.prevent.stop="showDriveMenu(item, $event)"
       >
         <span class="drive-icon">
-          <span class="mdi" :class="[getIcon(item)]" />
+          <span class="mdi vgo-u-icon-md" :class="[getIcon(item)]" />
         </span>
         <span class="drive-content">
-          <span class="drive-title text-overflow">{{ item.label }}</span>
-          <span v-if="item.total && item.free" class="volume-bar">
+          <span class="drive-title vgo-u-text-overflow">{{ item.label }}</span>
+          <span v-if="item.total && item.free" class="vgo-progress">
             <span
               :style="{ width: `${((item.total - item.free) / item.total) * 100}%` }"
-              class="volume-value"
+              class="vgo-progress__value"
             />
           </span>
         </span>
@@ -157,13 +160,12 @@ defineExpose({
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .explorer-file-sidebar {
-  //width: 180px;
   height: 100%;
   position: relative;
   display: flex;
-  gap: 8px;
+  gap: var(--vgo-space-2);
   flex-direction: column;
 
   .file-sidebar-content {
@@ -172,49 +174,28 @@ defineExpose({
 
     .file-sidebar-content-top {
       display: flex;
-      gap: 8px;
+      gap: var(--vgo-space-2);
       align-items: center;
       justify-content: space-between;
-      padding: 4px 6px;
-      font-size: 12px;
-      opacity: 0.5;
+      padding-left: var(--vgo-space-2);
+      font-size: var(--vgo-font-sm);
+      color: var(--vgo-text-secondary);
     }
   }
 
   .drive-item {
-    display: flex;
     width: 100%;
-    text-align: unset;
-    cursor: pointer;
-    padding: 4px 6px;
-    box-sizing: border-box;
-    gap: 6px;
-    align-items: center;
-
-    &.active {
-      background-color: var(--vgo-primary-opacity) !important;
-    }
-
-    &:focus {
-      outline: 1px dashed var(--vgo-primary);
-      outline-offset: -1px;
-    }
+    min-height: var(--vgo-control-md);
+    padding-inline: var(--vgo-space-2);
+    font-size: var(--vgo-font-sm);
 
     .drive-icon {
-      width: 20px;
-      height: 20px;
       display: flex;
       flex-shrink: 0;
       align-items: center;
       justify-content: center;
-
-      .mdi {
-        font-size: 20px;
-      }
-
-      i {
-        display: flex;
-      }
+      width: var(--vgo-icon-md);
+      height: var(--vgo-icon-md);
 
       img {
         width: 100%;
@@ -227,39 +208,10 @@ defineExpose({
       overflow: hidden;
     }
 
-    &:hover {
-      background-color: var(--vgo-color-hover);
-    }
-
-    & + .drive-item {
-      border-top: 1px solid var(--vgo-color-border);
-    }
-
     .drive-title {
-      font-size: 12px;
+      display: block;
       line-height: 1.4;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .volume-bar {
-      overflow: hidden;
-      height: 2px;
-      width: 100%;
-      position: relative;
-      background-color: var(--vgo-color-border);
-      display: flex;
-
-      .volume-value {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 0%;
-        background-color: var(--vgo-primary);
-        transition: all 0.3s;
-      }
+      text-align: initial;
     }
   }
 }

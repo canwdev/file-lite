@@ -1,5 +1,5 @@
 <script lang="ts" setup="">
-import type { IEntry } from '@/types/server'
+import type { FileSelectResult } from '@/views/FileManager/types'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
@@ -22,7 +22,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits<{
-  handleSelect: [item: { items: IEntry[], item: IEntry, basePath: string }]
+  handleSelect: [item: FileSelectResult]
   close: []
   open: []
 }>()
@@ -30,7 +30,7 @@ const { selectFileMode, multiple, autoShow, fileFilterPattern } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
 
-function handleSelect(item: { items: IEntry[], item: IEntry, basePath: string }) {
+function handleSelect(item: FileSelectResult) {
   isShowFileSelectWindow.value = false
   emit('handleSelect', item)
 }
@@ -71,7 +71,7 @@ defineExpose({
 
 <template>
   <div class="file-selector">
-    <button v-if="showButton" class="vgo-button primary" @click="isShowFileSelectWindow = true">
+    <button v-if="showButton" class="vgo-button vgo-button--primary" @click="isShowFileSelectWindow = true">
       {{ actionLabel }}
     </button>
 

@@ -1,7 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import { SortType } from '@/types/server'
-import { sortMethodMap } from '../../utils/sort'
+import { sortEntries } from '../../utils/sort'
 
 export function useLayoutSort(
   files: Ref<IEntry[]>,
@@ -31,16 +31,7 @@ export function useLayoutSort(
       }
     })
   })
-  const sortedFiles = computed(() => {
-    return files.value
-      .filter((item) => {
-        if (showHidden.value) {
-          return true
-        }
-        return !item.hidden && !item.error
-      })
-      .sort(sortMethodMap[sortMode.value])
-  })
+  const sortedFiles = computed(() => sortEntries(files.value, sortMode.value, showHidden.value))
 
   return {
     sortOptions,

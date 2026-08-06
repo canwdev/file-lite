@@ -127,31 +127,35 @@ onBeforeUnmount(() => {
 <template>
   <div class="text-sync-wrap">
     <div class="text-sync-channels">
-      <button
-        v-for="channel in TEXT_SYNC_CHANNELS"
-        :key="channel"
-        type="button"
-        class="vgo-button channel-btn"
-        :class="{ active: channel === activeChannel }"
-        @click="activeChannel = channel"
-      >
-        {{ channel }}
-      </button>
+      <div class="vgo-rect-switch">
+        <button
+          v-for="channel in TEXT_SYNC_CHANNELS"
+          :key="channel"
+          type="button"
+          class="vgo-u-button-reset vgo-rect-switch__item"
+          :class="{ 'is-active': channel === activeChannel }"
+          @click="activeChannel = channel"
+        >
+          {{ channel }}
+        </button>
+      </div>
       <span class="conn-state" :class="{ connected: isConnected }">
         {{ isConnected ? 'Connected' : 'Disconnected' }}
       </span>
     </div>
 
     <div class="text-sync-actions">
-      <button type="button" class="vgo-button mdi mdi-content-copy" @click="copyText">
-        Copy
-      </button>
-      <button type="button" class="vgo-button mdi mdi-content-paste" @click="pasteText">
-        Paste
-      </button>
-      <button type="button" class="vgo-button mdi mdi-delete-sweep danger" @click="clearText">
-        Clear
-      </button>
+      <div class="vgo-button-group">
+        <button type="button" class="vgo-button mdi mdi-content-copy" @click="copyText">
+          Copy
+        </button>
+        <button type="button" class="vgo-button mdi mdi-content-paste" @click="pasteText">
+          Paste
+        </button>
+        <button type="button" class="vgo-button vgo-button--danger mdi mdi-delete-sweep" @click="clearText">
+          Clear
+        </button>
+      </div>
     </div>
 
     <textarea
@@ -166,45 +170,35 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .text-sync-wrap {
   height: 100%;
-  padding: 8px;
+  padding: var(--vgo-space-2);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--vgo-space-2);
 }
 
 .text-sync-channels {
   display: flex;
   align-items: center;
-  gap: 6px;
-  border-bottom: 1px solid var(--vgo-color-border, #ddd);
-  padding-bottom: 8px;
-}
+  gap: var(--vgo-space-2);
 
-.channel-btn {
-  min-width: 56px;
-}
-
-.channel-btn.active {
-  border-color: var(--vgo-primary, #409eff);
-  color: var(--vgo-primary, #409eff);
+  .vgo-rect-switch__item {
+    min-width: 56px;
+  }
 }
 
 .conn-state {
   margin-left: auto;
-  font-size: 12px;
-  opacity: 0.75;
+  font-size: var(--vgo-font-sm);
+  color: var(--vgo-text-secondary);
 }
 
 .conn-state.connected {
-  color: var(--vgo-color-success, #67c23a);
-  opacity: 1;
+  color: var(--vgo-success);
 }
 
 .text-sync-actions {
   display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--vgo-color-border, #ddd);
-  padding-bottom: 8px;
+  gap: var(--vgo-space-2);
 }
 
 .text-sync-textarea {

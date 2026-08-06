@@ -4,9 +4,8 @@ import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { useDebounceFn, useEventListener, useStorage, useVModel, watchDebounced } from '@vueuse/core'
+import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, nextTick, ref, toRefs, watch } from 'vue'
-import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
@@ -17,6 +16,7 @@ import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.t
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import TransferQueue from '../TransferQueue.vue'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
+import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
@@ -54,33 +54,7 @@ const { basePath, files, filter, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
-interface PathState {
-  position?: number
-  sortMode?: SortType
-}
-
-// 缓存路径状态（持久化）
-const stateMap = useStorage<Record<string, PathState>>(
-  LsKeys.EXPLORER_STATE_MAP,
-  {},
-  // 防止泄漏隐私，使用 sessionStorage 代替 localStorage
-  localStorage,
-  { listenToStorageChanges: false },
-)
-
-// 创建读写当前路径下某个状态字段的 computed ref
-function pathStateRef<K extends keyof PathState>(key: K, defaultVal: NonNullable<PathState[K]>) {
-  return computed({
-    get: () => (stateMap.value[basePath.value]?.[key] as NonNullable<PathState[K]>) ?? defaultVal,
-    set: (val: NonNullable<PathState[K]>) => {
-      if (!stateMap.value[basePath.value])
-        stateMap.value[basePath.value] = {}
-      stateMap.value[basePath.value][key] = val
-    },
-  })
-}
-
-const sortMode = pathStateRef('sortMode', SortType.default)
+const sortMode = pathStateRef(basePath, 'sortMode', SortType.default)
 const isGridView = computed({
   get: () => localSettingsStore.value.isGridView,
   set: (val: boolean) => { localSettingsStore.value.isGridView = val },
@@ -173,7 +147,7 @@ const tableColumns = computed(() => {
           h(
             'span',
             {
-              class: `title-text text-overflow ${item.error ? 'error' : ''}`,
+              class: `title-text vgo-u-text-overflow ${item.error ? 'error' : ''}`,
               onClick: (e) => {
                 e.stopPropagation()
                 emit('open', { item })
@@ -658,8 +632,8 @@ function selectAndReveal(name: string) {
 }
 
 watchDebounced(files, () => {
-  if (stateMap.value[basePath.value]) {
-    const position = stateMap.value[basePath.value]?.position || 0
+  if (explorerStateMap.value[basePath.value]) {
+    const position = explorerStateMap.value[basePath.value]?.position || 0
     nextTick(() => {
       virtualList.refresh()
       virtualGrid.refresh()
@@ -672,11 +646,11 @@ watchDebounced(files, () => {
 }, { debounce: 100, maxWait: 1000 })
 const debounceHandleScroll = useDebounceFn(() => {
   const position = getSetScrollPosition('get')
-  if (!stateMap.value[basePath.value]) {
-    stateMap.value[basePath.value] = { position }
+  if (!explorerStateMap.value[basePath.value]) {
+    explorerStateMap.value[basePath.value] = { position }
   }
   else {
-    stateMap.value[basePath.value].position = position
+    explorerStateMap.value[basePath.value].position = position
   }
 
   // console.log('save', basePath.value, position)
@@ -711,17 +685,17 @@ defineExpose({
         </div>
       </div>
     </transition>
-    <div v-if="!contentOnly" class="explorer-actions vgo-panel">
+    <div v-if="!contentOnly" class="explorer-actions vgo-panel vgo-panel--flat">
       <div class="action-group">
         <button
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           title="Create Document"
           @click="handleCreateFile()"
         >
           <span class="mdi mdi-file-document-plus-outline" />
         </button>
         <button
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           title="Create Folder"
           @click="handleCreateFolder()"
         >
@@ -732,28 +706,28 @@ defineExpose({
           <div class="split-line" />
 
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             title="Upload Files..."
             @click="() => selectUploadFiles()"
           >
             <span class="mdi mdi-file-upload-outline" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             title="Upload Folder..."
             @click="() => selectUploadFolder()"
           >
             <span class="mdi mdi-folder-upload-outline" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             title="Download"
             @click="confirmDownload"
           >
             <span class="mdi mdi-download" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             title="Download to Folder..."
             @click="downloadToFolder"
           >
@@ -763,7 +737,7 @@ defineExpose({
           <div class="split-line" />
 
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             :disabled="!enableAction"
             title="Cut (ctrl+x)"
             @click="handleCut"
@@ -771,7 +745,7 @@ defineExpose({
             <span class="mdi mdi-content-cut" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             :disabled="!enableAction"
             title="Copy (ctrl+c)"
             @click="handleCopy"
@@ -779,7 +753,7 @@ defineExpose({
             <span class="mdi mdi-content-copy" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             :disabled="!enablePaste"
             title="Paste (ctrl+v)"
             @click="handlePaste"
@@ -788,7 +762,7 @@ defineExpose({
           </button>
 
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             :disabled="selectedItems.length !== 1"
             title="Rename"
             @click="handleRename"
@@ -796,7 +770,7 @@ defineExpose({
             <span class="mdi mdi-rename" />
           </button>
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             :disabled="!enableAction"
             title="Delete (del)"
             @click="confirmDelete"
@@ -808,7 +782,7 @@ defineExpose({
       <div class="action-group">
         <button
           v-if="openActionMeta"
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           :title="`${openActionMeta.label} (F3)`"
           @click="handleOpen"
         >
@@ -816,7 +790,7 @@ defineExpose({
         </button>
 
         <button
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           title="Toggle hidden file visible (ctrl+h)"
           @click="toggleShowHiddenFiles"
         >
@@ -830,7 +804,7 @@ defineExpose({
 
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
           <button
-            class="btn-action btn-no-style"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
             title="Toggle Select All (ctrl+a)"
             @click="toggleSelectAll"
           >
@@ -839,7 +813,7 @@ defineExpose({
         </template>
 
         <button
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           title="Menu (ctrl+m)"
           @click="updateMenuOptions2($event)"
         >
@@ -861,12 +835,12 @@ defineExpose({
         class="explorer-selection-box"
         :style="selectionBoxStyle"
       />
-      <div v-if="emptyState" class="explorer-empty-state">
-        <span class="mdi explorer-empty-state__icon" :class="emptyState.icon" />
-        <div class="explorer-empty-state__title">
+      <div v-if="emptyState" class="vgo-empty explorer-empty-state">
+        <span class="mdi vgo-empty__icon" :class="emptyState.icon" />
+        <div class="vgo-empty__title">
           {{ emptyState.title }}
         </div>
-        <div class="explorer-empty-state__description">
+        <div class="vgo-empty__desc">
           {{ emptyState.description }}
         </div>
         <button
@@ -914,7 +888,7 @@ defineExpose({
         </div>
       </div>
     </div>
-    <div v-if="!contentOnly" class="explorer-status-bar">
+    <div v-if="!contentOnly" class="explorer-status-bar vgo-panel vgo-panel--flat">
       <div>
         {{ filteredFiles.length }} Item(s)
         <template v-if="selectedItems.length">
@@ -923,11 +897,11 @@ defineExpose({
         </template>
       </div>
 
-      <div class="flex-row-center-gap">
+      <div class="vgo-u-flex-wrap-center">
         <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
         <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />
         <button
-          class="btn-action btn-no-style"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
           title="Toggle grid view"
           @click="isGridView = !isGridView"
         >
@@ -963,15 +937,12 @@ defineExpose({
   }
 
   .explorer-actions {
-    padding: 4px;
+    padding: var(--vgo-space-1) var(--vgo-space-2);
     display: flex;
-    gap: 4px;
+    gap: var(--vgo-space-2);
     flex-wrap: wrap;
     justify-content: space-between;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    border-bottom: 1px solid var(--vgo-color-border);
+    border-bottom: 1px solid var(--vgo-border);
 
     @media screen and (max-width: $mq_mobile_width) {
       justify-content: flex-end;
@@ -979,57 +950,12 @@ defineExpose({
 
     .action-group {
       display: flex;
-      gap: 4px;
+      gap: var(--vgo-space-2);
       flex-wrap: wrap;
-      @media screen and (max-width: $mq_mobile_width) {
-        // justify-content: flex-end;
-      }
 
       .split-line {
-        border-right: 1px solid var(--vgo-color-border);
-        margin-left: 2px;
-        margin-right: 2px;
-      }
-
-      .btn-action {
-        display: inline-flex;
-        position: relative;
-        font-size: 20px;
-        border: none;
-        padding: 2px 4px;
-        border-radius: var(--vgo-radius);
-
-        .icon-small-abs {
-          font-size: 12px;
-          position: absolute;
-          left: 50%;
-          top: 60%;
-          transform: translate(-50%, -50%) scale(0.6);
-        }
-
-        &:hover,
-        &:focus {
-          background-color: var(--vgo-primary-opacity);
-        }
-
-        &:disabled {
-          background-color: transparent;
-        }
-      }
-
-      .action-button-wrap {
-        display: inline-flex;
-        position: relative;
-        z-index: 10;
-
-        .quick-options {
-          position: absolute;
-          top: 100%;
-          right: 0;
-          left: unset;
-          transform: unset;
-          width: 200px;
-        }
+        border-right: 1px solid var(--vgo-border);
+        margin-inline: 2px;
       }
     }
   }
@@ -1044,7 +970,7 @@ defineExpose({
 
   .explorer-selection-box {
     position: absolute;
-    z-index: 20;
+    z-index: var(--vgo-z-overlay);
     pointer-events: none;
     border: 1px solid var(--vgo-primary);
     background-color: var(--vgo-primary-opacity);
@@ -1052,36 +978,6 @@ defineExpose({
 
   .explorer-empty-state {
     min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 24px;
-    text-align: center;
-    color: var(--el-text-color-secondary, inherit);
-
-    &__icon {
-      font-size: 48px;
-      color: var(--vgo-primary);
-      opacity: 0.55;
-    }
-
-    &__title {
-      font-size: 15px;
-      color: var(--el-text-color-primary, inherit);
-    }
-
-    &__description {
-      font-size: 12px;
-    }
-
-    .vgo-button {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 4px;
-    }
   }
 
   .explorer-list-view {
@@ -1104,22 +1000,17 @@ defineExpose({
   }
 
   .explorer-status-bar {
-    border-top: 1px solid var(--vgo-color-border);
+    border-top: 1px solid var(--vgo-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px 16px;
-    padding: 4px 8px;
-    font-size: 12px;
+    gap: var(--vgo-space-2) var(--vgo-space-4);
+    padding: var(--vgo-space-1) var(--vgo-space-2);
+    font-size: var(--vgo-font-sm);
 
     @media screen and (max-width: $mq_mobile_width) {
       justify-content: flex-end;
-    }
-
-    .mdi {
-      display: flex;
-      transform: scale(1.2);
     }
 
     .el-slider {
@@ -1130,13 +1021,13 @@ defineExpose({
   :deep(.title-wrapper) {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--vgo-space-1);
     &.hidden {
       opacity: 0.6;
     }
     .themed-icon {
       width: fit-content;
-      font-size: 16px;
+      font-size: var(--vgo-icon-sm);
     }
     .title-text {
       cursor: pointer;
@@ -1144,7 +1035,7 @@ defineExpose({
         text-decoration: underline;
       }
       &.error {
-        color: #f44336;
+        color: var(--vgo-danger);
       }
     }
   }

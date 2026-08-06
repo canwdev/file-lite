@@ -231,26 +231,26 @@ function jumpBackward() {
 <template>
   <div v-if="mediaItem" class="actionbar-wrapper">
     <div v-if="showControls" class="progressbar">
-      <span class="time text-overflow">{{ formatTimeHMS(mCurrentTime) }}</span>
+      <span class="time vgo-u-text-overflow">{{ formatTimeHMS(mCurrentTime) }}</span>
 
       <Seekbar
         :max="mediaStore.duration" :value="mCurrentTime" :disabled="!canSeek" @input="progressSeeking"
         @change="progressChange"
       />
 
-      <span class="time text-overflow">{{ formatTimeHMS(mediaStore.duration) }}</span>
+      <span class="time vgo-u-text-overflow">{{ formatTimeHMS(mediaStore.duration) }}</span>
     </div>
     <div class="actionbar">
       <div class="now-playing">
         <button
-          v-if="showControls" class="btn-action btn-no-style icon-wrap" title="Playback speed"
+          v-if="showControls" class="vgo-button vgo-button--text vgo-button--round vgo-button--lg" title="Playback speed"
           @click="showSpeedMenu"
         >
           {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
         </button>
 
         <button
-          v-if="currentLoopMode" class="btn-action btn-no-style icon-wrap" :title="currentLoopMode.i18nKey"
+          v-if="currentLoopMode" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="currentLoopMode.i18nKey"
           @click="showLoopMenu"
         >
           <span v-if="currentLoopMode.className" class="mdi" :class="currentLoopMode.className" />
@@ -260,17 +260,17 @@ function jumpBackward() {
 
       <div class="control-center">
         <button
-          class="btn-action btn-no-style icon-wrap" title="Previous" @click="previous"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Previous" @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
           <span class="mdi mdi-skip-previous" />
         </button>
-        <button class="btn-action btn-no-style icon-wrap" title="Rewind" @click="jumpBackward">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Rewind" @click="jumpBackward">
           <span class="mdi mdi-rewind-5" />
         </button>
 
         <button
-          class="btn-action btn-no-style icon-wrap btn-play-pause" :title="mediaStore.paused ? `Play` : `Pause`"
+          class="vgo-button vgo-button--primary vgo-button--icon vgo-button--round vgo-button--lg" :title="mediaStore.paused ? `Play` : `Pause`"
           @click="togglePlay"
         >
           <template v-if="mediaStore.paused">
@@ -281,10 +281,10 @@ function jumpBackward() {
           </template>
         </button>
 
-        <button class="btn-action btn-no-style icon-wrap" title="Fast Forward" @click="jumpForward">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Fast Forward" @click="jumpForward">
           <span class="mdi mdi-fast-forward-5" />
         </button>
-        <button class="btn-action btn-no-style icon-wrap" title="Next" @click="next">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Next" @click="next">
           <span class="mdi mdi-skip-next" />
         </button>
       </div>
@@ -293,7 +293,7 @@ function jumpBackward() {
         <el-popover v-if="showControls" placement="top" trigger="click" popper-class="popover-volume">
           <template #reference>
             <button
-              ref="volumeIconBtnRef" class="btn-action btn-no-style icon-wrap"
+              ref="volumeIconBtnRef" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg"
               title="Volume (scroll wheel to adjust)"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
@@ -313,7 +313,9 @@ function jumpBackward() {
           </div>
         </el-popover>
         <button
-          class="btn-action btn-no-style playlist-toggle" :class="{ active: playlistOpen }" title="Playlist"
+          class="vgo-button vgo-button--icon vgo-button--round vgo-button--lg"
+          :class="playlistOpen ? 'vgo-button--primary' : 'vgo-button--text'"
+          title="Playlist"
           @click="$emit('togglePlaylist')"
         >
           <span class="mdi mdi-playlist-music" />
@@ -323,63 +325,39 @@ function jumpBackward() {
   </div>
 </template>
 
-<style lang="scss">
-.popover-volume {
-  min-width: 60px !important;
-  width: 60px !important;
-}
-</style>
-
 <style lang="scss" scoped>
 .popover-col {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--vgo-space-2);
 }
 
 .popover-volume-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary, inherit);
+  font-size: var(--vgo-font-sm);
+  color: var(--vgo-text-secondary);
 }
 
 .actionbar-wrapper {
   width: 100%;
   height: 100%;
-  $bottomZIndex: 2100;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-radius: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-
-  .icon-wrap {
-    font-size: 18px;
-
-    &._lg {
-      font-size: 28px;
-    }
-  }
+  gap: var(--vgo-space-2);
 
   .progressbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 18px;
     width: 100%;
     box-sizing: border-box;
-    position: relative;
-    z-index: $bottomZIndex;
-    gap: 10px;
+    gap: var(--vgo-space-3);
 
     .time {
-      font-size: 11px;
+      font-size: var(--vgo-font-sm);
       width: 54px;
       text-align: center;
-      color: var(--el-text-color-secondary);
+      color: var(--vgo-text-secondary);
       font-variant-numeric: tabular-nums;
     }
   }
@@ -388,42 +366,21 @@ function jumpBackward() {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(44px, 1fr);
     align-items: center;
-    height: 48px;
     user-select: none;
-    position: relative;
-    z-index: $bottomZIndex;
-    gap: 10px;
-
-    button {
-      border-radius: 999px;
-    }
-
-    .btn-cover {
-      width: 48px;
-      height: 48px;
-      border-radius: 13px;
-      flex-shrink: 0;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-    }
+    gap: var(--vgo-space-3);
 
     .now-playing,
     .control-center,
     .actionbar-right {
-      height: 100%;
       flex-wrap: nowrap;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--vgo-space-2);
       flex-shrink: 0;
       justify-content: center;
-
-      .mdi {
-        font-size: 23px;
-      }
     }
 
     .now-playing {
-      display: flex;
       justify-content: flex-start;
     }
 
@@ -432,87 +389,32 @@ function jumpBackward() {
       overflow: visible;
     }
 
-    .btn-action {
-      height: 38px;
-      min-width: 38px;
-      padding: 0 10px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--el-text-color-regular);
-      background: rgba(255, 255, 255, 0.62);
-      box-shadow:
-        0 8px 22px rgba(35, 35, 45, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.72);
-      transition: filter 0.14s ease;
-
-      &:hover {
-        filter: brightness(1.1) contrast(1.1);
-      }
-
-      &.btn-play-pause {
-        width: 46px;
-        height: 46px;
-        color: #fff;
-        background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
-        box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.28);
-
-        .mdi {
-          font-size: 28px;
-        }
-      }
-
-      &.playlist-toggle {
-        min-width: 42px;
-
-        &.active {
-          color: #fff;
-        background: linear-gradient(135deg, rgba(var(--vgo-primary-rgb), 0.78), var(--vgo-primary));
-          box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.26);
-        }
-      }
-
-      .reverse-x {
-        color: var(--vgo-primary);
-        transform: rotateX(-180deg);
-      }
-
+    .reverse-x {
+      color: var(--vgo-primary);
+      transform: rotateX(-180deg);
     }
-
   }
 }
 
 @media screen and (max-width: 700px) {
   .actionbar-wrapper {
-    padding: 9px;
-    border-radius: 18px;
-
     .progressbar {
-      gap: 6px;
+      gap: var(--vgo-space-2);
 
       .time {
         width: 48px;
-        font-size: 10px;
       }
     }
 
     .actionbar {
-      display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
         "controls controls"
         "nowplaying right";
-      height: auto;
-      gap: 8px 10px;
+      gap: var(--vgo-space-2) var(--vgo-space-3);
 
       .now-playing {
         grid-area: nowplaying;
-      }
-
-      .btn-cover {
-        width: 44px;
-        height: 44px;
       }
 
       .actionbar-right {
@@ -523,31 +425,8 @@ function jumpBackward() {
         grid-area: controls;
         width: 100%;
         justify-content: center;
-        padding-bottom: 2px;
-
-        &>button {
-          min-width: 36px;
-          height: 36px;
-        }
       }
     }
   }
-}
-</style>
-
-<style lang="scss">
-.dark .media-player-wrap .actionbar-wrapper {
-  .btn-action {
-    color: var(--el-text-color-regular);
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow: none;
-
-    &.btn-play-pause {
-      color: #fff;
-      background: var(--vgo-primary);
-      box-shadow: 0 10px 24px rgba(var(--vgo-primary-rgb), 0.26);
-    }
-  }
-
 }
 </style>

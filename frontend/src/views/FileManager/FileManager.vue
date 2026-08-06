@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { FileSelectResult } from './types'
 import type { IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
+import { localSettingsStore } from '@/store'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
@@ -33,7 +35,7 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits<{
-  handleSelect: [val: { items: IEntry[], item: IEntry, basePath: string }]
+  handleSelect: [val: FileSelectResult]
   cancelSelect: []
 }>()
 const { selectFileMode, multiple } = toRefs(props)
@@ -102,7 +104,6 @@ onMounted(async () => {
 const fileListRef = ref()
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const filterState = ref(createDefaultFileFilter())
-const openAppWithFilteredList = ref(false)
 const lastOpenedMediaItem = useLastOpenedMediaItem(basePathNormalized, files)
 
 function playLastOpenedMedia() {
@@ -120,12 +121,6 @@ function playLastOpenedMedia() {
 function clearCurrentLastOpenedMedia() {
   clearLastOpenedMediaInDir(basePathNormalized.value)
 }
-
-const openAppListScopeTitle = computed(() =>
-  openAppWithFilteredList.value
-    ? 'Apps open with filtered list'
-    : 'Apps open with full sorted list',
-)
 
 function clearFilter() {
   filterState.value = {
@@ -274,7 +269,7 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenW
   return handleOpen({
     item,
     openWith,
-    list: openAppWithFilteredList.value
+    list: localSettingsStore.value.openAppWithFilteredList
       ? fileListRef.value.filteredFiles
       : fileListRef.value.sortedFiles,
   })
@@ -347,14 +342,14 @@ function handleShortcutKey(event: KeyboardEvent) {
 
 <template>
   <div ref="rootRef" class="explorer-wrap" tabindex="0" @keydown="handleShortcutKey">
-    <div v-if="!contentOnly" class="explorer-header vgo-panel">
+    <div v-if="!contentOnly" class="explorer-header vgo-panel vgo-panel--flat">
       <div class="explorer-toolbar">
         <div class="explorer-toolbar-stack" @keydown.stop>
           <div class="explorer-toolbar-path">
             <div class="explorer-toolbar-nav">
               <button
                 :disabled="!navigationHistory?.canBack"
-                class="btn-action btn-no-style"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
                 title="Back (alt+left)"
                 @click="goBack"
                 @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
@@ -363,7 +358,7 @@ function handleShortcutKey(event: KeyboardEvent) {
               </button>
               <button
                 :disabled="!navigationHistory?.canForward"
-                class="btn-action btn-no-style"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
                 title="Forward (alt+right)"
                 @click="goForward"
                 @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
@@ -371,14 +366,18 @@ function handleShortcutKey(event: KeyboardEvent) {
                 <span class="mdi mdi-arrow-right" />
               </button>
               <button
-                class="btn-action btn-no-style"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
                 :disabled="!allowUp"
                 title="Up (alt+up)"
                 @click="goUp"
               >
                 <span class="mdi mdi-arrow-up" />
               </button>
-              <button class="btn-no-style btn-action" title="Refresh (ctrl+r)" @click="debounceHandleRefresh">
+              <button
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+                title="Refresh (ctrl+r)"
+                @click="debounceHandleRefresh"
+              >
                 <span class="mdi mdi-refresh" />
               </button>
             </div>
@@ -389,13 +388,15 @@ function handleShortcutKey(event: KeyboardEvent) {
               @open-path-in-new-tab="openPathInNewTab"
               @refresh="debounceHandleRefresh"
             />
-            <button class="btn-no-style btn-action" title="Toggle Star (alt+s)" @click="toggleStar">
-              <template v-if="isStared">
-                <span class="mdi mdi-star" />
-              </template>
-              <template v-else>
-                <span class="mdi mdi-star-outline" />
-              </template>
+            <button
+              class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+              title="Toggle Star (alt+s)"
+              @click="toggleStar"
+            >
+              <span
+                class="mdi"
+                :class="isStared ? 'mdi-star' : 'mdi-star-outline'"
+              />
             </button>
           </div>
           <div class="explorer-toolbar-filters">
@@ -404,23 +405,13 @@ function handleShortcutKey(event: KeyboardEvent) {
               v-model="filterState"
               @clear="clearFilter"
             />
-            <button
-              class="btn-no-style btn-action"
-              :title="openAppListScopeTitle"
-              @click="openAppWithFilteredList = !openAppWithFilteredList"
-            >
-              <span
-                class="mdi"
-                :class="openAppWithFilteredList ? 'mdi-filter-check-outline' : 'mdi-filter-off-outline'"
-              />
-            </button>
 
             <slot name="headerRight" />
           </div>
         </div>
       </div>
     </div>
-    <div class="explorer-content-wrap scrollbar-mini">
+    <div class="explorer-content-wrap vgo-u-scrollbar">
       <el-splitter lazy>
         <el-splitter-panel size="130px" collapsible>
           <FileSidebar
@@ -430,22 +421,18 @@ function handleShortcutKey(event: KeyboardEvent) {
             @open-drive="(i: IDrive) => handleOpenPath(i.path)"
             @open-path-in-new-tab="openPathInNewTab"
           >
-            <div v-if="starredPathsList.length" class="file-sidebar-content star-list">
-              <div v-for="path in starredPathsList" :key="path">
-                <button
-                  class="drive-item btn-no-style"
-                  :title="path"
-                  @click="handleOpenPath(path)"
-                  @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
-                >
-                  <span class="drive-icon">
-                    <span class="mdi mdi-star" />
-                  </span>
-                  <span class="drive-content">
-                    <span class="drive-title text-overflow"> {{ getLastDirName(path) }}</span>
-                  </span>
-                </button>
-              </div>
+            <div v-if="starredPathsList.length" class="star-list">
+              <button
+                v-for="path in starredPathsList"
+                :key="path"
+                class="vgo-u-button-reset vgo-list-item star-item"
+                :title="path"
+                @click="handleOpenPath(path)"
+                @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
+              >
+                <span class="mdi mdi-star vgo-u-icon-md" />
+                <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
+              </button>
             </div>
           </FileSidebar>
         </el-splitter-panel>
@@ -468,15 +455,14 @@ function handleShortcutKey(event: KeyboardEvent) {
             <Transition name="last-media-fab">
               <div v-if="lastOpenedMediaItem" class="last-media-fab-wrapper">
                 <button
-                  v-if="lastOpenedMediaItem"
-                  class="last-media-fab btn-no-style vgo-panel"
+                  class="vgo-button vgo-button--primary vgo-button--round vgo-button--lg"
                   :title="`Play ${lastOpenedMediaItem.name}`"
                   @click="playLastOpenedMedia"
                 >
                   <span class="mdi mdi-play" />
                 </button>
                 <button
-                  class="btn-no-style vgo-panel btn-fab-close"
+                  class="vgo-button vgo-button--round vgo-button--sm fab-close"
                   title="Clear remembered media"
                   @click.stop="clearCurrentLastOpenedMedia"
                 >
@@ -490,8 +476,8 @@ function handleShortcutKey(event: KeyboardEvent) {
     </div>
 
     <!-- 文件选择器 -->
-    <div v-if="selectFileMode && fileListRef" class="vgo-bg explorer-bottom-wrap">
-      <button class="vgo-button primary" @click="handleSelect">
+    <div v-if="selectFileMode && fileListRef" class="vgo-u-surface explorer-bottom-wrap">
+      <button class="vgo-button vgo-button--primary" @click="handleSelect">
         {{ selectFileMode === 'file' || isSelectAFolder ? 'Open' : 'Select Folder' }}
       </button>
       <button class="vgo-button" @click="$emit('cancelSelect')">
@@ -501,7 +487,7 @@ function handleShortcutKey(event: KeyboardEvent) {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .explorer-wrap {
   min-width: 300px;
   height: 100%;
@@ -510,23 +496,9 @@ function handleShortcutKey(event: KeyboardEvent) {
   position: relative;
   outline: none;
 
-  .vgo-button {
-    line-height: 1;
-    min-width: 25px;
-    min-height: 25px;
-    align-items: center;
-    justify-content: center;
-  }
-
   .explorer-header {
-    min-height: 38px;
-    &.vgo-panel {
-      padding: 4px;
-      border: none;
-      border-bottom: 1px solid var(--vgo-color-border);
-      box-shadow: none;
-      border-radius: 0;
-    }
+    padding: var(--vgo-space-1) var(--vgo-space-2);
+    border-bottom: 1px solid var(--vgo-border);
 
     .explorer-toolbar {
       display: flex;
@@ -534,16 +506,11 @@ function handleShortcutKey(event: KeyboardEvent) {
       min-width: 0;
       width: 100%;
 
-      .btn-action {
-        padding: 4px;
-        display: flex;
-      }
-
       &-nav {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        gap: 4px;
+        gap: var(--vgo-space-2);
       }
 
       &-stack {
@@ -553,14 +520,14 @@ function handleShortcutKey(event: KeyboardEvent) {
         flex: 1;
         width: 100%;
         min-width: 0;
-        gap: 4px;
-        font-size: 14px;
+        gap: var(--vgo-space-2);
+        font-size: var(--vgo-font-md);
 
         @media screen and (max-width: $mq_mobile_width) {
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          gap: 6px;
+          gap: var(--vgo-space-2);
         }
       }
 
@@ -569,7 +536,7 @@ function handleShortcutKey(event: KeyboardEvent) {
         align-items: center;
         min-width: 0;
         overflow: hidden;
-        gap: 4px;
+        gap: var(--vgo-space-2);
 
         @media screen and (max-width: $mq_mobile_width) {
           width: 100%;
@@ -581,7 +548,7 @@ function handleShortcutKey(event: KeyboardEvent) {
         align-items: center;
         justify-self: end;
         min-width: 0;
-        gap: 4px;
+        gap: var(--vgo-space-2);
 
         @media screen and (max-width: $mq_mobile_width) {
           width: 100%;
@@ -591,8 +558,12 @@ function handleShortcutKey(event: KeyboardEvent) {
   }
 
   .star-list {
-    height: auto;
-    flex: unset;
+    .star-item {
+      width: 100%;
+      min-height: var(--vgo-control-sm);
+      font-size: var(--vgo-font-sm);
+      padding-inline: var(--vgo-space-2);
+    }
   }
 
   .explorer-content-wrap {
@@ -609,37 +580,22 @@ function handleShortcutKey(event: KeyboardEvent) {
 
   .last-media-fab-wrapper {
     position: absolute;
-    right: 16px;
+    right: var(--vgo-space-4);
     bottom: 48px;
+    z-index: var(--vgo-z-sticky);
 
-    .btn-fab-close {
+    .fab-close {
       position: absolute;
-      top: -4px;
-      right: -4px;
-      border-radius: 50%;
-      font-size: 12px;
-      height: 16px;
-      width: 16px;
+      top: calc(var(--vgo-space-2) * -1);
+      right: calc(var(--vgo-space-2) * -1);
     }
-
-  }
-
-  .last-media-fab {
-    z-index: 15;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgb(var(--vgo-primary-rgb)) !important;
-    font-size: 38px;
-
   }
 
   .last-media-fab-enter-active,
   .last-media-fab-leave-active {
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity var(--vgo-duration-base) ease,
+      transform var(--vgo-duration-base) ease;
   }
 
   .last-media-fab-enter-from,
@@ -648,31 +604,11 @@ function handleShortcutKey(event: KeyboardEvent) {
     transform: scale(0.6);
   }
 
-  .btn-action {
-    display: flex;
-    cursor: pointer;
-    font-size: 18px;
-    border-radius: var(--vgo-radius);
-    height: 29px;
-    width: 29px;
-    align-items: center;
-    justify-content: center;
-
-    &:disabled {
-      cursor: not-allowed;
-    }
-
-    &:hover,
-    &:focus {
-      background-color: var(--vgo-primary-opacity);
-    }
-  }
-
   .explorer-bottom-wrap {
-    padding: 8px;
+    padding: var(--vgo-space-2);
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: var(--vgo-space-2);
   }
 }
 </style>

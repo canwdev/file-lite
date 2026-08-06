@@ -42,10 +42,6 @@ function toMBps(bytes: number, durationMs: number) {
   return bytes / ONE_MB / (durationMs / 1000)
 }
 
-function toMbps(bytes: number, durationMs: number) {
-  return toMBps(bytes, durationMs) * 8
-}
-
 function createMetrics(bytes: number, durationMs: number, currentBytes: number, currentDurationMs: number, maxMBps: number, minMBps: number): SpeedMetrics {
   const currentMBps = toMBps(currentBytes, currentDurationMs)
   const avgMBps = toMBps(bytes, durationMs)
@@ -120,7 +116,7 @@ function buildUrl(path: 'download' | 'upload', sizeMB: number) {
 
 function createUploadBody(sizeMB: number) {
   const chunk = new Uint8Array(ONE_MB)
-  return new Blob(new Array(sizeMB).fill(chunk), {
+  return new Blob(Array.from<BlobPart>({ length: sizeMB }).fill(chunk), {
     type: 'application/octet-stream',
   })
 }

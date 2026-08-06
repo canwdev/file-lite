@@ -143,7 +143,9 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       currentIndex.value += isNext ? 1 : -1
       setDragOffsetImmediate(0)
       onAfterNavigate?.(isNext)
-      nextTick(() => { isAnimating = false })
+      nextTick(() => {
+        isAnimating = false
+      })
     })
   }
 

@@ -10,7 +10,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <button class="btn-no-style btn-cover flex items-center justify-center">
+  <button class="vgo-u-button-reset btn-cover">
     <slot />
     <CoverDisplay v-if="src" :src="src" />
     <i v-else class="icon-wrap mdi" :class="[isVideo ? 'mdi-video-outline' : 'mdi-music-note']" />
@@ -20,20 +20,24 @@ withDefaults(defineProps<Props>(), {
 <style lang="scss" scoped>
 .btn-cover {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   width: 50px;
   height: 50px;
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
-    rgba(128, 128, 128, 0.12);
+  border-radius: var(--vgo-radius-lg);
+  background-color: var(--vgo-hover);
 
   .cover-display {
     width: 100%;
     height: 100%;
   }
+
   .icon-wrap {
-    font-size: 24px;
-    color: var(--el-text-color-secondary);
+    font-size: var(--vgo-icon-lg);
+    color: var(--vgo-text-secondary);
   }
 }
 </style>

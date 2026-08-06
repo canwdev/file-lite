@@ -77,7 +77,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="auth-wrapper app-soft-bg">
+  <div class="auth-wrapper">
     <div class="login-card vgo-panel">
       <div class="login-header">
         <RouterLink to="/" class="login-icon">
@@ -129,28 +129,25 @@ onMounted(async () => {
 
   .login-card {
     width: min(420px, 100%);
-    padding: 34px 36px 32px;
+    padding: var(--vgo-space-4);
     box-sizing: border-box;
-    border: 1px solid var(--vgo-color-border);
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
-    backdrop-filter: blur(8px);
   }
 
   .login-header {
     display: flex;
-    gap: 14px;
+    gap: var(--vgo-space-3);
     align-items: center;
-    margin-bottom: 22px;
+    margin-bottom: var(--vgo-space-4);
   }
 
   .login-icon {
     width: 46px;
     height: 46px;
-    border-radius: 50px;
+    border-radius: var(--vgo-radius-pill);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--vgo-primary-opacity);
+    background-color: var(--vgo-primary-opacity);
     color: var(--vgo-primary);
     font-size: 26px;
   }
@@ -162,9 +159,9 @@ onMounted(async () => {
   }
 
   .login-subtitle {
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--vgo-color-secondary);
+    margin-top: var(--vgo-space-1);
+    font-size: var(--vgo-font-sm);
+    color: var(--vgo-text-secondary);
   }
 
   .login-tabs {
@@ -173,24 +170,24 @@ onMounted(async () => {
 
   .login-form {
     display: grid;
-    gap: 12px;
-    padding-top: 8px;
+    gap: var(--vgo-space-3);
+    padding-top: var(--vgo-space-2);
   }
 
   .login-tip {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--vgo-color-secondary);
+    margin-top: var(--vgo-space-2);
+    font-size: var(--vgo-font-sm);
+    color: var(--vgo-text-secondary);
   }
 
   .login-options {
-    margin-top: 18px;
+    margin-top: var(--vgo-space-4);
   }
 
   .login-option-tip {
     margin-top: 2px;
-    font-size: 12px;
-    color: var(--vgo-color-secondary);
+    font-size: var(--vgo-font-sm);
+    color: var(--vgo-text-secondary);
   }
 }
 </style>

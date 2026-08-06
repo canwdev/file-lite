@@ -90,11 +90,11 @@ function showMenu(event: MouseEvent) {
             icon: item.label === settingsStore.value.themeMode ? `mdi mdi-check` : '',
           })),
           {
-            icon: localSettingsStore.value.einkMode ? 'mdi mdi-check' : '',
-            label: `E-ink mode`,
+            icon: localSettingsStore.value.reduceMotion ? 'mdi mdi-check' : '',
+            label: `Reduce motion`,
             divided: true,
             onClick: () => {
-              localSettingsStore.value.einkMode = !localSettingsStore.value.einkMode
+              localSettingsStore.value.reduceMotion = !localSettingsStore.value.reduceMotion
             },
           },
           // Color theme
@@ -114,6 +114,7 @@ function showMenu(event: MouseEvent) {
       {
         label: `Config`,
         icon: 'mdi mdi-cog',
+        divided: true,
         children: [
           {
             icon: 'mdi mdi-image-search',
@@ -148,6 +149,17 @@ function showMenu(event: MouseEvent) {
                 label: `Remember last opened media in Media Player`,
                 onClick: () => {
                   toggleRememberLastMedia()
+                },
+              },
+              {
+                icon: localSettingsStore.value.openAppWithFilteredList
+                  ? 'mdi mdi-filter-check-outline'
+                  : 'mdi mdi-filter-off-outline',
+                label: localSettingsStore.value.openAppWithFilteredList
+                  ? 'Apps open with filtered list'
+                  : 'Apps open without filtered list',
+                onClick: () => {
+                  localSettingsStore.value.openAppWithFilteredList = !localSettingsStore.value.openAppWithFilteredList
                 },
               },
             ],
@@ -204,6 +216,7 @@ function showMenu(event: MouseEvent) {
         onClick: () => {
           toggleWakeLock()
         },
+        divided: true,
       },
       {
         label: `${PKG_NAME} v${VERSION}`,
@@ -227,7 +240,11 @@ function showMenu(event: MouseEvent) {
 <template>
   <FileManager>
     <template #headerRight>
-      <button class="btn-action btn-no-style" title="Menu" @click="showMenu">
+      <button
+        class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+        title="Menu"
+        @click="showMenu"
+      >
         <span class="mdi mdi-menu" />
       </button>
     </template>

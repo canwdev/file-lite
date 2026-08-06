@@ -491,12 +491,12 @@ defineExpose({
       <span>[{{ successNum }}/{{ listData.length }}]</span>
       <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
 
-      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle" style="color: #f44336" /> {{ errorNum }} </span>
+      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle status-failed" /> {{ errorNum }} </span>
     </template>
 
     <div class="transfer-wrapper">
-      <div class="total-progress-bar">
-        <div :style="{ width: `${totalProgress}%` }" class="bar-value" />
+      <div class="vgo-progress vgo-progress--success total-progress-bar">
+        <div :style="{ width: `${totalProgress}%` }" class="vgo-progress__value" />
       </div>
 
       <div ref="transferListRef" class="transfer-list">
@@ -508,57 +508,50 @@ defineExpose({
         <div
           v-for="{ item, index } in virtualTransferList.visibleItems.value"
           :key="item.index"
-          :class="[item.status, item.type]"
-          class="transfer-item"
+          class="vgo-list-item transfer-item"
         >
           <div class="item-main">
             <div class="item-status-icon">
               <template v-if="item.status === 'success'">
-                <span class="mdi mdi-check-circle" style="color: #4caf50" />
+                <span class="mdi mdi-check-circle status-success" />
               </template>
               <template v-else-if="item.status === 'failed'">
-                <span class="mdi mdi-alert-circle" style="color: #f44336" />
+                <span class="mdi mdi-alert-circle status-failed" />
               </template>
               <template v-else-if="item.status === 'transferring'">
-                <span
-                  class="mdi mdi-loading mdi-spin"
-                  style="color: #03a9f4"
-                />
+                <span class="mdi mdi-loading mdi-spin status-active" />
               </template>
               <template v-else>
                 <span
-                  class="mdi"
+                  class="mdi status-idle"
                   :class="item.type === 'download' ? 'mdi-download-outline' : 'mdi-upload-outline'"
-                  style="color: #9e9e9e"
                 />
               </template>
             </div>
 
             <div class="item-content">
-              <div class="item-info">
-                <div class="item-title" :title="item.path">
-                  <span class="type-icon">
-                    <i class="mdi" :class="item.type === 'download' ? 'mdi-download' : 'mdi-upload'" />
-                  </span>
-                  <span class="filename">{{ item.filename || item.path }}</span>
-                </div>
-                <div class="item-meta">
-                  <template v-if="item.status === 'transferring' && item.speedInfo">
-                    <span class="speed">{{ bytesToSize(item.speedInfo.rate) }}/s</span>
-                    <span class="size">{{ bytesToSize(item.speedInfo.loaded) }} / {{ bytesToSize(item.speedInfo.total) }}</span>
-                  </template>
-                  <template v-else>
-                    <span class="message" :title="item.message">{{ item.message }}</span>
-                  </template>
-                  <span class="percent">{{ (item.progress * 100).toFixed(0) }}%</span>
-                </div>
+              <div class="item-title" :title="item.path">
+                <span class="type-icon">
+                  <i class="mdi" :class="item.type === 'download' ? 'mdi-download' : 'mdi-upload'" />
+                </span>
+                <span class="vgo-u-text-overflow">{{ item.filename || item.path }}</span>
+              </div>
+              <div class="item-meta">
+                <template v-if="item.status === 'transferring' && item.speedInfo">
+                  <span class="speed">{{ bytesToSize(item.speedInfo.rate) }}/s</span>
+                  <span class="size">{{ bytesToSize(item.speedInfo.loaded) }} / {{ bytesToSize(item.speedInfo.total) }}</span>
+                </template>
+                <template v-else>
+                  <span class="message vgo-u-text-overflow" :title="item.message">{{ item.message }}</span>
+                </template>
+                <span class="percent">{{ (item.progress * 100).toFixed(0) }}%</span>
               </div>
             </div>
 
             <div class="item-actions">
               <button
                 v-if="item.abortObj"
-                class="action-btn"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
                 title="Cancel"
                 @click="cancelItem(item)"
               >
@@ -566,7 +559,7 @@ defineExpose({
               </button>
               <button
                 v-if="item.status === 'failed'"
-                class="action-btn"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
                 title="Retry"
                 @click="handleRetry(item, index)"
               >
@@ -574,7 +567,7 @@ defineExpose({
               </button>
               <button
                 v-if="item.status === 'failed' && item.type === 'download'"
-                class="action-btn primary"
+                class="vgo-button vgo-button--primary vgo-button--icon vgo-button--sm"
                 title="Manual Download"
                 @click="handleManualDownload(item)"
               >
@@ -583,10 +576,14 @@ defineExpose({
             </div>
           </div>
 
-          <div class="item-progress">
-            <div class="progress-bar">
-              <div :style="{ width: `${item.progress * 100}%` }" class="progress-value" />
-            </div>
+          <div
+            class="vgo-progress"
+            :class="{
+              'vgo-progress--success': item.status === 'success',
+              'vgo-progress--danger': item.status === 'failed',
+            }"
+          >
+            <div :style="{ width: `${item.progress * 100}%` }" class="vgo-progress__value" />
           </div>
         </div>
         <div
@@ -604,18 +601,18 @@ defineExpose({
             @click="setConcurrentNum"
           > <span class="mdi mdi-compare-vertical" /> {{ transferringNum }} </span>
 
-          <button v-if="errorNum > 0" class="vgo-button" @click="clearFailed">
+          <button v-if="errorNum > 0" class="vgo-button vgo-button--sm" @click="clearFailed">
             Clear Failed
           </button>
-          <button v-if="successNum > 0" class="vgo-button" @click="clearSuccess">
+          <button v-if="successNum > 0" class="vgo-button vgo-button--sm" @click="clearSuccess">
             Clear Success
           </button>
         </div>
         <div class="footer-group">
-          <button v-if="hasActiveTasks" class="vgo-button danger" @click="cancelAll">
+          <button v-if="hasActiveTasks" class="vgo-button vgo-button--danger vgo-button--sm" @click="cancelAll">
             Cancel All
           </button>
-          <button v-else class="vgo-button primary" @click="isVisible = false">
+          <button v-else class="vgo-button vgo-button--primary vgo-button--sm" @click="isVisible = false">
             Close
           </button>
         </div>
@@ -625,22 +622,21 @@ defineExpose({
 </template>
 
 <style scoped lang="scss">
+.status-success { color: var(--vgo-success); }
+.status-failed { color: var(--vgo-danger); }
+.status-active { color: var(--vgo-primary); }
+.status-idle { color: var(--vgo-text-secondary); }
+
 .transfer-wrapper {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--vgo-color-bg);
+  background-color: var(--vgo-surface);
 
   .total-progress-bar {
-    height: 3px;
-    background-color: var(--vgo-color-border);
-    width: 100%;
+    --vgo-progress-height: 3px;
 
-    .bar-value {
-      height: 100%;
-      background-color: #4caf50;
-      transition: width 0.3s ease;
-    }
+    flex-shrink: 0;
   }
 
   .transfer-list {
@@ -653,31 +649,28 @@ defineExpose({
     }
 
     .transfer-item {
-      display: flex;
       flex-direction: column;
+      align-items: stretch;
+      min-height: 0;
       padding: 0;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      transition: background-color 0.2s;
-
-      &:hover {
-        background-color: var(--vgo-color-hover);
-      }
+      cursor: default;
+      border-bottom: 1px solid var(--vgo-border);
 
       .item-main {
         display: flex;
         align-items: center;
-        padding: 8px 12px;
-        gap: 12px;
+        padding: var(--vgo-space-2) var(--vgo-space-3);
+        gap: var(--vgo-space-3);
         width: 100%;
         box-sizing: border-box;
       }
 
       .item-status-icon {
-        font-size: 20px;
+        font-size: var(--vgo-icon-md);
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
+        width: var(--vgo-control-sm);
         flex-shrink: 0;
       }
 
@@ -687,141 +680,64 @@ defineExpose({
         display: flex;
         flex-direction: column;
 
-        .item-info {
+        .item-title {
           display: flex;
-          flex-direction: column;
-          gap: 2px;
+          align-items: center;
+          gap: var(--vgo-space-2);
+          font-size: var(--vgo-font-md);
+          font-weight: 500;
+          color: var(--vgo-text);
 
-          .item-title {
+          .type-icon {
             display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--vgo-color-text);
+            color: var(--vgo-text-secondary);
+          }
+        }
 
-            .type-icon {
-              font-size: 14px;
-              opacity: 0.6;
-              display: flex;
-            }
+        .item-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--vgo-space-2);
+          font-size: var(--vgo-font-sm);
+          color: var(--vgo-text-secondary);
 
-            .filename {
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
+          .message {
+            flex: 1;
           }
 
-          .item-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 11px;
-            color: var(--vgo-color-text-secondary);
-            opacity: 0.8;
+          .speed,
+          .size {
+            white-space: nowrap;
+          }
 
-            .message {
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              flex: 1;
-              margin-right: 8px;
-            }
-
-            .speed, .size {
-              margin-right: 8px;
-              white-space: nowrap;
-            }
-
-            .percent {
-              font-weight: 600;
-            }
+          .percent {
+            font-weight: 600;
           }
         }
       }
-
-      .item-progress {
-        width: 100%;
-        .progress-bar {
-          height: 2px;
-          background-color: transparent;
-          overflow: hidden;
-
-          .progress-value {
-            height: 100%;
-            background-color: #2196f3;
-            transition: width 0.3s ease;
-          }
-        }
-      }
-
-      &.success .progress-value { background-color: #4caf50 !important; }
-      &.failed .progress-value { background-color: #f44336 !important; }
-      // &.transferring .progress-bar { background-color: rgba(0, 0, 0, 0.05); }
 
       .item-actions {
         display: flex;
-        gap: 4px;
-
-        .action-btn {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          padding: 4px;
-          border-radius: var(--vgo-radius);
-          color: var(--vgo-color-text-secondary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          transition: all 0.2s;
-          line-height: 1;
-
-          &:hover {
-            background-color: rgba(0, 0, 0, 0.1);
-            color: var(--vgo-color-text);
-          }
-
-          &.primary {
-            color: #2196f3;
-            &:hover {
-              background-color: rgba(33, 150, 243, 0.1);
-            }
-          }
-        }
+        gap: var(--vgo-space-1);
       }
     }
   }
 
   .transfer-footer {
-    padding: 10px 12px;
+    padding: var(--vgo-space-2) var(--vgo-space-3);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px solid var(--vgo-color-border);
-    background-color: var(--vgo-color-bg-soft);
+    border-top: 1px solid var(--vgo-border);
+    background-color: var(--vgo-surface-raised);
 
     .footer-group {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
-    }
-
-    button {
-      padding: 4px 12px;
-      font-size: 12px;
-      height: 28px;
-
-      &.danger {
-        color: #f44336;
-        &:hover {
-          background-color: rgba(244, 67, 54, 0.1);
-        }
-      }
+      gap: var(--vgo-space-2);
+      font-size: var(--vgo-font-md);
     }
   }
-
 }
 </style>

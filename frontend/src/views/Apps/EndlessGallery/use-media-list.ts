@@ -12,7 +12,7 @@ export interface MediaFile {
   type: 'image' | 'video' | 'audio'
 }
 
-function getMediaType(name: string): MediaFile['type'] | null {
+export function getMediaType(name: string): MediaFile['type'] | null {
   if (regSupportedImageFormat.test(name))
     return 'image'
   if (regSupportedVideoFormat.test(name))

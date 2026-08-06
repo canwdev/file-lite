@@ -231,19 +231,19 @@ defineExpose({
           </span>
           <button
             type="button"
-            class="addr-crumb btn-no-style"
+            class="addr-crumb vgo-u-button-reset"
             :title="seg.path"
             @click.stop="onCrumbClick(seg.path)"
             @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
           >
-            <span class="addr-crumb-text">{{ seg.name }}</span>
+            <span class="addr-crumb-text vgo-u-text-overflow">{{ seg.name }}</span>
           </button>
         </template>
       </template>
       <button
         v-else
         type="button"
-        class="addr-crumb addr-crumb-placeholder btn-no-style"
+        class="addr-crumb addr-crumb-placeholder vgo-u-button-reset"
         @click.stop="startEdit"
       >
         Path
@@ -256,10 +256,10 @@ defineExpose({
 .address-bar {
   flex: 1;
   min-width: 100px;
-  height: 26px;
+  height: var(--vgo-control-md);
   display: flex;
   align-items: stretch;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: border-color var(--vgo-duration-fast) ease;
   padding: 0;
   overflow: hidden;
 
@@ -274,11 +274,11 @@ defineExpose({
   width: 100%;
   min-width: 0;
   border: none !important;
-  border-radius: 2px;
+  border-radius: var(--vgo-radius);
   line-height: 1;
-  padding: 4px 8px;
+  padding: 0 var(--vgo-space-2);
   height: 100%;
-  font-size: 14px;
+  font-size: var(--vgo-font-md);
   background: transparent;
   outline: none;
   box-shadow: none !important;
@@ -296,10 +296,9 @@ defineExpose({
   @media screen and (max-width: $mq_mobile_width) {
     min-width: 120px;
   }
-  padding: 0 4px;
+  padding: 0 var(--vgo-space-1);
   gap: 0;
-  scrollbar-width: thin;
-  font-size: 14px;
+  font-size: var(--vgo-font-md);
   cursor: text;
   scrollbar-width: none;
 }
@@ -309,7 +308,7 @@ defineExpose({
   align-items: center;
   flex-shrink: 0;
   padding: 0 1px;
-  font-size: 14px;
+  font-size: var(--vgo-font-md);
   pointer-events: none;
   user-select: none;
   line-height: 1;
@@ -318,9 +317,9 @@ defineExpose({
 .addr-crumb {
   flex-shrink: 0;
   max-width: 200px;
-  padding: 4px 4px;
+  padding: var(--vgo-space-1);
   margin: 0;
-  border-radius: 2px;
+  border-radius: var(--vgo-radius);
   line-height: 1.3;
   cursor: pointer;
   text-align: left;
@@ -338,15 +337,11 @@ defineExpose({
 
 .addr-crumb-text {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   line-height: 1.3;
 }
 
 .addr-crumb-placeholder {
-  color: var(--vgo-color-text-placeholder, #767676);
   max-width: none;
-  font-style: normal;
+  color: var(--vgo-text-placeholder);
 }
 </style>

@@ -85,23 +85,23 @@ defineExpose({
     <div class="filter-actions">
       <button
         v-if="hasText"
-        class="btn-no-style filter-clear"
+        class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
         title="Clear filter"
         @click="clearFilter"
       >
         <span class="mdi mdi-close" />
       </button>
       <button
-        class="btn-no-style filter-toggle"
-        :class="{ active: localFilter.regex }"
+        class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
+        :class="{ 'is-active': localFilter.regex }"
         title="Use regular expression"
         @click="localFilter.regex = !localFilter.regex"
       >
         .*
       </button>
       <button
-        class="btn-no-style filter-toggle"
-        :class="{ active: localFilter.caseSensitive }"
+        class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
+        :class="{ 'is-active': localFilter.caseSensitive }"
         title="Case sensitive"
         @click="localFilter.caseSensitive = !localFilter.caseSensitive"
       >
@@ -116,7 +116,7 @@ defineExpose({
   position: relative;
   flex: none;
   width: 200px;
-  height: 26px;
+  height: var(--vgo-control-md);
   min-width: 0;
   border-radius: var(--vgo-radius);
   outline: 1px solid transparent;
@@ -128,16 +128,16 @@ defineExpose({
   }
 
   &.is-invalid {
-    outline-color: var(--el-color-danger, #f56c6c);
+    outline-color: var(--vgo-danger);
   }
 }
 
 .filter-icon {
   position: absolute;
-  left: 7px;
+  left: var(--vgo-space-2);
   top: 50%;
   transform: translateY(-50%);
-  color: var(--el-text-color-secondary, inherit);
+  color: var(--vgo-text-secondary);
   line-height: 1;
   pointer-events: none;
 }
@@ -145,40 +145,24 @@ defineExpose({
 .input-filter {
   width: 100%;
   min-width: 0;
+  height: 100%;
   line-height: 1;
-  padding: 4px 82px 4px 28px;
-  height: 26px;
+  padding: 0 82px 0 28px;
   background: transparent;
 }
 
-.filter-toggle,
-.filter-clear {
-  height: 26px;
-  min-width: 24px;
-  padding: 0 5px;
-  border-radius: var(--vgo-radius);
-  color: var(--el-text-color-secondary, inherit);
-  line-height: 1;
-
-  &:hover,
-  &.active {
-    background-color: var(--vgo-primary-opacity);
-  }
-  &.active {
-    color: var(--vgo-primary);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: default;
-    background: transparent;
-  }
+// 选中态由 .vgo-button.is-active 提供，这里只管字形尺寸
+.filter-toggle {
+  // ".*" / "Aa" read as glyphs, so keep them at icon-ish size and width inside the sm control
+  min-width: var(--vgo-control-md);
+  font-size: var(--vgo-font-md);
 }
 
 .filter-actions {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  right: var(--vgo-space-1);
   display: flex;
   align-items: center;
 }

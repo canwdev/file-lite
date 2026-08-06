@@ -65,7 +65,7 @@ function autoSelectUrl() {
 </script>
 
 <template>
-  <div class="ip-chooser app-soft-bg">
+  <div class="ip-chooser">
     <div class="ip-title">
       <RouterLink :to="{ name: 'HomeView', query: ticketValue ? { ticket: ticketValue } : undefined }">
         <span class="mdi mdi-home" style="font-size: 26px" />
@@ -75,22 +75,22 @@ function autoSelectUrl() {
       <span class="mdi mdi-ip-network"></span>
       Select the URL you want to visit:
     </div> -->
-    <div class="ip-chooser-main vgo-panel font-code">
+    <div class="ip-chooser-main vgo-panel vgo-u-font-code">
       <div class="left-box">
         <div
           v-for="url in hostUrls"
           :key="url"
-          class="list-item"
-          :class="{ active: url === currentUrl }"
+          class="vgo-list-item url-item"
+          :class="{ 'is-active': url === currentUrl }"
           @click="currentUrl = url"
         >
-          {{ url }}
+          <span class="url-text-main">{{ url }}</span>
 
-          <div class="flex-row-center-gap">
-            <button class="btn-go btn-no-style" @click="copyWithToast(url)">
+          <div class="vgo-u-flex-wrap-center">
+            <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Copy" @click="copyWithToast(url)">
               <span class="mdi mdi-content-copy" />
             </button>
-            <button class="btn-go btn-no-style" @click="handleGo(url)">
+            <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Open" @click="handleGo(url)">
               <span class="mdi mdi-open-in-new" />
             </button>
           </div>
@@ -121,8 +121,8 @@ function autoSelectUrl() {
 
   .ip-title {
     text-align: center;
-    font-size: 16px;
-    margin-bottom: 16px;
+    font-size: var(--vgo-font-lg);
+    margin-bottom: var(--vgo-space-4);
   }
 
   .ip-chooser-main {
@@ -135,48 +135,21 @@ function autoSelectUrl() {
     .left-box {
       display: flex;
       flex-direction: column;
-      border-bottom: 1px solid var(--vgo-color-border);
+      border-bottom: 1px solid var(--vgo-border);
 
-      .list-item {
-        padding: 16px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
+      .url-item {
+        padding: var(--vgo-space-4);
         justify-content: space-between;
-        gap: 8px;
-        word-break: break-all;
-        font-size: 14px;
 
-        &:nth-child(2n) {
-          background-color: rgba(134, 134, 134, 0.1);
-        }
-
-        &:hover {
-          background-color: var(--vgo-color-hover);
-        }
-
-        &.active {
-          position: relative;
-          background-color: var(--vgo-primary-opacity);
-
-          &::before {
-            position: absolute;
-            display: block;
-            content: '';
-            left: 0;
-            top: 8px;
-            bottom: 8px;
-            width: 4px;
-            border-radius: 0 8px 8px 0;
-            background-color: var(--vgo-primary);
-          }
+        .url-text-main {
+          word-break: break-all;
         }
       }
     }
 
     .right-box {
       flex: 1;
-      padding: 20px 20px;
+      padding: var(--vgo-space-4);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -198,11 +171,11 @@ function autoSelectUrl() {
         }
 
         .url-text {
-          margin-top: 8px;
+          margin-top: var(--vgo-space-2);
           text-align: center;
 
           .vgo-input {
-            font-size: 14px;
+            font-size: var(--vgo-font-md);
             width: 100%;
             line-height: 1;
             height: 60px;

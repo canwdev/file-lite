@@ -67,3 +67,10 @@ export const sortMethodMap = {
   [SortType.birthTime]: birthTimeSorter,
   [SortType.birthTimeDesc]: birthTimeDescSorter,
 }
+
+/** 与资源管理器一致的列表处理：剔除隐藏/错误项后排序（返回新数组） */
+export function sortEntries(files: IEntry[], sortMode: SortType, showHidden: boolean) {
+  return files
+    .filter(item => showHidden || (!item.hidden && !item.error))
+    .sort(sortMethodMap[sortMode])
+}

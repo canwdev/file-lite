@@ -66,8 +66,9 @@ function createDefaultLocalSettingsStore() {
     isNativePlayer: false,
     previewSize: 3 * MB,
     appSingleInstance: true,
-    /** 墨水屏模式：强制亮色、禁用动画/大阴影，降低刷新负担 */
-    einkMode: false,
+    openAppWithFilteredList: false,
+    /** 减少动画和过渡效果 */
+    reduceMotion: false,
     showHidden: false,
     isGridView: false,
     iconSizeList: 16,
