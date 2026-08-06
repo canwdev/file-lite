@@ -18,7 +18,7 @@
     "lint:styles": "node scripts/check-styles.mjs"
   },
   "dependencies": {
-    "@canwdev/vgo-ui": "^0.4.0",
+    "@canwdev/vgo-ui": "https://github.com/canwdev/vgo-ui/releases/download/v0.4.0/canwdev-vgo-ui-0.4.0.tgz",
     "@imengyu/vue3-context-menu": "^1.5.6",
     "@mdi/font": "^7.4.47",
     "@tokenizer/http": "^0.9.2",
