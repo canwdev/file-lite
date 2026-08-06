@@ -49,12 +49,17 @@ jobs:
           bun install
           bun run build:auto
 
+      - name: Extract release notes from CHANGELOG
+        run: bash .github/scripts/changelog-section.sh '${{ steps.appver.outputs.version }}'
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rel.outputs.tag_name }}
           name: ${{ steps.rel.outputs.tag_name }}
-          generate_release_notes: true
+          # 正文优先用 CHANGELOG 小节；抠不到才回退到自动生成，两个 workflow 结果一致，不受先后影响
+          body_path: ${{ hashFiles('RELEASE_NOTES.md') != '' && 'RELEASE_NOTES.md' || '' }}
+          generate_release_notes: ${{ hashFiles('RELEASE_NOTES.md') == '' }}
           files: |
             backend/file-lite-nodejs-v*.zip
         env:

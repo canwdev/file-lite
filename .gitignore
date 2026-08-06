@@ -40,3 +40,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 data/
 file-lite/
+
+
+# CI 抽取 CHANGELOG 生成的 Release 正文
+RELEASE_NOTES.md
