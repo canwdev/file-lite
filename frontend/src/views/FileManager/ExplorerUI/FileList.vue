@@ -688,14 +688,14 @@ defineExpose({
     <div v-if="!contentOnly" class="explorer-actions vgo-panel vgo-panel--flat">
       <div class="action-group">
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Create Document"
           @click="handleCreateFile()"
         >
           <span class="mdi mdi-file-document-plus-outline" />
         </button>
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Create Folder"
           @click="handleCreateFolder()"
         >
@@ -706,28 +706,28 @@ defineExpose({
           <div class="split-line" />
 
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Upload Files..."
             @click="() => selectUploadFiles()"
           >
             <span class="mdi mdi-file-upload-outline" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Upload Folder..."
             @click="() => selectUploadFolder()"
           >
             <span class="mdi mdi-folder-upload-outline" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Download"
             @click="confirmDownload"
           >
             <span class="mdi mdi-download" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Download to Folder..."
             @click="downloadToFolder"
           >
@@ -737,7 +737,7 @@ defineExpose({
           <div class="split-line" />
 
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
             title="Cut (ctrl+x)"
             @click="handleCut"
@@ -745,7 +745,7 @@ defineExpose({
             <span class="mdi mdi-content-cut" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
             title="Copy (ctrl+c)"
             @click="handleCopy"
@@ -753,7 +753,7 @@ defineExpose({
             <span class="mdi mdi-content-copy" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enablePaste"
             title="Paste (ctrl+v)"
             @click="handlePaste"
@@ -762,7 +762,7 @@ defineExpose({
           </button>
 
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="selectedItems.length !== 1"
             title="Rename"
             @click="handleRename"
@@ -770,7 +770,7 @@ defineExpose({
             <span class="mdi mdi-rename" />
           </button>
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
             title="Delete (del)"
             @click="confirmDelete"
@@ -782,7 +782,7 @@ defineExpose({
       <div class="action-group">
         <button
           v-if="openActionMeta"
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           :title="`${openActionMeta.label} (F3)`"
           @click="handleOpen"
         >
@@ -790,7 +790,7 @@ defineExpose({
         </button>
 
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Toggle hidden file visible (ctrl+h)"
           @click="toggleShowHiddenFiles"
         >
@@ -804,7 +804,7 @@ defineExpose({
 
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
           <button
-            class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Toggle Select All (ctrl+a)"
             @click="toggleSelectAll"
           >
@@ -813,7 +813,7 @@ defineExpose({
         </template>
 
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Menu (ctrl+m)"
           @click="updateMenuOptions2($event)"
         >
@@ -901,7 +901,7 @@ defineExpose({
         <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
         <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Toggle grid view"
           @click="isGridView = !isGridView"
         >
@@ -937,9 +937,9 @@ defineExpose({
   }
 
   .explorer-actions {
-    padding: var(--vgo-space-1) var(--vgo-space-2);
+    padding: var(--vgo-space-1) var(--vgo-space-1);
     display: flex;
-    gap: var(--vgo-space-2);
+    gap: var(--vgo-space-1);
     flex-wrap: wrap;
     justify-content: space-between;
     border-bottom: 1px solid var(--vgo-border);
@@ -950,7 +950,7 @@ defineExpose({
 
     .action-group {
       display: flex;
-      gap: var(--vgo-space-2);
+      gap: var(--vgo-space-1);
       flex-wrap: wrap;
 
       .split-line {
@@ -1005,8 +1005,8 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: var(--vgo-space-2) var(--vgo-space-4);
-    padding: var(--vgo-space-1) var(--vgo-space-2);
+    gap: var(--vgo-space-1) var(--vgo-space-4);
+    padding: var(--vgo-space-1) var(--vgo-space-1);
     font-size: var(--vgo-font-sm);
 
     @media screen and (max-width: $mq_mobile_width) {
@@ -1038,6 +1038,10 @@ defineExpose({
         color: var(--vgo-danger);
       }
     }
+  }
+
+  :deep(.vgo-list-item) {
+    cursor: default;
   }
 }
 </style>

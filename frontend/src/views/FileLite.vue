@@ -6,7 +6,7 @@ import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '
 import { toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { getPreviewSizeLabel, localSettingsStore, previewSizeOptions, settingsStore } from '@/store/index.ts'
-import { enableEruda } from '@/utils/debug'
+import { enableDebug } from '@/utils/debug'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
@@ -176,9 +176,9 @@ function showMenu(event: MouseEvent) {
           },
           {
             label: 'Enable Debug',
-            icon: enableEruda.value ? 'mdi mdi-check' : '',
+            icon: enableDebug.value ? 'mdi mdi-check' : '',
             onClick: () => {
-              enableEruda.value = !enableEruda.value
+              enableDebug.value = !enableDebug.value
             },
           },
         ],
@@ -241,7 +241,7 @@ function showMenu(event: MouseEvent) {
   <FileManager>
     <template #headerRight>
       <button
-        class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+        class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
         title="Menu"
         @click="showMenu"
       >

@@ -30,6 +30,12 @@ body,
   box-sizing: border-box;
 }
 
+html.is-debug {
+  * {  
+    outline: 1px solid var(--vgo-primary) !important;
+  }
+}
+
 ::selection {
   background-color: var(--vgo-primary-opacity);
 }

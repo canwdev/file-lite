@@ -2,14 +2,16 @@
 import { useStorage } from '@vueuse/core'
 import { watch } from 'vue'
 
-export const enableEruda = useStorage('enableEruda', false)
+export const enableDebug = useStorage('enableDebug', false)
 
-watch(enableEruda, (value) => {
+watch(enableDebug, (value) => {
   if (value) {
     initEruda()
+    document.documentElement.classList.add('is-debug')
   }
   else {
     ;(window as any).eruda?.destroy()
+    document.documentElement.classList.remove('is-debug')
   }
 }, { immediate: true })
 

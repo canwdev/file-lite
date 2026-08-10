@@ -349,7 +349,7 @@ function handleShortcutKey(event: KeyboardEvent) {
             <div class="explorer-toolbar-nav">
               <button
                 :disabled="!navigationHistory?.canBack"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Back (alt+left)"
                 @click="goBack"
                 @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
@@ -358,7 +358,7 @@ function handleShortcutKey(event: KeyboardEvent) {
               </button>
               <button
                 :disabled="!navigationHistory?.canForward"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Forward (alt+right)"
                 @click="goForward"
                 @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
@@ -366,7 +366,7 @@ function handleShortcutKey(event: KeyboardEvent) {
                 <span class="mdi mdi-arrow-right" />
               </button>
               <button
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 :disabled="!allowUp"
                 title="Up (alt+up)"
                 @click="goUp"
@@ -374,7 +374,7 @@ function handleShortcutKey(event: KeyboardEvent) {
                 <span class="mdi mdi-arrow-up" />
               </button>
               <button
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Refresh (ctrl+r)"
                 @click="debounceHandleRefresh"
               >
@@ -389,7 +389,7 @@ function handleShortcutKey(event: KeyboardEvent) {
               @refresh="debounceHandleRefresh"
             />
             <button
-              class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
+              class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
               title="Toggle Star (alt+s)"
               @click="toggleStar"
             >
@@ -462,7 +462,7 @@ function handleShortcutKey(event: KeyboardEvent) {
                   <span class="mdi mdi-play" />
                 </button>
                 <button
-                  class="vgo-button vgo-button--round vgo-button--sm fab-close"
+                  class="vgo-button vgo-button--round vgo-button--md fab-close"
                   title="Clear remembered media"
                   @click.stop="clearCurrentLastOpenedMedia"
                 >
@@ -497,7 +497,7 @@ function handleShortcutKey(event: KeyboardEvent) {
   outline: none;
 
   .explorer-header {
-    padding: var(--vgo-space-1) var(--vgo-space-2);
+    padding: var(--vgo-space-1) var(--vgo-space-1);
     border-bottom: 1px solid var(--vgo-border);
 
     .explorer-toolbar {
@@ -510,7 +510,7 @@ function handleShortcutKey(event: KeyboardEvent) {
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        gap: var(--vgo-space-2);
+        gap: var(--vgo-space-1);
       }
 
       &-stack {
@@ -520,14 +520,14 @@ function handleShortcutKey(event: KeyboardEvent) {
         flex: 1;
         width: 100%;
         min-width: 0;
-        gap: var(--vgo-space-2);
+        gap: var(--vgo-space-1);
         font-size: var(--vgo-font-md);
 
         @media screen and (max-width: $mq_mobile_width) {
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          gap: var(--vgo-space-2);
+          gap: var(--vgo-space-1);
         }
       }
 
@@ -536,7 +536,7 @@ function handleShortcutKey(event: KeyboardEvent) {
         align-items: center;
         min-width: 0;
         overflow: hidden;
-        gap: var(--vgo-space-2);
+        gap: var(--vgo-space-1);
 
         @media screen and (max-width: $mq_mobile_width) {
           width: 100%;
@@ -548,7 +548,7 @@ function handleShortcutKey(event: KeyboardEvent) {
         align-items: center;
         justify-self: end;
         min-width: 0;
-        gap: var(--vgo-space-2);
+        gap: var(--vgo-space-1);
 
         @media screen and (max-width: $mq_mobile_width) {
           width: 100%;
@@ -586,8 +586,8 @@ function handleShortcutKey(event: KeyboardEvent) {
 
     .fab-close {
       position: absolute;
-      top: calc(var(--vgo-space-2) * -1);
-      right: calc(var(--vgo-space-2) * -1);
+      top: calc(var(--vgo-space-1) * -1);
+      right: calc(var(--vgo-space-1) * -1);
     }
   }
 
@@ -605,10 +605,10 @@ function handleShortcutKey(event: KeyboardEvent) {
   }
 
   .explorer-bottom-wrap {
-    padding: var(--vgo-space-2);
+    padding: var(--vgo-space-1);
     display: flex;
     justify-content: flex-end;
-    gap: var(--vgo-space-2);
+    gap: var(--vgo-space-1);
   }
 }
 </style>
