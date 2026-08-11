@@ -356,7 +356,7 @@ function setWrapperRef(el: unknown): void {
   align-items: center;
   gap: var(--vgo-space-1);
   border-radius: var(--vgo-radius-pill);
-  padding: var(--vgo-space-1);
+  padding: var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-2);
   opacity: 0;
   transition: opacity var(--vgo-duration-base);
 

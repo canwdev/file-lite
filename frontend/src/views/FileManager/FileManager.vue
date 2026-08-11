@@ -462,7 +462,7 @@ function handleShortcutKey(event: KeyboardEvent) {
                   <span class="mdi mdi-play" />
                 </button>
                 <button
-                  class="vgo-button vgo-button--round vgo-button--md fab-close"
+                  class="vgo-button vgo-button--round vgo-button--sm fab-close"
                   title="Clear remembered media"
                   @click.stop="clearCurrentLastOpenedMedia"
                 >
@@ -586,8 +586,8 @@ function handleShortcutKey(event: KeyboardEvent) {
 
     .fab-close {
       position: absolute;
-      top: calc(var(--vgo-space-1) * -1);
-      right: calc(var(--vgo-space-1) * -1);
+      top: calc(var(--vgo-space-2) * -1);
+      right: calc(var(--vgo-space-2) * -1);
     }
   }
 

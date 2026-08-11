@@ -1006,7 +1006,7 @@ defineExpose({
     justify-content: space-between;
     flex-wrap: wrap;
     gap: var(--vgo-space-1) var(--vgo-space-4);
-    padding: var(--vgo-space-1) var(--vgo-space-1);
+    padding: var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-2);
     font-size: var(--vgo-font-sm);
 
     @media screen and (max-width: $mq_mobile_width) {

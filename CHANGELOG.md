@@ -2,6 +2,10 @@
 
 版本号定义在 `frontend/src/enum/version.ts`，与 `backend-go/config/config.go` 的 `const Version`、`backend/package.json` 保持一致。
 
+## 1.4.3
+
+- 优化 UI 细节
+
 ## 1.4.2
 
 ### 界面
