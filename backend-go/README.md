@@ -51,7 +51,7 @@ bun run icon
 bun run dev:go
 
 # 构建 Go 后端可执行文件
-bun run build
+bun run build:win:amd64
 ```
 
 后端打包前，需要先在 `frontend/` 执行 `bun run build:for-go`，静态资源将输出到 `backend-go/frontend/`。

@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build:for-go-and-release:
+  build-go-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
