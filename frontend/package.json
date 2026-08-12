@@ -7,9 +7,9 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "frontend:dev": "vite --host",
-    "frontend:build": "vite build",
-    "frontend:build-go": "vite build --mode go",
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:for-go": "vite build --mode go",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",

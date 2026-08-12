@@ -22,7 +22,7 @@ The project ships **two server implementations** that share the same frontend—
 | **Typical use** | `npm i -g file-lite`, rapid iteration, script-friendly workflows | Low footprint, containers / edge, single-binary distribution |
 | **Docs** | Development & config below | [backend-go/README.md](backend-go/README.md) |
 
-> Frontend for the Go build: run `frontend:build-go` first so static assets land in `backend-go/frontend/` (see the Go README).
+> Frontend for the Go build: run `build:for-go` first so static assets land in `backend-go/frontend/` (see the Go README).
 
 ---
 
@@ -75,8 +75,8 @@ bun run build
 # Frontend
 cd frontend
 bun i
-bun run frontend:dev
-bun run frontend:build
+bun run dev
+bun run build
 ```
 
 ```shell
@@ -88,7 +88,7 @@ cd dist
 node file-lite.min.mjs
 ```
 
-- **Go backend**: build steps and `frontend:build-go` are documented in [backend-go/README.md](backend-go/README.md)
+- **Go backend**: build steps and `build:for-go` are documented in [backend-go/README.md](backend-go/README.md)
 
 ## Configuration
 

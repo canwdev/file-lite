@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-go-and-release:
+  build:for-go-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
         working-directory: frontend
         run: |
           bun install
-          bun run frontend:build-go
+          bun run build:for-go
 
       - name: Setup Go
         uses: actions/setup-go@v5

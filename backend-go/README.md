@@ -7,7 +7,7 @@
 ## 编译
 
 - 安装 [Go 1.20+](https://go.dev/dl/)。
-- 需要提前编译[前端](../frontend/package.json) `frontend:build-go`，确保 `backend-go/frontend/` 存在
+- 需要提前编译[前端](../frontend/package.json) `build:for-go`，确保 `backend-go/frontend/` 存在
 
 ```shell
 # go 镜像
@@ -51,10 +51,10 @@ bun run icon
 bun run dev:go
 
 # 构建 Go 后端可执行文件
-bun run build:go
+bun run build
 ```
 
-后端打包前，需要先在 `frontend/` 执行 `bun run frontend:build-go`，静态资源将输出到 `backend-go/frontend/`。
+后端打包前，需要先在 `frontend/` 执行 `bun run build:for-go`，静态资源将输出到 `backend-go/frontend/`。
 
 ## 使用 air 热重载开发环境
 

@@ -101,7 +101,7 @@ async function build() {
   // 3. 构建前端
   await runInDir('Building frontend, please wait...', frontendPath, [
     'bun i',
-    'bun run frontend:build',
+    'bun run build',
   ])
 
   // 4. nodejs 版差异化补丁

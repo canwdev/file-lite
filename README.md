@@ -22,7 +22,7 @@ screenshot
 | **文档**   | 见下文「开发」与配置说明                         | [backend-go/README.md](backend-go/README.md) |
 
 
-> 前端构建：Go 镜像需先执行 `frontend:build-go`，将静态资源输出到 `backend-go/frontend/`（详见 Go 后端 README）。
+> 前端构建：Go 镜像需先执行 `build:for-go`，将静态资源输出到 `backend-go/frontend/`（详见 Go 后端 README）。
 
 - **打包体积**：单包不超过约 20MB
 - **功能**
@@ -71,8 +71,8 @@ bun run build
 # 前端
 cd frontend
 bun i
-bun run frontend:dev
-bun run frontend:build
+bun run dev
+bun run build
 ```
 
 ```shell
@@ -84,7 +84,7 @@ cd dist
 node file-lite.min.mjs
 ```
 
-- **Go 后端**：编译与 `frontend:build-go` 说明见 [backend-go/README.md](backend-go/README.md)
+- **Go 后端**：编译与 `build:for-go` 说明见 [backend-go/README.md](backend-go/README.md)
 
 ## 配置文件
 

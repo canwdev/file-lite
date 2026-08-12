@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "dev:go": "cross-env FILE_LITE_FE_PORT=3110 PORT=3111 air",
+    "dev": "cross-env FILE_LITE_FE_PORT=3110 PORT=3111 air",
     "icon": "node scripts/generate_icon.js && rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso && rsrc -arch arm64 -ico icon.ico -o rsrc_windows_arm64.syso",
     "build:go": "go build -ldflags=\"-s -w\" -o file-lite-go.exe ./",
     "build": "go build -ldflags=\"-s -w\" -o bin/app",

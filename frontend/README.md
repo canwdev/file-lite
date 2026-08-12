@@ -10,11 +10,11 @@ Vue 3 + Vite + TypeScript 前端应用。
 bun i
 
 # 开发
-bun run frontend:dev
+bun run dev
 
 # 构建 Node.js 后端使用的前端产物
-bun run frontend:build
+bun run build
 
 # 构建 Go 后端使用的前端产物，输出到 backend-go/frontend/
-bun run frontend:build-go
+bun run build:for-go
 ```
