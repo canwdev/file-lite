@@ -15,7 +15,13 @@ export default defineConfig(({ mode }) => {
   }
   return {
     plugins: [
-      vue(),
+      vue({
+        template: {
+          compilerOptions: {
+            isCustomElement: tag => tag.startsWith('flyfish-'),
+          },
+        },
+      }),
       vueJsx(),
       AutoImport({
         dts: './src/auto-import.d.ts',

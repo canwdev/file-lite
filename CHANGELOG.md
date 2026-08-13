@@ -6,6 +6,7 @@
 
 - 优化 UI 细节、优化体验
 - 重构快捷键功能，集中管理快捷键
+- 新增 [File Viewer](https://github.com/flyfish-dev/file-viewer) 应用 
 
 ## 1.4.2
 

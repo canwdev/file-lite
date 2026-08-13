@@ -174,14 +174,14 @@ export function useOpener(basePath: { value: string }) {
 
     window.$dialog
       .confirm(
-        `Continue to open in browser? ${item.name}`,
+        `Continue to open in File Viewer? ${item.name}`,
         'Unsupported File Type',
         {
           type: 'info',
         },
       )
       .then(() => {
-        window.open(getStreamUrl(item))
+        openApp(OpenWithEnum.FileViewer)
       })
       .catch()
   }
