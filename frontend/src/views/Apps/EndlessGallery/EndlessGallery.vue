@@ -170,7 +170,6 @@ function setWrapperRef(el: unknown): void {
     <div v-if="!edgeOverlay" class="nav-arrows">
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :disabled="currentIndex <= 0"
         title="Previous (↑ / k)"
         @click.stop="navigate(false)"
       >
@@ -193,7 +192,6 @@ function setWrapperRef(el: unknown): void {
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :disabled="currentIndex >= items.length - 1"
         title="Next (↓ / j)"
         @click.stop="navigate(true)"
       >

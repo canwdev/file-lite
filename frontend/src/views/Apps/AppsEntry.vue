@@ -75,7 +75,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
     ref="vpWindowRefs"
     v-model:maximized="win.maximized"
     v-model:minimized="win.minimized"
-    class="apps-vp-window"
+    class="app-window"
     :visible="!win.minimized && !win.isClosing"
     :allow-maximum="true"
     :allow-minimum="true"
@@ -89,7 +89,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
     @on-restored="handleWindowRestored(win)"
   >
     <template #titleBarLeft>
-      <span :class="appMeta(win)?.icon" />
+      <span :class="appMeta(win)?.icon" @click.stop @dblclick.stop="handleClose(win)" />
       <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
     </template>
 
@@ -143,7 +143,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   border-radius: 0 0 var(--vgo-radius) var(--vgo-radius);
 }
 
-.apps-vp-window.is-maximized {
+.app-window.is-maximized {
   .app-container {
     border-radius: 0;
   }
@@ -154,7 +154,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   font-size: var(--vgo-font-sm);
 }
 
-.apps-vp-window {
+.app-window {
   outline: none;
   min-width: 320px;
   min-height: 200px;

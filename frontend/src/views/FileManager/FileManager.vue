@@ -104,6 +104,7 @@ onMounted(async () => {
 const fileListRef = ref()
 const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
 const filterState = ref(createDefaultFileFilter())
+const filterDirectories = computed(() => !selectFileMode.value)
 const lastOpenedMediaItem = useLastOpenedMediaItem(basePathNormalized, files)
 
 function playLastOpenedMedia() {
@@ -443,6 +444,7 @@ function handleShortcutKey(event: KeyboardEvent) {
               v-model:is-loading="isLoading"
               :files="files"
               :filter="filterState"
+              :filter-directories="filterDirectories"
               :base-path="basePathNormalized"
               :select-file-mode="selectFileMode"
               :multiple="multiple"

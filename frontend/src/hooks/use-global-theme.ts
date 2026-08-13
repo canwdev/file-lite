@@ -10,7 +10,7 @@ export enum ThemeMode {
 }
 
 // https://docs.imengyu.top/vue3-context-menu-docs/en/guide/theme.html
-const mxContextMenuTheme = 'mac' // mac,win10,flat,default
+const mxContextMenuTheme = 'flat' // mac,win10,flat,default
 export const menuThemeOptions = reactive({
   theme: `${mxContextMenuTheme} dark`,
   // menuTransitionProps: {

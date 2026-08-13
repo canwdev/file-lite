@@ -37,6 +37,8 @@ const props = withDefaults(
     selectFileMode?: 'file' | 'folder'
     // 文件选择器允许多选
     multiple?: boolean
+    // 是否让筛选条件同样作用于文件夹
+    filterDirectories?: boolean
     contentOnly?: boolean
     gridView?: boolean
     // 设置 selectables 防止跨层级选择
@@ -45,12 +47,13 @@ const props = withDefaults(
   {
     selectables: () => ['.explorer-list-wrap .selectable'],
     filter: () => createDefaultFileFilter(),
+    filterDirectories: false,
   },
 )
 
 const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter'])
 
-const { basePath, files, filter, selectFileMode, multiple } = toRefs(props)
+const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -84,7 +87,7 @@ const filteredFiles = computed(() => {
   if (!filterValue.regex) {
     const needle = filterValue.caseSensitive ? search : search.toLowerCase()
     return sortedFiles.value.filter((item) => {
-      if (item.isDirectory)
+      if (item.isDirectory && !filterDirectories.value)
         return true
       const name = filterValue.caseSensitive ? item.name : item.name.toLowerCase()
       return name.includes(needle)
@@ -93,7 +96,9 @@ const filteredFiles = computed(() => {
 
   try {
     const reg = new RegExp(search, filterValue.caseSensitive ? '' : 'i')
-    return sortedFiles.value.filter(item => item.isDirectory || reg.test(item.name))
+    return sortedFiles.value.filter(item =>
+      (item.isDirectory && !filterDirectories.value) || reg.test(item.name),
+    )
   }
   catch {
     return []
@@ -286,8 +291,32 @@ function getItemsInSelectionRect(rect: {
   return getListItemsInSelectionRect(rect)
 }
 
-function getListItemsInSelectionRect(rect: { top: number, bottom: number }) {
-  const headerHeight = explorerContentRef.value?.querySelector('thead')?.getBoundingClientRect().height || listRowHeight.value
+function getListItemsInSelectionRect(rect: {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}) {
+  const contentEl = explorerContentRef.value
+  const tableEl = contentEl?.querySelector('.explorer-list-view table')
+  const headerHeight = contentEl?.querySelector('thead')?.getBoundingClientRect().height || listRowHeight.value
+  const listBottom = headerHeight + filteredFiles.value.length * virtualList.itemHeight.value
+
+  if (rect.top > listBottom || rect.bottom < headerHeight) {
+    return []
+  }
+
+  if (contentEl && tableEl) {
+    const contentRect = contentEl.getBoundingClientRect()
+    const tableRect = tableEl.getBoundingClientRect()
+    const tableLeft = tableRect.left - contentRect.left + contentEl.scrollLeft
+    const tableRight = tableLeft + tableRect.width
+
+    if (rect.left > tableRight || rect.right < tableLeft) {
+      return []
+    }
+  }
+
   const startIndex = clampIndex(Math.floor((rect.top - headerHeight) / virtualList.itemHeight.value))
   const endIndex = clampIndex(Math.floor((rect.bottom - headerHeight) / virtualList.itemHeight.value))
 
