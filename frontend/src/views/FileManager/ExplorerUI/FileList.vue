@@ -5,8 +5,9 @@ import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
-import { computed, h, nextTick, ref, toRefs, watch } from 'vue'
+import { computed, h, inject, nextTick, ref, toRefs, watch } from 'vue'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
@@ -54,6 +55,7 @@ const props = withDefaults(
 const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
+const shortcutScope = inject(shortcutScopeKey, 'fileManager')
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -560,64 +562,103 @@ function moveKeyboardSelection(offset: number) {
   selectKeyboardItem((currentIndex === -1 ? fallbackIndex : currentIndex) + offset)
 }
 
-function handleShortcutKey(event: KeyboardEvent) {
-  const key = event.key?.toLowerCase()
-  const isCtrlOrMeta = event.ctrlKey || event.metaKey
-  if (isCtrlOrMeta && !event.shiftKey) {
-    if (key === 'r') {
-      event.preventDefault()
-      emit('refresh')
-    }
-    else if (key === 'a') {
-      event.preventDefault()
-      toggleSelectAll()
-    }
-    else if (key === 'x') {
-      event.preventDefault()
-      handleCut()
-    }
-    else if (key === 'c') {
-      event.preventDefault()
-      handleCopy()
-    }
-    else if (key === 'v') {
-      event.preventDefault()
-      handlePaste()
-    }
-    else if (key === 'h') {
-      event.preventDefault()
-      showHidden.value = !showHidden.value
-    }
-    else if (key === 'm') {
-      event.preventDefault()
-      updateMenuOptions(null, event)
-    }
-  }
-  else if (key === 'delete') {
-    event.preventDefault()
-    confirmDelete()
-  }
-  else if (key === 'f2') {
-    event.preventDefault()
-    handleRename()
-  }
-  else if (key === 'f3' || key === 'enter') {
-    event.preventDefault()
-    handleOpen()
-  }
-  else if (key === 'f7') {
-    event.preventDefault()
-    handleCreateFolder()
-  }
-  else if (!event.altKey && (key === 'arrowup' || key === 'arrowdown')) {
-    event.preventDefault()
-    moveKeyboardSelection(key === 'arrowup' ? -1 : 1)
-  }
-  else if (!event.altKey && (key === 'home' || key === 'end')) {
-    event.preventDefault()
-    selectKeyboardItem(key === 'home' ? 0 : filteredFiles.value.length - 1)
-  }
-}
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+r', 'meta+r'],
+  handler: () => emit('refresh'),
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+a', 'meta+a'],
+  handler: toggleSelectAll,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+x', 'meta+x'],
+  handler: handleCut,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+c', 'meta+c'],
+  handler: handleCopy,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+v', 'meta+v'],
+  handler: handlePaste,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+h', 'meta+h'],
+  handler: () => {
+    showHidden.value = !showHidden.value
+  },
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+m', 'meta+m'],
+  handler: event => updateMenuOptions(null, event),
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'delete',
+  handler: confirmDelete,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'f2',
+  handler: handleRename,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'f3',
+  handler: handleOpen,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'enter',
+  handler: handleOpen,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'f7',
+  handler: handleCreateFolder,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'arrowup',
+  handler: () => moveKeyboardSelection(-1),
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'arrowdown',
+  handler: () => moveKeyboardSelection(1),
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'home',
+  handler: () => selectKeyboardItem(0),
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'end',
+  handler: () => selectKeyboardItem(filteredFiles.value.length - 1),
+})
 
 // 缓存滚动位置
 function getSetScrollPosition(action: 'get' | 'set', value = 0) {
@@ -691,7 +732,6 @@ defineExpose({
   selectByNames,
   selectAndReveal,
   basePath,
-  handleShortcutKey,
   handleCreateFile,
   sortedFiles,
   filteredFiles,

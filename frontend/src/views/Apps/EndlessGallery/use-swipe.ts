@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { MediaFile } from './use-media-list.ts'
+import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 
 interface ZoomAPI {
   scale: Ref<number>
@@ -26,6 +27,7 @@ interface UseSwipeOptions {
 }
 
 export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
+  const shortcutScope = injectShortcutScope()
   const wrapperRef = ref<HTMLElement | null>(null)
   const swipeContainerRef = ref<HTMLElement | null>(null)
   const dragOffset = ref(0)
@@ -328,34 +330,31 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     navigate(e.deltaY > 0)
   }
 
-  function onKeydown(e: KeyboardEvent): void {
-    if (edgeOverlay.value) {
-      if (e.key === 'Escape')
+  useShortcut({
+    scope: shortcutScope,
+    combo: 'escape',
+    handler: () => {
+      if (edgeOverlay.value) {
         edgeOverlay.value = null
-      return
-    }
-    switch (e.key) {
-      case 'ArrowDown':
-      case 'PageDown':
-      case 'j':
-        e.preventDefault()
-        navigate(true)
-        break
-      case 'ArrowUp':
-      case 'PageUp':
-      case 'k':
-        e.preventDefault()
-        navigate(false)
-        break
-      case 'Escape':
-        onExit()
-        break
-    }
-  }
+        return
+      }
+      onExit()
+    },
+  })
 
-  onMounted(() => window.addEventListener('keydown', onKeydown))
+  useShortcut({
+    scope: shortcutScope,
+    combo: ['arrowdown', 'pagedown', 'j'],
+    handler: () => navigate(true),
+  })
+
+  useShortcut({
+    scope: shortcutScope,
+    combo: ['arrowup', 'pageup', 'k'],
+    handler: () => navigate(false),
+  })
+
   onBeforeUnmount(() => {
-    window.removeEventListener('keydown', onKeydown)
     flushPendingDragOffset()
     cleanListeners()
   })

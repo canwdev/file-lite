@@ -5,6 +5,7 @@ import { useUnSavedChanges } from '@canwdev/vgo-ui'
 import { MenuBar } from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { bytesToSize } from '@/utils'
 import { generateTextFile } from '@/views/FileManager/utils'
 
@@ -16,6 +17,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits(['exit', 'setTitle'])
+const shortcutScope = injectShortcutScope()
 
 // 5 MB
 const SIZE_LIMIT = 5 * 1024 * 1024
@@ -80,22 +82,6 @@ function shouldHandleEditorEscape() {
   return active === document.body || active === document.documentElement
 }
 
-function onWindowKeydown(event: KeyboardEvent) {
-  if (event.key?.toLowerCase() !== 'escape') {
-    return
-  }
-  if (isMessageBoxOpen()) {
-    return
-  }
-  if (!shouldHandleEditorEscape()) {
-    return
-  }
-
-  event.preventDefault()
-  event.stopPropagation()
-  handleExit()
-}
-
 async function confirmUnsavedChanges(message: string) {
   try {
     await window.$dialog.confirm(message, 'Unsaved Changes', {
@@ -156,11 +142,6 @@ watch(
 
 onMounted(() => {
   openFile()
-  window.addEventListener('keydown', onWindowKeydown, true)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onWindowKeydown, true)
 })
 
 const isSaving = ref(false)
@@ -233,15 +214,26 @@ const menuOptions = computed((): MenuBarOptions => {
   }
 })
 
-function handleShortcutKey(event: KeyboardEvent) {
-  const key = event.key?.toLowerCase()
-  if (event.ctrlKey) {
-    if (key === 's') {
-      event.preventDefault()
-      handleSaveFile()
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+s', 'meta+s'],
+  handler: handleSaveFile,
+  allowInInput: true,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'escape',
+  allowInInput: true,
+  preventDefault: false,
+  handler: (event) => {
+    if (isMessageBoxOpen() || !shouldHandleEditorEscape()) {
+      return
     }
-  }
-}
+    event.preventDefault()
+    handleExit()
+  },
+})
 </script>
 
 <template>
@@ -250,7 +242,6 @@ function handleShortcutKey(event: KeyboardEvent) {
     v-loading="isSaving || isLoading"
     class="text-editor-wrap"
     tabindex="0"
-    @keydown="handleShortcutKey"
   >
     <MenuBar :options="menuOptions" />
     <div v-if="isLoading" class="loading-wrapper">
@@ -274,7 +265,6 @@ function handleShortcutKey(event: KeyboardEvent) {
       ref="editRef"
       v-model="editContent"
       class="vgo-input vgo-u-font-code text-editor-textarea"
-      @keydown="handleShortcutKey"
     />
   </div>
 </template>

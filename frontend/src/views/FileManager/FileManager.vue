@@ -4,9 +4,11 @@ import type { FileSelectResult } from './types'
 import type { IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
+import { provide } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
+import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
@@ -28,17 +30,21 @@ const props = withDefaults(
     contentOnly?: boolean
     // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"
     fileFilterPattern?: string
+    // 快捷键作用域，供主文件管理器和文件选择器隔离
+    shortcutScope?: string
   }>(),
   {
     multiple: false,
     contentOnly: false,
+    shortcutScope: 'fileManager',
   },
 )
 const emit = defineEmits<{
   handleSelect: [val: FileSelectResult]
   cancelSelect: []
 }>()
-const { selectFileMode, multiple } = toRefs(props)
+const { selectFileMode, multiple, shortcutScope } = toRefs(props)
+provide(shortcutScopeKey, shortcutScope.value)
 const rootRef = ref()
 const route = useRoute()
 const router = useRouter()
@@ -308,44 +314,55 @@ function handleSelect() {
 }
 
 const addressBarRef = ref<InstanceType<typeof AddressBar> | null>(null)
-function handleShortcutKey(event: KeyboardEvent) {
-  // console.log('handleShortcutKey', event)
-  const key = event.key?.toLowerCase()
-  if (event.altKey) {
-    if (key === 'a') {
-      addressBarRef.value?.focus()
-    }
-    else if (key === 'f') {
-      if (filterBarRef.value) {
-        filterBarRef.value.focus()
-      }
-    }
-    else if (key === 'd') {
-      toggleStar()
-    }
-    else if (event.key === 'ArrowUp') {
-      goUp()
-    }
-    else if (event.key === 'ArrowLeft') {
-      goBack()
-    }
-    else if (event.key === 'ArrowRight') {
-      goForward()
-    }
-  }
-  if (event.key === 'Backspace') {
-    event.preventDefault()
-    goUp()
-  }
-  fileListRef.value.handleShortcutKey(event)
-}
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+a',
+  handler: () => addressBarRef.value?.focus(),
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+f',
+  handler: () => filterBarRef.value?.focus(),
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+d',
+  handler: toggleStar,
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+arrowup',
+  handler: goUp,
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+arrowleft',
+  handler: goBack,
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'alt+arrowright',
+  handler: goForward,
+})
+
+useShortcut({
+  scope: shortcutScope.value,
+  combo: 'backspace',
+  handler: goUp,
+})
 </script>
 
 <template>
-  <div ref="rootRef" class="explorer-wrap" tabindex="0" @keydown="handleShortcutKey">
+  <div ref="rootRef" class="explorer-wrap" tabindex="0" :data-shortcut-scope="shortcutScope">
     <div v-if="!contentOnly" class="explorer-header vgo-panel vgo-panel--flat">
       <div class="explorer-toolbar">
-        <div class="explorer-toolbar-stack" @keydown.stop>
+        <div class="explorer-toolbar-stack">
           <div class="explorer-toolbar-path">
             <div class="explorer-toolbar-nav">
               <button

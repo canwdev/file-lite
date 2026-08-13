@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useEventListener } from '@vueuse/core'
-import Mousetrap from 'mousetrap'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { formatTimeHMS } from '@/utils'
 import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<{
 })
 
 defineEmits(['onCoverClick', 'onTitleClick', 'togglePlaylist'])
+const shortcutScope = injectShortcutScope()
 
 const PLAYBACK_RATE_OPTIONS = [
   { value: 2, label: '2x' },
@@ -40,12 +41,6 @@ function speedMenuButtonLabel(rate: number) {
 
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
-
-const KEY_SPACE = 'space'
-const KEY_PREVIOUS = ['left', 'pageup', 'k', 'l']
-const KEY_NEXT = ['right', 'pagedown', 'h', 'j']
-const KEY_UP = 'up'
-const KEY_DOWN = 'down'
 
 const mSettingsStore = useMusicSettingsStore()
 const mCurrentTime = ref(0)
@@ -91,8 +86,6 @@ function showLoopMenu(event: MouseEvent) {
     }),
   })
 }
-
-const mousetrapRef = shallowRef()
 
 function togglePlay(e?: Event) {
   e?.preventDefault()
@@ -171,23 +164,41 @@ const currentLoopMode = computed(() => {
   return loopModeMap[mSettingsStore.loopMode]
 })
 
-onMounted(() => {
-  const mousetrap = new Mousetrap()
-  if (props.showControls) {
-    mousetrap.bind(KEY_SPACE, togglePlay)
-    mousetrap.bind(KEY_PREVIOUS, previous)
-    mousetrap.bind(KEY_NEXT, next)
-    mousetrap.bind(KEY_UP, volumeUpFn)
-    mousetrap.bind(KEY_DOWN, volumeDownFn)
-  }
+const controlsDisabled = computed(() => !props.showControls)
 
-  mousetrapRef.value = mousetrap
+useShortcut({
+  scope: shortcutScope,
+  combo: 'space',
+  handler: togglePlay,
+  disabled: controlsDisabled,
 })
 
-onBeforeUnmount(() => {
-  if (mousetrapRef.value) {
-    mousetrapRef.value.reset()
-  }
+useShortcut({
+  scope: shortcutScope,
+  combo: ['left', 'pageup', 'k', 'l'],
+  handler: previous,
+  disabled: controlsDisabled,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['right', 'pagedown', 'h', 'j'],
+  handler: next,
+  disabled: controlsDisabled,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'up',
+  handler: volumeUpFn,
+  disabled: controlsDisabled,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'down',
+  handler: volumeDownFn,
+  disabled: controlsDisabled,
 })
 
 watch(

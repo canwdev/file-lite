@@ -87,6 +87,7 @@ defineExpose({
       <FileManager
         v-if="isShowFileSelectWindow" :select-file-mode="selectFileMode" :multiple="multiple"
         :file-filter-pattern="fileFilterPattern"
+        shortcut-scope="fileSelector"
         @cancel-select="isShowFileSelectWindow = false" @handle-select="handleSelect"
       />
     </ViewPortWindow>

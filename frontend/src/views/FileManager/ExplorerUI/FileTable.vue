@@ -250,7 +250,6 @@ onBeforeUnmount(() => {
           :title="getTooltip ? getTooltip(row) : ''"
           :data-name="row.name"
           @click.stop="toggleRowSelection(row, $event)"
-          @keyup.enter="$emit('open', row)"
           @dblclick.stop="$emit('open', row)"
           @contextmenu.prevent.stop="
             rowContextmenu ? rowContextmenu(row, $event) : () => {}

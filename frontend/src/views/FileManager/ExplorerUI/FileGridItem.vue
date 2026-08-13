@@ -25,7 +25,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     class="vgo-u-button-reset vgo-list-item file-grid-item"
     :class="{ 'is-active': active, 'hidden': item.hidden, 'is-cut': isCut }"
     :title="titleDesc" :style="{ width: `${iconSize + 42}px`, height: `${iconSize + 62}px` }"
-    @click.stop="$emit('select', { item, event: $event })" @keyup.enter="$emit('open', { item })"
+    @click.stop="$emit('select', { item, event: $event })"
     @dblclick.stop="$emit('open', { item })"
   >
     <span

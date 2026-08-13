@@ -2,6 +2,7 @@
 import type { AppParams } from './apps'
 import type { AppWindowState } from './apps-store'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
+import ShortcutScopeProvider from '@/components/ShortcutScopeProvider.vue'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import { appMetaByName, Apps } from './apps'
 import {
@@ -12,6 +13,7 @@ import {
 } from './apps-store'
 
 const vpWindowRefs = ref<unknown[]>([])
+const appContainerRefs = new Map<string, HTMLElement | null>()
 
 watch(
   () => appsStoreState.windows.map(w => w.id),
@@ -34,10 +36,43 @@ function handleClose(win: AppWindowState) {
   closeAppWindow(win.id)
 }
 
+function setAppContainerRef(id: string, el: unknown) {
+  if (el instanceof HTMLElement) {
+    appContainerRefs.set(id, el)
+  }
+  else {
+    appContainerRefs.delete(id)
+  }
+}
+
+function focusAppContainer(id: string, attempts = 3) {
+  const el = appContainerRefs.get(id)
+  if (el?.isConnected) {
+    el.focus({ preventScroll: true })
+    return
+  }
+
+  if (attempts > 0) {
+    setTimeout(focusAppContainer, 50, id, attempts - 1)
+  }
+}
+
+function handleWindowActive(win: AppWindowState) {
+  setAppWindowActive(win, false)
+  focusAppContainer(win.id)
+}
+
 function handleWindowRestored(win: AppWindowState) {
   setTimeout(() => {
-    win.windowRef?.focus()
+    focusAppContainer(win.id)
   }, 0)
+}
+
+function handleDockClick(win: AppWindowState) {
+  setAppWindowActive(win, true)
+  if (!win.minimized) {
+    focusAppContainer(win.id)
+  }
 }
 
 function restoreOrMinimizeWindow(win: AppWindowState) {
@@ -66,6 +101,15 @@ function handleLocateItem(win: AppWindowState, name: string) {
 }
 
 const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
+
+watch(
+  () => appsStoreState.activeId,
+  (activeId) => {
+    if (activeId) {
+      focusAppContainer(activeId)
+    }
+  },
+)
 </script>
 
 <template>
@@ -84,7 +128,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
       width: 'min(960px, 90vw)',
       height: 'min(720px, 85vh)',
     }"
-    @on-active="setAppWindowActive(win, false)"
+    @on-active="handleWindowActive(win)"
     @on-close="handleClose(win)"
     @on-restored="handleWindowRestored(win)"
   >
@@ -93,17 +137,24 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
       <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
     </template>
 
-    <div class="app-container vgo-u-surface">
-      <component
-        :is="Apps[win.appName]"
-        :app-params="win.appParams"
-        @exit="handleClose(win)"
-        @set-title="(val: string) => { win.appTitle = val }"
-        @select-items="(names: string[]) => handleSelectItems(win, names)"
-        @locate-item="(name: string) => handleLocateItem(win, name)"
-        @update-app-params="(params: AppParams) => { win.appParams = params }"
-      />
-    </div>
+    <ShortcutScopeProvider :scope="`app:${win.id}`">
+      <div
+        :ref="(el) => setAppContainerRef(win.id, el)"
+        class="app-container vgo-u-surface"
+        tabindex="-1"
+        :data-shortcut-scope="`app:${win.id}`"
+      >
+        <component
+          :is="Apps[win.appName]"
+          :app-params="win.appParams"
+          @exit="handleClose(win)"
+          @set-title="(val: string) => { win.appTitle = val }"
+          @select-items="(names: string[]) => handleSelectItems(win, names)"
+          @locate-item="(name: string) => handleLocateItem(win, name)"
+          @update-app-params="(params: AppParams) => { win.appParams = params }"
+        />
+      </div>
+    </ShortcutScopeProvider>
   </ViewPortWindow>
 
   <Transition name="dock-fade">
@@ -124,7 +175,7 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
             'is-minimized': win.minimized,
           }"
           :title="dockTitle(win)"
-          @click="setAppWindowActive(win, true)"
+          @click="handleDockClick(win)"
         >
           <span class="dock-icon-wrap vgo-panel">
             <span :class="appMeta(win)?.icon" class="dock-icon" />
@@ -141,6 +192,10 @@ const hasOpenApps = computed(() => appsStoreState.windows.length > 0)
   height: 100%;
   overflow: auto;
   border-radius: 0 0 var(--vgo-radius) var(--vgo-radius);
+
+  &:focus {
+    outline: none;
+  }
 }
 
 .app-window.is-maximized {
