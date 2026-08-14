@@ -8,6 +8,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Optimize code structure
 - Refactor the keyboard shortcut functionality and centrally manage keyboard shortcuts
 - Add [File Viewer](https://github.com/flyfish-dev/file-viewer) app
+- Supports the Clear Local Data feature
+
 
 ## 1.4.2
 
