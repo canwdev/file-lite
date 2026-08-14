@@ -18,9 +18,54 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLElement | null>(null)
 const imageRefs = ref<(HTMLImageElement | null)[]>([])
+const mediaRefs = ref<(HTMLMediaElement | null)[]>([null, null, null])
+const hasUserInteracted = ref(false)
 
 function setImageRef(el: Element | ComponentPublicInstance | null, slotIdx: number): void {
   imageRefs.value[slotIdx] = el instanceof HTMLImageElement ? el : null
+}
+
+function setMediaRef(el: Element | ComponentPublicInstance | null, slotIdx: number): void {
+  mediaRefs.value[slotIdx] = el instanceof HTMLMediaElement ? el : null
+}
+
+function getCurrentMedia(): HTMLMediaElement | null {
+  return mediaRefs.value[props.currentSlot] ?? null
+}
+
+function pauseNonCurrentMedia(): void {
+  mediaRefs.value.forEach((media, slotIdx) => {
+    if (media && slotIdx !== props.currentSlot)
+      media.pause()
+  })
+}
+
+function playCurrentMedia(): void {
+  const media = getCurrentMedia()
+  if (!media)
+    return
+
+  if (hasUserInteracted.value)
+    media.muted = false
+
+  if (hasUserInteracted.value || media.muted)
+    media.play().catch(() => {})
+}
+
+async function syncMediaPlayback(): Promise<void> {
+  pauseNonCurrentMedia()
+  await nextTick()
+  playCurrentMedia()
+}
+
+function handleUserGesture(e: Event): void {
+  hasUserInteracted.value = true
+
+  const target = e.target
+  if (target instanceof Element && target.closest('video, audio, button, input, a'))
+    return
+
+  playCurrentMedia()
 }
 
 function getPanelClass(slotIdx: number): string {
@@ -78,12 +123,23 @@ watch(
   ],
   () => {
     void emitCurrentImageIfReady()
+    void syncMediaPlayback()
   },
   { immediate: true },
 )
 
-onMounted(() => emit('containerReady', containerRef.value))
-onBeforeUnmount(() => emit('containerReady', null))
+onMounted(() => {
+  emit('containerReady', containerRef.value)
+  window.addEventListener('pointerdown', handleUserGesture)
+  window.addEventListener('keydown', handleUserGesture)
+  void syncMediaPlayback()
+})
+
+onBeforeUnmount(() => {
+  emit('containerReady', null)
+  window.removeEventListener('pointerdown', handleUserGesture)
+  window.removeEventListener('keydown', handleUserGesture)
+})
 </script>
 
 <template>
@@ -95,35 +151,41 @@ onBeforeUnmount(() => emit('containerReady', null))
       :class="getPanelClass(slotIndex)"
     >
       <template v-if="panelItem">
-        <img
-          v-if="panelItem.type === 'image'"
-          :ref="(el) => setImageRef(el, slotIndex)"
-          :src="panelItem.url"
-          class="media-fit"
-          :style="getPanelImageStyle(slotIndex, panelItem)"
-          draggable="false"
-          @load="onImageLoad($event, slotIndex)"
-        >
-        <div
-          v-if="panelItem.type === 'image' && isPanelImageLoading(slotIndex, panelItem)"
-          class="image-loading-placeholder"
-        >
-          <span class="mdi mdi-loading" />
-        </div>
+        <template v-if="panelItem.type === 'image'">
+          <img
+            :ref="(el) => setImageRef(el, slotIndex)"
+            :src="panelItem.url"
+            class="media-fit"
+            :style="getPanelImageStyle(slotIndex, panelItem)"
+            draggable="false"
+            @load="onImageLoad($event, slotIndex)"
+          >
+          <div
+            v-if="isPanelImageLoading(slotIndex, panelItem)"
+            class="image-loading-placeholder"
+          >
+            <span class="mdi mdi-loading" />
+          </div>
+        </template>
         <video
           v-else-if="panelItem.type === 'video'"
+          :ref="(el) => setMediaRef(el, slotIndex)"
           :key="panelItem.url"
           :src="panelItem.url"
           class="media-fit"
           :controls="slotIndex === currentSlot"
           :autoplay="slotIndex === currentSlot"
+          :muted="!hasUserInteracted"
+          :tabindex="slotIndex === currentSlot ? 0 : -1"
           loop
           playsinline
+          webkit-playsinline
         />
         <div v-else class="audio-pane">
           <span class="mdi mdi-music-circle-outline audio-bg-icon" />
           <audio
-            v-if="slotIndex === currentSlot"
+            v-if="panelItem.type === 'audio' && slotIndex === currentSlot"
+            :ref="(el) => setMediaRef(el, slotIndex)"
             :key="panelItem.url"
             :src="panelItem.url"
             controls
@@ -131,6 +193,9 @@ onBeforeUnmount(() => emit('containerReady', null))
             class="audio-ctrl"
             loop
             playsinline
+            webkit-playsinline
+            :muted="!hasUserInteracted"
+            :tabindex="slotIndex === currentSlot ? 0 : -1"
           />
         </div>
       </template>

@@ -18,6 +18,8 @@ const emit = defineEmits<{
   (e: 'updateAppParams', params: AppParams): void
 }>()
 
+const edgeOverlayRef = ref<HTMLElement | null>(null)
+
 // ── Collection ─────────────────────────────────────────────
 
 const { collection, collectedPathSet, getCollectedInDirectory, toggleCollect, clearCollection, pruneDirectory } = useCollection()
@@ -119,9 +121,42 @@ const { isScanning, navigateFolder, cancelScan } = useFolderNavigation(() => pro
 
 // 关闭 overlay（Dismiss / Esc / 点击遮罩）即放弃扫描
 watch(edgeOverlay, (val) => {
-  if (!val)
+  if (!val) {
     cancelScan()
+    return
+  }
+
+  nextTick(() => {
+    getEdgeOverlayFocusableButtons()[0]?.focus()
+  })
 })
+
+function getEdgeOverlayFocusableButtons(): HTMLButtonElement[] {
+  if (!edgeOverlayRef.value)
+    return []
+  return Array.from(edgeOverlayRef.value.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+}
+
+function handleEdgeOverlayTab(e: KeyboardEvent): void {
+  const buttons = getEdgeOverlayFocusableButtons()
+  if (!buttons.length)
+    return
+
+  const first = buttons[0]
+  const last = buttons[buttons.length - 1]
+  const active = document.activeElement
+
+  if (!edgeOverlayRef.value?.contains(active)) {
+    e.preventDefault()
+    first.focus()
+    return
+  }
+
+  if (active === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
 
 async function handleFolderNav(direction: WalkDirection): Promise<void> {
   const nextParams = await navigateFolder(direction)
@@ -150,7 +185,6 @@ function setWrapperRef(el: unknown): void {
   <div
     :ref="setWrapperRef"
     class="endless-gallery"
-    @dblclick="handleToggleCollect"
     @wheel.prevent="onWheel"
     @mousedown="onPointerDown"
     @touchstart="onPointerDown"
@@ -250,7 +284,15 @@ function setWrapperRef(el: unknown): void {
 
     <!-- ─── Edge overlay ─── -->
     <Transition name="edge-fade">
-      <div v-if="edgeOverlay" class="edge-overlay" @click.self="edgeOverlay = null">
+      <div
+        v-if="edgeOverlay"
+        ref="edgeOverlayRef"
+        class="edge-overlay"
+        role="dialog"
+        aria-modal="true"
+        @click.self="edgeOverlay = null"
+        @keydown.tab.exact="handleEdgeOverlayTab"
+      >
         <div class="edge-card vgo-panel vgo-panel--overlay vgo-empty">
           <span
             class="vgo-empty__icon mdi"
