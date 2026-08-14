@@ -5,68 +5,67 @@ alwaysApply: true
 
 # File Lite
 
-## 概述
+## Overview
 
-一个的轻量级 web 文件管理器，包含 Node.js 和 Go 两种后端实现。`README.md` 是项目主文档。
+A lightweight web file manager with Node.js and Go backend implementations. `README.md` is the project's main document.
 
-## 前端架构
+## Frontend architecture
 
-- 架构：Vite + Vue3 + TypeScript
-- 包管理：bun
-- 开发构建步骤参考：`frontend/README.md`
-- 核心交互：基于WebUI的文件管理器：`frontend/src/views/FileManager`
-- 支持用 App 打开特定类型的文件：`frontend/src/views/Apps`
-- 接口定义：`frontend/src/api`
-- 纯SCSS UI框架：`@canwdev/vgo-ui`，尽可能使用HTML原生实现，小部分使用`element-plus`
-- 图标库：`@mdi/font`
-- 使用 `@vueuse/core` 做持久化和一些常用hooks，例如`useStorage`、`useDebounceFn`等
-- 整个项目的版本号定义：`frontend/src/enum/version.ts`，需要需要修改config.go:const Version 的版本号以保持一致
+- Stack: Vite + Vue 3 + TypeScript
+- Package manager: bun
+- Development/build steps: see `frontend/README.md`
+- Core interaction: WebUI-based file manager: `frontend/src/views/FileManager`
+- Opening specific file types with apps: `frontend/src/views/Apps`
+- API definitions: `frontend/src/api`
+- Pure SCSS UI framework: `@canwdev/vgo-ui` — use native HTML where possible; `element-plus` is used in a few places
+- Icon library: `@mdi/font`
+- `@vueuse/core` for persistence and common hooks such as `useStorage`, `useDebounceFn`, etc.
+- The project-wide version is defined in `frontend/src/enum/version.ts`; the `const Version` in `config.go` must be updated to keep in sync
 
-### 样式契约
+### Style contract
 
-组件里只写布局（flex / grid / 定位 / 尺寸），视觉表达一律来自 vgo-ui 的基元和 token。**新建按钮 / 面板 / 列表类之前，先查 vgo-ui 文档站的「样式总览」页**（`vgo-ui/docs/src/views/docs/styles.md`），那是唯一的词汇表。
+Components only write layout (flex / grid / positioning / sizing); visual expression always comes from vgo-ui primitives and tokens. **Before creating any new button / panel / list class, check the "Style Overview" page of the vgo-ui docs** (`vgo-ui/docs/src/views/docs/styles.md`) — it is the single vocabulary.
 
-- 按钮：`.vgo-button` + `--primary` / `--danger` / `--text` / `--overlay` / `--overlay-light`，与 `--icon` / `--round` / `--sm` / `--lg` 正交；选中态用 `.is-active`。
-- 面板：`.vgo-panel`（卡片）、`--flat`（工具栏 / 头部 / 底栏）、`--overlay` 与 `--overlay-light`（浮在图片视频上，按底下媒体的明暗选，两套都不随主题翻转）。没有第五种。
-- 列表行：`.vgo-list-item` + `.is-active` / `.is-disabled`。另有 `.vgo-empty`、`.vgo-badge`、`.vgo-progress`。
-- 间距 / 字号 / 图标 / 控件高度 / 层级 / 时长一律用 `--vgo-space-*`、`--vgo-font-*`、`--vgo-icon-*`、`--vgo-control-*`、`--vgo-z-*`、`--vgo-duration-*`。
+- Buttons: `.vgo-button` + `--primary` / `--danger` / `--text` / `--overlay` / `--overlay-light`, orthogonal with `--icon` / `--round` / `--sm` / `--lg`; the selected state uses `.is-active`.
+- Panels: `.vgo-panel` (card), `--flat` (toolbar / header / footer), `--overlay` and `--overlay-light` (floating over images/videos; pick by the brightness of the underlying media — neither flips with the theme). There is no fifth variant.
+- List rows: `.vgo-list-item` + `.is-active` / `.is-disabled`. Also `.vgo-empty`, `.vgo-badge`, `.vgo-progress`.
+- Spacing / font size / icons / control height / z-index / duration always use `--vgo-space-*`, `--vgo-font-*`, `--vgo-icon-*`, `--vgo-control-*`, `--vgo-z-*`, `--vgo-duration-*`.
 
-禁止：字面量颜色、字面量 `border-radius`、自定义 `box-shadow`、`backdrop-filter`、渐变背景、`var(--el-*)`、`var(--vgo-x, #hex)` 兜底、非 scoped `<style>`。
+Banned: literal colors, literal `border-radius`, custom `box-shadow`, `backdrop-filter`, gradient backgrounds, `var(--el-*)`, `var(--vgo-x, #hex)` fallbacks, non-scoped `<style>`.
 
-`bun run lint` 会执行 `scripts/check-styles.mjs` 强制上述规则，违规即失败。两种豁免方式：
+`bun run lint` runs `scripts/check-styles.mjs` to enforce the rules above; any violation fails. Two exemption mechanisms:
 
-- 沉浸式 / 3D / 歌词编排等"氛围层"整文件豁免，名单在脚本的 `FULLY_EXEMPT` 里。
-- 单行或单条声明豁免，在其上方写 `// vgo-allow: 理由`，理由必须写清楚。
+- Immersive / 3D / lyric-orchestration "atmosphere layers" are exempt per file; the list lives in the script's `FULLY_EXEMPT`.
+- Exempt a single line or declaration by writing `// vgo-allow: reason` above it; the reason must be clear.
 
-注意主题层选择器是 `body.vgo-theme-default .vgo-x`（特异度 0,2,1），平铺的单个 scoped 类压不过它。要覆盖主题给的属性（典型是 `--flat` 的 `border: 0`）必须多嵌一层父选择器。
+Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specificity 0,2,1), which a flat single scoped class cannot beat. To override a themed property (typically `--flat`'s `border: 0`), nest one more parent selector.
 
+## Changelog
 
-## CHANGELOG
+`CHANGELOG.md` lives at the repository root and is **minimal**: only record changes users can perceive, one item per thing.
 
-`CHANGELOG.md` 在仓库根目录，**极简**：只记使用者能感知到的变化，一条一件事。
+- Newest version first. Unreleased content goes under `## Unreleased` and is changed to a version number at release.
+- Groups appear only as needed, with no empty headings: `### UI` / `### Features` / `### Fixes` / `### Engineering`. `Engineering` only holds things that affect the development workflow (guardrails, build, lint); purely internal refactors are not recorded.
+- Use one sentence to say what change the user sees; do not list which files or class names changed — that is git log's job.
+- When frontend and backend behavior differ, say which side (Node.js / Go).
+- The version number must match in three places and be changed together at release: `frontend/src/enum/version.ts`, `const Version` in `backend-go/config/config.go`, and `backend/package.json`.
 
-- 新版本在最前。未发布的内容写在 `## 未发布` 下，发版时改成版本号。
-- 分组按需出现，不要空标题：`### 界面` / `### 功能` / `### 修复` / `### 工程`。`工程` 只放会影响开发流程的事（护栏、构建、lint），纯内部重构不写。
-- 用一句话说清用户看到什么变化，不要罗列改了哪些文件、哪些类名——那是 git log 的事。
-- 前后端行为不一致时要点明是哪一侧（Node.js / Go）。
-- 版本号三处必须一致，发版时一起改：`frontend/src/enum/version.ts`、`backend-go/config/config.go` 的 `const Version`、`backend/package.json`。
+## Node.js backend architecture
 
-## Node.js 后端架构
+- Stack: Express.js + TypeScript
+- Package manager: bun
+- Development/build steps: see `backend/README.md`
+- Config file loading: `backend/src/config`
+- Auth: JWT, short-lived tickets, cookies, IP rate limiting — `backend/src/middlewares`
+- Core routes: `backend/src/routes/files`
 
-- 架构：Express.js + TypeScript
-- 包管理：bun
-- 开发构建步骤参考：`backend/README.md`
-- 配置文件读取：`backend/src/config`
-- 鉴权：JWT、短时间Ticket、Cookie、IP限流`backend/src/middlewares`
-- 核心接口：`backend/src/routes/files`
+## Go backend architecture
 
-## Go 后端架构
+Implement the Node.js backend requirements first, then the Go backend. Its functionality is exactly the same as the Node.js backend; the Node.js implementation can serve as reference.
 
-优先实现Node.js后端需求后，再实现Go后端。功能与Node.js后端完全相同，可以参考Node.js后端实现。
+- Stack: Echo
+- Development/build steps: see `backend-go/README.md`
 
-- 架构：Echo
-- 开发构建步骤参考：`backend-go/README.md`
+## Testing
 
-## 测试
-
-`test`目录下包含一些测试文件，用于测试后端接口。但这些内容很久没更新了，请无视。
+The `test` directory contains some test files for the backend APIs, but they haven't been updated in a long time — ignore them.

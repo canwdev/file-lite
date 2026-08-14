@@ -1,34 +1,35 @@
 # Changelog
 
-版本号定义在 `frontend/src/enum/version.ts`，与 `backend-go/config/config.go` 的 `const Version`、`backend/package.json` 保持一致。
+The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go` and `backend/package.json`.
 
 ## 1.4.3
 
-- 优化 UI 细节、优化体验
-- 重构快捷键功能，集中管理快捷键
-- 新增 [File Viewer](https://github.com/flyfish-dev/file-viewer) 应用 
+- Refine UI details, enhance experience
+- Optimize code structure
+- Refactor the keyboard shortcut functionality and centrally manage keyboard shortcuts
+- Add [File Viewer](https://github.com/flyfish-dev/file-viewer) app
 
 ## 1.4.2
 
-### 界面
+### UI
 
-- 全站 UI 收敛到 `@canwdev/vgo-ui` 0.4.0 的样式契约：只剩一种按钮、三种面板、一种列表行。工具栏、侧边栏、状态栏、空状态、进度条、浮层按钮不再各写各的样式。间距、字号、图标、控件高度、层级、动画时长全部走 token。
-- 沉浸式画廊、Steam 卡片、歌词页、播放器氛围底保持原样，不参与收敛。
-- 「用画廊打开当前筛选结果」从文件管理器工具栏移到设置面板。
+- The whole UI converges on the `@canwdev/vgo-ui` 0.4.0 style contract: only one button type, three panel variants and one list row remain. Toolbars, sidebars, status bars, empty states, progress bars and overlay buttons no longer each define their own styles. Spacing, font sizes, icons, control heights, z-index and animation durations all go through tokens.
+- The immersive gallery, Steam cards, lyric page and player atmosphere backgrounds keep their look and are excluded from the convergence.
+- "Open current filter results in gallery" moved from the file manager toolbar to the settings panel.
 
-### 工程
+### Engineering
 
-- `frontend/scripts/check-styles.mjs`：样式契约护栏，随 `bun run lint` 执行。禁止字面量颜色 / 圆角、自定义阴影、`backdrop-filter`、渐变、`var(--el-*)`、非 scoped `<style>`；确有必要时在该行上方写 `// vgo-allow: 理由`。
-- 清掉存量 lint 报错，`bun run lint` 首次全绿。
+- `frontend/scripts/check-styles.mjs`: style-contract guardrail, run with `bun run lint`. Bans literal colors / border-radius, custom shadows, `backdrop-filter`, gradients, `var(--el-*)`, and non-scoped `<style>`; when truly necessary, write `// vgo-allow: reason` above the line.
+- Cleared the existing lint errors; `bun run lint` is fully green for the first time.
 
 ## 1.4.1
 
-- 剪切粘贴后自动刷新源文件夹，被剪切项显示为半透明。
-- 新建文件 / 文件夹后自动选中。
-- 新增 e-ink 模式，配置持久化重构。
-- 可设置服务标题，便于区分多个实例。
+- Source folder auto-refreshes after cut & paste; cut items appear semi-transparent.
+- Newly created files / folders are auto-selected.
+- Added e-ink mode; config persistence refactored.
+- Service title is now configurable to tell multiple instances apart.
 
 ## 1.4.0
 
-- 支持 CLI 模式与零配置启动，自动生成自签证书。
-- 修复网络错误导致 token 失效。
+- CLI mode and zero-config startup, with automatic self-signed certificate generation.
+- Fixed token invalidation caused by network errors.

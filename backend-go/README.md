@@ -1,31 +1,31 @@
 # file-lite-go
 
-## 介绍
+## Introduction
 
-一个基于 Echo 的轻量级 web 文件管理服务，完整还原 `file-lite` [nodejs 后端](../backend)的接口与行为。
+A lightweight web file management service built on Echo that fully reproduces the APIs and behavior of the `file-lite` [Node.js backend](../backend).
 
-## 编译
+## Building
 
-- 安装 [Go 1.20+](https://go.dev/dl/)。
-- 需要提前编译[前端](../frontend/package.json) `build:for-go`，确保 `backend-go/frontend/` 存在
+- Install [Go 1.20+](https://go.dev/dl/).
+- Build the [frontend](../frontend/package.json) with `build:for-go` first so that `backend-go/frontend/` exists.
 
 ```shell
-# go 镜像
-# 启用 Go Modules 功能
+# Go proxy
+# Enable Go Modules
 go env -w GO111MODULE=on
 
-# 配置 GOPROXY 环境变量，以下三选一
+# Configure the GOPROXY environment variable; pick one of the following
 
-# 1. 七牛 CDN
+# 1. Qiniu CDN
 go env -w  GOPROXY=https://goproxy.cn,direct
 
-# 2. 阿里云
+# 2. Alibaba Cloud
 go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct
 
-# 3. 官方
+# 3. Official
 go env -w  GOPROXY=https://goproxy.io,direct
 
-#确认一下：
+# Verify:
 go env | grep GOPROXY
 #GOPROXY="https://goproxy.cn"
 ```
@@ -33,71 +33,71 @@ go env | grep GOPROXY
 ```bash
 go mod download
 go build -o file-lite-go.exe ./
-# 启动
+# Run
 ./file-lite-go.exe
 ```
 
-## 开发与构建脚本
+## Development and build scripts
 
-使用 Bun 执行 `backend-go/package.json` 中的脚本。
+Use Bun to run the scripts in `backend-go/package.json`.
 
 ```shell
 bun i
 
-# 生成 Windows 图标资源
+# Generate Windows icon resources
 bun run icon
 
-# 使用 air 启动热重载开发环境
+# Start a hot-reload dev environment with air
 bun run dev:go
 
-# 构建 Go 后端可执行文件
+# Build the Go backend executable
 bun run build:win:amd64
 ```
 
-后端打包前，需要先在 `frontend/` 执行 `bun run build:for-go`，静态资源将输出到 `backend-go/frontend/`。
+Before packaging the backend, run `bun run build:for-go` in `frontend/` first; static assets are output to `backend-go/frontend/`.
 
-## 使用 air 热重载开发环境
+## Hot-reload dev environment with air
 
 ```shell
-# OR use the default global proxy
+# Use the default global proxy
 $env:GOPROXY = "https://proxy.golang.org,direct"
 
 # Then run the install
 go install github.com/air-verse/air@latest
 
-# 启动
+# Start
 air
 ```
 
-## 接口
+## API
 
-基础路径 `http(s)://<host>:<port>/api`。
+Base path: `http(s)://<host>:<port>/api`.
 
-- `GET /`：返回名称、版本与时间戳
-- `GET /files/auth`：认证探测
-- `GET /files/drives`：驱动列表
-- `GET /files/list?path=`：目录列表
-- `POST /files/create-dir`：创建目录
-- `POST /files/rename`：重命名
-- `POST /files/copy-paste`：复制/移动
-- `POST /files/delete`：删除
-- `POST /files/open-in-host-explorer`：在系统资源管理器中打开并选中
-- `GET /files/stream?path=`：文件内联预览
-- `GET /files/download?path=` 或 `paths[]=`：下载或打包
-- `POST /files/upload-file`：`form-data` 字段 `file`
+- `GET /`: returns name, version and timestamp
+- `GET /files/auth`: authentication probe
+- `GET /files/drives`: drive list
+- `GET /files/list?path=`: directory listing
+- `POST /files/create-dir`: create directory
+- `POST /files/rename`: rename
+- `POST /files/copy-paste`: copy/move
+- `POST /files/delete`: delete
+- `POST /files/open-in-host-explorer`: open and select in the host system's file explorer
+- `GET /files/stream?path=`: inline file preview
+- `GET /files/download?path=` or `paths[]=`: download or archive
+- `POST /files/upload-file`: `form-data` field `file`
 
-认证：`Authorization: <token>` 或 Cookie `file_lite_auth_token`
+Authentication: `Authorization: <token>` header or `file_lite_auth_token` cookie
 
-## 格式化
+## Formatting
 
-使用 `gofmt` 格式化代码。
+Format the code with `gofmt`.
 
 ```
 gofmt -w .\
 ```
 
-# icon 生成
+# Icon generation
 
-- Install rsrc tool: `go install github.com/akavel/rsrc@latest`
+- Install the rsrc tool: `go install github.com/akavel/rsrc@latest`
 - Run `bun run icon` in backend-go to generate `icon.ico`.
-- `rsrc.syso` is generated per-architecture automatically by `build:win:*` scripts and removed after each build.
+- `rsrc.syso` is generated per-architecture automatically by the `build:win:*` scripts and removed after each build.

@@ -1,17 +1,19 @@
-// 样式契约护栏。规则来自 vgo-ui 的「禁止清单」，完整词汇表见
-// vgo-ui/docs/src/views/docs/styles.md。违规不为零则退出码为 1。
+// Style-contract guardrail. The rules come from vgo-ui's "forbidden list"; see
+// vgo-ui/docs/src/views/docs/styles.md for the full vocabulary. A non-zero violation
+// count exits with code 1.
 //
-// 两种豁免方式：
-//   1. FULLY_EXEMPT —— 整个文件的氛围层不做极简化改造，见下方名单。
-//   2. `// vgo-allow: 理由` —— 写在行尾只放行该行；独占一行则放行其后整条声明
-//      （到 `;` 为止），多行的 background / box-shadow 只需标一次。理由必须写。
+// Two exemption mechanisms:
+//   1. FULLY_EXEMPT - skip the minimalism refactor for the whole file's style layer; see the list below.
+//   2. `// vgo-allow: reason` - at the end of a line, only that line is allowed; on its own line,
+//      it allows the entire following declaration (up to `;`). Multi-line background / box-shadow
+//      only need one marker. A reason is required.
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
 const SRC = 'src'
 
-// 沉浸式 / 3D / 歌词编排界面，视觉本身就是产品的一部分
+// Immersive / 3D / lyric-orchestration interfaces, where the visuals are part of the product itself
 const FULLY_EXEMPT = [
   'views/Apps/EndlessGallery/EndlessGallery.vue',
   'views/Apps/EndlessGallery/GalleryPanels.vue',
@@ -19,21 +21,21 @@ const FULLY_EXEMPT = [
   'views/Apps/MediaPlayer/MusicDetail.vue',
 ]
 
-// 允许非 scoped 的少数文件：全局样式表，以及挂在 #app 上的根组件
+// A few files allowed to be non-scoped: the global stylesheet and the root component mounted on #app
 const GLOBAL_STYLE_ALLOWED = ['App.vue', 'styles/style.scss']
 
-// `0` / `50%` / `inherit` 不算随意取值：取消圆角、正圆、继承父级
+// `0` / `50%` / `inherit` are not arbitrary values: removing the radius, a perfect circle, inheriting from the parent
 const RADIUS_OK = /border-radius:(?:\s*(?:0|50%|inherit)\s*(?:;|$)|[^;]*var\()/i
 
 const RULES = [
-  ['字面量颜色', /#[0-9a-f]{3,8}\b|\brgba?\(\s*[\d.]/i],
-  ['字面量 border-radius', l => /border-radius:/i.test(l) && !RADIUS_OK.test(l)],
-  // 前置断言排开 --el-box-shadow 这类变量赋值；置零是覆盖第三方样式，不是自定义阴影
-  ['自定义 box-shadow', /(?<![\w-])box-shadow:(?!\s*(?:none|var\(|inherit))/i],
+  ['literal color', /#[0-9a-f]{3,8}\b|\brgba?\(\s*[\d.]/i],
+  ['literal border-radius', l => /border-radius:/i.test(l) && !RADIUS_OK.test(l)],
+  // The lookbehind excludes variable assignments like --el-box-shadow; zeroing overrides third-party styles, not a custom shadow
+  ['custom box-shadow', /(?<![\w-])box-shadow:(?!\s*(?:none|var\(|inherit))/i],
   ['backdrop-filter', /backdrop-filter:(?!\s*none)/i],
-  ['渐变背景', /\b(?:linear|radial|conic)-gradient\s*\(/i],
+  ['gradient background', /\b(?:linear|radial|conic)-gradient\s*\(/i],
   ['var(--el-*)', /var\(\s*--el-/],
-  ['token 兜底值', /var\(\s*--vgo-[\w-]+\s*,/],
+  ['token fallback value', /var\(\s*--vgo-[\w-]+\s*,/],
 ]
 
 function walk(dir, out = []) {
@@ -47,7 +49,7 @@ function walk(dir, out = []) {
   return out
 }
 
-/** 取出待检查的样式文本，返回 [{ lines, offset, scoped }]，offset 为块首在文件中的行号 */
+/** Extract the style text to check, returning [{ lines, offset, scoped }]; offset is the line number of the block start in the file */
 function styleBlocks(file, source) {
   if (file.endsWith('.scss'))
     return [{ lines: source.split(/\r?\n/), offset: 1, scoped: true }]
@@ -83,10 +85,10 @@ for (const file of files) {
     styleLines += count
 
     if (!block.scoped && !GLOBAL_STYLE_ALLOWED.some(a => rel.endsWith(a)))
-      violations.push({ file: rel, line: block.offset, rule: '非 scoped <style>', text: '' })
+      violations.push({ file: rel, line: block.offset, rule: 'non-scoped <style>', text: '' })
 
-    // 独占一行的 vgo-allow 覆盖其后整条声明（到 `;` 为止），
-    // 这样多行的 background / box-shadow 只需要标一次
+    // A standalone-line vgo-allow covers the entire following declaration (up to `;`),
+    // so multi-line background / box-shadow only need one marker
     let pending = false
 
     block.lines.forEach((line, i) => {
@@ -114,11 +116,11 @@ for (const v of violations)
   console.error(`${v.file}:${v.line}  ${v.rule}${v.text ? `  ${v.text}` : ''}`)
 
 console.log(
-  `\n组件与全局样式 ${styleLines} 行（豁免 ${exemptLines} 行未计），违规 ${violations.length} 处`,
+  `\nComponent and global styles: ${styleLines} lines (${exemptLines} exempt lines not counted), ${violations.length} violation(s)`,
 )
 
 if (violations.length) {
-  console.error('\n样式契约违规。完整词汇表见 vgo-ui 文档站「样式总览」；')
-  console.error('确有必要时在该行上方写 `// vgo-allow: 理由`。')
+  console.error('\nStyle-contract violation. See the full vocabulary in the vgo-ui docs "Style Overview";')
+  console.error('if truly necessary, write `// vgo-allow: reason` above the line.')
   process.exit(1)
 }

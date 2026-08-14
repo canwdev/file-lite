@@ -1,66 +1,70 @@
 # File Lite
 
-中文 | [English](./README-en.md)
+[中文](./README-cn.md) | English
 
-  
+<p align="center">
+  <img src="frontend/public/favicon.webp" alt="File Lite" width="72" height="72" />
+  &nbsp;&nbsp;
+  <img src="backend/favicon-nodejs.webp" alt="Node.js backend" width="72" height="72" />
+</p>
 
-**Web 文件管理器** · Vue 3 + TypeScript
-
-screenshot
+<p align="center"><b>Web file manager</b> · Vue 3 + TypeScript</p>
 
 ---
 
-## 双后端
+## Dual backends
 
-项目提供 **两种服务端实现**，共享同一套前端，可按部署场景选择其一：
+The project ships **two server implementations** that share the same frontend—pick one for your deployment:
 
+| | **Node.js backend** (`backend/`) | **Go backend** (`backend-go/`) |
+|:---|:---|:---|
+| **Stack** | Express.js + TypeScript, developed and bundled with Bun | Echo, single static binary |
+| **Typical use** | `npm i -g file-lite`, rapid iteration, script-friendly workflows | Low footprint, containers / edge, single-binary distribution |
+| **Docs** | Development & config below | [backend-go/README.md](backend-go/README.md) |
 
-|          | **Node.js 后端** (`backend/`)          | **Go 后端** (`backend-go/`)                    |
-| -------- | ------------------------------------ | -------------------------------------------- |
-| **技术**   | Express.js + TypeScript，使用 Bun 开发与打包 | Echo，单文件可执行程序                                |
-| **典型用途** | `npm i -g file-lite` 全局安装、快速迭代与插件式扩展 | 资源占用低、容器 / 边缘设备单二进制分发                        |
-| **文档**   | 见下文「开发」与配置说明                         | [backend-go/README.md](backend-go/README.md) |
+> Frontend for the Go build: run `build:for-go` first so static assets land in `backend-go/frontend/` (see the Go README).
 
+---
 
-> 前端构建：Go 镜像需先执行 `build:for-go`，将静态资源输出到 `backend-go/frontend/`（详见 Go 后端 README）。
+![screenshot](docs/screenshot.webp)
 
-- **打包体积**：单包不超过约 20MB
-- **功能**
-  - 文件与目录：创建、删除、重命名、移动、复制
-  - 传输：批量上传、上传文件夹、下载、将文件夹打包为 ZIP 下载
-  - 文本编辑器
-  - 预览：图片、视频、音频；**音乐播放器**（播放列表、封面、歌词展示）
-  - 视频：**ArtPlayer.js** 与**原生 `<video>`** 在菜单中一键切换（偏好持久化）
-  - **Endless Gallery**：类短视频流的纵向滑动浏览，聚合当前目录下支持的图片 / 视频 / 音频，触屏与键鼠操作
-  - 资源管理器：路径级布局与排序状态持久化、按扩展名设置默认打开方式等
-- **安全**
-  - 密码登录后签发 JWT 会话令牌
-  - 控制台链接使用短时 `ticket` 登录参数，有效期 2 分钟；重新打印链接会生成新的 `ticket`
-  - 支持“记住登录状态”：持久 Cookie 或浏览器会话 Cookie
-  - 密码错误超次数可封禁 IP
-  - 可限制允许访问的根路径范围
-  - 支持 HTTPS（含自签名证书）
-  - 访问频率限制
+- **Bundle size**: single artifact stays around **20MB** or less
+- **Features**
+  - Files & folders: create, delete, rename, move, copy
+  - Transfers: batch upload, upload folder, download, download folder as ZIP
+  - Text editor
+  - Preview: images, video, audio; **music player** with **playlist, cover art, and lyrics**
+  - Video: toggle **ArtPlayer.js** vs **native `<video>`** from the app menu (preference persisted)
+  - **Endless Gallery**: vertical, short-video-style feed of supported images / videos / audio in the current folder, with touch and keyboard / mouse navigation
+  - Explorer: per-path layout & sort persistence, default app per file extension, and more
+- **Security**
+  - Password login issues JWT session tokens with a 1-year expiry
+  - Console URLs use a short-lived `ticket` login parameter with a 2-minute TTL; printing URLs again generates a new `ticket`
+  - “Remember login status” supports persistent cookies or browser-session cookies
+  - Optional IP ban after repeated failed logins
+  - Configurable allowed root path scope
+  - HTTPS including self-signed certificates
+  - Request rate limiting
 
-## 安装
+## Installation
 
 ```shell
-# 全局安装（Windows 需要管理员权限）
+# Global install (Windows may require administrator privileges)
 npm i -g file-lite
 
-# 运行
+# Run
 file-lite
 
-# 卸载
+# Uninstall
 npm uninstall -g file-lite
 ```
 
-## 开发
+## Development
 
-使用 **Bun** 安装依赖与执行脚本；**默认产物面向 Node.js 运行时**（由 `backend` 打包并嵌入前端）。
+Use **Bun** for installs and scripts. The **default build targets the Node.js runtime** (`backend` embeds the frontend).
 
 ```shell
-# Node.js 后端
+# Node.js backend
 cd backend
 bun i
 bun run dev
@@ -68,7 +72,7 @@ bun run build
 ```
 
 ```shell
-# 前端
+# Frontend
 cd frontend
 bun i
 bun run dev
@@ -76,7 +80,7 @@ bun run build
 ```
 
 ```shell
-# 一键构建（后端嵌入前端）
+# One-shot build (backend bundles frontend)
 cd backend
 bun run build:auto
 
@@ -84,15 +88,14 @@ cd dist
 node file-lite.min.mjs
 ```
 
-- **Go 后端**：编译与 `build:for-go` 说明见 [backend-go/README.md](backend-go/README.md)
+- **Go backend**: build steps and `build:for-go` are documented in [backend-go/README.md](backend-go/README.md)
 
-## 配置文件
+## Configuration
 
-- 配置文件路径：`${cwd}/data/config.json`
-- 配置类型说明：[IConfig](backend/src/config/types.ts)
-- 环境变量示例：[.env.development](./backend/.env.development)
-- [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
-- `password` 为空时会自动生成随机密码；如果配置文件已存在，会写回到配置文件中
-- `jwtToken` 是 JWT 签名密钥；如果配置文件已存在但为空，会自动生成并写回
-- 控制台不会打印 JWT 或签名密钥；请通过配置文件查看登录密码
-
+- Config file path: `${cwd}/data/config.json`
+- Type reference: [IConfig](backend/src/config/types.ts)
+- Environment variables example: [.env.development](./backend/.env.development)
+- [Generate and trust self-signed certificates with mkcert](./docs/mkcert.md)
+- If `password` is empty, File Lite generates a random password; when the config file already exists, the generated password is written back
+- `jwtToken` is the JWT signing secret; when an existing config file has an empty value, it is generated and written back
+- The console does not print JWTs or signing secrets; check the config file for the login password
