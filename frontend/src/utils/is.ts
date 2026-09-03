@@ -2,7 +2,7 @@ export const shortcutFilenameReg = /\.shortcut$/i
 
 export const regArchiveFormat = /\.(?:zip|rar|7z|tar|gz|bz2|xz|tgz|tar\.gz|tar\.bz2|tar\.xz|zipx|z|lzh|arj|zoo|pkg|lz|cab|iso|dmg|apk|deb|rpm|jar|war|ear|zst|lz4|br|vhd|vhdx|wim)$/i
 
-export const regImageFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|apng|webp|svg|avif|bmp|tiff?|heif|indd|ico)$/i
+export const regImageFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|apng|webp|svg|avif|bmp|tiff?|heif|heic|indd|ico)$/i
 export const regWindowsExeFormat = /\.(?:exe|msi|com|scr|cpl|msc|msp|pif|dll|sys|drv)$/i
 export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogv)$/i
 export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus)$/i

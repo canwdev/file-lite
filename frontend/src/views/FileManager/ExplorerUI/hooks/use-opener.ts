@@ -174,16 +174,26 @@ export function useOpener(basePath: { value: string }) {
 
     window.$dialog
       .confirm(
-        `Continue to open in File Viewer? ${item.name}`,
+        `Continue to view? ${item.name}`,
         'Unsupported File Type',
         {
           type: 'info',
+          confirmButtonText: 'Open in Browser',
+          cancelButtonText: 'File Viewer',
+          distinguishCancelAndClose: true,
         },
       )
       .then(() => {
-        openApp(OpenWithEnum.FileViewer)
+        window.open(getStreamUrl(item))
       })
-      .catch()
+      .catch((action) => {
+        if (action === 'cancel') {
+          openApp(OpenWithEnum.FileViewer)
+        }
+        else if (action === 'close') {
+          // console.log('close')
+        }
+      })
   }
 
   return {

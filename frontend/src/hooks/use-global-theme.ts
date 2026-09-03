@@ -21,54 +21,17 @@ export const menuThemeOptions = reactive({
 })
 
 export const colorThemeOptions = [
-  {
-    label: 'Node.js Green',
-    rgb: '76,175,80',
-  },
-  {
-    label: 'Golang Blue',
-    rgb: '83,173,228',
-  },
-  {
-    label: 'JavaScript Yellow',
-    rgb: '247,223,30',
-  },
-  {
-    label: 'Python Gold',
-    rgb: '255,193,7',
-  },
-  {
-    label: 'Swift Coral',
-    rgb: '255,112,67',
-  },
-  {
-    label: 'Apple Pink',
-    rgb: '255,45,85',
-  },
-  {
-    label: 'Ruby Red',
-    rgb: '198,40,40',
-  },
-  {
-    label: 'Rust Brown',
-    rgb: '121,85,72',
-  },
-  {
-    label: 'Kotlin Indigo',
-    rgb: '63,81,181',
-  },
-  {
-    label: 'PHP Lavender',
-    rgb: '149,117,205',
-  },
-  {
-    label: 'Haskell Slate',
-    rgb: '96,125,139',
-  },
-  {
-    label: 'Dart Teal',
-    rgb: '0,150,136',
-  },
+  { label: 'Node.js Green', rgb: '83,202,50' },
+  { label: 'Golang Blue', rgb: '0,172,215' },
+  { label: 'JavaScript Yellow', rgb: '247,223,30' },
+  { label: 'Python Blue', rgb: '55,118,171' },
+  { label: 'Swift Orange', rgb: '240,81,51' },
+  { label: 'Apple Pink', rgb: '255,45,85' },
+  { label: 'Ruby Red', rgb: '204,52,45' },
+  { label: 'Rust Orange', rgb: '228,90,44' },
+  { label: 'Kotlin Purple', rgb: '127,13,251' },
+  { label: 'PHP Purple', rgb: '119,123,179' },
+  { label: 'Haskell Purple', rgb: '94,90,138' },
 ]
 let changeElementPlusTheme: ((color?: string) => void) | undefined
 
@@ -140,7 +103,7 @@ export function useGlobalTheme() {
   watch(
     () => localSettingsStore.value.reduceMotion,
     (enabled) => {
-      document.documentElement.classList.toggle('reduce-motion', enabled)
+      document.body.classList.toggle('reduce-motion', enabled)
     },
     { immediate: true },
   )

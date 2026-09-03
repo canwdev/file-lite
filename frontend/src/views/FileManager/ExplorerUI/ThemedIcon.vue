@@ -27,15 +27,19 @@ watch(
   },
 )
 const previewSrc = computed(() => {
-  const { item, absPath } = props
+  const { item, absPath, iconSize } = props
   const previewSize = localSettingsStore.value.previewSize
+  const itemSize = Number(item?.size ?? 0)
   if (absPath && item) {
     // 仅支持图片预览，且大小不超过配置上限
+    const withinConfigLimit = previewSize !== 0 && (previewSize === PREVIEW_SIZE_UNLIMITED || itemSize <= previewSize)
+    // 小图标时只对足够小的文件生成预览
+    const smallIconWithinLimit = iconSize >= 48 || itemSize < 500 * 1024
     if (
-      previewSize !== 0
+      withinConfigLimit
+      && smallIconWithinLimit
       && !item.isDirectory
       && regSupportedImageFormat.test(item.name)
-      && (previewSize === PREVIEW_SIZE_UNLIMITED || Number(item.size) <= previewSize)
     ) {
       return fsWebApi.getStreamUrl(absPath)
     }
