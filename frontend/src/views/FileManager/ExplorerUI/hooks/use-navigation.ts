@@ -5,6 +5,7 @@ import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
+import { seedFolderListing } from '../folder-listing'
 import { useOpener } from './use-opener'
 
 export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]> }) {
@@ -40,6 +41,8 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
       }
 
       files.value = list
+      // 当前目录列表是最新鲜的，写入目录子项缓存供预览/下拉复用
+      seedFolderListing(basePath.value, list)
 
       if (!navigationHistory.value) {
         navigationHistory.value = new NavigationHistory(basePath.value)
