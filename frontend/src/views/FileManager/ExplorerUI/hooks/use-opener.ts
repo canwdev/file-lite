@@ -1,3 +1,4 @@
+import type { MessageBoxData } from 'element-plus'
 import type { IEntry } from '@/types/server'
 import { fsWebApi } from '@/api/filesystem'
 import { bytesToSize } from '@/utils'
@@ -186,7 +187,7 @@ export function useOpener(basePath: { value: string }) {
       .then(() => {
         window.open(getStreamUrl(item))
       })
-      .catch((action) => {
+      .catch((action: MessageBoxData) => {
         if (action === 'cancel') {
           openApp(OpenWithEnum.FileViewer)
         }

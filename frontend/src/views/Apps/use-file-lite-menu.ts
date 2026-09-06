@@ -6,6 +6,7 @@ import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-la
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { getPreviewSizeLabel, localSettingsStore, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { enableDebug } from '@/utils/debug'
+import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
@@ -52,13 +53,50 @@ export function useFileLiteMenu() {
   const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
   const { clearCollection } = useCollection()
 
-  function clearLocalData() {
+  function formatCacheBytes(bytes: number) {
+    if (bytes >= 1024 ** 3)
+      return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+    if (bytes >= 1024 ** 2)
+      return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+    if (bytes >= 1024)
+      return `${Math.round(bytes / 1024)} KB`
+    return `${bytes} B`
+  }
+
+  async function clearImageCache() {
+    const { entries, bytes } = await getImageThumbCacheStats()
+    if (entries === 0) {
+      window.$message.info('Image cache is already empty')
+      return
+    }
+    try {
+      await window.$dialog.confirm(
+        `<div>This will clear ${entries} cached image thumbnails (${formatCacheBytes(bytes)}).</div>`,
+        'Clear Image Cache',
+        {
+          type: 'warning',
+          confirmButtonText: 'Clear',
+          cancelButtonText: 'Cancel',
+          dangerouslyUseHTMLString: true,
+        },
+      )
+      await clearImageThumbCache()
+      window.$message.success('Image cache cleared')
+    }
+    catch {
+      // cancelled
+    }
+  }
+
+  async function clearLocalData() {
+    const { entries, bytes } = await getImageThumbCacheStats()
     const message = [
       '<div>This will clear the following data:</div>',
       '<ul style="margin: 8px 0 0; padding-left: 18px;">',
       '<li>Last opened media per folder</li>',
       '<li>Collected items (Endless Gallery)</li>',
       '<li>Folder state (scroll position &amp; sort mode)</li>',
+      `<li>Image preview cache${entries > 0 ? ` (${entries} items · ${formatCacheBytes(bytes)})` : ''}</li>`,
       '</ul>',
     ].join('')
     window.$dialog.confirm(message, 'Clear Local Data', {
@@ -70,13 +108,18 @@ export function useFileLiteMenu() {
       clearLastOpenedMediaMap()
       clearCollection()
       explorerStateMap.value = {}
+      void clearImageThumbCache()
       window.$message.success('Local data cleared')
     }).catch(() => {
       // cancelled
     })
   }
 
-  function showMenu(event: MouseEvent) {
+  async function showMenu(event: MouseEvent) {
+    const { entries: cacheEntries, bytes: cacheBytes } = await getImageThumbCacheStats()
+    const imageCacheLabel = cacheEntries > 0
+      ? `Image cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
+      : 'Image cache: empty'
     const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
     const rect = button?.getBoundingClientRect()
 
@@ -204,6 +247,13 @@ export function useFileLiteMenu() {
               icon: enableDebug.value ? 'mdi mdi-check' : '',
               onClick: () => {
                 enableDebug.value = !enableDebug.value
+              },
+            },
+            {
+              label: imageCacheLabel,
+              icon: 'mdi mdi-image-multiple-outline',
+              onClick: () => {
+                void clearImageCache()
               },
             },
             {

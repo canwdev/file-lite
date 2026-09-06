@@ -427,6 +427,11 @@ export async function getFileStream(req: Request, res: Response) {
     return res.status(400).json({ message: 'Path is not a file' })
   }
 
+  // 浏览器可按文件校验器复用缓存:文件未变化时(res.sendFile 按 size+mtime
+  // 自动生成 ETag/Last-Modified)返回 304,避免网格/预览场景反复整张下载大图。
+  // 不允许长缓存:文件可能原地被修改,每次都必须按校验器重新验证。
+  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate')
+
   // res.sendFile 会自动处理流、头部等，是最佳实践
   const tName = Path.basename(path)
   const filename = encodeURIComponent(sanitize(tName))

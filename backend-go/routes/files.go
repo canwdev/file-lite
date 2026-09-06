@@ -491,6 +491,16 @@ func getFileStream(c echo.Context) error {
 	if st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a file"})
 	}
+	// 浏览器按文件校验器复用缓存:文件未变化时返回 304,避免网格/预览场景反复整张
+	// 下载大图(c.File 内部还会按 Last-Modified / If-Modified-Since 处理条件请求)。
+	// 不允许长缓存:文件可能原地被修改,每次都必须按校验器重新验证。
+	etagValue := fmt.Sprintf(`"%x-%x"`, st.Size(), st.ModTime().UnixMilli())
+	if inm := c.Request().Header.Get("If-None-Match"); inm != "" && inm == etagValue {
+		c.Response().Header().Set("ETag", etagValue)
+		return c.NoContent(http.StatusNotModified)
+	}
+	c.Response().Header().Set("ETag", etagValue)
+	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=0, must-revalidate")
 	name := filepath.Base(path)
 	c.Response().Header().Set("Content-Disposition", utils.InlineDisposition(name))
 	return c.File(path)

@@ -4,8 +4,15 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ## 1.4.4
 
+### Features
+
+- Grid-view file previews and folder preview thumbnails now come from a local IndexedDB cache of ≤256px thumbnails (1 GB LRU), so revisiting a photo folder downloads each original image only once (frontend).
+- Preview Size now only limits downloading originals: an image that is already cached still shows its thumbnail even when it exceeds the limit, and it disappears again only when Preview is disabled (frontend).
+- Full-size image streams now revalidate with the browser using the file's size/mtime (ETag / Last-Modified), returning 304 instead of re-downloading unchanged files (Node.js / Go).
+
 ### Fixes
 
+- Folder preview thumbnails no longer stretch the folder icon vertically when a contained image is taller than wide (frontend).
 - Deleting or moving a file that is in use now reports the real failure reason instead of silently succeeding (Go; Node.js already surfaced delete errors).
 - Failed deletes and fully-failed/cancelled uploads no longer refresh the file list (frontend).
 - Multi-file zip downloads now fail with a clear error when a file can't be read, instead of silently dropping it from the archive (Go).

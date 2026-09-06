@@ -62,6 +62,7 @@ window.$logout = (clearToken = true) => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    // vgo-allow: 半透明黑 text-shadow 仅为白字在彩色条上的可读性微调，非主题色
     text-shadow: 0 1px 2px #0000007d;
   }
 }
