@@ -170,10 +170,11 @@ export function useFileActions({
       await fsWebApi.deleteEntry({
         path: selectedPaths.value,
       })
+      // 删除成功才刷新列表；失败时后端返回错误（service 层自动 toast），目录未变化无需刷新
+      emit('refresh')
     }
     finally {
       isLoading.value = false
-      emit('refresh')
     }
   }
   const duplicateEntry = async (item: IEntry, destName: string) => {

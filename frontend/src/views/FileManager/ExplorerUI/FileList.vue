@@ -401,9 +401,10 @@ const {
   downloadToFolder,
 } = useTransfer({ basePath, isLoading, selectedItems })
 
-function handleTransferAllDone(items: Array<{ type?: 'upload' | 'download' }>) {
-  const hasUploadTask = items.some(item => (item.type ?? 'upload') === 'upload')
-  if (hasUploadTask) {
+function handleTransferAllDone(items: Array<{ type?: 'upload' | 'download', status?: 'success' | 'failed' | 'pending' | 'transferring' }>) {
+  // 只有存在成功上传时目录内容才可能变化、需要刷新；全部失败/取消则无需刷新
+  const hasUploadSuccess = items.some(item => (item.type ?? 'upload') === 'upload' && item.status === 'success')
+  if (hasUploadSuccess) {
     emit('refresh')
   }
 }
