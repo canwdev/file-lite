@@ -18,3 +18,9 @@ declare global {
     // $fsWebApi: typeof import('@/api/filesystem').fsWebApi
   }
 }
+
+declare module 'vue' {
+  export interface GlobalComponents {
+    MdiIcon: typeof import('@/components/MdiIcon.vue')['default']
+  }
+}

@@ -257,26 +257,30 @@ onBeforeUnmount(() => {
         >
         <span
           v-else
-          class="folder-preview-child-icon mdi"
-          :class="getFileIconClass(child)"
+          class="folder-preview-child-icon"
           :style="{ fontSize: `${folderMiniIconFontSize}px` }"
-        />
+        >
+          <MdiIcon :name="getFileIconClass(child)" />
+        </span>
       </span>
     </span>
     <span
       v-else-if="iconClass"
       class="themed-icon-class"
-      :class="[iconClass]"
       :style="{ fontSize: `${iconSize}px` }"
-    />
-    <span v-else class="themed-icon-class mdi mdi-file-question" />
+    >
+      <MdiIcon :name="iconClass" />
+    </span>
+    <span v-else class="themed-icon-class">
+      <MdiIcon name="file-question" />
+    </span>
     <span
       v-if="item?.isLink"
       class="themed-icon-link-badge"
       :style="linkBadgeStyle"
       aria-label="Link"
     >
-      <span class="mdi mdi-link-variant" />
+      <i-mdi-link-variant />
     </span>
   </div>
 </template>

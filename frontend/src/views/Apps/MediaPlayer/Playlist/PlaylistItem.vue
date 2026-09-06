@@ -24,10 +24,10 @@ const isCurrent = computed(() => {
     <div class="item-left">
       <div v-if="isCurrent" class="status-icon">
         <template v-if="!mediaStore.paused">
-          <span class="mdi mdi-play" />
+          <i-mdi-play />
         </template>
         <template v-else>
-          <span class="mdi mdi-pause" />
+          <i-mdi-pause />
         </template>
       </div>
       <CoverMini :src="item.cover" :is-video="item.type === 'video'" />
@@ -46,7 +46,7 @@ const isCurrent = computed(() => {
         title="Locate in folder"
         @click.stop="emit('locateItem', item.filename)"
       >
-        <span class="mdi mdi-crosshairs-gps" />
+        <i-mdi-crosshairs-gps />
       </button>
     </div>
   </div>

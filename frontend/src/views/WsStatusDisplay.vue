@@ -21,7 +21,7 @@ const visible = computed(() => !!authToken.value && sharedWsStatus.value !== 'co
 <template>
   <transition name="fade">
     <div v-if="visible" class="ws-status-display vgo-panel">
-      <span class="mdi mdi-wifi" />
+      <i-mdi-wifi />
       {{ statusText }}
     </div>
   </transition>

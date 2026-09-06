@@ -83,7 +83,7 @@ watch(
               title="Close playlist"
               @click="showPlaylist = false"
             >
-              <span class="mdi mdi-close" />
+              <i-mdi-close />
             </button>
           </div>
           <MusicPlaylist @locate-item="(name: string) => emit('locateItem', name)" />

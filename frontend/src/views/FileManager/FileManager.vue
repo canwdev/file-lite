@@ -10,6 +10,7 @@ import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
+import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
@@ -225,7 +226,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items,
+    items: resolveMenuIcons(items),
   })
 }
 
@@ -263,7 +264,7 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items,
+    items: resolveMenuIcons(items),
   })
 }
 
@@ -372,7 +373,7 @@ useShortcut({
                 @click="goBack"
                 @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
               >
-                <span class="mdi mdi-arrow-left" />
+                <i-mdi-arrow-left />
               </button>
               <button
                 :disabled="!navigationHistory?.canForward"
@@ -381,7 +382,7 @@ useShortcut({
                 @click="goForward"
                 @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
               >
-                <span class="mdi mdi-arrow-right" />
+                <i-mdi-arrow-right />
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
@@ -389,14 +390,14 @@ useShortcut({
                 title="Up (alt+up)"
                 @click="goUp"
               >
-                <span class="mdi mdi-arrow-up" />
+                <i-mdi-arrow-up />
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Refresh (ctrl+r)"
                 @click="debounceHandleRefresh"
               >
-                <span class="mdi mdi-refresh" />
+                <i-mdi-refresh />
               </button>
             </div>
             <AddressBar
@@ -411,10 +412,7 @@ useShortcut({
               title="Toggle Star (alt+s)"
               @click="toggleStar"
             >
-              <span
-                class="mdi"
-                :class="isStared ? 'mdi-star' : 'mdi-star-outline'"
-              />
+              <MdiIcon :name="isStared ? 'star' : 'star-outline'" />
             </button>
           </div>
           <div class="explorer-toolbar-filters">
@@ -448,7 +446,7 @@ useShortcut({
                 @click="handleOpenPath(path)"
                 @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
               >
-                <span class="mdi mdi-star vgo-u-icon-md" />
+                <i-mdi-star class="vgo-u-icon-md" />
                 <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
               </button>
             </div>
@@ -478,14 +476,14 @@ useShortcut({
                   :title="`Play ${lastOpenedMediaItem.name}`"
                   @click="playLastOpenedMedia"
                 >
-                  <span class="mdi mdi-play" />
+                  <i-mdi-play />
                 </button>
                 <button
                   class="vgo-button vgo-button--round vgo-button--sm fab-close"
                   title="Clear remembered media"
                   @click.stop="clearCurrentLastOpenedMedia"
                 >
-                  <span class="mdi mdi-close" />
+                  <i-mdi-close />
                 </button>
               </div>
             </Transition>

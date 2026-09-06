@@ -6,6 +6,7 @@ import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-la
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { getPreviewSizeLabel, localSettingsStore, previewSizeOptions, settingsStore } from '@/store/index.ts'
 import { enableDebug } from '@/utils/debug'
+import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
@@ -127,7 +128,7 @@ export function useFileLiteMenu() {
       x: rect?.right || event.x,
       y: rect?.top || event.y,
       ...menuThemeOptions,
-      items: [
+      items: resolveMenuIcons([
         {
           label: `Theme: ${settingsStore.value.themeMode}`,
           icon: 'mdi mdi-theme-light-dark',
@@ -169,10 +170,10 @@ export function useFileLiteMenu() {
             ...colorThemeOptions.map(item => ({
               label: item.label,
               // icon: item.rgb === settingsStore.value.colorTheme ? 'mdi mdi-check' : '',
-              icon: h('span', {
-                class: `mdi ${item.rgb === settingsStore.value.colorTheme ? 'mdi-checkbox-marked-circle' : 'mdi-checkbox-blank-circle'}`,
-                style: { color: `rgba(${item.rgb})` },
-              }),
+              icon: mdiMenuIcon(
+                item.rgb === settingsStore.value.colorTheme ? 'checkbox-marked-circle' : 'checkbox-blank-circle',
+                { style: { color: `rgba(${item.rgb})` } },
+              ),
               onClick: () => {
                 setGlobalTheme(item.rgb)
               },
@@ -314,7 +315,7 @@ export function useFileLiteMenu() {
             window.$logout(true)
           },
         },
-      ],
+      ]),
     })
   }
 

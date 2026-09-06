@@ -2,6 +2,12 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go` and `backend/package.json`.
 
+## Unreleased
+
+### Engineering
+
+- Frontend icons are now on-demand inline SVGs from the MDI set instead of the full `@mdi/font` webfont (no font file is loaded anymore).
+
 ## 1.4.4
 
 ### Features
@@ -53,3 +59,4 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - CLI mode and zero-config startup, with automatic self-signed certificate generation.
 - Fixed token invalidation caused by network errors.
+

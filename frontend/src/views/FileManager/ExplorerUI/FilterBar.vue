@@ -73,7 +73,7 @@ defineExpose({
 
 <template>
   <div class="filter-bar" :class="{ 'is-invalid': isInvalidRegex }">
-    <span class="mdi mdi-filter-outline filter-icon" />
+    <i-mdi-filter-outline class="filter-icon" />
     <input
       ref="inputRef"
       v-model="localFilter.text"
@@ -89,7 +89,7 @@ defineExpose({
         title="Clear filter"
         @click="clearFilter"
       >
-        <span class="mdi mdi-close" />
+        <i-mdi-close />
       </button>
       <button
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle"

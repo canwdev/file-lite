@@ -13,7 +13,7 @@ withDefaults(defineProps<Props>(), {
   <button class="vgo-u-button-reset btn-cover">
     <slot />
     <CoverDisplay v-if="src" :src="src" />
-    <i v-else class="icon-wrap mdi" :class="[isVideo ? 'mdi-video-outline' : 'mdi-music-note']" />
+    <MdiIcon v-else class="icon-wrap" :name="isVideo ? 'video-outline' : 'music-note'" />
   </button>
 </template>
 

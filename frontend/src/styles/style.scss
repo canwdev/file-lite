@@ -168,3 +168,36 @@ html.is-debug {
   // vgo-allow: 工具条浮在固定深色遮罩上，配色与主题无关
   background-color: rgba(0, 0, 0, 0.35) !important;
 }
+
+// ── 图标旋转（替代 @mdi/font 的 .mdi-spin） ──────────────────
+@keyframes vgo-icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.icon-spin {
+  animation: vgo-icon-spin 2s linear infinite;
+}
+
+// ── 对齐 vgo-ui 内置的 .mdi 图标规则（SVG 图标版） ─────────────
+// vgo-ui 原规则按 .mdi 类给“应用放进 vgo 组件里的字体图标”定尺寸/配色
+// （node_modules/@canwdev/vgo-ui/dist/styles/core.css、themes/default.css，
+//  源码见 vgo-ui/src/styles/core/_primitives.scss）。本项目图标已改为内联
+//  SVG（unplugin-icons），这里用 svg 根元素等价复刻，保持按钮/窗口内图标
+//  尺寸与配色和迁移前一致。
+:where(.vgo-button) :where(svg) {
+  font-size: var(--vgo-icon-md);
+}
+
+:where(.vgo-button--lg) :where(svg) {
+  font-size: var(--vgo-icon-lg);
+}
+
+:where(.vgo-window__controls) :where(svg) {
+  font-size: var(--vgo-icon-sm);
+}
+
+body.vgo-theme-default .vgo-window__title :where(svg) {
+  color: var(--vgo-primary);
+}
+

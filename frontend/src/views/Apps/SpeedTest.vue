@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
         <div class="speed-card-title">
           <div class="speed-card-progress" :style="{ width: `${getProgressPercent(card.metrics)}%` }" />
           <div class="speed-card-title-main">
-            <span :class="card.icon" class="speed-card-icon" />
+            <MdiIcon :name="card.icon" class="speed-card-icon" />
             <span>{{ card.title }}</span>
           </div>
           <button

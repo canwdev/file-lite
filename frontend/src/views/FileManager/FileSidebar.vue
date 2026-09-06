@@ -5,6 +5,7 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { bytesToSize } from '@/utils'
+import { resolveMenuIcons } from '@/utils/icons'
 import { normalizePath } from '@/views/FileManager/utils'
 
 interface Props {
@@ -95,7 +96,7 @@ function showDriveMenu(item: IDrive, event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items,
+    items: resolveMenuIcons(items),
   })
 }
 
@@ -131,7 +132,7 @@ defineExpose({
           :disabled="isLoading"
           @click="loadDrives"
         >
-          <span class="mdi mdi-reload vgo-u-icon-sm" />
+          <i-mdi-reload vgo-u-icon-sm />
         </button>
       </div>
       <button
@@ -144,7 +145,7 @@ defineExpose({
         @contextmenu.prevent.stop="showDriveMenu(item, $event)"
       >
         <span class="drive-icon">
-          <span class="mdi vgo-u-icon-md" :class="[getIcon(item)]" />
+          <MdiIcon :name="getIcon(item)" class="vgo-u-icon-md" />
         </span>
         <span class="drive-content">
           <span class="drive-title vgo-u-text-overflow">{{ item.label }}</span>

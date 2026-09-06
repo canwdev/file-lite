@@ -146,14 +146,14 @@ onBeforeUnmount(() => {
 
     <div class="text-sync-actions">
       <div class="vgo-button-group">
-        <button type="button" class="vgo-button mdi mdi-content-copy" @click="copyText">
-          Copy
+        <button type="button" class="vgo-button" @click="copyText">
+          <i-mdi-content-copy /> Copy
         </button>
-        <button type="button" class="vgo-button mdi mdi-content-paste" @click="pasteText">
-          Paste
+        <button type="button" class="vgo-button" @click="pasteText">
+          <i-mdi-content-paste /> Paste
         </button>
-        <button type="button" class="vgo-button vgo-button--danger mdi mdi-delete-sweep" @click="clearText">
-          Clear
+        <button type="button" class="vgo-button vgo-button--danger" @click="clearText">
+          <i-mdi-delete-sweep /> Clear
         </button>
       </div>
     </div>
@@ -199,6 +199,12 @@ onBeforeUnmount(() => {
 .text-sync-actions {
   display: flex;
   gap: var(--vgo-space-2);
+
+  // 图标与按钮文字等大：迁移前 mdi 类直接挂在按钮本身上（非 vgo 内置 .mdi 后代规则作用范围），
+  // 字形随按钮字号；转为内联 SVG 后需显式豁免全局的按钮图标 md/lg 尺寸规则
+  svg {
+    font-size: inherit;
+  }
 }
 
 .text-sync-textarea {

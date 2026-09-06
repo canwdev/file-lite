@@ -487,11 +487,11 @@ defineExpose({
     wid="file_lite_upload_dialog"
   >
     <template #titleBarLeft>
-      <span class="mdi mdi-cloud-sync" />
+      <i-mdi-cloud-sync />
       <span>[{{ successNum }}/{{ listData.length }}]</span>
       <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
 
-      <span v-if="errorNum" title="Failed"> <span class="mdi mdi-alert-circle status-failed" /> {{ errorNum }} </span>
+      <span v-if="errorNum" title="Failed"> <i-mdi-alert-circle class="status-failed" /> {{ errorNum }} </span>
     </template>
 
     <div class="transfer-wrapper">
@@ -513,18 +513,18 @@ defineExpose({
           <div class="item-main">
             <div class="item-status-icon">
               <template v-if="item.status === 'success'">
-                <span class="mdi mdi-check-circle status-success" />
+                <i-mdi-check-circle class="status-success" />
               </template>
               <template v-else-if="item.status === 'failed'">
-                <span class="mdi mdi-alert-circle status-failed" />
+                <i-mdi-alert-circle class="status-failed" />
               </template>
               <template v-else-if="item.status === 'transferring'">
-                <span class="mdi mdi-loading mdi-spin status-active" />
+                <i-mdi-loading class="status-active icon-spin" />
               </template>
               <template v-else>
-                <span
-                  class="mdi status-idle"
-                  :class="item.type === 'download' ? 'mdi-download-outline' : 'mdi-upload-outline'"
+                <MdiIcon
+                  class="status-idle"
+                  :name="item.type === 'download' ? 'download-outline' : 'upload-outline'"
                 />
               </template>
             </div>
@@ -532,7 +532,7 @@ defineExpose({
             <div class="item-content">
               <div class="item-title" :title="item.path">
                 <span class="type-icon">
-                  <i class="mdi" :class="item.type === 'download' ? 'mdi-download' : 'mdi-upload'" />
+                  <MdiIcon :name="item.type === 'download' ? 'download' : 'upload'" />
                 </span>
                 <span class="vgo-u-text-overflow">{{ item.filename || item.path }}</span>
               </div>
@@ -555,7 +555,7 @@ defineExpose({
                 title="Cancel"
                 @click="cancelItem(item)"
               >
-                <i class="mdi mdi-close" />
+                <i-mdi-close />
               </button>
               <button
                 v-if="item.status === 'failed'"
@@ -563,7 +563,7 @@ defineExpose({
                 title="Retry"
                 @click="handleRetry(item, index)"
               >
-                <i class="mdi mdi-refresh" />
+                <i-mdi-refresh />
               </button>
               <button
                 v-if="item.status === 'failed' && item.type === 'download'"
@@ -571,7 +571,7 @@ defineExpose({
                 title="Manual Download"
                 @click="handleManualDownload(item)"
               >
-                <i class="mdi mdi-download" />
+                <i-mdi-download />
               </button>
             </div>
           </div>
@@ -599,7 +599,7 @@ defineExpose({
             class="cursor-pointer"
             :title="`Concurrent: ${concurrentNum}, Transferring: ${transferringNum}`"
             @click="setConcurrentNum"
-          > <span class="mdi mdi-compare-vertical" /> {{ transferringNum }} </span>
+          > <i-mdi-compare-vertical /> {{ transferringNum }} </span>
 
           <button v-if="errorNum > 0" class="vgo-button vgo-button--sm" @click="clearFailed">
             Clear Failed

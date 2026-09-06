@@ -164,7 +164,7 @@ onBeforeUnmount(() => {
             v-if="isPanelImageLoading(slotIndex, panelItem)"
             class="image-loading-placeholder"
           >
-            <span class="mdi mdi-loading" />
+            <i-mdi-loading />
           </div>
         </template>
         <video
@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
           webkit-playsinline
         />
         <div v-else class="audio-pane">
-          <span class="mdi mdi-music-circle-outline audio-bg-icon" />
+          <i-mdi-music-circle-outline class="audio-bg-icon" />
           <audio
             v-if="panelItem.type === 'audio' && slotIndex === currentSlot"
             :ref="(el) => setMediaRef(el, slotIndex)"
@@ -200,9 +200,8 @@ onBeforeUnmount(() => {
         </div>
       </template>
       <div v-else class="boundary-hint">
-        <span
-          class="mdi"
-          :class="getPanelClass(slotIndex) === 'swipe-panel--prev' ? 'mdi-ray-start' : 'mdi-ray-end'"
+        <MdiIcon
+          :name="getPanelClass(slotIndex) === 'swipe-panel--prev' ? 'ray-start' : 'ray-end'"
         />
       </div>
     </div>
@@ -259,7 +258,7 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.35);
   pointer-events: none;
 
-  .mdi {
+  > svg {
     animation: image-loading-spin 0.9s linear infinite;
   }
 }

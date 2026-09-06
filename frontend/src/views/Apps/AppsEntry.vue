@@ -133,7 +133,7 @@ watch(
     @on-restored="handleWindowRestored(win)"
   >
     <template #titleBarLeft>
-      <span :class="appMeta(win)?.icon" @click.stop @dblclick.stop="handleClose(win)" />
+      <MdiIcon :name="appMeta(win)?.icon" @click.stop @dblclick.stop="handleClose(win)" />
       <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
     </template>
 
@@ -178,7 +178,7 @@ watch(
           @click="handleDockClick(win)"
         >
           <span class="dock-icon-wrap vgo-panel">
-            <span :class="appMeta(win)?.icon" class="dock-icon" />
+            <MdiIcon :name="appMeta(win)?.icon" class="dock-icon" />
           </span>
           <span class="dock-indicator" aria-hidden="true" />
         </button>

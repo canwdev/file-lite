@@ -14,7 +14,7 @@ const { showMenu } = useFileLiteMenu()
         title="Menu"
         @click="showMenu"
       >
-        <span class="mdi mdi-menu" />
+        <i-mdi-menu />
       </button>
     </template>
   </FileManager>

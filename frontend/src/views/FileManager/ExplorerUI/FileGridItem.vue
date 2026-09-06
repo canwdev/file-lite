@@ -28,12 +28,12 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     @click.stop="$emit('select', { item, event: $event })"
     @dblclick.stop="$emit('open', { item })"
   >
-    <span
+    <MdiIcon
       v-if="showCheckbox"
-      class="file-checkbox mdi" :class="[
-        active ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
-      ]"
-      @click.stop="$emit('select', { item, event: $event, toggle: true })" @dblclick.stop
+      :name="active ? 'checkbox-marked' : 'checkbox-blank-outline'"
+      class="file-checkbox"
+      @click.stop="$emit('select', { item, event: $event, toggle: true })"
+      @dblclick.stop
     />
 
     <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="`${basePath}/${item.name}`" :icon-size="iconSize" />

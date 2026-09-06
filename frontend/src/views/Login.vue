@@ -81,7 +81,7 @@ onMounted(async () => {
     <div class="login-card vgo-panel">
       <div class="login-header">
         <RouterLink to="/" class="login-icon">
-          <span class="mdi mdi-key-outline" />
+          <i-mdi-key-outline />
         </RouterLink>
         <div>
           <div class="login-title">

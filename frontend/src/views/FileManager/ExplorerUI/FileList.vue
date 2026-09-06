@@ -6,11 +6,14 @@ import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, inject, nextTick, ref, toRefs, watch } from 'vue'
+import MdiMenuDown from '~icons/mdi/menu-down'
+import MdiMenuUp from '~icons/mdi/menu-up'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
+import { resolveMenuIcons } from '@/utils/icons'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
@@ -212,8 +215,7 @@ const tableColumns = computed(() => {
         const active = idx > -1
         const isDesc = /Desc$/i.test(sortMode.value)
         if (active) {
-          return h('span', {
-            class: `mdi ${isDesc ? 'mdi-menu-down' : 'mdi-menu-up'}`,
+          return h(isDesc ? MdiMenuDown : MdiMenuUp, {
             style: 'line-height: 1; transform: scale(1.4)',
           })
         }
@@ -529,7 +531,7 @@ function updateMenuOptions2(event: MouseEvent) {
     x: rect?.right || event.x,
     y: rect?.top || event.y,
     ...menuThemeOptions,
-    items: getMenuOptions(),
+    items: resolveMenuIcons(getMenuOptions()),
   })
 }
 
@@ -762,14 +764,14 @@ defineExpose({
           title="Create Document"
           @click="handleCreateFile()"
         >
-          <span class="mdi mdi-file-document-plus-outline" />
+          <i-mdi-file-document-plus-outline />
         </button>
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           title="Create Folder"
           @click="handleCreateFolder()"
         >
-          <span class="mdi mdi-folder-plus-outline" />
+          <i-mdi-folder-plus-outline />
         </button>
 
         <template v-if="!selectFileMode">
@@ -780,28 +782,28 @@ defineExpose({
             title="Upload Files..."
             @click="() => selectUploadFiles()"
           >
-            <span class="mdi mdi-file-upload-outline" />
+            <i-mdi-file-upload-outline />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Upload Folder..."
             @click="() => selectUploadFolder()"
           >
-            <span class="mdi mdi-folder-upload-outline" />
+            <i-mdi-folder-upload-outline />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Download"
             @click="confirmDownload"
           >
-            <span class="mdi mdi-download" />
+            <i-mdi-download />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             title="Download to Folder..."
             @click="downloadToFolder"
           >
-            <span class="mdi mdi-folder-download-outline" />
+            <i-mdi-folder-download-outline />
           </button>
 
           <div class="split-line" />
@@ -812,7 +814,7 @@ defineExpose({
             title="Cut (ctrl+x)"
             @click="handleCut"
           >
-            <span class="mdi mdi-content-cut" />
+            <i-mdi-content-cut />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
@@ -820,7 +822,7 @@ defineExpose({
             title="Copy (ctrl+c)"
             @click="handleCopy"
           >
-            <span class="mdi mdi-content-copy" />
+            <i-mdi-content-copy />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
@@ -828,7 +830,7 @@ defineExpose({
             title="Paste (ctrl+v)"
             @click="handlePaste"
           >
-            <span class="mdi mdi-content-paste" />
+            <i-mdi-content-paste />
           </button>
 
           <button
@@ -837,7 +839,7 @@ defineExpose({
             title="Rename"
             @click="handleRename"
           >
-            <span class="mdi mdi-rename" />
+            <i-mdi-rename />
           </button>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
@@ -845,7 +847,7 @@ defineExpose({
             title="Delete (del)"
             @click="confirmDelete"
           >
-            <span class="mdi mdi-delete-forever-outline" />
+            <i-mdi-delete-forever-outline />
           </button>
         </template>
       </div>
@@ -856,7 +858,7 @@ defineExpose({
           :title="`${openActionMeta.label} (F3)`"
           @click="handleOpen"
         >
-          <span :class="openActionMeta.icon" />
+          <MdiIcon :name="openActionMeta.icon" />
         </button>
 
         <button
@@ -865,10 +867,10 @@ defineExpose({
           @click="toggleShowHiddenFiles"
         >
           <template v-if="showHidden">
-            <span class="mdi mdi-eye-outline" />
+            <i-mdi-eye-outline />
           </template>
           <template v-else>
-            <span class="mdi mdi-eye-off-outline" />
+            <i-mdi-eye-off-outline />
           </template>
         </button>
 
@@ -878,7 +880,7 @@ defineExpose({
             title="Toggle Select All (ctrl+a)"
             @click="toggleSelectAll"
           >
-            <span class="mdi mdi-check-all" />
+            <i-mdi-check-all />
           </button>
         </template>
 
@@ -887,7 +889,7 @@ defineExpose({
           title="Menu (ctrl+m)"
           @click="updateMenuOptions2($event)"
         >
-          <span class="mdi mdi-dots-vertical" />
+          <i-mdi-dots-vertical />
         </button>
       </div>
     </div>
@@ -906,7 +908,7 @@ defineExpose({
         :style="selectionBoxStyle"
       />
       <div v-if="emptyState" class="vgo-empty explorer-empty-state">
-        <span class="mdi vgo-empty__icon" :class="emptyState.icon" />
+        <MdiIcon class="vgo-empty__icon" :name="emptyState.icon" />
         <div class="vgo-empty__title">
           {{ emptyState.title }}
         </div>
@@ -918,7 +920,7 @@ defineExpose({
           class="vgo-button"
           @click.stop="emit('clearFilter')"
         >
-          <span class="mdi mdi-filter-remove-outline" />
+          <i-mdi-filter-remove-outline />
           Clear filter
         </button>
       </div>
@@ -976,10 +978,10 @@ defineExpose({
           @click="isGridView = !isGridView"
         >
           <template v-if="isGridView">
-            <span class="mdi mdi-view-grid-outline" />
+            <i-mdi-view-grid-outline />
           </template>
           <template v-else>
-            <span class="mdi mdi-view-list-outline" />
+            <i-mdi-view-list-outline />
           </template>
         </button>
       </div>

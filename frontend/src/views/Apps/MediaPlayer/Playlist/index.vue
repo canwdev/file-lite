@@ -84,14 +84,14 @@ onMounted(async () => {
   <div class="music-play-list">
     <div class="playlist-action-bar">
       <div class="playlist-search-row">
-        <span class="mdi mdi-magnify search-icon" />
+        <i-mdi-magnify class="search-icon" />
         <input v-model="filterText" class="vgo-input playlist-search" placeholder="Search music">
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm"
           title="Scroll to current"
           @click="() => scrollToCurrent()"
         >
-          <span class="mdi mdi-crosshairs-gps" />
+          <i-mdi-crosshairs-gps />
         </button>
       </div>
     </div>

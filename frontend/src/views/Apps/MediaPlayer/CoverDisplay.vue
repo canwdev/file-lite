@@ -12,10 +12,9 @@ withDefaults(defineProps<{
 <template>
   <div class="cover-display">
     <img v-if="src" :src="src" :class="{ rounded: isRounded, rotating: isRotating }">
-    <span
-      v-else
-      class="cover-icon mdi mdi-music-note"
-    />
+    <span v-else class="cover-icon">
+      <i-mdi-music-note />
+    </span>
   </div>
 </template>
 

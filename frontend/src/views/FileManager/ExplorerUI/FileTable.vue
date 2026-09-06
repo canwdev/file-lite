@@ -203,11 +203,11 @@ onBeforeUnmount(() => {
             class="checkbox-col clickable" :style="{ width: '30px' }"
             @click.stop="toggleAllSelection"
           >
-            <span
-              class="checkbox mdi" :class="[
-                isIndeterminate ? 'mdi-checkbox-intermediate'
-                : isAllSelected ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
-              ]"
+            <MdiIcon
+              class="checkbox"
+              :name="isIndeterminate
+                ? 'checkbox-intermediate'
+                : isAllSelected ? 'checkbox-marked' : 'checkbox-blank-outline'"
             />
           </th>
           <!-- 数据列 -->
@@ -259,10 +259,9 @@ onBeforeUnmount(() => {
             class="checkbox-col"
             @click.stop="toggleRowSelection(row, $event, true)"
           >
-            <span
-              class="checkbox checkbox-auto-hidden mdi" :class="[
-                mSelectedRows.has(row) ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline',
-              ]"
+            <MdiIcon
+              :name="mSelectedRows.has(row) ? 'checkbox-marked' : 'checkbox-blank-outline'"
+              class="checkbox checkbox-auto-hidden"
             />
           </td>
           <td
@@ -402,7 +401,7 @@ onBeforeUnmount(() => {
     text-align: center;
     text-overflow: unset;
     cursor: pointer;
-    .mdi {
+    .checkbox {
       font-size: var(--vgo-icon-sm);
       vertical-align: middle;
       line-height: 14px;

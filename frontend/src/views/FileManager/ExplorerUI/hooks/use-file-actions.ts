@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { copyWithToast } from '@/utils'
+import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
@@ -413,7 +414,7 @@ export function useFileActions({
       x,
       y,
       ...menuThemeOptions,
-      items: getMenuOptions(),
+      items: resolveMenuIcons(getMenuOptions()),
     })
   }
 

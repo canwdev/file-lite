@@ -3,6 +3,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { resolveMenuIcons } from '@/utils/icons'
 import { normalizeListingPath, normalizePath } from '../utils'
 import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFolderListingOk } from './folder-listing'
 
@@ -165,7 +166,7 @@ function showCrumbMenu(path: string, event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items,
+    items: resolveMenuIcons(items),
   })
 }
 
@@ -455,10 +456,7 @@ defineExpose({
               @click.stop.prevent="onCrumbCaretClick(seg, $event)"
               @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
             >
-              <span
-                class="mdi"
-                :class="crumbMenu?.path === seg.path ? 'mdi-chevron-down' : 'mdi-chevron-right'"
-              />
+              <MdiIcon :name="crumbMenu?.path === seg.path ? 'chevron-down' : 'chevron-right'" />
             </button>
           </span>
         </template>
@@ -499,7 +497,7 @@ defineExpose({
             @mouseenter="menuActiveIndex = index"
             @click="onMenuPick(dir)"
           >
-            <span class="mdi mdi-folder crumb-menu-row-icon" />
+            <i-mdi-folder class="crumb-menu-row-icon" />
             <span class="crumb-menu-row-name vgo-u-text-overflow">{{ dir.name }}</span>
           </button>
           <div v-if="!crumbMenuSubDirs.length" class="crumb-menu-status">
@@ -629,7 +627,7 @@ defineExpose({
     background-color: var(--vgo-primary-opacity);
   }
 
-  .mdi {
+  > svg {
     font-size: var(--vgo-icon-sm);
     line-height: 1;
   }

@@ -68,11 +68,11 @@ function autoSelectUrl() {
   <div class="ip-chooser">
     <div class="ip-title">
       <RouterLink :to="{ name: 'HomeView', query: ticketValue ? { ticket: ticketValue } : undefined }">
-        <span class="mdi mdi-home" style="font-size: 26px" />
+        <i-mdi-home style="font-size: 26px" />
       </RouterLink>
     </div>
     <!-- <div class="ip-title">
-      <span class="mdi mdi-ip-network"></span>
+      <i-mdi-ip-network />
       Select the URL you want to visit:
     </div> -->
     <div class="ip-chooser-main vgo-panel vgo-u-font-code">
@@ -88,10 +88,10 @@ function autoSelectUrl() {
 
           <div class="vgo-u-flex-wrap-center">
             <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Copy" @click="copyWithToast(url)">
-              <span class="mdi mdi-content-copy" />
+              <i-mdi-content-copy />
             </button>
             <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Open" @click="handleGo(url)">
-              <span class="mdi mdi-open-in-new" />
+              <i-mdi-open-in-new />
             </button>
           </div>
         </div>

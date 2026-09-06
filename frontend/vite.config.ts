@@ -3,6 +3,8 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
+import IconsResolver from 'unplugin-icons/resolver'
+import Icons from 'unplugin-icons/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
@@ -23,6 +25,11 @@ export default defineConfig(({ mode }) => {
         },
       }),
       vueJsx(),
+      Icons({
+        compiler: 'vue3',
+        // scale 1: svg 尺寸 = 1em = 继承的 font-size，与 @mdi/font 字形框一致，避免布局/视觉尺寸漂移
+        scale: 1,
+      }),
       AutoImport({
         dts: './src/auto-import.d.ts',
         imports: ['vue', 'vue-router', 'pinia'],
@@ -30,7 +37,12 @@ export default defineConfig(({ mode }) => {
       }),
       Components({
         dirs: [],
-        resolvers: [ElementPlusResolver()],
+        resolvers: [
+          ElementPlusResolver(),
+          IconsResolver({
+            enabledCollections: ['mdi'],
+          }),
+        ],
       }),
     ],
     base: './',

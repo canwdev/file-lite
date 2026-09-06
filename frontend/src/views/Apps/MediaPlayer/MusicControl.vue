@@ -4,6 +4,7 @@ import { useEventListener } from '@vueuse/core'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { formatTimeHMS } from '@/utils'
+import { resolveMenuIcons } from '@/utils/icons'
 import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
 import { loopModeMap, LoopModeTypeValues, useMusicSettingsStore } from './utils/music-state'
@@ -53,7 +54,7 @@ function showSpeedMenu(event: MouseEvent) {
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
     ...menuThemeOptions,
-    items: PLAYBACK_RATE_OPTIONS.map((opt) => {
+    items: resolveMenuIcons(PLAYBACK_RATE_OPTIONS.map((opt) => {
       const selected = rateMatches(mediaStore.playbackRate, opt.value)
       return {
         label: opt.label,
@@ -62,7 +63,7 @@ function showSpeedMenu(event: MouseEvent) {
           mediaStore.playbackRate = opt.value
         },
       }
-    }),
+    })),
   })
 }
 
@@ -73,7 +74,7 @@ function showLoopMenu(event: MouseEvent) {
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
     ...menuThemeOptions,
-    items: LoopModeTypeValues.map((mode) => {
+    items: resolveMenuIcons(LoopModeTypeValues.map((mode) => {
       const info = loopModeMap[mode]
       const selected = mSettingsStore.loopMode === mode
       return {
@@ -83,7 +84,7 @@ function showLoopMenu(event: MouseEvent) {
           mSettingsStore.loopMode = mode
         },
       }
-    }),
+    })),
   })
 }
 
@@ -264,7 +265,11 @@ function jumpBackward() {
           v-if="currentLoopMode" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="currentLoopMode.i18nKey"
           @click="showLoopMenu"
         >
-          <span v-if="currentLoopMode.className" class="mdi" :class="currentLoopMode.className" />
+          <MdiIcon
+            v-if="currentLoopMode.className"
+            :name="currentLoopMode.className"
+            :class="{ 'reverse-x': currentLoopMode.className.includes('reverse-x') }"
+          />
           <span v-else>{{ currentLoopMode.i18nKey }}</span>
         </button>
       </div>
@@ -274,10 +279,10 @@ function jumpBackward() {
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Previous" @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
-          <span class="mdi mdi-skip-previous" />
+          <i-mdi-skip-previous />
         </button>
         <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Rewind" @click="jumpBackward">
-          <span class="mdi mdi-rewind-5" />
+          <i-mdi-rewind-5 />
         </button>
 
         <button
@@ -285,18 +290,18 @@ function jumpBackward() {
           @click="togglePlay"
         >
           <template v-if="mediaStore.paused">
-            <span class="mdi mdi-play" />
+            <i-mdi-play />
           </template>
           <template v-else>
-            <span class="mdi mdi-pause" />
+            <i-mdi-pause />
           </template>
         </button>
 
         <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Fast Forward" @click="jumpForward">
-          <span class="mdi mdi-fast-forward-5" />
+          <i-mdi-fast-forward-5 />
         </button>
         <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Next" @click="next">
-          <span class="mdi mdi-skip-next" />
+          <i-mdi-skip-next />
         </button>
       </div>
 
@@ -308,10 +313,10 @@ function jumpBackward() {
               title="Volume (scroll wheel to adjust)"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
-                <span class="mdi mdi-volume-high" />
+                <i-mdi-volume-high />
               </template>
               <template v-else>
-                <span class="mdi mdi-volume-variant-off" />
+                <i-mdi-volume-variant-off />
               </template>
             </button>
           </template>
@@ -329,7 +334,7 @@ function jumpBackward() {
           title="Playlist"
           @click="$emit('togglePlaylist')"
         >
-          <span class="mdi mdi-playlist-music" />
+          <i-mdi-playlist-music />
         </button>
       </div>
     </div>

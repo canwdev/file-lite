@@ -207,7 +207,7 @@ function setWrapperRef(el: unknown): void {
         title="Previous (↑ / k)"
         @click.stop="navigate(false)"
       >
-        <span class="mdi mdi-chevron-up" />
+        <i-mdi-chevron-up />
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-collect"
@@ -215,21 +215,21 @@ function setWrapperRef(el: unknown): void {
         title="Collect (c)"
         @click.stop="handleToggleCollect"
       >
-        <span class="mdi" :class="collected ? 'mdi-star' : 'mdi-star-outline'" />
+        <MdiIcon :name="collected ? 'star' : 'star-outline'" />
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Locate in folder"
         @click.stop="handleLocateCurrent"
       >
-        <span class="mdi mdi-crosshairs-gps" />
+        <i-mdi-crosshairs-gps />
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Next (↓ / j)"
         @click.stop="navigate(true)"
       >
-        <span class="mdi mdi-chevron-down" />
+        <i-mdi-chevron-down />
       </button>
     </div>
 
@@ -242,7 +242,7 @@ function setWrapperRef(el: unknown): void {
           title="Zoom out (Ctrl+scroll)"
           @click.stop="zoom.zoomOut()"
         >
-          <span class="mdi mdi-minus" />
+          <i-mdi-minus />
         </button>
         <span class="zoom-scale">{{ zoom.scalePercent.value }}</span>
         <button
@@ -250,7 +250,7 @@ function setWrapperRef(el: unknown): void {
           title="Zoom in (Ctrl+scroll)"
           @click.stop="zoom.zoomIn()"
         >
-          <span class="mdi mdi-plus" />
+          <i-mdi-plus />
         </button>
       </div>
     </Transition>
@@ -263,7 +263,7 @@ function setWrapperRef(el: unknown): void {
           title="Select collected"
           @click="handleSelectCollected"
         >
-          <span class="mdi mdi-check-decagram-outline collection-fab__bg" />
+          <i-mdi-check-decagram-outline class="collection-fab__bg" />
           <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
         </button>
         <button
@@ -271,14 +271,14 @@ function setWrapperRef(el: unknown): void {
           title="Clear collection"
           @click="clearCollection"
         >
-          <span class="mdi mdi-close" />
+          <i-mdi-close />
         </button>
       </div>
     </Transition>
 
     <!-- ─── Empty state ─── -->
     <div v-if="!items.length" class="empty-state">
-      <span class="mdi mdi-image-off-outline" />
+      <i-mdi-image-off-outline />
       <span>No media files in this folder</span>
     </div>
 
@@ -294,9 +294,9 @@ function setWrapperRef(el: unknown): void {
         @keydown.tab.exact="handleEdgeOverlayTab"
       >
         <div class="edge-card vgo-panel vgo-panel--overlay vgo-empty">
-          <span
-            class="vgo-empty__icon mdi"
-            :class="edgeOverlay === 'end' ? 'mdi-flag-checkered' : 'mdi-flag-outline'"
+          <MdiIcon
+            class="vgo-empty__icon"
+            :name="edgeOverlay === 'end' ? 'flag-checkered' : 'flag-outline'"
           />
           <p class="vgo-empty__title">
             {{ edgeOverlay === 'end' ? 'End of gallery' : 'Start of gallery' }}
@@ -308,9 +308,8 @@ function setWrapperRef(el: unknown): void {
           </p>
 
           <button class="vgo-button vgo-button--overlay edge-btn is-emphasis" :disabled="isScanning" @click="jumpToOpposite">
-            <span
-              class="mdi"
-              :class="edgeOverlay === 'end' ? 'mdi-arrow-up-thin-circle-outline' : 'mdi-arrow-down-thin-circle-outline'"
+            <MdiIcon
+              :name="edgeOverlay === 'end' ? 'arrow-up-thin-circle-outline' : 'arrow-down-thin-circle-outline'"
             />
             {{ edgeOverlay === 'end' ? 'Back to beginning' : 'Jump to end' }}
           </button>
@@ -320,11 +319,10 @@ function setWrapperRef(el: unknown): void {
             :disabled="isScanning"
             @click="handleFolderNav(edgeOverlay === 'end' ? 'next' : 'prev')"
           >
-            <span v-if="isScanning" class="mdi mdi-loading mdi-spin" />
-            <span
+            <i-mdi-loading v-if="isScanning" class="icon-spin" />
+            <MdiIcon
               v-else
-              class="mdi"
-              :class="edgeOverlay === 'end' ? 'mdi-skip-next-circle-outline' : 'mdi-skip-previous-circle-outline'"
+              :name="edgeOverlay === 'end' ? 'skip-next-circle-outline' : 'skip-previous-circle-outline'"
             />
             <template v-if="isScanning">
               Scanning…
@@ -335,7 +333,7 @@ function setWrapperRef(el: unknown): void {
           </button>
 
           <button class="vgo-button vgo-button--overlay vgo-button--text edge-btn" @click="edgeOverlay = null">
-            <span class="mdi mdi-close" />
+            <i-mdi-close />
             Dismiss
           </button>
         </div>
@@ -529,7 +527,7 @@ function setWrapperRef(el: unknown): void {
   color: rgba(255, 255, 255, 0.3);
   font-size: 14px;
 
-  .mdi { font-size: 56px; }
+  > svg { font-size: 56px; }
 }
 
 // ── Edge overlay ─────────────────────────────────────────────

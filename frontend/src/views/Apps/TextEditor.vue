@@ -248,7 +248,9 @@ useShortcut({
       Loading...
     </div>
     <div v-else-if="fileTooLarge" class="vgo-empty too-large-state">
-      <span class="mdi mdi-file-alert-outline vgo-empty__icon too-large-icon" />
+      <span class="vgo-empty__icon too-large-icon">
+        <i-mdi-file-alert-outline />
+      </span>
       <p class="vgo-empty__title">
         File too large to edit
       </p>
@@ -257,7 +259,7 @@ useShortcut({
         is {{ bytesToSize(fileTooLarge.size) }} — limit is {{ bytesToSize(SIZE_LIMIT) }}
       </p>
       <a class="vgo-button" :href="fsWebApi.getStreamUrl(absPath!)" target="_blank" rel="noopener">
-        <span class="mdi mdi-open-in-new" /> Open in Browser
+        <i-mdi-open-in-new /> Open in Browser
       </a>
     </div>
     <textarea
