@@ -241,8 +241,13 @@ export async function createDirectory(req: Request, res: Response) {
     return res.json({ existed: true, path })
   }
 
-  await fs.mkdir(path, { recursive: true })
-  return res.status(201).json({ path }) // 使用 201 Created 状态码更符合 RESTful 风格
+  try {
+    await fs.mkdir(path, { recursive: true })
+    return res.status(201).json({ path }) // 使用 201 Created 状态码更符合 RESTful 风格
+  }
+  catch (err: any) {
+    return res.status(500).json({ message: err.message || 'Failed to create directory' })
+  }
 }
 
 export async function renamePath(req: Request, res: Response) {
@@ -264,13 +269,18 @@ export async function renamePath(req: Request, res: Response) {
     return res.status(409).json({ message: 'Destination path already exists' }) // 409 Conflict 更合适
   }
 
-  const fromStat = await fs.stat(fromPath)
-  if (fromStat.isDirectory() && isPathInsideOrEqual(toPath, fromPath)) {
-    return res.status(400).json({ message: 'The destination folder is a subfolder of the source folder' })
-  }
+  try {
+    const fromStat = await fs.stat(fromPath)
+    if (fromStat.isDirectory() && isPathInsideOrEqual(toPath, fromPath)) {
+      return res.status(400).json({ message: 'The destination folder is a subfolder of the source folder' })
+    }
 
-  await fs.rename(fromPath, toPath)
-  return res.json({ path: toPath })
+    await fs.rename(fromPath, toPath)
+    return res.json({ path: toPath })
+  }
+  catch (err: any) {
+    return res.status(500).json({ message: err.message || 'Rename failed' })
+  }
 }
 
 /**
@@ -289,9 +299,24 @@ async function copyEntry(fromPath: string, toDir: string, isMove = false) {
     throw new Error(`Destination path already exists: ${toPath}`)
   }
 
-  const fromStat = await fs.stat(fromPath)
+  // 仅真实目录需要「目标在源内部」检查；链接只移动链接本身，无子树概念
+  const fromStat = await fs.lstat(fromPath)
   if (fromStat.isDirectory() && isPathInsideOrEqual(toDir, fromPath)) {
     throw new Error('The destination folder is a subfolder of the source folder')
+  }
+
+  if (isMove) {
+    // 同一分区（卷）：直接改名移动，瞬时完成并保留属性/硬链接/符号链接本身
+    try {
+      await fs.rename(fromPath, toPath)
+      return
+    }
+    catch (err: any) {
+      // 仅跨分区（EXDEV）回退为「复制成功后再删除」；其余错误如实上报
+      if (err?.code !== 'EXDEV') {
+        throw err
+      }
+    }
   }
 
   await fs.cp(fromPath, toPath, { recursive: true })

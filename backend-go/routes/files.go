@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/labstack/echo/v4"
 	etag "github.com/pablor21/echo-etag/v4"
@@ -249,6 +251,11 @@ func renamePath(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"path": body.ToPath})
 }
 
+// copyEntry 复制或移动单个条目到目标目录。
+// 移动（isMove）时：同一分区（卷）直接 os.Rename 改名移动，
+// 保留属性/硬链接/符号链接本身、不产生复制；跨分区（EXDEV）才回退
+// 为「复制成功后再删除源」。无论复制还是移动，链接（符号链接 / Windows
+// 目录连接）都只复制链接本身，绝不展开或递归复制其指向的内容。
 func copyEntry(fromPath, toDir string, isMove bool) error {
 	if !isPathSafe(fromPath) || !isPathSafe(toDir) {
 		return fmtError("Path is not safe. From: %s, To: %s", fromPath, toDir)
@@ -260,14 +267,30 @@ func copyEntry(fromPath, toDir string, isMove bool) error {
 	if isExist(toPath) {
 		return fmtError("Destination path already exists: %s", toPath)
 	}
-	st, err := os.Stat(fromPath)
+	li, err := os.Lstat(fromPath)
 	if err != nil {
 		return err
 	}
-	if st.IsDir() && utils.IsPathInsideOrEqual(toDir, fromPath) {
+	// 仅真实目录需要做「目标在源内部」检查；链接只移动链接本身，无子树概念
+	if li.IsDir() && utils.IsPathInsideOrEqual(toDir, fromPath) {
 		return fmtError("The destination folder is a subfolder of the source folder")
 	}
-	if st.IsDir() {
+	if isMove {
+		// 同一分区：直接改名移动（瞬时完成，天然保留链接/硬链接/属性）
+		if err := os.Rename(fromPath, toPath); err == nil {
+			return nil
+		} else if !errors.Is(err, syscall.EXDEV) {
+			// 非跨分区错误（如目标被占用等），如实上报，不擅自降级为复制
+			return err
+		}
+		// 跨分区（EXDEV）：回退到 复制 → 删除源
+	}
+	if li.Mode()&os.ModeSymlink != 0 {
+		// 链接：在目标重建链接本身，绝不跟随/递归其指向内容
+		if err := copyLink(fromPath, toPath); err != nil {
+			return err
+		}
+	} else if li.IsDir() {
 		if err := copyDir(fromPath, toPath); err != nil {
 			return err
 		}
@@ -284,6 +307,15 @@ func copyEntry(fromPath, toDir string, isMove bool) error {
 	return nil
 }
 
+// copyLink 复制链接本身：读取链接目标后在新位置重建同名链接，不触碰其指向内容。
+func copyLink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return err
+	}
+	return os.Symlink(target, dst)
+}
+
 func copyDir(src, dst string) error {
 	entries, err := os.ReadDir(src)
 	if err != nil {
@@ -295,15 +327,22 @@ func copyDir(src, dst string) error {
 	for _, e := range entries {
 		sp := filepath.Join(src, e.Name())
 		dp := filepath.Join(dst, e.Name())
-		st, err := os.Stat(sp)
+		li, err := os.Lstat(sp)
 		if err != nil {
 			return err
 		}
-		if st.IsDir() {
+		switch {
+		case li.Mode()&os.ModeSymlink != 0:
+			// 符号链接 / Windows 目录连接：只复制链接本身，防止把链接内容
+			// 递归复制进来（也避免指向祖先目录的循环导致无限递归）
+			if err := copyLink(sp, dp); err != nil {
+				return err
+			}
+		case li.IsDir():
 			if err := copyDir(sp, dp); err != nil {
 				return err
 			}
-		} else {
+		default:
 			if err := copyFile(sp, dp); err != nil {
 				return err
 			}

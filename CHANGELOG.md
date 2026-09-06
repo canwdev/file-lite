@@ -2,6 +2,17 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go` and `backend/package.json`.
 
+## Unreleased
+
+### Fixes
+
+- Deleting or moving a file that is in use now reports the real failure reason instead of silently succeeding (Go; Node.js already surfaced delete errors).
+- Failed deletes and fully-failed/cancelled uploads no longer refresh the file list (frontend).
+- Multi-file zip downloads now fail with a clear error when a file can't be read, instead of silently dropping it from the archive (Go).
+- Rename / create-directory failures now return the actual error message instead of a generic failure or an HTML error page (Node.js / Go).
+- Cut & paste on the same drive is now a real instant move that keeps file metadata and hard links, instead of copy-then-delete (Node.js / Go).
+- Copying or moving folders containing symbolic links keeps the links instead of recursively copying their targets (Go; Node.js already did).
+
 ## 1.4.3
 
 - Refine UI details, enhance experience
