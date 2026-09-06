@@ -34,16 +34,22 @@ watch(
 
 // ---------------------------------------------------------------------------
 // 文件预览候选：
-// - 图片格式、非目录、Preview Size 未 Disabled 才可能预览；
-// - streamUrl 非空表示“允许下载原图”（未超 Preview Size 上限且满足小图标规则）；
+// - 图片格式、非目录、图标尺寸 >= MIN_PREVIEW_ICON_SIZE、Preview Size 未 Disabled
+//   才可能预览；小于该尺寸只显示类型图标，任何预览（含已有缓存）都不显示；
+// - streamUrl 非空表示“允许下载原图”（未超 Preview Size 上限）；
 // - 超出上限的大图也保留 cacheEnabled：命中已有缓存则直接显示（不下载原图），
 //   未命中则不显示 —— 即「已有缓存时忽略 Preview Size 限制」。
 // 实际的命中/生成/取消/回收逻辑在 hooks/use-image-preview.ts。
 // ---------------------------------------------------------------------------
+/** 图标小于该尺寸时不显示任何内容预览（图片预览 / 文件夹内容预览），只显示类型图标 */
+const MIN_PREVIEW_ICON_SIZE = 48
+
 const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
   const { item, absPath, iconSize } = props
   if (!absPath || !item || item.isDirectory || !regSupportedImageFormat.test(item.name))
     return null
+  if (iconSize < MIN_PREVIEW_ICON_SIZE)
+    return null // 小于 48：不显示预览（含已有缓存），仅显示类型图标
   const previewSize = localSettingsStore.value.previewSize
   if (previewSize === 0)
     return null // Disabled：任何预览（含已有缓存）都不显示
@@ -51,12 +57,8 @@ const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
   const itemSize = Number(item.size ?? 0)
   const lastModified = item.lastModified ?? 0
   const withinLimit = previewSize === PREVIEW_SIZE_UNLIMITED || itemSize <= previewSize
-  const smallIconWithinLimit = iconSize >= 48 || itemSize < 500 * 1024
-  const streamUrl = withinLimit && smallIconWithinLimit ? fsWebApi.getStreamUrl(absPath) : ''
-  // 列表小图标（<48）里的“限制内大图”不入缓存（直接/不显示），其余大图走缓存
-  const cacheEnabled = itemSize > IMAGE_THUMB_SMALL_DIRECT_MAX
-    && lastModified > 0
-    && (iconSize >= 48 || !withinLimit)
+  const streamUrl = withinLimit ? fsWebApi.getStreamUrl(absPath) : ''
+  const cacheEnabled = itemSize > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0
   return { name: absPath, key: absPath, streamUrl, size: itemSize, lastModified, cacheEnabled }
 })
 
@@ -97,13 +99,12 @@ watch(
 // 图片子项同样按上述缓存规则解析（含“超出上限但有缓存则显示”）。
 // 加载期间/空目录回退为普通文件夹图标。
 // ---------------------------------------------------------------------------
-const FOLDER_PREVIEW_MIN_ICON_SIZE = 48
 const FOLDER_PREVIEW_MAX_ITEMS = 4
 const FOLDER_PREVIEW_LOAD_DEBOUNCE_MS = 120
 
 const folderPreviewEligible = computed(() => {
   const { item, absPath, iconSize } = props
-  return !!item?.isDirectory && !item.error && !!absPath && iconSize >= FOLDER_PREVIEW_MIN_ICON_SIZE
+  return !!item?.isDirectory && !item.error && !!absPath && iconSize >= MIN_PREVIEW_ICON_SIZE
 })
 
 const folderListingPath = computed(() =>

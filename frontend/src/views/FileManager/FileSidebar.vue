@@ -132,7 +132,7 @@ defineExpose({
           :disabled="isLoading"
           @click="loadDrives"
         >
-          <i-mdi-reload vgo-u-icon-sm />
+          <i-mdi-reload class="vgo-u-icon-sm" />
         </button>
       </div>
       <button

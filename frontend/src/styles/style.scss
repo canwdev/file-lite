@@ -170,13 +170,13 @@ html.is-debug {
 }
 
 // ── 图标旋转（替代 @mdi/font 的 .mdi-spin） ──────────────────
-@keyframes vgo-icon-spin {
+@keyframes icon-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
 .icon-spin {
-  animation: vgo-icon-spin 2s linear infinite;
+  animation: icon-spin 2s linear infinite;
 }
 
 // ── 对齐 vgo-ui 内置的 .mdi 图标规则（SVG 图标版） ─────────────
