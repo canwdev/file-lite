@@ -143,6 +143,20 @@ const folderPreviewFrameStyle = computed(() => {
 
 const folderMiniIconFontSize = computed(() => Math.max(10, Math.round(props.iconSize * 0.4)))
 
+// 链接角标（左下角小图标）：随图标尺寸等比缩放，避免小图标下遮住整个字形
+const linkBadgeSize = computed(() => {
+  const size = props.iconSize
+  return Math.min(18, Math.max(9, Math.round(size * 0.34)))
+})
+const linkBadgeStyle = computed(() => {
+  const box = linkBadgeSize.value
+  return {
+    width: `${box}px`,
+    height: `${box}px`,
+    fontSize: `${Math.round(box * 0.8)}px`,
+  }
+})
+
 function canChildUseImageThumb(child: IEntry) {
   if (child.isDirectory || child.error)
     return false
@@ -250,6 +264,14 @@ onBeforeUnmount(() => {
       :style="{ fontSize: `${iconSize}px` }"
     />
     <span v-else class="themed-icon-class mdi mdi-file-question" />
+    <span
+      v-if="item?.isLink"
+      class="themed-icon-link-badge"
+      :style="linkBadgeStyle"
+      aria-label="Link"
+    >
+      <span class="mdi mdi-link-variant" />
+    </span>
   </div>
 </template>
 
@@ -315,6 +337,23 @@ onBeforeUnmount(() => {
   .folder-preview-child-icon {
     line-height: 1;
     color: var(--vgo-primary);
+  }
+
+  // 链接角标：显示在图标左下角
+  .themed-icon-link-badge {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: var(--vgo-radius);
+    background-color: var(--vgo-primary);
+    color: #fff;
+    line-height: 1;
+    pointer-events: none;
   }
 }
 </style>

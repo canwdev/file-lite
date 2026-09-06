@@ -2,6 +2,8 @@ export interface IEntry {
   name: string
   ext: string
   isDirectory: boolean
+  /** 是否为链接：符号链接 / Windows 目录链接（junction）/ 硬链接 */
+  isLink?: boolean
   hidden: boolean
   lastModified: number
   birthtime: number

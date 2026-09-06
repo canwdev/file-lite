@@ -111,12 +111,22 @@ async function mapWithConcurrency<T, R>(
   return results
 }
 
-function createEntryFromStat(entryName: string, stat: Stats): IEntry {
+/**
+ * 判断某个 stat 是否为「链接」：符号链接 / Windows 目录链接（junction）/
+ * 硬链接（文件 nlink > 1；目录的 nlink 会随子目录增多，不能作为依据）。
+ * 符号链接以 stat 前的 dirent/lstat 判定，stat 本身会跟随到目标。
+ */
+function isLinkStat(isSymbolicLink: boolean, stat: Stats): boolean {
+  return isSymbolicLink || (!stat.isDirectory() && stat.nlink > 1)
+}
+
+function createEntryFromStat(entryName: string, stat: Stats, dirent: Dirent): IEntry {
   const isDirectory = stat.isDirectory()
   return {
     name: entryName,
     ext: isDirectory ? '' : Path.extname(entryName),
     isDirectory,
+    isLink: isLinkStat(dirent.isSymbolicLink(), stat),
     hidden: entryName.startsWith('.'),
     lastModified: stat.ctimeMs,
     birthtime: stat.birthtimeMs,
@@ -132,6 +142,7 @@ function createEntryFromStatError(entry: Dirent, err: unknown): IEntry {
     name: entryName,
     ext: isDirectory ? '' : Path.extname(entryName),
     isDirectory,
+    isLink: entry.isSymbolicLink(),
     hidden: entryName.startsWith('.'),
     lastModified: 0,
     birthtime: 0,
@@ -200,7 +211,7 @@ export async function getFiles(req: Request, res: Response) {
         const entryPath = Path.join(path, entryName)
         try {
           const stat = await fs.stat(entryPath)
-          return createEntryFromStat(entryName, stat)
+          return createEntryFromStat(entryName, stat, entry)
         }
         catch (err: unknown) {
           // 如果获取某个文件信息失败，记录错误，但不中断整个请求
@@ -285,7 +296,7 @@ async function copyEntry(fromPath: string, toDir: string, isMove = false) {
 
   await fs.cp(fromPath, toPath, { recursive: true })
   if (isMove) {
-    await fs.rm(fromPath, { recursive: true, force: true })
+    await removeEntrySafely(fromPath)
   }
 }
 
@@ -332,6 +343,21 @@ export async function openInHostExplorer(req: Request, res: Response) {
   }
 }
 
+/**
+ * 删除路径。若路径是链接（符号链接 / Windows 目录链接 / 硬链接），
+ * 只删除链接本身，绝不递归删除其指向的内容。
+ */
+async function removeEntrySafely(path: string) {
+  const linkStat = await fs.lstat(path)
+  const isLink = isLinkStat(linkStat.isSymbolicLink(), linkStat)
+  if (isLink) {
+    await fs.rm(path, { force: true })
+  }
+  else {
+    await fs.rm(path, { recursive: true, force: true })
+  }
+}
+
 export async function deletePath(req: Request, res: Response) {
   const { path } = req.body as { path: string | string[] }
   // 统一处理，将 string 转为 array，以复用逻辑
@@ -352,7 +378,7 @@ export async function deletePath(req: Request, res: Response) {
     )
 
     // 同样并发执行删除操作
-    await Promise.all(pathsToDelete.map(p => fs.rm(p, { recursive: true, force: true })))
+    await Promise.all(pathsToDelete.map(p => removeEntrySafely(p)))
 
     return res.json({ path })
   }

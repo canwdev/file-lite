@@ -4,6 +4,7 @@ type Entry struct {
 	Name         string  `json:"name"`
 	Ext          string  `json:"ext"`
 	IsDirectory  bool    `json:"isDirectory"`
+	IsLink       bool    `json:"isLink"`
 	Hidden       bool    `json:"hidden"`
 	LastModified int64   `json:"lastModified"`
 	Birthtime    int64   `json:"birthtime"`

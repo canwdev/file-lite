@@ -73,7 +73,9 @@ func sanitizeUploadFilename(name string) (string, error) {
 	return safeName, nil
 }
 
-func entryFromStat(name string, st os.FileInfo) types.Entry {
+// 判定条目是否为链接：符号链接 / Windows 目录链接（junction）/
+// 硬链接（文件 nlink > 1；目录的 nlink 会随子目录增多，不能作为依据）。
+func entryFromStat(name string, st os.FileInfo, path string, isSymbolicLink bool) types.Entry {
 	isDir := st.IsDir()
 	var size *int64
 	if !isDir {
@@ -86,8 +88,13 @@ func entryFromStat(name string, st os.FileInfo) types.Entry {
 		ext = filepath.Ext(name)
 	}
 
+	isLink := isSymbolicLink
+	if !isLink && !isDir && utils.HardLinkCount(st, path) > 1 {
+		isLink = true
+	}
+
 	modTime := st.ModTime().UnixMilli()
-	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, Hidden: strings.HasPrefix(name, "."), LastModified: modTime, Birthtime: modTime, Size: size, Error: nil}
+	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, IsLink: isLink, Hidden: strings.HasPrefix(name, "."), LastModified: modTime, Birthtime: modTime, Size: size, Error: nil}
 }
 
 func entryFromStatError(e os.DirEntry, err error) types.Entry {
@@ -104,7 +111,7 @@ func entryFromStatError(e os.DirEntry, err error) types.Entry {
 	}
 
 	msg := err.Error()
-	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, Hidden: strings.HasPrefix(name, "."), LastModified: 0, Birthtime: 0, Size: size, Error: &msg}
+	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, IsLink: e.Type()&os.ModeSymlink != 0, Hidden: strings.HasPrefix(name, "."), LastModified: 0, Birthtime: 0, Size: size, Error: &msg}
 }
 
 func getDrives(c echo.Context) error {
@@ -115,10 +122,10 @@ func getDrives(c echo.Context) error {
 	homeDrive := types.Drive{Label: "Home", Path: home}
 	var list []types.Drive
 	if strings.EqualFold(os.Getenv("OS"), "Windows_NT") || runtime.GOOS == "windows" {
-	// 此时 d 直接就是 types.Drive 对象了
-	for _, d := range utils.GetWindowsDrives() {
-		list = append(list, d) 
-	}
+		// 此时 d 直接就是 types.Drive 对象了
+		for _, d := range utils.GetWindowsDrives() {
+			list = append(list, d)
+		}
 	} else {
 		for _, m := range utils.GetUnixMounts() {
 			list = append(list, types.Drive{Label: m, Path: m})
@@ -172,7 +179,7 @@ func getFiles(c echo.Context) error {
 					res[job.index] = entryFromStatError(job.entry, statErr)
 					continue
 				}
-				res[job.index] = entryFromStat(job.entry.Name(), st)
+				res[job.index] = entryFromStat(job.entry.Name(), st, ep, job.entry.Type()&os.ModeSymlink != 0)
 			}
 		}()
 	}
@@ -270,7 +277,7 @@ func copyEntry(fromPath, toDir string, isMove bool) error {
 		}
 	}
 	if isMove {
-		_ = os.RemoveAll(fromPath)
+		_ = removeEntrySafely(fromPath)
 	}
 	return nil
 }
@@ -332,6 +339,23 @@ func copyPastePath(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"path": body.ToPath})
 }
 
+// removeEntrySafely 删除路径。若路径是链接（符号链接 / Windows 目录链接 /
+// 硬链接），只删除链接本身，绝不递归删除其指向的内容。
+func removeEntrySafely(p string) error {
+	li, err := os.Lstat(p)
+	if err != nil {
+		return err
+	}
+	isLink := li.Mode()&os.ModeSymlink != 0
+	if !isLink && !li.IsDir() && utils.HardLinkCount(li, p) > 1 {
+		isLink = true
+	}
+	if isLink {
+		return os.Remove(p)
+	}
+	return os.RemoveAll(p)
+}
+
 func deletePath(c echo.Context) error {
 	var raw map[string]any
 	if err := json.NewDecoder(c.Request().Body).Decode(&raw); err != nil {
@@ -360,7 +384,7 @@ func deletePath(c echo.Context) error {
 		}
 	}
 	for _, p := range paths {
-		_ = os.RemoveAll(p)
+		_ = removeEntrySafely(p)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"path": v})
 }
