@@ -59,11 +59,10 @@ Before packaging the backend, run `bun run build:for-go` in `frontend/` first; s
 ## Hot-reload dev environment with air
 
 ```shell
-# Use the default global proxy
-$env:GOPROXY = "https://proxy.golang.org,direct"
-
 # Then run the install
 go install github.com/air-verse/air@latest
+
+# fish_add_path ~/go/bin
 
 # Start
 air

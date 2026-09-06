@@ -207,7 +207,7 @@ func createDirectory(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{"existed": true, "path": body.Path})
 	}
 	if err := os.MkdirAll(body.Path, 0755); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	c.Response().Status = http.StatusCreated
 	return c.JSON(http.StatusCreated, map[string]string{"path": body.Path})
@@ -238,13 +238,13 @@ func renamePath(c echo.Context) error {
 	}
 	fromInfo, err := os.Stat(body.FromPath)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	if fromInfo.IsDir() && utils.IsPathInsideOrEqual(body.ToPath, body.FromPath) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "The destination folder is a subfolder of the source folder"})
 	}
 	if err := os.Rename(body.FromPath, body.ToPath); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"path": body.ToPath})
 }
@@ -277,7 +277,9 @@ func copyEntry(fromPath, toDir string, isMove bool) error {
 		}
 	}
 	if isMove {
-		_ = removeEntrySafely(fromPath)
+		if err := removeEntrySafely(fromPath); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -293,7 +295,10 @@ func copyDir(src, dst string) error {
 	for _, e := range entries {
 		sp := filepath.Join(src, e.Name())
 		dp := filepath.Join(dst, e.Name())
-		st, _ := os.Stat(sp)
+		st, err := os.Stat(sp)
+		if err != nil {
+			return err
+		}
 		if st.IsDir() {
 			if err := copyDir(sp, dp); err != nil {
 				return err
@@ -384,7 +389,9 @@ func deletePath(c echo.Context) error {
 		}
 	}
 	for _, p := range paths {
-		_ = removeEntrySafely(p)
+		if err := removeEntrySafely(p); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"message": err.Error()})
+		}
 	}
 	return c.JSON(http.StatusOK, map[string]any{"path": v})
 }
@@ -438,7 +445,10 @@ func getFileStream(c echo.Context) error {
 	if !isExist(path) {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
 	}
-	st, _ := os.Stat(path)
+	st, err := os.Stat(path)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+	}
 	if st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a file"})
 	}
@@ -450,6 +460,11 @@ func getFileStream(c echo.Context) error {
 func downloadMulti(paths []string, c echo.Context) error {
 	if len(paths) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "No files to download"})
+	}
+	// 写响应头之前先预检所有路径可读（文件被占用/不可读时直接报错，
+	// 避免压缩流开始后才失败、客户端拿到缺文件的 zip 却无法得知）。
+	if err := utils.VerifyZipPathsReadable(paths); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	var downloadName string
 	if len(paths) == 1 && paths[0] != "" {
@@ -522,20 +537,23 @@ func uploadFile(c echo.Context) error {
 	}
 	src, err := f.Open()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	defer src.Close()
 	name, err := sanitizeUploadFilename(f.Filename)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
-	out, err := os.Create(filepath.Join(dest, name))
+	destPath := filepath.Join(dest, name)
+	out, err := os.Create(destPath)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	defer out.Close()
 	if _, err := io.Copy(out, src); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		// 清理半成品文件，避免失败后残留损坏/不完整的文件（与 multer 行为一致）
+		_ = os.Remove(destPath)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "File uploaded successfully!"})
 }

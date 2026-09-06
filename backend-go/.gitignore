@@ -1,6 +1,7 @@
 /frontend
 /data
 /bin
+/tmp
 *.exe
 *.log
 *.ico
