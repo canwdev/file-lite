@@ -1,15 +1,20 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
-	"embed"
+	_ "embed"
 	"fmt"
-	"io/fs"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,8 +29,89 @@ import (
 	"file-lite-go/utils"
 )
 
-//go:embed frontend
-var embeddedFrontend embed.FS
+//go:embed frontend-assets.tar.gz
+var embeddedFrontendGz []byte
+
+// memoryFileSystem serves the embedded frontend straight from memory.
+// Files are decompressed once on first use (see embeddedStaticFS) so that the
+// binary only carries the gzip-compressed static assets (~1.7 MB -> ~0.5 MB).
+type memoryFileSystem struct {
+	files map[string][]byte
+}
+
+type memFile struct {
+	*bytes.Reader
+	name string
+}
+
+func (f *memFile) Stat() (os.FileInfo, error) { return &memFileInfo{f}, nil }
+func (f *memFile) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, fmt.Errorf("not a directory")
+}
+func (f *memFile) Close() error { return nil }
+
+type memFileInfo struct{ f *memFile }
+
+func (i *memFileInfo) Name() string       { return i.f.name }
+func (i *memFileInfo) Size() int64        { return i.f.Reader.Size() }
+func (i *memFileInfo) Mode() os.FileMode  { return 0o444 }
+func (i *memFileInfo) ModTime() time.Time { return time.Time{} }
+func (i *memFileInfo) IsDir() bool        { return false }
+func (i *memFileInfo) Sys() any           { return nil }
+
+func (m *memoryFileSystem) Open(name string) (http.File, error) {
+	name = strings.TrimPrefix(path.Clean("/"+name), "/")
+	data, ok := m.files[name]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return &memFile{Reader: bytes.NewReader(data), name: path.Base(name)}, nil
+}
+
+var (
+	embeddedOnce sync.Once
+	embeddedFS   *memoryFileSystem
+	embeddedErr  error
+)
+
+// embeddedStaticFS lazily decompresses frontend-assets.tar.gz into memory.
+func embeddedStaticFS() (*memoryFileSystem, error) {
+	embeddedOnce.Do(func() {
+		gz, err := gzip.NewReader(bytes.NewReader(embeddedFrontendGz))
+		if err != nil {
+			embeddedErr = fmt.Errorf("open embedded frontend archive: %w", err)
+			return
+		}
+		defer gz.Close()
+		tr := tar.NewReader(gz)
+		files := make(map[string][]byte)
+		for {
+			hdr, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				embeddedErr = fmt.Errorf("read embedded frontend archive: %w", err)
+				return
+			}
+			if hdr.Typeflag != tar.TypeReg {
+				continue
+			}
+			data, err := io.ReadAll(tr)
+			if err != nil {
+				embeddedErr = fmt.Errorf("read embedded frontend file %s: %w", hdr.Name, err)
+				return
+			}
+			files[path.Clean(hdr.Name)] = data
+		}
+		if len(files) == 0 {
+			embeddedErr = fmt.Errorf("embedded frontend archive is empty; build the frontend (bun run build:for-go) first")
+			return
+		}
+		embeddedFS = &memoryFileSystem{files: files}
+	})
+	return embeddedFS, embeddedErr
+}
 
 var (
 	server       *http.Server
@@ -65,17 +151,25 @@ func startServer() (*cli.ServerResult, error) {
 		},
 	}))
 	e.Use(middleware.Recover())
+	// 静态资源 gzip 压缩传输（/api 保持原始字节：文件流/下载/上传/测速等）。
+	// 前端资源嵌入时已整体压缩（见 frontend-assets.tar.gz），运行时解压后由这里按需压缩下发。
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Skipper: func(c echo.Context) bool {
+			return strings.HasPrefix(c.Request().URL.Path, "/api")
+		},
+	}))
 
 	frontendRoot := filepath.Join(utils.ExeDir(), "frontend")
 	var staticFS http.FileSystem
 	if utils.DirExists(frontendRoot) {
+		// 运行时优先使用 exe 同级的 frontend/ 目录（便于热更新静态资源）
 		staticFS = http.FS(os.DirFS(frontendRoot))
 	} else {
-		subFS, err := fs.Sub(embeddedFrontend, "frontend")
+		memFS, err := embeddedStaticFS()
 		if err != nil {
-			return nil, fmt.Errorf("embed frontend: %w", err)
+			return nil, err
 		}
-		staticFS = http.FS(subFS)
+		staticFS = memFS
 	}
 	e.Use(frontendStaticMiddleware(staticFS))
 

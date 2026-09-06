@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="target" class="themed-icon" :style="{ width: `${iconSize}px` }">
+  <div ref="target" class="themed-icon" :style="{ width: `${iconSize}px`, height: `${iconSize}px` }">
     <img
       v-if="previewUrl"
       class="preview-image"

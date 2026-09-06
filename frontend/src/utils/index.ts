@@ -1,4 +1,4 @@
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 
 export function guid() {
   function S4() {
@@ -85,7 +85,7 @@ export function formatDate(d: any | number, format = 'YYYY-MM-DD HH:mm') {
   if (!d) {
     return ''
   }
-  return moment(d).format(format)
+  return dayjs(d).format(format)
 }
 
 export function formatTimeHMS(ms: number) {

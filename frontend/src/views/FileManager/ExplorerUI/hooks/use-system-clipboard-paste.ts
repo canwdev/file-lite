@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 import { fsWebApi } from '@/api/filesystem'
 import { readSystemClipboard } from '@/utils/clipboard'
 import { generateTextFile, normalizePath } from '../../utils'
@@ -14,7 +14,7 @@ function appendCopySuffix(name: string, index?: number) {
 }
 
 function buildUniqueName(ext: string, existingNames: Set<string>) {
-  const base = `${moment(new Date()).format('YYYYMMDD_HHmmss')}${ext}`
+  const base = `${dayjs().format('YYYYMMDD_HHmmss')}${ext}`
   if (!existingNames.has(base))
     return base
 

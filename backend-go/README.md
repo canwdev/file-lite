@@ -7,7 +7,7 @@ A lightweight web file management service built on Echo that fully reproduces th
 ## Building
 
 - Install [Go 1.20+](https://go.dev/dl/).
-- Build the [frontend](../frontend/package.json) with `build:for-go` first so that `backend-go/frontend/` exists.
+- Build the [frontend](../frontend/package.json) with `build:for-go` first: it emits `backend-go/frontend/` and packs `backend-go/frontend-assets.tar.gz`, which the Go build embeds (gzip-compressed).
 
 ```shell
 # Go proxy
@@ -54,7 +54,7 @@ bun run dev:go
 bun run build:win:amd64
 ```
 
-Before packaging the backend, run `bun run build:for-go` in `frontend/` first; static assets are output to `backend-go/frontend/`.
+Before packaging the backend, run `bun run build:for-go` in `frontend/` first; static assets are output to `backend-go/frontend/` and embedded into the single-file executable as the gzip-compressed `frontend-assets.tar.gz`. At runtime the binary serves its built-in UI unless a `frontend/` folder sits next to it (that folder then takes precedence).
 
 ## Hot-reload dev environment with air
 

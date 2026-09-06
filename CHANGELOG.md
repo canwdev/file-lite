@@ -9,7 +9,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Grid-view file previews and folder preview thumbnails now come from a local IndexedDB cache of ≤256px thumbnails (1 GB LRU), so revisiting a photo folder downloads each original image only once (frontend).
 - Preview Size now only limits downloading originals: an image that is already cached still shows its thumbnail even when it exceeds the limit, and it disappears again only when Preview is disabled (frontend).
 - Full-size image streams now revalidate with the browser using the file's size/mtime (ETag / Last-Modified), returning 304 instead of re-downloading unchanged files (Node.js / Go).
+
+### Engineering
+
 - Frontend icons are now on-demand inline SVGs from the MDI set instead of the full `@mdi/font` webfont (no font file is loaded anymore).
+- Frontend bundles shrink by about a third: Element Plus styles are imported per component instead of the full stylesheet, and the `moment` dependency is replaced with the much smaller `dayjs` (frontend).
+- The Go single-file binary is roughly 1 MB smaller per platform: the embedded frontend is stored gzip-compressed, static assets are served with gzip, and cross builds are static with trimmed paths (Go).
 
 ### Fixes
 

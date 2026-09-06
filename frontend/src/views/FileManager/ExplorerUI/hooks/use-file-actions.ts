@@ -2,7 +2,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import moment from 'moment/moment'
+import dayjs from 'dayjs'
 import { computed } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
@@ -86,7 +86,7 @@ export function useFileActions({
         = name
           || (await showInputPrompt({
             title: 'Create File',
-            value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}.txt`,
+            value: `${dayjs().format('YYYYMMDD_HHmmss')}.txt`,
           }))
       isLoading.value = true
       await fsWebApi.uploadFile({
@@ -104,7 +104,7 @@ export function useFileActions({
     try {
       const name = await showInputPrompt({
         title: 'Create Folder',
-        value: `${moment(new Date()).format('YYYYMMDD_HHmmss')}`,
+        value: `${dayjs().format('YYYYMMDD_HHmmss')}`,
       })
       isLoading.value = true
       await fsWebApi.createDir({ path: normalizePath(`${basePath.value}/${name}`) })
