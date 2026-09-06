@@ -2,7 +2,7 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go` and `backend/package.json`.
 
-## Unreleased
+## 1.4.4
 
 ### Fixes
 
