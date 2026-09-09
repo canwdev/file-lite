@@ -3,6 +3,7 @@ import type { WalkDirection } from './folder-nav/tree-walk.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { useFolderNavigation } from './folder-nav/use-folder-navigation.ts'
 import GalleryPanels from './GalleryPanels.vue'
+import GalleryThumbStrip from './GalleryThumbStrip.vue'
 import { useCollection } from './use-collection.ts'
 import { useGalleryPanels } from './use-gallery-panels.ts'
 import { useMediaList } from './use-media-list.ts'
@@ -104,7 +105,7 @@ const {
 
 // ── Swipe / navigation ─────────────────────────────────────
 
-const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, jumpToOpposite, onPointerDown, onWheel }
+const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, jumpToOpposite, jumpToIndex, onPointerDown, onWheel }
   = useSwipe({
     items,
     currentIndex,
@@ -200,11 +201,21 @@ function setWrapperRef(el: unknown): void {
       @current-image-ready="syncCurrentImageResolution"
     />
 
+    <!-- ─── Thumbnail strip ─── -->
+    <GalleryThumbStrip
+      v-if="items.length"
+      class="thumb-strip-wrap"
+      :items="items"
+      :current-index="currentIndex"
+      :base-path="appParams.basePath"
+      @select="jumpToIndex"
+    />
+
     <!-- ─── Navigation arrows ─── -->
     <div v-if="!edgeOverlay" class="nav-arrows">
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        title="Previous (↑ / k)"
+        title="Previous (↑ / ← / k)"
         @click.stop="navigate(false)"
       >
         <i-mdi-chevron-up />
@@ -226,7 +237,7 @@ function setWrapperRef(el: unknown): void {
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        title="Next (↓ / j)"
+        title="Next (↓ / → / j)"
         @click.stop="navigate(true)"
       >
         <i-mdi-chevron-down />
@@ -345,6 +356,11 @@ function setWrapperRef(el: unknown): void {
 <style lang="scss" scoped>
 // ── Root ────────────────────────────────────────────────────
 .endless-gallery {
+  // 底部缩略图条高度 = 轨道上下内边距 + 缩略图尺寸 + 原生滚动条。
+  // 缩略图尺寸需与 GalleryThumbStrip 的 THUMB_ICON_SIZE(48 = control-lg + space-2) 一致；
+  // 末尾再留一条滚动条的高度，避免内容溢出时把浮层控件压住。
+  --gallery-thumb-strip-height: calc(var(--vgo-space-1) * 2 + var(--vgo-control-lg) + var(--vgo-space-2) + var(--vgo-space-2));
+
   width: 100%;
   height: 100%;
   position: relative;
@@ -353,10 +369,7 @@ function setWrapperRef(el: unknown): void {
   background-image: conic-gradient(#181818 25%, #0d0d0d 0 50%, #181818 0 75%, #0d0d0d 0);
   background-size: 24px 24px;
   user-select: none;
-  cursor: grab;
   touch-action: none;
-
-  &:active { cursor: grabbing; }
 }
 
 // ── Navigation arrows ────────────────────────────────────────
@@ -384,11 +397,34 @@ function setWrapperRef(el: unknown): void {
   border-color: var(--vgo-primary);
 }
 
+// ── Thumbnail strip ──────────────────────────────────────────
+// 与 nav-arrows / zoom-toolbar 同一节奏：悬停淡入，窄屏常显。
+.thumb-strip-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--vgo-duration-base);
+
+  .endless-gallery:hover & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media screen and (max-width: 500px) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 // ── Zoom toolbar ─────────────────────────────────────────────
 .zoom-toolbar {
   position: absolute;
   right: var(--vgo-space-3);
-  bottom: var(--vgo-space-3);
+  bottom: calc(var(--gallery-thumb-strip-height) + var(--vgo-space-3));
   z-index: 15;
   display: flex;
   align-items: center;
@@ -424,7 +460,7 @@ function setWrapperRef(el: unknown): void {
 .collection-fab-wrap {
   position: absolute;
   left: var(--vgo-space-4);
-  bottom: var(--vgo-space-4);
+  bottom: calc(var(--gallery-thumb-strip-height) + var(--vgo-space-4));
   z-index: 15;
 }
 

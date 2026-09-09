@@ -1,3 +1,4 @@
+import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fsWebApi } from '@/api/filesystem.ts'
 import {
@@ -10,6 +11,8 @@ export interface MediaFile {
   name: string
   url: string
   type: 'image' | 'video' | 'audio'
+  /** 原始目录项：缩略图组件（ThemedIcon）需要 size / lastModified 做缓存指纹 */
+  entry: IEntry
 }
 
 export function getMediaType(name: string): MediaFile['type'] | null {
@@ -49,7 +52,7 @@ export function useMediaList(
         const type = getMediaType(i.name)
         if (!type)
           continue
-        result.push({ name: i.name, url: fsWebApi.getStreamUrl(`${basePath}/${i.name}`), type })
+        result.push({ name: i.name, url: fsWebApi.getStreamUrl(`${basePath}/${i.name}`), type, entry: i })
         nameSet.add(i.name)
       }
       pruneDirectory(basePath, nameSet)

@@ -230,10 +230,6 @@ onBeforeUnmount(() => {
   &--current { top: 0; }
   &--next { top: 100%; }
 
-  &--current {
-    cursor: default;
-    video, audio, button { cursor: auto; }
-  }
 }
 
 .media-fit {

@@ -6,6 +6,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- EndlessGallery also switches images with the left/right arrow keys, and keyboard switching no longer plays the slide animation (frontend).
+- EndlessGallery has a bottom thumbnail strip that fades in on hover: scroll it horizontally with the native scrollbar, click a thumbnail to jump instantly, and the semi-transparent theme-color background shows how far the current image is in the folder (frontend).
+- Grid and list thumbnails now load only once they scroll near the viewport instead of all at once when a folder opens (frontend).
+
 - Grid-view file previews and folder preview thumbnails now come from a local IndexedDB cache of ≤256px thumbnails (1 GB LRU), so revisiting a photo folder downloads each original image only once (frontend).
 - Preview Size now only limits downloading originals: an image that is already cached still shows its thumbnail even when it exceeds the limit, and it disappears again only when Preview is disabled (frontend).
 - Full-size image streams now revalidate with the browser using the file's size/mtime (ETag / Last-Modified), returning 304 instead of re-downloading unchanged files (Node.js / Go).

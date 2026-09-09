@@ -26,6 +26,14 @@ interface UseSwipeOptions {
   onAfterJump?: () => void
 }
 
+interface NavigateOptions {
+  /**
+   * Swap panels in place instead of sliding. Used by keyboard navigation,
+   * where a 260 ms slide per key press makes repeated presses feel laggy.
+   */
+  instant?: boolean
+}
+
 export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
   const shortcutScope = injectShortcutScope()
   const wrapperRef = ref<HTMLElement | null>(null)
@@ -54,19 +62,33 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
    * Run `cb` exactly once — whichever comes first:
    *   • the swipe-container's transitionend event, or
    *   • a safety timeout (DURATION + 80 ms) in case the event never fires.
+   * The pending callback is cancelled by `cancelPendingTransition()` (used by
+   * jumpToIndex), so an interrupted slide never mutates currentIndex afterwards.
    */
+  let cancelPendingTransition: (() => void) | null = null
+
   function afterTransition(cb: () => void): void {
     const el = swipeContainerRef.value
     let called = false
     let timer: ReturnType<typeof setTimeout>
 
-    const run = () => {
+    function cleanup() {
+      clearTimeout(timer)
+      el?.removeEventListener('transitionend', run)
+      cancelPendingTransition = null
+    }
+
+    function run() {
       if (called)
         return
       called = true
-      clearTimeout(timer)
-      el?.removeEventListener('transitionend', run)
+      cleanup()
       cb()
+    }
+
+    cancelPendingTransition = () => {
+      called = true
+      cleanup()
     }
 
     if (el) {
@@ -121,7 +143,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     })
   }
 
-  function navigate(isNext: boolean): void {
+  function navigate(isNext: boolean, { instant = false }: NavigateOptions = {}): void {
     if (isAnimating || edgeOverlay.value)
       return
 
@@ -133,6 +155,16 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     if (!isNext && currentIndex.value <= 0) {
       edgeOverlay.value = 'start'
       snapBack()
+      return
+    }
+
+    if (instant) {
+      // No transition: the container stays put and the panel slots rotate, so
+      // the next/prev panel that was preloaded becomes the current one.
+      withTransition.value = false
+      setDragOffsetImmediate(0)
+      currentIndex.value += isNext ? 1 : -1
+      onAfterNavigate?.(isNext)
       return
     }
 
@@ -168,6 +200,27 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     const isEnd = edgeOverlay.value === 'end'
     edgeOverlay.value = null
     currentIndex.value = isEnd ? 0 : items.value.length - 1
+    onAfterJump?.()
+  }
+
+  /**
+   * Jump straight to an index without sliding (thumbnail strip / keyboard style).
+   * Also settles a slide that is currently in flight, so its pending
+   * transitionend callback can't overwrite the index we set here.
+   */
+  function jumpToIndex(index: number): void {
+    if (!items.value.length)
+      return
+
+    const clamped = Math.min(Math.max(index, 0), items.value.length - 1)
+    if (clamped === currentIndex.value)
+      return
+
+    cancelPendingTransition?.()
+    isAnimating = false
+    withTransition.value = false
+    setDragOffsetImmediate(0)
+    currentIndex.value = clamped
     onAfterJump?.()
   }
 
@@ -344,14 +397,14 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
 
   useShortcut({
     scope: shortcutScope,
-    combo: ['arrowdown', 'pagedown', 'j'],
-    handler: () => navigate(true),
+    combo: ['arrowdown', 'arrowright', 'pagedown', 'j'],
+    handler: () => navigate(true, { instant: true }),
   })
 
   useShortcut({
     scope: shortcutScope,
-    combo: ['arrowup', 'pageup', 'k'],
-    handler: () => navigate(false),
+    combo: ['arrowup', 'arrowleft', 'pageup', 'k'],
+    handler: () => navigate(false, { instant: true }),
   })
 
   onBeforeUnmount(() => {
@@ -366,6 +419,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     edgeOverlay,
     navigate,
     jumpToOpposite,
+    jumpToIndex,
     onPointerDown,
     onWheel,
   }

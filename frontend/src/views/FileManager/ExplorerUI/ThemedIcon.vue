@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ImagePreviewCandidate } from './hooks/use-image-preview'
 import type { IEntry } from '@/types/server.ts'
+import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
 import { localSettingsStore, PREVIEW_SIZE_UNLIMITED } from '@/store/index.ts'
 import { IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
@@ -66,12 +67,15 @@ const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
 // 预览图加载：可见 + 防抖；命中/生成/直连回退/取消由 useImagePreview 统一处理。
 // ---------------------------------------------------------------------------
 
-// 仅当元素可见时才加载预览图片
+// 仅当元素可见时才加载预览图片。用视口作为 root：IntersectionObserver 的
+// 交叉区域会先被各级滚动容器裁剪，所以网格的纵向滚动与缩略图条的横向滚动
+// 都能正确判定“滚出视野 = 不加载”；rootMargin 只给纵向预加载留余量。
+const PREVIEW_LOAD_ROOT_MARGIN = '300px 0px 300px 0px'
+
 const target = useTemplateRef<HTMLDivElement>('target')
-// const targetIsVisible = useElementVisibility(target as never, {
-//   rootMargin: '500px 0px 500px 0px',
-// })
-const targetIsVisible = ref(true)
+const targetIsVisible = useElementVisibility(target, {
+  rootMargin: PREVIEW_LOAD_ROOT_MARGIN,
+})
 
 const { url: previewUrl, request: requestPreview, settle: settlePreview } = useImagePreview()
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
