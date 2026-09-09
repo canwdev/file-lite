@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { WalkDirection } from './folder-nav/tree-walk.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
+import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { useFolderNavigation } from './folder-nav/use-folder-navigation.ts'
 import GalleryPanels from './GalleryPanels.vue'
 import GalleryThumbStrip from './GalleryThumbStrip.vue'
@@ -110,11 +111,20 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
     items,
     currentIndex,
     zoom,
-    onDoubleTap: handleToggleCollect,
     onExit: () => emit('exit'),
     onAfterNavigate,
     onAfterJump,
   })
+
+// 方向键 / Esc 由 use-swipe 注册；收藏键在这里补上（与收藏按钮同一个 handler）
+useShortcut({
+  scope: injectShortcutScope(),
+  combo: 'c',
+  handler: () => {
+    if (!edgeOverlay.value)
+      handleToggleCollect()
+  },
+})
 
 // ── Folder navigation ──────────────────────────────────────
 
@@ -356,10 +366,12 @@ function setWrapperRef(el: unknown): void {
 <style lang="scss" scoped>
 // ── Root ────────────────────────────────────────────────────
 .endless-gallery {
-  // 底部缩略图条高度 = 轨道上下内边距 + 缩略图尺寸 + 原生滚动条。
-  // 缩略图尺寸需与 GalleryThumbStrip 的 THUMB_ICON_SIZE(48 = control-lg + space-2) 一致；
-  // 末尾再留一条滚动条的高度，避免内容溢出时把浮层控件压住。
-  --gallery-thumb-strip-height: calc(var(--vgo-space-1) * 2 + var(--vgo-control-lg) + var(--vgo-space-2) + var(--vgo-space-2));
+  // 底部缩略图条高度 = 轨道上下内边距(space-1×2) + 格子上下内边距(space-1×2)
+  // + 缩略图尺寸(control-lg + space-2 = 48，与 GalleryThumbStrip 的 THUMB_ICON_SIZE 一致)
+  // + 原生滚动条(space-2)。末尾留出滚动条高度，避免内容溢出时把浮层控件压住。
+  --gallery-thumb-strip-height: calc(
+    var(--vgo-space-1) * 4 + var(--vgo-control-lg) + var(--vgo-space-2) + var(--vgo-space-2)
+  );
 
   width: 100%;
   height: 100%;

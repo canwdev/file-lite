@@ -18,7 +18,6 @@ interface UseSwipeOptions {
   items: Ref<MediaFile[]>
   currentIndex: Ref<number>
   zoom: ZoomAPI
-  onDoubleTap: () => void
   onExit: () => void
   /** Called synchronously in the same reactive batch as currentIndex/dragOffset reset. */
   onAfterNavigate?: (isNext: boolean) => void
@@ -34,7 +33,7 @@ interface NavigateOptions {
   instant?: boolean
 }
 
-export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
+export function useSwipe({ items, currentIndex, zoom, onExit, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
   const shortcutScope = injectShortcutScope()
   const wrapperRef = ref<HTMLElement | null>(null)
   const swipeContainerRef = ref<HTMLElement | null>(null)
@@ -46,26 +45,21 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
   let isDragging = false // single-finger swipe
   let isPanningLocal = false // single-finger pan (zoom > 1)
   let isTouchPointer = false
-  let lastTapTime = 0
   let startY = 0
-  let panStartClientX = 0
-  let panStartClientY = 0
-  let panMoved = false // whether pan moved beyond tap threshold
   let pendingDragOffset: number | null = null
   let dragOffsetRaf = 0
 
-  const DOUBLE_TAP_DELAY = 300
-  const THRESHOLD = 60
+  const THRESHOLD = 30
   const DURATION = 260
 
   /**
    * Run `cb` exactly once — whichever comes first:
    *   • the swipe-container's transitionend event, or
    *   • a safety timeout (DURATION + 80 ms) in case the event never fires.
-   * The pending callback is cancelled by `cancelPendingTransition()` (used by
-   * jumpToIndex), so an interrupted slide never mutates currentIndex afterwards.
+   * The pending callback can be settled early (next gesture starts → continuous
+   * swiping) or cancelled outright (jumpToIndex takes over the index).
    */
-  let cancelPendingTransition: (() => void) | null = null
+  let pendingTransition: { settle: () => void, cancel: () => void } | null = null
 
   function afterTransition(cb: () => void): void {
     const el = swipeContainerRef.value
@@ -75,7 +69,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     function cleanup() {
       clearTimeout(timer)
       el?.removeEventListener('transitionend', run)
-      cancelPendingTransition = null
+      pendingTransition = null
     }
 
     function run() {
@@ -86,15 +80,25 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       cb()
     }
 
-    cancelPendingTransition = () => {
-      called = true
-      cleanup()
+    pendingTransition = {
+      settle: run,
+      cancel: () => {
+        if (called)
+          return
+        called = true
+        cleanup()
+      },
     }
 
     if (el) {
       el.addEventListener('transitionend', run, { once: true })
     }
     timer = setTimeout(run, DURATION + 80)
+  }
+
+  /** 结束未完成的滑动动画并直接落到终态（连续滑动时新手势要立刻接管） */
+  function settlePendingTransition(): void {
+    pendingTransition?.settle()
   }
 
   const containerStyle = computed(() => ({
@@ -177,9 +181,8 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       currentIndex.value += isNext ? 1 : -1
       setDragOffsetImmediate(0)
       onAfterNavigate?.(isNext)
-      nextTick(() => {
-        isAnimating = false
-      })
+      // 同步解除手势锁：连续滑动时下一个手势在 pointerdown 里就能接管
+      isAnimating = false
     })
   }
 
@@ -216,7 +219,7 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     if (clamped === currentIndex.value)
       return
 
-    cancelPendingTransition?.()
+    pendingTransition?.cancel()
     isAnimating = false
     withTransition.value = false
     setDragOffsetImmediate(0)
@@ -233,10 +236,19 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
 
   function onPointerDown(e: MouseEvent | TouchEvent): void {
     const target = e.target as HTMLElement
-    if (target.closest('video, audio, button, input, a'))
+    // 音视频表面不排除：在视频上纵向拖拽同样翻页；自定义控件用 [data-no-swipe] 标记
+    if (target.closest('button, input, a, [data-no-swipe]'))
       return
-    if (isAnimating || edgeOverlay.value)
+    if (edgeOverlay.value)
       return
+
+    // 连续滑动：上一张的滑动动画还没结束就把新手势接过来，先让动画落到终态，
+    // 本次拖拽从新图片的偏移 0 开始，不必等满 260ms。
+    if (isAnimating) {
+      settlePendingTransition()
+      if (isAnimating)
+        return
+    }
 
     isTouchPointer = 'touches' in e
 
@@ -265,9 +277,6 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     // ── Zoomed in: pan instead of swipe ──────────────────────
     if (zoom.scale.value > 1) {
       isPanningLocal = true
-      panMoved = false
-      panStartClientX = clientX
-      panStartClientY = clientY
       zoom.startPan(clientX, clientY)
       window.addEventListener('mousemove', onPointerMove)
       window.addEventListener('touchmove', onPointerMove, { passive: false })
@@ -304,11 +313,6 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     if (isPanningLocal) {
       if ('touches' in e)
         e.preventDefault()
-      if (!panMoved) {
-        const dist = Math.hypot(clientX - panStartClientX, clientY - panStartClientY)
-        if (dist > 8)
-          panMoved = true
-      }
       zoom.updatePan(clientX, clientY)
       return
     }
@@ -334,17 +338,6 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
       isPanningLocal = false
       zoom.endPan()
       cleanListeners()
-      // Small pan = tap; check double-tap for collect
-      if (isTouchPointer && !panMoved) {
-        const now = Date.now()
-        if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-          onDoubleTap()
-          lastTapTime = 0
-        }
-        else {
-          lastTapTime = now
-        }
-      }
       return
     }
 
@@ -355,22 +348,10 @@ export function useSwipe({ items, currentIndex, zoom, onDoubleTap, onExit, onAft
     cleanListeners()
     flushPendingDragOffset()
     const delta = dragOffset.value
-    if (Math.abs(delta) >= THRESHOLD) {
+    if (Math.abs(delta) >= THRESHOLD)
       navigate(delta < 0)
-    }
-    else {
+    else
       snapBack()
-      if (isTouchPointer) {
-        const now = Date.now()
-        if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-          onDoubleTap()
-          lastTapTime = 0
-        }
-        else {
-          lastTapTime = now
-        }
-      }
-    }
   }
 
   function onWheel(e: WheelEvent): void {

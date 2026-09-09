@@ -8,8 +8,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - EndlessGallery also switches images with the left/right arrow keys, and keyboard switching no longer plays the slide animation (frontend).
 - EndlessGallery has a bottom thumbnail strip that fades in on hover: scroll it horizontally with the native scrollbar, click a thumbnail to jump instantly, and the semi-transparent theme-color background shows how far the current image is in the folder (frontend).
+- EndlessGallery collects the current image with the `c` key (frontend).
+- On touch screens EndlessGallery keeps up with fast repeated swipes instead of ignoring a swipe that arrives while the previous image is still sliding (frontend).
+- EndlessGallery plays video and audio with its own minimal controls: tap to play or pause, a translucent play icon while paused, muted autoplay that loops, a mute toggle at the bottom left, and a thin seek bar you can drag (frontend).
+- EndlessGallery unloads the video or audio element and its source as soon as the item leaves the screen, and resumes from where it was when you come back (frontend).
 - Grid and list thumbnails now load only once they scroll near the viewport instead of all at once when a folder opens (frontend).
-
 - Grid-view file previews and folder preview thumbnails now come from a local IndexedDB cache of ≤256px thumbnails (1 GB LRU), so revisiting a photo folder downloads each original image only once (frontend).
 - Preview Size now only limits downloading originals: an image that is already cached still shows its thumbnail even when it exceeds the limit, and it disappears again only when Preview is disabled (frontend).
 - Full-size image streams now revalidate with the browser using the file's size/mtime (ETag / Last-Modified), returning 304 instead of re-downloading unchanged files (Node.js / Go).
@@ -29,6 +32,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Rename / create-directory failures now return the actual error message instead of a generic failure or an HTML error page (Node.js / Go).
 - Cut & paste on the same drive is now a real instant move that keeps file metadata and hard links, instead of copy-then-delete (Node.js / Go).
 - Copying or moving folders containing symbolic links keeps the links instead of recursively copying their targets (Go; Node.js already did).
+- EndlessGallery no longer stars the current image on a double tap, so accidental double taps don't change the collection (frontend).
+- Dragging on a video in EndlessGallery now swipes to the next item instead of being ignored (frontend).
+- The EndlessGallery thumbnail strip no longer freezes on folders with thousands of images, because it only renders the part that is on screen (frontend).
 
 ## 1.4.3
 

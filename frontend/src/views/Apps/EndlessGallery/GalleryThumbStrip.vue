@@ -2,7 +2,7 @@
 import type { MediaFile } from './use-media-list.ts'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import { useThumbStrip } from './use-thumb-strip.ts'
+import { THUMB_ICON_SIZE, useThumbStrip } from './use-thumb-strip.ts'
 
 const props = defineProps<{
   items: MediaFile[]
@@ -14,18 +14,13 @@ const emit = defineEmits<{
   (e: 'select', index: number): void
 }>()
 
-/**
- * 缩略图尺寸。ThemedIcon 小于 48px 时只显示类型图标（MIN_PREVIEW_ICON_SIZE），
- * 所以这里不能更小；EndlessGallery.vue 的 --gallery-thumb-strip-height 需与之对应。
- */
-const THUMB_ICON_SIZE = 48
-
 const itemsRef = computed(() => props.items)
 const currentIndexRef = computed(() => props.currentIndex)
-const { trackRef, progressWidth, onTrackWheel, onTrackTouchStart } = useThumbStrip({
-  items: itemsRef,
-  currentIndex: currentIndexRef,
-})
+const { trackRef, visibleItems, sizerStyle, progressWidth, onTrackScroll, onTrackWheel, onTrackTouchStart }
+  = useThumbStrip({
+    items: itemsRef,
+    currentIndex: currentIndexRef,
+  })
 </script>
 
 <template>
@@ -37,27 +32,31 @@ const { trackRef, progressWidth, onTrackWheel, onTrackTouchStart } = useThumbStr
     <div
       ref="trackRef"
       class="thumb-strip__track vgo-u-scrollbar"
+      @scroll.passive="onTrackScroll"
       @wheel.stop.prevent="onTrackWheel"
       @mousedown.stop
       @touchstart.stop="onTrackTouchStart"
     >
-      <button
-        v-for="(item, index) in items"
-        :key="item.name"
-        class="vgo-u-button-reset vgo-list-item thumb-strip__cell"
-        :class="{ 'is-active': index === currentIndex }"
-        :title="item.name"
-        :aria-label="item.name"
-        :aria-current="index === currentIndex ? 'true' : undefined"
-        @click.stop="emit('select', index)"
-      >
-        <ThemedIcon
-          :icon-class="getFileIconClass(item.entry)"
-          :item="item.entry"
-          :abs-path="`${basePath}/${item.name}`"
-          :icon-size="THUMB_ICON_SIZE"
-        />
-      </button>
+      <!-- 窗口化：sizer 的左右内边距占位未渲染的项，滚动宽度与全量渲染一致 -->
+      <div class="thumb-strip__sizer" :style="sizerStyle">
+        <button
+          v-for="{ item, index } in visibleItems"
+          :key="item.name"
+          class="vgo-u-button-reset vgo-list-item thumb-strip__cell"
+          :class="{ 'is-active': index === currentIndex }"
+          :title="item.name"
+          :aria-label="item.name"
+          :aria-current="index === currentIndex ? 'true' : undefined"
+          @click.stop="emit('select', index)"
+        >
+          <ThemedIcon
+            :icon-class="getFileIconClass(item.entry)"
+            :item="item.entry"
+            :abs-path="`${basePath}/${item.name}`"
+            :icon-size="THUMB_ICON_SIZE"
+          />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -83,14 +82,19 @@ const { trackRef, progressWidth, onTrackWheel, onTrackTouchStart } = useThumbStr
   // 定位上下文：格子的 offsetLeft 必须相对轨道计算（见 use-thumb-strip）；
   // 同时它排在进度层之后，缩略图与滚动条都画在进度层之上。
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--vgo-space-1);
   padding: var(--vgo-space-1) var(--vgo-space-2);
   overflow-x: auto;
   overflow-y: hidden;
   touch-action: pan-x;
   overscroll-behavior-x: contain;
+}
+
+// 窗口容器：宽度随内容（含占位内边距）变化，格子尺寸与间距由 use-thumb-strip 量取
+.thumb-strip__sizer {
+  display: flex;
+  align-items: center;
+  gap: var(--vgo-space-1);
+  width: max-content;
 }
 
 // 选中 / 悬停配色由 .vgo-list-item 的 is-active / :hover 给出（浮层内自动转成浮层配色），

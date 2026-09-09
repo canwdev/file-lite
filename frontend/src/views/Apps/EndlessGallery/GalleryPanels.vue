@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ComponentPublicInstance, CSSProperties } from 'vue'
 import type { MediaFile } from './use-media-list.ts'
+import GalleryMedia from './GalleryMedia.vue'
 
 const props = defineProps<{
   panelItems: (MediaFile | null)[]
@@ -18,54 +19,9 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLElement | null>(null)
 const imageRefs = ref<(HTMLImageElement | null)[]>([])
-const mediaRefs = ref<(HTMLMediaElement | null)[]>([null, null, null])
-const hasUserInteracted = ref(false)
 
 function setImageRef(el: Element | ComponentPublicInstance | null, slotIdx: number): void {
   imageRefs.value[slotIdx] = el instanceof HTMLImageElement ? el : null
-}
-
-function setMediaRef(el: Element | ComponentPublicInstance | null, slotIdx: number): void {
-  mediaRefs.value[slotIdx] = el instanceof HTMLMediaElement ? el : null
-}
-
-function getCurrentMedia(): HTMLMediaElement | null {
-  return mediaRefs.value[props.currentSlot] ?? null
-}
-
-function pauseNonCurrentMedia(): void {
-  mediaRefs.value.forEach((media, slotIdx) => {
-    if (media && slotIdx !== props.currentSlot)
-      media.pause()
-  })
-}
-
-function playCurrentMedia(): void {
-  const media = getCurrentMedia()
-  if (!media)
-    return
-
-  if (hasUserInteracted.value)
-    media.muted = false
-
-  if (hasUserInteracted.value || media.muted)
-    media.play().catch(() => {})
-}
-
-async function syncMediaPlayback(): Promise<void> {
-  pauseNonCurrentMedia()
-  await nextTick()
-  playCurrentMedia()
-}
-
-function handleUserGesture(e: Event): void {
-  hasUserInteracted.value = true
-
-  const target = e.target
-  if (target instanceof Element && target.closest('video, audio, button, input, a'))
-    return
-
-  playCurrentMedia()
 }
 
 function getPanelClass(slotIdx: number): string {
@@ -123,22 +79,16 @@ watch(
   ],
   () => {
     void emitCurrentImageIfReady()
-    void syncMediaPlayback()
   },
   { immediate: true },
 )
 
 onMounted(() => {
   emit('containerReady', containerRef.value)
-  window.addEventListener('pointerdown', handleUserGesture)
-  window.addEventListener('keydown', handleUserGesture)
-  void syncMediaPlayback()
 })
 
 onBeforeUnmount(() => {
   emit('containerReady', null)
-  window.removeEventListener('pointerdown', handleUserGesture)
-  window.removeEventListener('keydown', handleUserGesture)
 })
 </script>
 
@@ -167,37 +117,11 @@ onBeforeUnmount(() => {
             <i-mdi-loading />
           </div>
         </template>
-        <video
-          v-else-if="panelItem.type === 'video'"
-          :ref="(el) => setMediaRef(el, slotIndex)"
-          :key="panelItem.url"
-          :src="panelItem.url"
-          class="media-fit"
-          :controls="slotIndex === currentSlot"
-          :autoplay="slotIndex === currentSlot"
-          :muted="!hasUserInteracted"
-          :tabindex="slotIndex === currentSlot ? 0 : -1"
-          loop
-          playsinline
-          webkit-playsinline
+        <GalleryMedia
+          v-else
+          :item="panelItem"
+          :active="slotIndex === currentSlot"
         />
-        <div v-else class="audio-pane">
-          <i-mdi-music-circle-outline class="audio-bg-icon" />
-          <audio
-            v-if="panelItem.type === 'audio' && slotIndex === currentSlot"
-            :ref="(el) => setMediaRef(el, slotIndex)"
-            :key="panelItem.url"
-            :src="panelItem.url"
-            controls
-            autoplay
-            class="audio-ctrl"
-            loop
-            playsinline
-            webkit-playsinline
-            :muted="!hasUserInteracted"
-            :tabindex="slotIndex === currentSlot ? 0 : -1"
-          />
-        </div>
       </template>
       <div v-else class="boundary-hint">
         <MdiIcon
@@ -229,19 +153,15 @@ onBeforeUnmount(() => {
   &--prev { bottom: 100%; top: auto; }
   &--current { top: 0; }
   &--next { top: 100%; }
-
 }
 
+// 只用于图片：音视频的尺寸与指针事件由 GalleryMedia 自己管
 .media-fit {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   pointer-events: none;
-}
-
-.swipe-panel--current .media-fit {
-  pointer-events: auto;
 }
 
 .image-loading-placeholder {
@@ -262,26 +182,6 @@ onBeforeUnmount(() => {
 @keyframes image-loading-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-.audio-pane {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-
-  .audio-bg-icon {
-    font-size: 120px;
-    color: rgba(255, 255, 255, 0.12);
-    pointer-events: none;
-  }
-
-  .audio-ctrl {
-    width: min(85%, 420px);
-  }
 }
 
 .boundary-hint {

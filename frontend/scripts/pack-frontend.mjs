@@ -3,8 +3,10 @@
 // that the Go binary embeds instead of the raw files (~1.7 MB -> ~0.5 MB).
 //
 // Run automatically by `bun run build:for-go` after `vite build --mode go`.
+import { Buffer } from 'node:buffer'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 
