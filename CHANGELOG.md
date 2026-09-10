@@ -4,6 +4,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ## 1.4.5
 
+### UI
+
+- The transfer window title now shows both the file count and the transferred/total size, plus the current total transfer speed, and progress updates are throttled to the display refresh rate so large queues stay smooth (frontend).
+- The transfer window footer shows a Retry All button while any transfer has failed (frontend).
+
 ### Features
 
 - `--create-config --with-tls` puts detected local IPs in the certificate SAN (or, when `--tls-host` names hosts explicitly, exactly those hosts) and prints the certificate details, including its SAN, validity and SHA-256 fingerprint (backend).
@@ -13,6 +18,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Fixes
 
 - Uploading or downloading many files no longer returns 429: the blanket per-request limit on the whole API was removed, and brute-force protection now rate-limits and bans only the login endpoint (backend).
+- The transfer window no longer re-renders once per finished file, which had made its buttons unclickable while moving many small files (frontend).
+- Downloading a folder shows real byte progress and a total speed again: queued download tasks carry the size from the directory listing, and a file that finishes between frames still contributes its final bytes (frontend).
 
 ### Engineering
 

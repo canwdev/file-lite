@@ -154,6 +154,8 @@ export function useTransfer({
       const pendingTasks: {
         filename: string
         path: string
+        // 目录列表里已知的文件大小，用于展示传输总量
+        size?: number
         parentHandle: FileSystemDirectoryHandle
         type: 'download'
       }[] = []
@@ -207,6 +209,7 @@ export function useTransfer({
           pendingTasks.push({
             filename: entry.name,
             path: itemPath,
+            size: entry.size ?? undefined,
             parentHandle,
             type: 'download',
           })

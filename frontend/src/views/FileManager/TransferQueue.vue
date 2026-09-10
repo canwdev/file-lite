@@ -25,6 +25,8 @@ export interface IBatchFile {
   // 绝对路径
   path: string
   filename?: string
+  // 已知的文件大小（下载来自目录列表，上传来自 File.size）
+  size?: number
   // 下载时使用的父级目录句柄
   parentHandle?: FileSystemDirectoryHandle
   type?: 'upload' | 'download'
@@ -51,17 +53,14 @@ export interface ITransferItem extends IBatchFile {
   }
 }
 
-const listData = ref<ITransferItem[]>([])
+// shallowRef：列表项是普通对象，字段改动本身不触发重渲染，统一由 rAF 里的 triggerRef
+// 每帧通知一次。否则下载大量小文件时每完成一个就整窗重渲染，UI 会被刷到点不动按钮。
+const listData = shallowRef<ITransferItem[]>([])
 const isVisible = ref(false)
 const transferIndex = ref(0)
 const taskQueueRef = ref()
 const transferListRef = ref<HTMLElement | null>(null)
 const transferItemHeight = ref(54)
-const statusCounts = reactive({
-  success: 0,
-  failed: 0,
-  transferring: 0,
-})
 const virtualTransferList = useVirtualList({
   items: listData,
   containerRef: transferListRef,
@@ -92,7 +91,7 @@ watch(isVisible, (val) => {
     transferIndex.value = 0
     cancelAll()
     listData.value = []
-    resetStatusCounts()
+    scheduleFlush()
   }
 })
 
@@ -106,10 +105,154 @@ function cancelAll() {
 }
 
 async function cancelItem(item: ITransferItem) {
+  dropPending(item)
   item.abortObj?.abort()
   item.abortObj = undefined
   setItemStatus(item, 'failed')
   item.message = 'Cancelled'
+}
+
+// ---- 传输进度聚合 ----
+// 进度事件（上传每个分片、下载每个 chunk）触发得非常频繁，逐个写入响应式数据会让整个
+// 组件反复重渲染。这里先把最新值记在非响应式的 Map 里，再用 requestAnimationFrame
+// 每帧统一刷入并重算总量，响应式更新频率收敛到屏幕刷新率。
+
+interface IProgressInfo {
+  loaded: number
+  total: number
+  rate: number
+  bytes: number
+}
+
+const pendingProgress = new Map<ITransferItem, IProgressInfo>()
+const totalBytes = ref(0)
+const loadedBytes = ref(0)
+const totalRate = ref(0)
+const successNum = ref(0)
+const errorNum = ref(0)
+const transferringNum = ref(0)
+const pendingNum = ref(0)
+let flushFrame = 0
+
+function itemTotalBytes(item: ITransferItem): number {
+  if (item.speedInfo && item.speedInfo.total > 0) {
+    return item.speedInfo.total
+  }
+  // 下载用目录列表带来的 size，上传用 File.size
+  if (item.size && item.size > 0) {
+    return item.size
+  }
+  if (item.file && item.file.size > 0) {
+    return item.file.size
+  }
+  return 0
+}
+
+function itemLoadedBytes(item: ITransferItem): number {
+  if (item.status === 'success') {
+    return item.speedInfo?.loaded || item.speedInfo?.total || item.size || item.file?.size || 0
+  }
+  return item.speedInfo?.loaded || 0
+}
+
+function recomputeTotals() {
+  let total = 0
+  let loaded = 0
+  let success = 0
+  let failed = 0
+  let transferring = 0
+  let pending = 0
+  const items = listData.value
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    total += itemTotalBytes(item)
+    loaded += itemLoadedBytes(item)
+    switch (item.status) {
+      case 'success':
+        success++
+        break
+      case 'failed':
+        failed++
+        break
+      case 'transferring':
+        transferring++
+        break
+      default:
+        pending++
+    }
+  }
+  totalBytes.value = total
+  loadedBytes.value = loaded
+  successNum.value = success
+  errorNum.value = failed
+  transferringNum.value = transferring
+  pendingNum.value = pending
+}
+
+// 总速度按「已传输字节增量 / 时间」计算，而不是累加每个任务的瞬时 rate：
+// 小文件常常一个进度事件都来不及刷出就完成了，逐任务 rate 会一直是 0。
+let rateSampleLoaded = 0
+let rateSampleAt = 0
+let rateSmoothed = 0
+
+function updateTotalRate() {
+  const loaded = loadedBytes.value
+  const active = pendingNum.value > 0 || transferringNum.value > 0
+  const now = performance.now()
+  if (!active) {
+    rateSampleLoaded = loaded
+    rateSampleAt = 0
+    rateSmoothed = 0
+    totalRate.value = 0
+    return
+  }
+  if (rateSampleAt === 0) {
+    rateSampleLoaded = loaded
+    rateSampleAt = now
+    return
+  }
+  const elapsed = (now - rateSampleAt) / 1000
+  if (elapsed < 0.25) {
+    return
+  }
+  const instant = Math.max(loaded - rateSampleLoaded, 0) / elapsed
+  rateSmoothed = rateSmoothed > 0 ? rateSmoothed * 0.6 + instant * 0.4 : instant
+  rateSampleLoaded = loaded
+  rateSampleAt = now
+  totalRate.value = rateSmoothed
+}
+
+function scheduleFlush() {
+  if (flushFrame) {
+    return
+  }
+  flushFrame = requestAnimationFrame(flushProgress)
+}
+
+function flushProgress() {
+  flushFrame = 0
+  if (pendingProgress.size) {
+    for (const [item, info] of pendingProgress) {
+      item.speedInfo = info
+      if (info.total > 0) {
+        item.progress = Math.min(info.loaded / info.total, 1)
+      }
+    }
+    pendingProgress.clear()
+  }
+  recomputeTotals()
+  updateTotalRate()
+  // 列表项是普通对象，字段改动不触发响应式；这里每帧统一通知一次
+  triggerRef(listData)
+}
+
+function reportProgress(item: ITransferItem, info: IProgressInfo) {
+  pendingProgress.set(item, info)
+  scheduleFlush()
+}
+
+function dropPending(item: ITransferItem) {
+  pendingProgress.delete(item)
 }
 
 async function handleUpload(data: ITransferItem, abortController: AbortController) {
@@ -124,14 +267,12 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
     },
     {
       onUploadProgress(event: any) {
-        // console.log(event)
-        data.progress = event.progress
-        data.speedInfo = {
+        reportProgress(data, {
           loaded: event.loaded,
           total: event.total,
           rate: event.rate,
           bytes: event.bytes,
-        }
+        })
       },
       signal: abortController.signal,
     },
@@ -163,6 +304,8 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
   }
 
   const contentLength = Number.parseInt(response.headers.get('Content-Length') || '0')
+  // 没有 Content-Length 时退回目录列表里的 size（仅作兜底，文件可能在列表之后被改动）
+  const totalSize = contentLength > 0 ? contentLength : (data.size || 0)
   const fileHandle = await parentHandle.getFileHandle(filename, { create: true })
   const writable = await fileHandle.createWritable({ keepExistingData: false })
 
@@ -173,18 +316,17 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
   const tickProgress = (force = false) => {
     const currentTime = Date.now()
     const timeDiff = (currentTime - lastTime) / 1000
-    if (!force && timeDiff < 0.5 && loaded !== contentLength)
+    if (!force && timeDiff < 0.5 && loaded !== totalSize)
       return
 
-    data.progress = contentLength ? loaded / contentLength : (force && loaded > 0 ? 1 : 0)
     const bytesDiff = loaded - lastLoaded
     const rate = timeDiff > 0 ? bytesDiff / timeDiff : 0
-    data.speedInfo = {
+    reportProgress(data, {
       loaded,
-      total: contentLength,
+      total: totalSize,
       rate,
       bytes: bytesDiff,
-    }
+    })
     lastTime = currentTime
     lastLoaded = loaded
   }
@@ -239,13 +381,21 @@ function taskHandler(task: TaskItem) {
         await handleDownload(data, abortController)
       }
 
+      dropPending(data)
       setItemStatus(data, 'success')
+      data.progress = 1
+      // 小文件可能一帧内就传完，最后一个进度事件还没刷入；这里补上最终字节，
+      // 否则聚合进度会漏掉这些文件，速度和总量都不准。
+      const finalSize = data.speedInfo?.total || data.size || data.file?.size || 0
+      data.speedInfo = { loaded: finalSize, total: finalSize, rate: 0, bytes: 0 }
       data.abortObj = undefined
       data.message = 'Success'
       emit('singleDone', data)
       resolve(data)
     }
     catch (e: any) {
+      // 先把未刷新的进度丢掉，避免失败/取消后又被补写
+      dropPending(data)
       if (e.name === 'AbortError') {
         if (data.status !== 'failed') {
           setItemStatus(data, 'failed')
@@ -275,13 +425,18 @@ onMounted(() => {
   taskQueueRef.value.on('allDone', () => {
     emit('allDone', listData.value)
     if (props.autoClose) {
-      if (!statusCounts.failed) {
+      // 直接看列表，避免依赖下一帧才刷新的计数
+      if (!listData.value.some(item => item.status === 'failed')) {
         isVisible.value = false
       }
     }
   })
 })
 onBeforeUnmount(() => {
+  if (flushFrame) {
+    cancelAnimationFrame(flushFrame)
+    flushFrame = 0
+  }
   taskQueueRef.value.removeAllTask()
   taskQueueRef.value = []
 })
@@ -293,6 +448,8 @@ function addTask(data: IBatchFile, position: number = -1) {
     progress: 0,
     status: 'pending',
     message: 'Waiting',
+    // 重试时清掉上一轮的进度，避免累计字节把总量算错
+    speedInfo: undefined,
   } as ITransferItem
   if (position !== -1) {
     listData.value.splice(position, 0, data as ITransferItem)
@@ -302,6 +459,8 @@ function addTask(data: IBatchFile, position: number = -1) {
   }
   taskQueueRef.value.addTask(data)
   isVisible.value = true
+  triggerRef(listData)
+  scheduleFlush()
 }
 function addTasks(data: IBatchFile[]) {
   if (!data.length) {
@@ -317,15 +476,49 @@ function addTasks(data: IBatchFile[]) {
       message: 'Waiting',
     } as ITransferItem
   })
-  listData.value.push(...items)
+  // 分块 push：上万条一次性展开会撞上参数个数上限
+  const addChunkSize = 5000
+  for (let i = 0; i < items.length; i += addChunkSize) {
+    listData.value.push(...items.slice(i, i + addChunkSize))
+  }
   taskQueueRef.value.addTasks(items)
   isVisible.value = true
+  triggerRef(listData)
+  scheduleFlush()
 }
 
 function handleRetry(item: ITransferItem, index: number) {
-  decreaseStatusCount(item.status)
   listData.value.splice(index, 1)
   addTask(item, index)
+}
+
+function retryAll() {
+  // 一次性重建列表并整批入队，避免逐个 splice/insert + addTask 在上万条失败时退化成 O(n²)
+  const retried: ITransferItem[] = []
+  let failedCount = 0
+  const next = listData.value.map((item) => {
+    if (item.status !== 'failed') {
+      return item
+    }
+    failedCount++
+    const retriedItem = {
+      ...item,
+      index: ++transferIndex.value,
+      progress: 0,
+      status: 'pending',
+      message: 'Waiting',
+      speedInfo: undefined,
+      abortObj: undefined,
+    } as ITransferItem
+    retried.push(retriedItem)
+    return retriedItem
+  })
+  if (!failedCount) {
+    return
+  }
+  listData.value = next
+  taskQueueRef.value.addTasks(retried)
+  scheduleFlush()
 }
 
 function handleManualDownload(item: ITransferItem) {
@@ -392,33 +585,31 @@ onMounted(() => {
         progress: 0.15,
       }),
     ]
-    refreshStatusCounts()
+    recomputeTotals()
+    triggerRef(listData)
   }
   mockList()
 })
 
-const successNum = computed(() => {
-  return statusCounts.success
-})
-const transferringNum = computed(() => {
-  return statusCounts.transferring
-})
-const errorNum = computed(() => {
-  return statusCounts.failed
-})
 const totalProgress = computed(() => {
+  // 有明确字节总量时按 已传输/总量 计算；下载尚未拿到 Content-Length 时退回按条数估算
+  if (totalBytes.value > 0) {
+    return Math.min((loadedBytes.value / totalBytes.value) * 100, 100)
+  }
   return listData.value.length ? (successNum.value / listData.value.length) * 100 : 0
 })
+const totalProgressText = computed(() => `${Number.parseFloat(totalProgress.value.toFixed(2))}%`)
+// 队列里还有 pending/transferring 就算活跃，避免并发为 1 时按钮在 Cancel All / Close 之间闪烁
 const hasActiveTasks = computed(() => {
-  return transferringNum.value > 0
+  return pendingNum.value > 0 || transferringNum.value > 0
 })
 function clearFailed() {
   listData.value = listData.value.filter(i => i.status !== 'failed')
-  statusCounts.failed = 0
+  scheduleFlush()
 }
 function clearSuccess() {
   listData.value = listData.value.filter(i => i.status !== 'success')
-  statusCounts.success = 0
+  scheduleFlush()
 }
 
 function setItemStatus(item: ITransferItem, status: ITransferItem['status']) {
@@ -426,32 +617,9 @@ function setItemStatus(item: ITransferItem, status: ITransferItem['status']) {
     return
   }
 
-  decreaseStatusCount(item.status)
   item.status = status
-  increaseStatusCount(status)
-}
-
-function increaseStatusCount(status: ITransferItem['status']) {
-  if (status === 'success' || status === 'failed' || status === 'transferring') {
-    statusCounts[status]++
-  }
-}
-
-function decreaseStatusCount(status: ITransferItem['status']) {
-  if (status === 'success' || status === 'failed' || status === 'transferring') {
-    statusCounts[status] = Math.max(statusCounts[status] - 1, 0)
-  }
-}
-
-function resetStatusCounts() {
-  statusCounts.success = 0
-  statusCounts.failed = 0
-  statusCounts.transferring = 0
-}
-
-function refreshStatusCounts() {
-  resetStatusCounts()
-  listData.value.forEach(item => increaseStatusCount(item.status))
+  // 计数与重渲染都交给每帧一次的 flush
+  scheduleFlush()
 }
 
 async function setConcurrentNum() {
@@ -488,10 +656,14 @@ defineExpose({
   >
     <template #titleBarLeft>
       <i-mdi-cloud-sync />
-      <span>[{{ successNum }}/{{ listData.length }}]</span>
-      <span v-if="listData.length">{{ parseFloat(((successNum / listData.length) * 100).toFixed(2)) }}%</span>
+      <div class="vgo-u-flex-wrap-center transfer-header vgo-u-font-code">
+        <span>[{{ successNum }}/{{ listData.length }}]</span>
+        <span v-if="totalBytes > 0">[{{ bytesToSize(loadedBytes) }}/{{ bytesToSize(totalBytes) }}]</span>
+        <span v-if="listData.length">[{{ totalProgressText }}]</span>
+        <span v-if="totalRate > 0" title="Total speed" class="vgo-u-flex-wrap-center"> <i-mdi-speedometer /> {{ bytesToSize(totalRate) }}/s </span>
 
-      <span v-if="errorNum" title="Failed"> <i-mdi-alert-circle class="status-failed" /> {{ errorNum }} </span>
+        <span v-if="errorNum" title="Failed" class="vgo-u-flex-wrap-center"> <i-mdi-alert-circle class="status-failed" /> {{ errorNum }} </span>
+      </div>
     </template>
 
     <div class="transfer-wrapper">
@@ -595,12 +767,15 @@ defineExpose({
       <div class="transfer-footer">
         <div class="footer-group">
           <span
-            v-if="transferringNum"
+            v-if="listData.length"
             class="cursor-pointer"
             :title="`Concurrent: ${concurrentNum}, Transferring: ${transferringNum}`"
             @click="setConcurrentNum"
           > <i-mdi-compare-vertical /> {{ transferringNum }} </span>
 
+          <button v-if="errorNum > 0" class="vgo-button vgo-button--primary vgo-button--sm" @click="retryAll">
+            Retry All
+          </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--sm" @click="clearFailed">
             Clear Failed
           </button>
@@ -627,6 +802,13 @@ defineExpose({
 .status-active { color: var(--vgo-primary); }
 .status-idle { color: var(--vgo-text-secondary); }
 
+.transfer-header {
+  font-size: 13px;
+  gap: 2px;
+  .vgo-u-flex-wrap-center {
+    gap: 1px;
+  }
+}
 .transfer-wrapper {
   height: 100%;
   display: flex;
@@ -727,6 +909,8 @@ defineExpose({
   .transfer-footer {
     padding: var(--vgo-space-2) var(--vgo-space-3);
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--vgo-space-2);
     justify-content: space-between;
     align-items: center;
     border-top: 1px solid var(--vgo-border);
