@@ -15,7 +15,8 @@ func Register(api *echo.Group) {
 		return c.NoContent(http.StatusNoContent)
 	})
 	api.GET("/ws", handleSharedWebSocket)
-	api.POST("/files/auth", authWithPassword)
+	// 只有登录端点可能被爆破：严格限流 + 失败封禁都放在这里。
+	api.POST("/files/auth", authWithPassword, middlewares.LoginRateLimiter())
 	files := api.Group("/files")
 	files.Use(middlewares.AuthMiddleware)
 	registerFiles(files)

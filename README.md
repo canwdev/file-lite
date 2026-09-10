@@ -30,7 +30,7 @@
   - Configurable allowed root path scope
   - Optional IP-range allowlist (`allowedCIDRs`)
   - HTTPS including self-signed certificates
-  - Request rate limiting
+  - Login attempt rate limiting
 
 ## Installation
 

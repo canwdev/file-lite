@@ -185,7 +185,8 @@ func startServer() (*cli.ServerResult, error) {
 	e.Use(frontendStaticMiddleware(staticFS))
 
 	api := e.Group("/api")
-	api.Use(middlewares.RateLimiter())
+	// 认证后的 API 不按请求数限流（大目录遍历会发起大量 list 请求）；
+	// 防爆破集中在登录 POST 上，见 routes.Register。
 	routes.Register(api)
 
 	port := config.Port()

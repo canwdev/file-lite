@@ -112,26 +112,26 @@ func isSafeMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 }
 
-func isLocalAddress(addr string) bool {
-	if addr == "" {
-		return false
+// clientIP returns the direct TCP peer host, without the port or any
+// IPv4-mapped prefix. Forwarded headers are deliberately ignored: they are
+// client-controlled, so trusting them would let an attacker rotate identities
+// and dodge the failure ban.
+func clientIP(c echo.Context) string {
+	addr := c.Request().RemoteAddr
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
 	}
-	addr = strings.TrimPrefix(addr, "::ffff:")
-	host, _, err := net.SplitHostPort(addr)
-	if err == nil {
-		addr = strings.TrimPrefix(host, "::ffff:")
-	}
-	ip := net.ParseIP(addr)
-	return ip != nil && ip.IsLoopback()
+	return strings.TrimPrefix(addr, "::ffff:")
 }
 
 func isLocalRequest(c echo.Context) bool {
-	return isLocalAddress(c.Request().RemoteAddr)
+	ip := net.ParseIP(clientIP(c))
+	return ip != nil && ip.IsLoopback()
 }
 
 func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ip := c.RealIP()
+		ip := clientIP(c)
 		banned, _ := authLimiter.check(ip)
 		if banned {
 			return c.JSON(http.StatusForbidden, map[string]any{"message": "Forbidden"})
