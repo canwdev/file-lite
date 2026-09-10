@@ -4,13 +4,44 @@ File Lite（Go 后端）通过数据目录下 `config.json` 的 `sslKey` 与 `ss
 
 ### 1. 生成自签名证书（已生成请跳过）
 
-**方式一：首次创建配置时自动生成**（需要系统已安装 OpenSSL）
+**方式一：首次创建配置时自动生成**（由 Go 标准库内置生成，无需安装 OpenSSL 等外部命令）
 
 ```bash
 ./file-lite-go --create-config --with-tls
 ```
 
-它会在数据目录生成证书，并把 `sslKey` / `sslCert` 写入 `config.json`。
+它会在数据目录生成 `key.pem`（私钥）和 `cert.pem`（证书），并把 `sslKey` / `sslCert` 写入 `config.json`。生成的自签名证书：
+
+- 主体为 `CN=file-lite`，使用 RSA 2048 位密钥，有效期 365 天。`CN` 只是证书名称，并不参与主机名校验；
+- `subjectAltName`（SAN）始终包含 `DNS:localhost`、`IP:127.0.0.1`、`IP:::1`；未指定 `--tls-host` 时还会自动加入探测到的本机各网卡 IP（已跳过链路本地地址）。现代浏览器和 Go 都只按 SAN 校验主机名。
+
+如果需要指定其它域名或 IP，用可重复的 `--tls-host`：
+
+```bash
+./file-lite-go --create-config --with-tls \
+  --tls-host app.local --tls-host 192.168.1.10
+```
+
+- `--tls-host <host>`：向 SAN 追加域名或 IP，可重复多次；写 IPv6 可用 `[::1]` 或 `::1`。
+- **一旦指定了 `--tls-host`，就不再扫描本机 IP**，SAN 只由 `localhost`、回环地址和你给出的 host 组成，避免虚拟网卡（docker0、veth 等）地址混入；想要本机 IP 就显式写出来。
+
+生成或复用证书时都会打印完整的证书信息：
+
+```
+tls cert written: key.pem, cert.pem
+  subject:  CN=file-lite
+  pubkey:   RSA 2048-bit
+  sig:      SHA256-RSA
+  serial:   219414278114519540679476560263082189088
+  validity: 2026-09-10 ~ 2027-09-10 (365 days left)
+  sha256:   FB:0F:8B:AC:A5:1E:EB:90:56:B2:E2:A0:75:CA:52:55:D7:F5:7C:19:6F:D8:4E:7A:78:CF:D4:20:BB:70:FE:D5
+  san:      localhost, app.local, 127.0.0.1, ::1, 192.168.1.10
+  source:   defaults + --tls-host (local IP scan skipped)
+  cert:     /path/to/file-lite/cert.pem
+  key:      /path/to/file-lite/key.pem
+```
+
+如果 `key.pem` 和 `cert.pem` 都已存在，会跳过生成并直接复用现有文件（此时打印的是现有证书的信息）；若传入的 `--tls-host` 未被现有证书覆盖，会额外打印一行 `warning:`，按提示删除这两个文件后重新生成即可。
 
 **方式二：使用 OpenSSL 手动生成**
 
@@ -94,5 +125,5 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pe
 
 - **自签名证书不受信任**：浏览器会显示警告，需要手动信任后才能正常访问。
 - **仅用于开发环境**：自签名证书不适合用于生产环境，生产环境应使用受信任的 CA 颁发的证书。
-- **证书有效期**：生成时的 `-days 365` 指定了有效期，可按需调整。
+- **证书有效期**：自动生成的证书有效期为 365 天；用 OpenSSL 手动生成时由 `-days 365` 指定，均可按需调整。证书过期后重新生成 `key.pem` 与 `cert.pem` 并重启即可。
 - **安全性**：请妥善保管私钥（`key.pem`），不要泄露给任何人。

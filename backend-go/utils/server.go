@@ -15,11 +15,10 @@ func formatHostForURL(ip string) string {
 	return ip
 }
 
-func GetAvailableIPs(host string) []string {
-	if host != "0.0.0.0" {
-		return nil
-	}
-
+// GetInterfaceIPs returns the IPv4 (then IPv6) addresses of every enabled
+// network interface, loopback included. It is the raw enumeration shared by
+// URL printing and self-signed TLS SAN building.
+func GetInterfaceIPs() []string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil
@@ -57,6 +56,13 @@ func GetAvailableIPs(host string) []string {
 	}
 
 	return append(ipv4s, ipv6s...)
+}
+
+func GetAvailableIPs(host string) []string {
+	if host != "0.0.0.0" {
+		return nil
+	}
+	return GetInterfaceIPs()
 }
 
 func PrintUrls(protocol string, host string, port int, authParam string) []string {

@@ -11,6 +11,16 @@ import (
 	"file-lite-go/config"
 )
 
+// stringList collects a repeatable string flag (e.g. --tls-host a --tls-host b).
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func (s *stringList) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
+
 // expandGluedShortFlags turns -p3100 / -H0.0.0.0 into -p 3100 / -H 0.0.0.0.
 func expandGluedShortFlags(args []string) []string {
 	out := make([]string, 0, len(args))
@@ -38,8 +48,9 @@ func ParseArgv(args []string) (Overrides, error) {
 	fs.BoolVar(&o.Version, "version", false, "Show version")
 	fs.BoolVar(&o.Version, "v", false, "Show version")
 	fs.BoolVar(&o.NoTui, "no-tui", false, "Run without interactive menu")
-	fs.BoolVar(&o.CreateConfig, "create-config", false, "Create config.json if missing")
-	fs.BoolVar(&o.WithTLS, "with-tls", false, "With --create-config: generate self-signed cert")
+	fs.BoolVar(&o.CreateConfig, "create-config", false, "Create config.json and exit")
+	fs.BoolVar(&o.WithTLS, "with-tls", false, "Also generate self-signed cert")
+	fs.Var((*stringList)(&o.TLSHosts), "tls-host", "Add domain or IP to the cert (repeatable)")
 	fs.StringVar(&o.Port, "port", "", "Override listen port")
 	fs.StringVar(&o.Port, "p", "", "Override listen port")
 	fs.StringVar(&o.Host, "host", "", "Override listen host")
@@ -56,6 +67,12 @@ func ParseArgv(args []string) (Overrides, error) {
 	}
 	if rest := fs.Args(); len(rest) > 0 {
 		return o, fmt.Errorf("unknown argument: %s", rest[0])
+	}
+	// 提前校验，避免写坏 --tls-host 后才在生成证书时失败
+	for _, host := range o.TLSHosts {
+		if _, _, err := parseTLSHost(host); err != nil {
+			return o, err
+		}
 	}
 	return o, nil
 }

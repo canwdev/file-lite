@@ -4,6 +4,16 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ## Unreleased
 
+### Features
+
+- `--create-config --with-tls` puts detected local IPs in the certificate SAN (or, when `--tls-host` names hosts explicitly, exactly those hosts) and prints the certificate details, including its SAN, validity and SHA-256 fingerprint (backend).
+
+## 1.4.5
+
+### Features
+
+- `--create-config --with-tls` generates the self-signed certificate with the Go standard library, so OpenSSL no longer needs to be installed (backend).
+
 ### Engineering
 
 - The Node.js backend and its npm distribution were removed: File Lite now ships only the Go binary, and one build command packages the frontend and the current platform (all platforms for releases).

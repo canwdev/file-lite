@@ -279,6 +279,38 @@ func waitForSignal() {
 	<-quit
 }
 
+// printTLSReport prints what the certificate covers and how it was produced.
+func printTLSReport(res cli.TLSResult, extraHosts []string) {
+	if res.Subject == "" {
+		return
+	}
+	daysLeft := int(time.Until(res.NotAfter).Hours() / 24)
+	source := "defaults + detected local IPs"
+	switch {
+	case !res.Generated:
+		source = "existing certificate (delete the files to regenerate)"
+	case len(extraHosts) > 0:
+		source = "defaults + --tls-host (local IP scan skipped)"
+	}
+	fmt.Printf("  %-9s %s\n", "subject:", res.Subject)
+	fmt.Printf("  %-9s %s\n", "pubkey:", res.PublicKey)
+	fmt.Printf("  %-9s %s\n", "sig:", res.SignatureAlg)
+	fmt.Printf("  %-9s %s\n", "serial:", res.SerialNumber)
+	fmt.Printf("  %-9s %s ~ %s (%d days left)\n", "validity:",
+		res.NotBefore.Format("2006-01-02"), res.NotAfter.Format("2006-01-02"), daysLeft)
+	fmt.Printf("  %-9s %s\n", "sha256:", res.SHA256)
+	fmt.Printf("  %-9s %s\n", "san:", strings.Join(res.Hosts(), ", "))
+	fmt.Printf("  %-9s %s\n", "source:", source)
+	fmt.Printf("  %-9s %s\n", "cert:", filepath.Join(config.DataBaseDir(), res.Cert))
+	fmt.Printf("  %-9s %s\n", "key:", filepath.Join(config.DataBaseDir(), res.Key))
+	if !res.Generated {
+		if missing := res.MissingHosts(extraHosts); len(missing) > 0 {
+			fmt.Printf("  %-9s existing certificate does not cover %s; delete %s and %s to regenerate\n",
+				"warning:", strings.Join(missing, ", "), res.Key, res.Cert)
+		}
+	}
+}
+
 func main() {
 	overrides, err := cli.ParseArgv(os.Args[1:])
 	if err != nil {
@@ -300,6 +332,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Try 'file-lite-go --help' for more information.")
 		os.Exit(2)
 	}
+	if len(overrides.TLSHosts) > 0 && !overrides.WithTLS {
+		fmt.Fprintln(os.Stderr, "--tls-host requires --with-tls")
+		fmt.Fprintln(os.Stderr, "Try 'file-lite-go --help' for more information.")
+		os.Exit(2)
+	}
 	if overrides.CreateConfig {
 		cli.ApplyDataDirOverride(overrides)
 		if err := config.LoadConfig(true); err != nil {
@@ -307,20 +344,21 @@ func main() {
 			os.Exit(1)
 		}
 		if overrides.WithTLS {
-			key, cert, generated, err := cli.EnsureSelfSignedTLS(config.DataBaseDir())
+			res, err := cli.EnsureSelfSignedTLS(config.DataBaseDir(), overrides.TLSHosts)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			if err := config.SetSSLAndPersist(key, cert); err != nil {
+			if err := config.SetSSLAndPersist(res.Key, res.Cert); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			label := "tls cert exists"
-			if generated {
+			if res.Generated {
 				label = "tls cert written"
 			}
-			fmt.Printf("%s: %s, %s\n", label, key, cert)
+			fmt.Printf("%s: %s, %s\n", label, res.Key, res.Cert)
+			printTLSReport(res, overrides.TLSHosts)
 		}
 		fmt.Printf("config written: %s\n", config.ConfigFilePath())
 		os.Exit(0)
