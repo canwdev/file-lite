@@ -28,6 +28,7 @@
   - “Remember login status” supports persistent cookies or browser-session cookies
   - Optional IP ban after repeated failed logins
   - Configurable allowed root path scope
+  - Optional IP-range allowlist (`allowedCIDRs`)
   - HTTPS including self-signed certificates
   - Request rate limiting
 
@@ -73,6 +74,7 @@ bun run build
 - Config file path: `<cwd>/file-lite/config.json` (override the directory with `FILE_LITE_DATA_BASE_DIR`)
 - Type reference: `Cfg` in [backend-go/config/config.go](backend-go/config/config.go)
 - [Generate and trust self-signed certificates with mkcert](./docs/mkcert.md)
+- [Restrict access to specific IP ranges (`allowedCIDRs`)](./docs/ip-allowlist.md)
 - If `password` is empty, File Lite generates a random password; when the config file already exists, the generated password is written back
 - `jwtToken` is the JWT signing secret; when an existing config file has an empty value, it is generated and written back
 - The console does not print JWTs or signing secrets; check the config file for the login password

@@ -151,6 +151,17 @@ func startServer() (*cli.ServerResult, error) {
 		},
 	}))
 	e.Use(middleware.Recover())
+
+	// IP 白名单：在静态资源与 API 之前生效，覆盖整站（含 WebSocket）。
+	allowlist, err := middlewares.NewIPAllowlist(config.Config().AllowedCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	if allowlist.Enabled() {
+		e.Use(allowlist.Middleware())
+	}
+	fmt.Printf("ip allowlist: %s\n", allowlist.Describe())
+
 	// 静态资源 gzip 压缩传输（/api 保持原始字节：文件流/下载/上传/测速等）。
 	// 前端资源嵌入时已整体压缩（见 frontend-assets.tar.gz），运行时解压后由这里按需压缩下发。
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{

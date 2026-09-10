@@ -2,17 +2,13 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
-## Unreleased
-
-### Features
-
-- `--create-config --with-tls` puts detected local IPs in the certificate SAN (or, when `--tls-host` names hosts explicitly, exactly those hosts) and prints the certificate details, including its SAN, validity and SHA-256 fingerprint (backend).
-
 ## 1.4.5
 
 ### Features
 
+- `--create-config --with-tls` puts detected local IPs in the certificate SAN (or, when `--tls-host` names hosts explicitly, exactly those hosts) and prints the certificate details, including its SAN, validity and SHA-256 fingerprint (backend).
 - `--create-config --with-tls` generates the self-signed certificate with the Go standard library, so OpenSSL no longer needs to be installed (backend).
+- `allowedCIDRs` in `config.json` restricts access to the listed IP ranges; the generated default is `null` (allow all) and an empty list denies all (backend).
 
 ### Engineering
 

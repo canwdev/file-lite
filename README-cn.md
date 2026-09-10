@@ -28,6 +28,7 @@
   - 支持“记住登录状态”：持久 Cookie 或浏览器会话 Cookie
   - 密码错误超次数可封禁 IP
   - 可限制允许访问的根路径范围
+  - 可按 IP 段限制访问（`allowedCIDRs`）
   - 支持 HTTPS（含自签名证书）
   - 访问频率限制
 
@@ -73,6 +74,7 @@ bun run build
 - 配置文件路径：`<cwd>/file-lite/config.json`（可用 `FILE_LITE_DATA_BASE_DIR` 覆盖所在目录）
 - 配置类型说明：`Cfg` 见 [backend-go/config/config.go](backend-go/config/config.go)
 - [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
+- [限制可访问的 IP 段（`allowedCIDRs`）](./docs/ip-allowlist.md)
 - `password` 为空时会自动生成随机密码；如果配置文件已存在，会写回到配置文件中
 - `jwtToken` 是 JWT 签名密钥；如果配置文件已存在但为空，会自动生成并写回
 - 控制台不会打印 JWT 或签名密钥；请通过配置文件查看登录密码

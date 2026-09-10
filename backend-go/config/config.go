@@ -24,14 +24,15 @@ const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
 const authTicketLength = 8
 
 type Cfg struct {
-	Host        string `json:"host"`
-	Port        string `json:"port"`
-	Password    string `json:"password"`
-	JWTToken    string `json:"jwtToken"`
-	SafeBaseDir string `json:"safeBaseDir"`
-	EnableLog   bool   `json:"enableLog"`
-	SSLKey      string `json:"sslKey"`
-	SSLCert     string `json:"sslCert"`
+	Host         string   `json:"host"`
+	Port         string   `json:"port"`
+	Password     string   `json:"password"`
+	JWTToken     string   `json:"jwtToken"`
+	SafeBaseDir  string   `json:"safeBaseDir"`
+	EnableLog    bool     `json:"enableLog"`
+	SSLKey       string   `json:"sslKey"`
+	SSLCert      string   `json:"sslCert"`
+	AllowedCIDRs []string `json:"allowedCIDRs"`
 }
 
 const PkgName = "file-lite-go"
