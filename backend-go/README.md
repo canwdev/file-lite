@@ -50,14 +50,17 @@ bun run icon
 # Start a hot-reload dev environment with air
 bun run dev
 
-# Build the current platform: frontend + Go binary + release zip
+# Build the current platform: frontend + Go binary (no release zip)
 bun run build
 
-# Build every release target and pack one zip per platform
+# Build every release target (no release zips)
 bun run build:all
+
+# Include the release zips by calling the script directly
+bun run scripts/build.ts --current
 ```
 
-`bun run build` detects the current platform automatically (no `GOOS`/`GOARCH` needed) and writes `file-lite-<os>_<arch>-v<version>.zip` to the repository root, with the platform folder as the only top-level entry. It fails early if `frontend/src/enum/version.ts` and `backend-go/config/config.go` disagree on the version. Pass `--skip-frontend` to reuse an existing `backend-go/frontend-assets.tar.gz` (the release workflow does this). At runtime the binary serves its built-in UI unless a `frontend/` folder sits next to it (that folder then takes precedence).
+`bun run build` builds the current platform and `bun run build:all` every release target; both npm scripts pass `--skip-pack`, so they only produce the binaries — run `bun run scripts/build.ts --current` (or `--all`) directly when you need the release zips. The script itself requires a target — `--current` or `--all` — and running `bun run scripts/build.ts` with no arguments prints its help. It detects the current platform automatically (no `GOOS`/`GOARCH` needed) and writes `file-lite-<os>_<arch>-v<version>.zip` to the repository root, with the platform folder as the only top-level entry. It fails early if `frontend/src/enum/version.ts` and `backend-go/config/config.go` disagree on the version. Pass `--skip-frontend` to reuse an existing `backend-go/frontend-assets.tar.gz` (the release workflow does this). At runtime the binary serves its built-in UI unless a `frontend/` folder sits next to it (that folder then takes precedence).
 
 ## Hot-reload dev environment with air
 

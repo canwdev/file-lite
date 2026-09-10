@@ -2,8 +2,8 @@
   "scripts": {
     "dev": "cross-env FILE_LITE_FE_PORT=3110 PORT=3111 air",
     "icon": "node scripts/generate_icon.js && rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso && rsrc -arch arm64 -ico icon.ico -o rsrc_windows_arm64.syso",
-    "build": "bun run ./scripts/build.ts",
-    "build:all": "bun run ./scripts/build.ts --all",
+    "build": "bun run ./scripts/build.ts --current --skip-pack",
+    "build:all": "bun run ./scripts/build.ts --all --skip-pack",
     "clean": "rimraf ./bin"
   },
   "devDependencies": {

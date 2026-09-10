@@ -6,9 +6,13 @@
 // and layout are unchanged: the platform folder is the single top-level entry).
 //
 // Usage:
-//   bun run build              # current platform (frontend + binary + zip)
-//   bun run build:all          # every release target
-//   bun run scripts/build.ts --skip-frontend   # reuse an existing frontend build (CI)
+//   bun run scripts/build.ts --current [options]   # build the current platform
+//   bun run scripts/build.ts --all [options]       # build every release target
+//
+// A target (`--current` or `--all`) is required; running with no arguments at all
+// prints this help instead of building. Options compose:
+//   --skip-frontend   reuse an existing backend-go/frontend-assets.tar.gz
+//   --skip-pack       build the binaries without writing the release zips
 //
 // The zip writer is dependency-free on purpose (same spirit as frontend/scripts/pack-frontend.mjs),
 // so packaging does not require any npm package to be installed.
@@ -247,14 +251,58 @@ function packTarget(target: Target, version: string): void {
   console.log(`\n>>> Packed ${outFile} (${sizeMb} MB)`)
 }
 
+function printHelp(stream: { write: (chunk: string) => unknown }): void {
+  stream.write(`Build the File Lite Go backend and package it into a release zip.
+
+Usage:
+  bun run scripts/build.ts <target> [options]
+
+Targets (exactly one is required):
+  --current         Build the current platform
+  --all             Build every release target
+
+Options:
+  --skip-frontend   Reuse an existing backend-go/frontend-assets.tar.gz
+  --skip-pack       Build the binaries without writing the release zips
+  -h, --help        Show this help
+
+Examples:
+  bun run build                                       # same as --current --skip-pack
+  bun run build:all                                   # same as --all --skip-pack
+  bun run scripts/build.ts --current                  # current platform incl. release zip
+  bun run scripts/build.ts --all --skip-frontend
+`)
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
-  const unknown = argv.filter(arg => arg !== '--all' && arg !== '--skip-frontend')
+
+  if (argv.length === 0) {
+    printHelp(process.stderr)
+    process.exitCode = 1
+    return
+  }
+  if (argv.includes('-h') || argv.includes('--help')) {
+    printHelp(process.stdout)
+    return
+  }
+
+  const knownFlags = ['--current', '--all', '--skip-frontend', '--skip-pack']
+  const unknown = argv.filter(arg => !knownFlags.includes(arg))
   if (unknown.length > 0) {
     throw new Error(`unknown option(s): ${unknown.join(', ')}`)
   }
+
   const all = argv.includes('--all')
+  const current = argv.includes('--current')
+  if (all && current) {
+    throw new Error('choose one target: --current or --all')
+  }
+  if (!all && !current) {
+    throw new Error('a target is required: --current or --all')
+  }
   const skipFrontend = argv.includes('--skip-frontend')
+  const skipPack = argv.includes('--skip-pack')
 
   const version = assertVersionSync()
   console.log(`Version: ${version}`)
@@ -272,10 +320,13 @@ async function main(): Promise<void> {
 
   for (const target of targets) {
     await buildGo(target)
-    packTarget(target, version)
+    if (!skipPack) {
+      packTarget(target, version)
+    }
   }
 
-  console.log(`\n>>> Build complete: ${targets.map(target => target.dir).join(', ')}`)
+  const output = skipPack ? 'binaries' : 'binaries and release zips'
+  console.log(`\n>>> Build complete (${output}): ${targets.map(target => target.dir).join(', ')}`)
 }
 
 main().catch((error: unknown) => {
