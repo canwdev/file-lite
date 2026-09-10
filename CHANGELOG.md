@@ -18,6 +18,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Fixes
 
 - Uploading or downloading many files no longer returns 429: the blanket per-request limit on the whole API was removed, and brute-force protection now rate-limits and bans only the login endpoint (backend).
+- Switching files in the text editor no longer risks showing the previous file's content: the earlier load is cancelled as soon as another file is opened (frontend).
 - The transfer window no longer re-renders once per finished file, which had made its buttons unclickable while moving many small files (frontend).
 - Downloading a folder shows real byte progress and a total speed again: queued download tasks carry the size from the directory listing, and a file that finishes between frames still contributes its final bytes (frontend).
 

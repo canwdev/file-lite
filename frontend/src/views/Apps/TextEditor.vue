@@ -99,7 +99,22 @@ async function confirmUnsavedChanges(message: string) {
   }
 }
 
+function isAbortError(error: unknown) {
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+  const { name, code } = error as { name?: string, code?: string }
+  return name === 'AbortError' || name === 'CanceledError' || code === 'ERR_CANCELED'
+}
+
+// 切换文件时旧请求可能后返回，用 AbortController 让它在途取消，避免旧内容覆盖新文件
+let openController: AbortController | null = null
+
 async function openFile() {
+  openController?.abort()
+  const controller = new AbortController()
+  openController = controller
+
   fileTooLarge.value = null
   try {
     isLoading.value = true
@@ -118,18 +133,30 @@ async function openFile() {
 
     const data = await fsWebApi.stream(absPath.value, {
       responseType: 'text',
+      signal: controller.signal,
     })
+    if (controller.signal.aborted) {
+      return
+    }
     editContent.value = data as unknown as string
     setTimeout(() => {
       isChanged.value = false
     })
   }
   catch (error) {
-    console.error('open file failed', error)
+    if (!isAbortError(error)) {
+      console.error('open file failed', error)
+    }
   }
   finally {
-    isLoading.value = false
-    await focusEditor()
+    // 已被更新的请求取代时不要回写 loading / 抢焦点
+    if (openController === controller) {
+      openController = null
+      isLoading.value = false
+      if (!controller.signal.aborted) {
+        await focusEditor()
+      }
+    }
   }
 }
 
@@ -142,6 +169,10 @@ watch(
 
 onMounted(() => {
   openFile()
+})
+
+onBeforeUnmount(() => {
+  openController?.abort()
 })
 
 const isSaving = ref(false)
