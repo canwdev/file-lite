@@ -2,12 +2,12 @@
 
 ## Introduction
 
-A lightweight web file management service built on Echo that fully reproduces the APIs and behavior of the `file-lite` [Node.js backend](../backend).
+A lightweight web file management service built on Echo; it is File Lite's only backend, embedding the built frontend into a single static binary.
 
 ## Building
 
 - Install [Go 1.20+](https://go.dev/dl/).
-- Build the [frontend](../frontend/package.json) with `build:for-go` first: it emits `backend-go/frontend/` and packs `backend-go/frontend-assets.tar.gz`, which the Go build embeds (gzip-compressed).
+- `bun run build` in `backend-go/` builds the [frontend](../frontend/package.json) first (it emits `backend-go/frontend/` and packs `backend-go/frontend-assets.tar.gz`, which the Go build embeds gzip-compressed), then the binary for the current platform and the release zip.
 
 ```shell
 # Go proxy
@@ -48,13 +48,16 @@ bun i
 bun run icon
 
 # Start a hot-reload dev environment with air
-bun run dev:go
+bun run dev
 
-# Build the Go backend executable
-bun run build:win:amd64
+# Build the current platform: frontend + Go binary + release zip
+bun run build
+
+# Build every release target and pack one zip per platform
+bun run build:all
 ```
 
-Before packaging the backend, run `bun run build:for-go` in `frontend/` first; static assets are output to `backend-go/frontend/` and embedded into the single-file executable as the gzip-compressed `frontend-assets.tar.gz`. At runtime the binary serves its built-in UI unless a `frontend/` folder sits next to it (that folder then takes precedence).
+`bun run build` detects the current platform automatically (no `GOOS`/`GOARCH` needed) and writes `file-lite-<os>_<arch>-v<version>.zip` to the repository root, with the platform folder as the only top-level entry. It fails early if `frontend/src/enum/version.ts` and `backend-go/config/config.go` disagree on the version. Pass `--skip-frontend` to reuse an existing `backend-go/frontend-assets.tar.gz` (the release workflow does this). At runtime the binary serves its built-in UI unless a `frontend/` folder sits next to it (that folder then takes precedence).
 
 ## Hot-reload dev environment with air
 
@@ -98,5 +101,5 @@ gofmt -w .\
 # Icon generation
 
 - Install the rsrc tool: `go install github.com/akavel/rsrc@latest`
-- Run `bun run icon` in backend-go to generate `icon.ico`.
-- `rsrc.syso` is generated per-architecture automatically by the `build:win:*` scripts and removed after each build.
+- Run `bun run icon` in backend-go to generate `icon.ico` and the `rsrc_windows_*.syso` files.
+- `go build` picks the matching `.syso` up automatically when targeting Windows.

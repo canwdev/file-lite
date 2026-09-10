@@ -1,6 +1,13 @@
 # Changelog
 
-The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go` and `backend/package.json`.
+The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
+
+## Unreleased
+
+### Engineering
+
+- The Node.js backend and its npm distribution were removed: File Lite now ships only the Go binary, and one build command packages the frontend and the current platform (all platforms for releases).
+- Building now fails early when `frontend/src/enum/version.ts` and `backend-go/config/config.go` disagree on the version.
 
 ## 1.4.4
 

@@ -105,7 +105,7 @@ func embeddedStaticFS() (*memoryFileSystem, error) {
 			files[path.Clean(hdr.Name)] = data
 		}
 		if len(files) == 0 {
-			embeddedErr = fmt.Errorf("embedded frontend archive is empty; build the frontend (bun run build:for-go) first")
+			embeddedErr = fmt.Errorf("embedded frontend archive is empty; build the frontend (bun run build) first")
 			return
 		}
 		embeddedFS = &memoryFileSystem{files: files}

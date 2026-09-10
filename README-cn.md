@@ -2,28 +2,17 @@
 
 中文 | [English](./README.md)
 
-  
+<p align="center">
+  <img src="frontend/public/favicon.webp" alt="File Lite" width="72" height="72" />
+</p>
 
-**Web 文件管理器** · Vue 3 + TypeScript
-
-screenshot
+**Web 文件管理器** · Vue 3 + TypeScript + Go
 
 ---
 
-## 双后端
+![screenshot](docs/screenshot.webp)
 
-项目提供 **两种服务端实现**，共享同一套前端，可按部署场景选择其一：
-
-
-|          | **Node.js 后端** (`backend/`)          | **Go 后端** (`backend-go/`)                    |
-| -------- | ------------------------------------ | -------------------------------------------- |
-| **技术**   | Express.js + TypeScript，使用 Bun 开发与打包 | Echo，单文件可执行程序                                |
-| **典型用途** | `npm i -g file-lite` 全局安装、快速迭代与插件式扩展 | 资源占用低、容器 / 边缘设备单二进制分发                        |
-| **文档**   | 见下文「开发」与配置说明                         | [backend-go/README.md](backend-go/README.md) |
-
-
-> 前端构建：Go 镜像需先执行 `build:for-go`，将静态资源输出到 `backend-go/frontend/`（详见 Go 后端 README）。
-
+- **后端**：单一 Go (Echo) 服务，编译为内嵌前端资源的单文件可执行程序
 - **打包体积**：单包不超过约 20MB
 - **功能**
   - 文件与目录：创建、删除、重命名、移动、复制
@@ -44,53 +33,45 @@ screenshot
 
 ## 安装
 
+从 [GitHub Releases](https://github.com/canwdev/file-lite/releases) 下载对应平台的压缩包，解压后运行可执行文件。
+
 ```shell
-# 全局安装（Windows 需要管理员权限）
-npm i -g file-lite
-
-# 运行
-file-lite
-
-# 卸载
-npm uninstall -g file-lite
+# 以 Linux amd64 为例
+unzip file-lite-linux_amd64-v*.zip
+cd linux_amd64
+./file-lite-go
 ```
 
 ## 开发
 
-使用 **Bun** 安装依赖与执行脚本；**默认产物面向 Node.js 运行时**（由 `backend` 打包并嵌入前端）。
+前端使用 **Bun**，后端使用 **Go 1.20+**。
 
 ```shell
-# Node.js 后端
-cd backend
+# 后端：热重载开发服务，端口 3111
+cd backend-go
 bun i
 bun run dev
-bun run build
 ```
 
 ```shell
-# 前端
+# 前端：Vite 开发服务，端口 3110，将 /api 代理到后端
 cd frontend
 bun i
 bun run dev
-bun run build
 ```
 
 ```shell
-# 一键构建（后端嵌入前端）
-cd backend
-bun run build:auto
-
-cd dist
-node file-lite.min.mjs
+# 打包当前平台：依次构建前端、Go 二进制和发布用 zip
+cd backend-go
+bun run build
 ```
 
-- **Go 后端**：编译与 `build:for-go` 说明见 [backend-go/README.md](backend-go/README.md)
+- **Go 后端**：编译与 `bun run build:all` 说明见 [backend-go/README.md](backend-go/README.md)
 
 ## 配置文件
 
-- 配置文件路径：`${cwd}/data/config.json`
-- 配置类型说明：[IConfig](backend/src/config/types.ts)
-- 环境变量示例：[.env.development](./backend/.env.development)
+- 配置文件路径：`<cwd>/file-lite/config.json`（可用 `FILE_LITE_DATA_BASE_DIR` 覆盖所在目录）
+- 配置类型说明：`Cfg` 见 [backend-go/config/config.go](backend-go/config/config.go)
 - [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
 - `password` 为空时会自动生成随机密码；如果配置文件已存在，会写回到配置文件中
 - `jwtToken` 是 JWT 签名密钥；如果配置文件已存在但为空，会自动生成并写回

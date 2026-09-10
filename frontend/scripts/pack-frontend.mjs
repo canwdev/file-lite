@@ -1,8 +1,8 @@
-// Packs the Go-mode frontend build (../backend-go/frontend) into a single
+// Packs the frontend build (../backend-go/frontend) into a single
 // deterministic gzip-compressed tar archive (../backend-go/frontend-assets.tar.gz)
 // that the Go binary embeds instead of the raw files (~1.7 MB -> ~0.5 MB).
 //
-// Run automatically by `bun run build:for-go` after `vite build --mode go`.
+// Run automatically by `bun run build` after `vite build`.
 import { Buffer } from 'node:buffer'
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

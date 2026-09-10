@@ -4,30 +4,15 @@
 
 <p align="center">
   <img src="frontend/public/favicon.webp" alt="File Lite" width="72" height="72" />
-  &nbsp;&nbsp;
-  <img src="backend/favicon-nodejs.webp" alt="Node.js backend" width="72" height="72" />
 </p>
 
-<p align="center"><b>Web file manager</b> · Vue 3 + TypeScript</p>
-
----
-
-## Dual backends
-
-The project ships **two server implementations** that share the same frontend—pick one for your deployment:
-
-| | **Node.js backend** (`backend/`) | **Go backend** (`backend-go/`) |
-|:---|:---|:---|
-| **Stack** | Express.js + TypeScript, developed and bundled with Bun | Echo, single static binary |
-| **Typical use** | `npm i -g file-lite`, rapid iteration, script-friendly workflows | Low footprint, containers / edge, single-binary distribution |
-| **Docs** | Development & config below | [backend-go/README.md](backend-go/README.md) |
-
-> Frontend for the Go build: run `build:for-go` first so static assets land in `backend-go/frontend/` (see the Go README).
+<p align="center"><b>Web file manager</b> · Vue 3 + TypeScript + Go</p>
 
 ---
 
 ![screenshot](docs/screenshot.webp)
 
+- **Backend**: a single Go (Echo) server, shipped as one static binary with the UI embedded
 - **Bundle size**: single artifact stays around **20MB** or less
 - **Features**
   - Files & folders: create, delete, rename, move, copy
@@ -48,53 +33,45 @@ The project ships **two server implementations** that share the same frontend—
 
 ## Installation
 
+Download the archive for your platform from [GitHub Releases](https://github.com/canwdev/file-lite/releases), unzip it and run the binary.
+
 ```shell
-# Global install (Windows may require administrator privileges)
-npm i -g file-lite
-
-# Run
-file-lite
-
-# Uninstall
-npm uninstall -g file-lite
+# Example: Linux amd64
+unzip file-lite-linux_amd64-v*.zip
+cd linux_amd64
+./file-lite-go
 ```
 
 ## Development
 
-Use **Bun** for installs and scripts. The **default build targets the Node.js runtime** (`backend` embeds the frontend).
+Use **Bun** for the frontend and **Go 1.20+** for the backend.
 
 ```shell
-# Node.js backend
-cd backend
+# Backend: hot-reload dev server on port 3111
+cd backend-go
 bun i
 bun run dev
-bun run build
 ```
 
 ```shell
-# Frontend
+# Frontend: Vite dev server on port 3110, proxies /api to the backend
 cd frontend
 bun i
 bun run dev
-bun run build
 ```
 
 ```shell
-# One-shot build (backend bundles frontend)
-cd backend
-bun run build:auto
-
-cd dist
-node file-lite.min.mjs
+# Package the current platform: builds the frontend, the Go binary and the release zip
+cd backend-go
+bun run build
 ```
 
-- **Go backend**: build steps and `build:for-go` are documented in [backend-go/README.md](backend-go/README.md)
+- **Go backend**: build steps and `bun run build:all` are documented in [backend-go/README.md](backend-go/README.md)
 
 ## Configuration
 
-- Config file path: `${cwd}/data/config.json`
-- Type reference: [IConfig](backend/src/config/types.ts)
-- Environment variables example: [.env.development](./backend/.env.development)
+- Config file path: `<cwd>/file-lite/config.json` (override the directory with `FILE_LITE_DATA_BASE_DIR`)
+- Type reference: `Cfg` in [backend-go/config/config.go](backend-go/config/config.go)
 - [Generate and trust self-signed certificates with mkcert](./docs/mkcert.md)
 - If `password` is empty, File Lite generates a random password; when the config file already exists, the generated password is written back
 - `jwtToken` is the JWT signing secret; when an existing config file has an empty value, it is generated and written back

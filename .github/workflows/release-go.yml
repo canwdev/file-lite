@@ -42,7 +42,7 @@ jobs:
         working-directory: frontend
         run: |
           bun install
-          bun run build:for-go
+          bun run build
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -56,22 +56,10 @@ jobs:
           go install github.com/akavel/rsrc@latest
           bun run icon
 
-      - name: Build Go (all platforms)
+      - name: Build Go binaries and pack release assets
         working-directory: backend-go
-        run: bun run build:all
-
-      - name: Pack Go binaries
-        id: pack
-        run: |
-          cd backend-go/bin
-          # 遍历当前目录下的所有文件夹
-          for dir in */; do
-            # 移除文件夹名称末尾的斜杠
-            dirname=${dir%/}
-            zipname="file-lite-${dirname}-v${{ steps.appver.outputs.version }}.zip"
-            echo "Packing $dirname into $zipname"
-            zip -r "../../$zipname" "$dirname"
-          done
+        # Also fails the release when frontend/src/enum/version.ts and backend-go/config/config.go disagree.
+        run: bun run ./scripts/build.ts --all --skip-frontend
 
       - name: Extract release notes from CHANGELOG
         run: bash .github/scripts/changelog-section.sh '${{ steps.appver.outputs.version }}'
@@ -81,10 +69,10 @@ jobs:
         with:
           tag_name: ${{ steps.rel.outputs.tag_name }}
           name: ${{ steps.rel.outputs.tag_name }}
-          # 与 release.yml 写入同一个 Release，正文取值方式必须一致，否则后跑的会覆盖前一个
+          # 正文优先用 CHANGELOG 小节；抠不到才回退到自动生成
           body_path: ${{ hashFiles('RELEASE_NOTES.md') != '' && 'RELEASE_NOTES.md' || '' }}
           generate_release_notes: ${{ hashFiles('RELEASE_NOTES.md') == '' }}
-          # 使用通配符匹配所有生成的 zip 文件
+          # scripts/build.ts 输出到仓库根目录，文件名固定为 file-lite-<os>_<arch>-v<version>.zip
           files: |
             file-lite-*-v${{ steps.appver.outputs.version }}.zip
         env:

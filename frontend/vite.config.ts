@@ -10,11 +10,9 @@ import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  let outDir = '../backend/dist/frontend'
-  if (mode === 'go') {
-    outDir = '../backend-go/frontend'
-  }
+export default defineConfig(() => {
+  // The project ships a single (Go) backend, so every build emits into the Go embed source.
+  const outDir = '../backend-go/frontend'
   return {
     plugins: [
       vue({

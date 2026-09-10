@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Overview
 
-A lightweight web file manager with Node.js and Go backend implementations. `README.md` is the project's main document.
+A lightweight web file manager with a Go backend implementation. `README.md` is the project's main document.
 
 ## Frontend architecture
 
@@ -47,25 +47,15 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 - Newest version first. Unreleased content goes under `## Unreleased` and is changed to a version number at release.
 - Groups appear only as needed, with no empty headings: `### UI` / `### Features` / `### Fixes` / `### Engineering`. `Engineering` only holds things that affect the development workflow (guardrails, build, lint); purely internal refactors are not recorded.
 - Use one sentence to say what change the user sees; do not list which files or class names changed — that is git log's job.
-- When frontend and backend behavior differ, say which side (Node.js / Go).
-- The version number must match in three places and be changed together at release: `frontend/src/enum/version.ts`, `const Version` in `backend-go/config/config.go`, and `backend/package.json`.
-
-## Node.js backend architecture
-
-- Stack: Express.js + TypeScript
-- Package manager: bun
-- Development/build steps: see `backend/README.md`
-- Config file loading: `backend/src/config`
-- Auth: JWT, short-lived tickets, cookies, IP rate limiting — `backend/src/middlewares`
-- Core routes: `backend/src/routes/files`
+- When a change is specific to the frontend or the backend, say which side (frontend / backend).
+- The version number must match in two places and be changed together at release: `frontend/src/enum/version.ts` and `const Version` in `backend-go/config/config.go`.
 
 ## Go backend architecture
 
-Implement the Node.js backend requirements first, then the Go backend. Its functionality is exactly the same as the Node.js backend; the Node.js implementation can serve as reference.
+The Go backend is the only backend implementation; there is no second implementation to keep in sync.
 
 - Stack: Echo
 - Development/build steps: see `backend-go/README.md`
-
-## Testing
-
-The `test` directory contains some test files for the backend APIs, but they haven't been updated in a long time — ignore them.
+- Config file loading: `backend-go/config`
+- Auth: JWT, short-lived tickets, cookies, IP rate limiting — `backend-go/middlewares`
+- Core routes: `backend-go/routes/files.go`

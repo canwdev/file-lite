@@ -5,11 +5,11 @@
 - 下载最新版本 [Releases · FiloSottile/mkcert](https://github.com/FiloSottile/mkcert/releases)
 - 把可执行文件放到 PATH 路径中
 
-## 2. 创建并安装证书（Node.js 示例）
+## 2. 创建并安装证书
 
 ```bash
-# 切换到 data 目录
-cd data
+# 切换到数据目录（默认 <cwd>/file-lite）
+cd file-lite
 
 # 创建证书，支持 *.app.local localhost、127.0.0.1、::1 等多个域名和IP地址
 # 注意：如果使用其他IP地址，需要手动添加到下面
@@ -26,7 +26,7 @@ Windows 检查证书是否安装：
 
 ## 3. 后续步骤
 
-编辑 `data/config.json` 新增或编辑 `sslKey` 和 `sslCert` 字段
+编辑 `file-lite/config.json` 新增或编辑 `sslKey` 和 `sslCert` 字段
 
 ```json
 {

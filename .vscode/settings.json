@@ -4,7 +4,7 @@
   },
   "editor.formatOnSave": false,
 
-  // Monorepo: each package has its own eslint.config.js under frontend/ / backend/.
+  // Monorepo: frontend/ has its own eslint.config.js.
   // Without this, the ESLint extension often lints from the repo root and stalls on "code actions".
   "eslint.workingDirectories": [{ "mode": "auto" }],
 
