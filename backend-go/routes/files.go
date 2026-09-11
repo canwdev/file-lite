@@ -35,6 +35,7 @@ func registerFiles(g *echo.Group) {
 	g.POST("/open-in-host-explorer", func(c echo.Context) error { return openInHostExplorer(c) })
 	g.GET("/stream", func(c echo.Context) error { return getFileStream(c) })
 	g.HEAD("/stream", func(c echo.Context) error { return getFileStream(c) })
+	g.GET("/thumbnail", func(c echo.Context) error { return getThumbnail(c) })
 	g.GET("/download", func(c echo.Context) error { return downloadPath(c) })
 	g.POST("/upload-file", func(c echo.Context) error { return uploadFile(c) })
 }

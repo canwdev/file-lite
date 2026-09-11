@@ -4,12 +4,15 @@ go 1.20
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
+	github.com/disintegration/imaging v1.6.2
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mattn/go-isatty v0.0.20
 	github.com/pablor21/echo-etag/v4 v4.0.4-0.20230225220934-502235038145
+	golang.org/x/image v0.15.0
+	golang.org/x/sys v0.15.0
 )
 
 require (
@@ -21,7 +24,6 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

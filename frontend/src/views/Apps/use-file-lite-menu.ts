@@ -4,7 +4,7 @@ import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
-import { getPreviewSizeLabel, localSettingsStore, previewSizeOptions, settingsStore } from '@/store/index.ts'
+import { localSettingsStore, settingsStore } from '@/store/index.ts'
 import { enableDebug } from '@/utils/debug'
 import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
@@ -185,17 +185,6 @@ export function useFileLiteMenu() {
           icon: 'mdi mdi-cog',
           divided: true,
           children: [
-            {
-              icon: 'mdi mdi-image-search',
-              label: `Preview size: ${getPreviewSizeLabel(localSettingsStore.value.previewSize)}`,
-              children: previewSizeOptions.map(item => ({
-                icon: localSettingsStore.value.previewSize === item.value ? 'mdi mdi-check' : '',
-                label: item.label,
-                onClick: () => {
-                  localSettingsStore.value.previewSize = item.value
-                },
-              })),
-            },
             {
               label: `App Settings`,
               children: [

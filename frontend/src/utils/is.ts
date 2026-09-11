@@ -15,6 +15,18 @@ export const regSupportedImageFormat = regImageFormat
 export const regSupportedVideoFormat = regVideoFormat
 export const regSupportedAudioFormat = regAudioFormat
 
+/**
+ * 后端（Go + imaging + x/image/webp）能解码的格式。
+ * 只有命中的文件才走后端缩略图接口；GIF/APNG 这类动图会退化为第一帧。
+ */
+export const regServerThumbFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|bmp|tiff?|webp)$/i
+
+/**
+ * 后端解不了、但浏览器能当位图解码的格式：大图交给前端 canvas 降采样后进 IndexedDB。
+ * HEIC 只有 Safari 能解，其他浏览器最终会回退成类型图标。
+ */
+export const regClientCanvasThumbFormat = /\.(?:avif|heic|heif)$/i
+
 export function isSupportedMediaFormat(name: string) {
   return regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
 }

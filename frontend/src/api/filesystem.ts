@@ -72,6 +72,20 @@ export const fsWebApi = {
     }
     return `${baseURL}/stream?path=${encodeURIComponent(path)}`
   },
+  /**
+   * 后端生成的缩略图地址。`m` 只是给 HTTP 缓存/日志做标识，
+   * 服务端会自己 stat 文件，不信任这个值。
+   */
+  getThumbnailUrl(path: string, size: number, lastModified = 0) {
+    if (!path) {
+      return ''
+    }
+    const params = new URLSearchParams({ path, size: String(size) })
+    if (lastModified > 0) {
+      params.set('m', String(lastModified))
+    }
+    return `${baseURL}/thumbnail?${params}`
+  },
 }
 
 // window.$fsWebApi = fsWebApi

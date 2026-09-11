@@ -3,9 +3,8 @@ import type { ImagePreviewCandidate } from './hooks/use-image-preview'
 import type { IEntry } from '@/types/server.ts'
 import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
-import { localSettingsStore, PREVIEW_SIZE_UNLIMITED } from '@/store/index.ts'
-import { IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
-import { regSupportedImageFormat } from '@/utils/is.ts'
+import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
+import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedImageFormat } from '@/utils/is.ts'
 import { normalizeListingPath } from '../utils'
 import { getFileIconClass } from './file-icons'
 import { applyFolderListSort, readFolderRawList } from './folder-listing'
@@ -35,32 +34,76 @@ watch(
 
 // ---------------------------------------------------------------------------
 // 文件预览候选：
-// - 图片格式、非目录、图标尺寸 >= MIN_PREVIEW_ICON_SIZE、Preview Size 未 Disabled
-//   才可能预览；小于该尺寸只显示类型图标，任何预览（含已有缓存）都不显示；
-// - streamUrl 非空表示“允许下载原图”（未超 Preview Size 上限）；
-// - 超出上限的大图也保留 cacheEnabled：命中已有缓存则直接显示（不下载原图），
-//   未命中则不显示 —— 即「已有缓存时忽略 Preview Size 限制」。
+// - 图片格式、非目录、图标尺寸 >= MIN_PREVIEW_ICON_SIZE 才可能预览，
+//   小于该尺寸只显示类型图标（含已有缓存）；
+// - 取图方式由 `mode` 决定，见 buildImagePreviewCandidate：
+//   `server` 走后端缩略图接口、`client` 走前端 canvas 降采样（都进 IndexedDB），
+//   其余的矢量 / 图标容器与所有小图 `direct` 直连原图流。
 // 实际的命中/生成/取消/回收逻辑在 hooks/use-image-preview.ts。
 // ---------------------------------------------------------------------------
 /** 图标小于该尺寸时不显示任何内容预览（图片预览 / 文件夹内容预览），只显示类型图标 */
 const MIN_PREVIEW_ICON_SIZE = 48
 
+/**
+ * iconSize 只通过这个**布尔量**参与候选计算的依赖：grid 尺寸是个连续拖拽的
+ * el-slider（48→512, step 8），而 Element Plus 滑块的 debounce 只管 tooltip，
+ * v-model 每动一格就更新。若让候选直接依赖 iconSize，拖拽时每个图标每动一格
+ * 都会重建候选对象，进而触发一次「IDB 读 → createObjectURL → revoke」。
+ * 布尔量在拖拽过程中值不变，computed 不会向下游传播。
+ */
+const previewSizeAllowed = computed(() => props.iconSize >= MIN_PREVIEW_ICON_SIZE)
+
+/**
+ * 决定一个图片文件用哪种方式取预览：
+ * - 后端能解码且超过小图阈值 → `server`：后端缩略图接口 + IndexedDB；
+ * - 后端解不了（avif/heic/heif）且超过阈值 → `client`：canvas 降采样 + IndexedDB；
+ * - 其余（svg/ico 等矢量与图标容器、以及所有小图）→ `direct`：直连原图流，不入缓存。
+ *
+ * 后端解不了的格式走 canvas 有一个例外：svg/ico 永远是 `direct`。
+ * 它们本来就小，而且 createImageBitmap 对没有固有尺寸的 SVG 会直接抛错。
+ *
+ * 另外，后端白名单之外的格式必须由前端自己下载原图，因此受
+ * IMAGE_PREVIEW_RAW_MAX_BYTES 约束，超限直接不出预览（显示类型图标）。
+ */
+function buildImagePreviewCandidate(item: IEntry, absPath: string, name: string): ImagePreviewCandidate | null {
+  if (!absPath)
+    return null
+
+  const size = Number(item.size ?? 0)
+  const lastModified = item.lastModified ?? 0
+  const streamUrl = fsWebApi.getStreamUrl(absPath)
+  const cacheable = size > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0
+
+  if (regServerThumbFormat.test(item.name)) {
+    if (!cacheable)
+      return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+    return {
+      name,
+      key: absPath,
+      mode: 'server',
+      url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified),
+      fallbackUrl: streamUrl,
+      size,
+      lastModified,
+    }
+  }
+
+  // 以下格式都要前端自己拉原图（canvas 降采样或直连），超出上限一律不出预览
+  if (size > IMAGE_PREVIEW_RAW_MAX_BYTES)
+    return null
+
+  if (regClientCanvasThumbFormat.test(item.name) && cacheable)
+    return { name, key: absPath, mode: 'client', url: streamUrl, size, lastModified }
+
+  return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+}
+
 const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
-  const { item, absPath, iconSize } = props
+  const { item, absPath } = props
   if (!absPath || !item || item.isDirectory || !regSupportedImageFormat.test(item.name))
     return null
-  if (iconSize < MIN_PREVIEW_ICON_SIZE)
-    return null // 小于 48：不显示预览（含已有缓存），仅显示类型图标
-  const previewSize = localSettingsStore.value.previewSize
-  if (previewSize === 0)
-    return null // Disabled：任何预览（含已有缓存）都不显示
 
-  const itemSize = Number(item.size ?? 0)
-  const lastModified = item.lastModified ?? 0
-  const withinLimit = previewSize === PREVIEW_SIZE_UNLIMITED || itemSize <= previewSize
-  const streamUrl = withinLimit ? fsWebApi.getStreamUrl(absPath) : ''
-  const cacheEnabled = itemSize > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0
-  return { name: absPath, key: absPath, streamUrl, size: itemSize, lastModified, cacheEnabled }
+  return buildImagePreviewCandidate(item, absPath, absPath)
 })
 
 // ---------------------------------------------------------------------------
@@ -80,9 +123,30 @@ const targetIsVisible = useElementVisibility(target, {
 const { url: previewUrl, request: requestPreview, settle: settlePreview } = useImagePreview()
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-function schedulePreviewCandidate(candidate: ImagePreviewCandidate | null) {
-  if (previewDebounceTimer)
+function cancelPendingPreview() {
+  if (previewDebounceTimer) {
     clearTimeout(previewDebounceTimer)
+    previewDebounceTimer = null
+  }
+}
+
+/**
+ * 只有「已经可见、候选又变了」才值得防抖：那种情况往往成串发生（目录刷新、
+ * 排序变化），防抖能把它们合并成一次解析。
+ *
+ * 其余两种都立即执行：
+ * - 取消（滚出视野 / 加载失败 / 图标尺寸落到 48 以下）—— 越早 abort 越省；
+ * - 首次可见 —— 全局队列（preview-load-queue）已经限了并发，
+ *   再等一个 debounce 周期只是白白推迟首次出图。
+ */
+function applyPreviewCandidate(candidate: ImagePreviewCandidate | null, immediate: boolean) {
+  cancelPendingPreview()
+
+  if (immediate) {
+    requestPreview(candidate)
+    return
+  }
+
   previewDebounceTimer = setTimeout(() => {
     previewDebounceTimer = null
     requestPreview(candidate)
@@ -90,9 +154,11 @@ function schedulePreviewCandidate(candidate: ImagePreviewCandidate | null) {
 }
 
 watch(
-  [previewCandidate, targetIsVisible, loadFailed],
-  ([candidate, isVisible, failed]) => {
-    schedulePreviewCandidate(isVisible && !failed ? candidate : null)
+  [previewCandidate, targetIsVisible, loadFailed, previewSizeAllowed],
+  ([candidate, isVisible, failed, sizeAllowed], old) => {
+    const next = isVisible && !failed && sizeAllowed ? candidate : null
+    const wasActive = !!old && old[1] && !old[2] && old[3]
+    applyPreviewCandidate(next, next === null || !wasActive)
   },
   { immediate: true },
 )
@@ -100,15 +166,15 @@ watch(
 // ---------------------------------------------------------------------------
 // 文件夹内容预览：iconSize >= 48 的目录，加载成功后用 CSS 圆角矩形边框
 // 展示前 FOLDER_PREVIEW_MAX_ITEMS 个子项（图片子项缩略图 + 其余类型图标）。
-// 图片子项同样按上述缓存规则解析（含“超出上限但有缓存则显示”）。
+// 图片子项按与主预览相同的 mode 规则解析。
 // 加载期间/空目录回退为普通文件夹图标。
 // ---------------------------------------------------------------------------
 const FOLDER_PREVIEW_MAX_ITEMS = 4
 const FOLDER_PREVIEW_LOAD_DEBOUNCE_MS = 120
 
 const folderPreviewEligible = computed(() => {
-  const { item, absPath, iconSize } = props
-  return !!item?.isDirectory && !item.error && !!absPath && iconSize >= MIN_PREVIEW_ICON_SIZE
+  const { item, absPath } = props
+  return !!item?.isDirectory && !item.error && !!absPath && previewSizeAllowed.value
 })
 
 const folderListingPath = computed(() =>
@@ -127,34 +193,18 @@ const folderSortedItems = computed(() => {
 
 const folderPreviewItems = computed(() => folderSortedItems.value.slice(0, FOLDER_PREVIEW_MAX_ITEMS))
 
+/** 该子项不参与预览（非图片 / 不可预览）时的占位：key 为空，hook 会跳过 */
+function emptyChildCandidate(name: string): ImagePreviewCandidate {
+  return { name, key: '', mode: 'direct', url: '', size: 0, lastModified: 0 }
+}
+
 function buildChildPreviewCandidate(child: IEntry): ImagePreviewCandidate {
   const name = child.name
   const listingPath = folderListingPath.value
-  const noImage = { name, key: '', streamUrl: '', size: 0, lastModified: 0, cacheEnabled: false }
-  if (!listingPath || child.isDirectory || child.error || !regSupportedImageFormat.test(child.name))
-    return noImage
-  const previewSize = localSettingsStore.value.previewSize
-  if (previewSize === 0)
-    return noImage // Disabled：子项预览（含缓存）不显示，仍显示类型图标
+  if (!previewSizeAllowed.value || !listingPath || child.isDirectory || child.error || !regSupportedImageFormat.test(child.name))
+    return emptyChildCandidate(name)
 
-  const size = Number(child.size ?? 0)
-  const lastModified = child.lastModified ?? 0
-  const fullPath = `${listingPath}${name}`
-  const withinLimit = previewSize === PREVIEW_SIZE_UNLIMITED || size <= previewSize
-  if (!withinLimit) {
-    // 超出上限：仅当已有缓存时显示（cacheOnly）；未命中显示类型图标，不下载原图
-    const cacheEnabled = size > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0
-    return { name, key: fullPath, streamUrl: '', size, lastModified, cacheEnabled }
-  }
-  // 限制内：大图未命中时生成，小图直连
-  return {
-    name,
-    key: fullPath,
-    streamUrl: fsWebApi.getStreamUrl(fullPath),
-    size,
-    lastModified,
-    cacheEnabled: size > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0,
-  }
+  return buildImagePreviewCandidate(child, `${listingPath}${name}`, name) ?? emptyChildCandidate(name)
 }
 
 const folderPreviewCells = computed(() =>
@@ -226,8 +276,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (previewDebounceTimer)
-    clearTimeout(previewDebounceTimer)
+  cancelPendingPreview()
   if (folderReadTimer)
     clearTimeout(folderReadTimer)
   folderReadSeq += 1

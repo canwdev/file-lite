@@ -1,13 +1,15 @@
 /**
  * 图片缩略图 IndexedDB 缓存(image-thumb-cache)
  *
- * 网格视图 / 文件夹内容预览里,把大图缩略成小尺寸后缓存到 IndexedDB,
- * 避免反复浏览同一目录时重复下载并解码 10M+ 原图。
+ * 缩略图字节有两个来源,共用同一套指纹与 LRU:
+ * - `server`:后端 `/api/files/thumbnail` 生成(Go 能解码的格式,见 regServerThumbFormat);
+ * - `client`:浏览器 canvas 阶梯降采样(后端解不了的 avif/heic,见 regClientCanvasThumbFormat)。
  *
- * - 命中:按 (size:lastModified) 指纹比对,文件改动后自动失效重新生成;
- * - 未命中:拉取一次原图流 → 阶梯降采样 → 入库 → 返回 objectURL;
+ * - 命中:按 `(size, lastModified, 生成版本)` 指纹比对,文件改动后自动失效重新生成;
+ * - 未命中:server 直接拉缩略图接口;client 拉一次原图流 → 降采样;
  * - 容量:LRU 淘汰,默认上限 1GB(meta 与 blob 分离存储,淘汰/统计不加载 blob);
- * - 任何失败(不支持 / 配额 / 网络 / 取消)都返回 null,调用方回退直连原图,行为不变。
+ * - 失败区分原因(`unsupported` / `rejected` / `failed` / `aborted`),调用方据此
+ *   回退直连原图或显示类型图标,不在这里替调用方做决定。
  */
 import type { DBSchema, IDBPDatabase } from 'idb'
 import { openDB } from 'idb'
@@ -15,16 +17,34 @@ import { openDB } from 'idb'
 export const IMAGE_THUMB_MAX_EDGE = 512
 /** 小于该体积的图片不值得入缓存,直接显示原图 */
 export const IMAGE_THUMB_SMALL_DIRECT_MAX = 256 * 1024
+/**
+ * 需要前端自己下载原图的预览路径的**源文件体积上限**:后端白名单之外的格式
+ * (avif/heic/heif/svg/ico 等),以及后端 415 之后回退原图直连的那条路。
+ * 超过就只显示类型图标,绝不下载。
+ *
+ * 后端白名单格式不受此限制:它们下载的是后端生成的 ≤512px 缩略图,与源文件体积无关。
+ * 这里的上限只为浏览器解码内存兜底 —— 注意字节数只是像素数的弱代理(AVIF 压缩率极高,
+ * 20MB 也可能是上亿像素),真正的兜底是 createImageBitmap 失败后回退图标。
+ */
+export const IMAGE_PREVIEW_RAW_MAX_BYTES = 20 * 1024 * 1024
 /** 缓存总字节上限:1GB */
 export const IMAGE_THUMB_CACHE_MAX_BYTES = 1024 ** 3
 
+/**
+ * 缩略图「生成参数」版本。
+ * 后端调整了缩放滤镜 / JPEG 质量 / 输出格式,或前端改了降采样策略时递增,
+ * 旧缓存就会自然失效(比清空整库温和,也比依赖 app 版本号精准)。
+ */
+export const THUMB_CACHE_VERSION = 1
+
 const DB_NAME = 'file-lite-image-cache'
-const DB_VERSION = 1
+/** v2:字节改由后端生成(JPEG/PNG)并新增 client 降采样,旧库直接丢弃 */
+const DB_VERSION = 2
 const META_STORE = 'meta'
 const BLOB_STORE = 'blobs'
 /** 命中时更新 lastUsed 的最小间隔,避免高频写 meta */
 const LAST_USED_TOUCH_MS = 30_000
-/** 解码阶段全局并发上限(解码位图是内存大头) */
+/** 解码阶段全局并发上限(解码位图是内存大头,仅 client 路径占用) */
 const DECODE_CONCURRENCY = 2
 
 /**
@@ -36,12 +56,14 @@ function normalizeThumbKey(key: string) {
   return key.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
+function thumbFingerprint(size: number, lastModified: number) {
+  return `${THUMB_CACHE_VERSION}:${size}:${lastModified}`
+}
+
 interface ThumbMeta {
   key: string
-  /** `size:lastModified`,用于判断文件是否已变化 */
+  /** 指纹,用于判断文件是否已变化 */
   fp: string
-  width: number
-  height: number
   /** blob 实际字节数 */
   byteSize: number
   storedAt: number
@@ -69,7 +91,7 @@ let totalBytes = 0
 let totalEntries = 0
 
 /** 同一 key 的并发生成去重 */
-const inflightGenerations = new Map<string, Promise<string | null>>()
+const inflightGenerations = new Map<string, Promise<ThumbResolveResult>>()
 
 function openThumbDb() {
   dbPromise ??= openDB<ThumbDb>(DB_NAME, DB_VERSION, {
@@ -108,7 +130,7 @@ async function ensureReady() {
       requestPersistentStorage()
     }
     catch {
-      // 缓存不可用(隐私模式/配额策略等):ready 保持 false,resolve 一律返回 null → 直连
+      // 缓存不可用(隐私模式/配额策略等):ready 保持 false,resolve 一律失败 → 调用方回退
       dbPromise = null
     }
   })()
@@ -117,6 +139,10 @@ async function ensureReady() {
 
 function isQuotaError(error: unknown) {
   return error instanceof DOMException && error.name === 'QuotaExceededError'
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 /**
@@ -188,7 +214,22 @@ async function putEntry(db: IDBPDatabase<ThumbDb>, key: string, blob: Blob, meta
   totalEntries += 1
 }
 
-/** 阶梯降采样:先按 1/2 逐级缩小,最后一步到位,避免大图单步缩小产生锯齿 */
+async function storeBlob(key: string, fp: string, blob: Blob) {
+  const db = await openThumbDb()
+  const meta: ThumbMeta = {
+    key,
+    fp,
+    byteSize: blob.size,
+    storedAt: Date.now(),
+    lastUsed: Date.now(),
+  }
+  await putEntry(db, key, blob, meta)
+}
+
+/**
+ * 阶梯降采样:先按 1/2 逐级缩小,最后一步到位,避免大图单步缩小产生锯齿。
+ * 仅后端解不了的格式(avif/heic/heif)走这里。
+ */
 async function downscaleToBlob(bitmap: ImageBitmap, maxEdge: number): Promise<Blob> {
   const scale = Math.min(1, maxEdge / bitmap.width, maxEdge / bitmap.height)
   const targetWidth = Math.max(1, Math.round(bitmap.width * scale))
@@ -251,17 +292,16 @@ async function downloadAndDownscale(streamUrl: string, maxEdge: number, signal?:
   try {
     if (bitmap.width <= maxEdge && bitmap.height <= maxEdge) {
       // 原图本身已足够小:直接复用原 blob,避免二次有损压缩
-      return { blob: sourceBlob, width: bitmap.width, height: bitmap.height }
+      return sourceBlob
     }
-    const blob = await downscaleToBlob(bitmap, maxEdge)
-    return { blob, width: bitmap.width, height: bitmap.height }
+    return await downscaleToBlob(bitmap, maxEdge)
   }
   finally {
     bitmap.close()
   }
 }
 
-/** 解码/降采样阶段的全局并发信号量 */
+/** 解码/降采样阶段的全局并发信号量(仅 client 路径) */
 let decodeRunning = 0
 const decodeWaiters: Array<() => void> = []
 
@@ -298,31 +338,96 @@ async function lookupCached(db: IDBPDatabase<ThumbDb>, key: string, fp: string):
   return blob
 }
 
-async function generateAndStore(key: string, streamUrl: string, fp: string, signal?: AbortSignal) {
+/**
+ * 缩略图字节的来源：
+ * - `server` 后端生成的缩略图接口；
+ * - `client` 原图流地址，由前端 canvas 降采样。
+ */
+export type ThumbSource
+  = | { kind: 'server', url: string }
+    | { kind: 'client', url: string }
+
+/**
+ * 生成失败的原因，决定调用方的回退动作：
+ * - `aborted` 请求被取消（组件卸载 / 滚动出视野）；
+ * - `unsupported` 后端不支持该格式（HTTP 415）：调用方应回退原图直连；
+ * - `rejected` 后端拒绝，源图超过上限（HTTP 422）：调用方应显示类型图标；
+ * - `busy` 服务端暂时繁忙（HTTP 503）：显示图标，但**不要**记住这次失败，下次还能重试；
+ * - `failed` 网络 / 配额 / 解码失败：调用方应显示类型图标。
+ */
+export type ThumbFailureReason
+  = | 'aborted'
+    | 'unsupported'
+    | 'rejected'
+    | 'busy'
+    | 'failed'
+
+export type ThumbResolveResult
+  = | { ok: true, url: string }
+    | { ok: false, reason: ThumbFailureReason }
+
+async function fetchThumbBlob(source: ThumbSource, signal?: AbortSignal): Promise<Blob> {
+  if (source.kind === 'client') {
+    const blob = await runWithDecodeSlot(() => downloadAndDownscale(source.url, IMAGE_THUMB_MAX_EDGE, signal))
+    if (!blob)
+      throw new Error('client downscale failed')
+    return blob
+  }
+
+  const response = await fetch(source.url, { signal, credentials: 'same-origin' })
+  if (response.status === 415)
+    throw new UnsupportedFormatError()
+  if (response.status === 422)
+    throw new RejectedImageError()
+  if (response.status === 503)
+    throw new TransientThumbError()
+  if (!response.ok)
+    throw new Error(`thumbnail request failed: ${response.status}`)
+  return await response.blob()
+}
+
+/** 格式/内容问题：重试也还是这个结果 */
+class UnsupportedFormatError extends Error {}
+/** 后端按上限拒绝：文件本身的问题，重试无意义 */
+class RejectedImageError extends Error {}
+/** 服务端暂时繁忙（解码槽位排队超时）：属于可重试失败，调用方不应记成永久结果 */
+class TransientThumbError extends Error {}
+
+async function generateAndStore(
+  key: string,
+  fp: string,
+  source: ThumbSource,
+  signal?: AbortSignal,
+  persist = true,
+): Promise<ThumbResolveResult> {
   const existing = inflightGenerations.get(key)
   if (existing)
     return existing
 
-  const generation = (async () => {
+  const generation = (async (): Promise<ThumbResolveResult> => {
     try {
-      const result = await runWithDecodeSlot(() => downloadAndDownscale(streamUrl, IMAGE_THUMB_MAX_EDGE, signal))
-      if (!result)
-        return null
-      const db = await openThumbDb()
-      const meta: ThumbMeta = {
-        key,
-        fp,
-        width: result.width,
-        height: result.height,
-        byteSize: result.blob.size,
-        storedAt: Date.now(),
-        lastUsed: Date.now(),
+      const blob = await fetchThumbBlob(source, signal)
+      if (persist) {
+        // 写缓存失败(配额/事务异常)不影响这一次预览
+        try {
+          await storeBlob(key, fp, blob)
+        }
+        catch {
+          // ignore
+        }
       }
-      await putEntry(db, key, result.blob, meta)
-      return URL.createObjectURL(result.blob)
+      return { ok: true, url: URL.createObjectURL(blob) }
     }
-    catch {
-      return null
+    catch (error) {
+      if (isAbortError(error))
+        return { ok: false, reason: 'aborted' }
+      if (error instanceof UnsupportedFormatError)
+        return { ok: false, reason: 'unsupported' }
+      if (error instanceof RejectedImageError)
+        return { ok: false, reason: 'rejected' }
+      if (error instanceof TransientThumbError)
+        return { ok: false, reason: 'busy' }
+      return { ok: false, reason: 'failed' }
     }
   })()
 
@@ -338,47 +443,48 @@ async function generateAndStore(key: string, streamUrl: string, fp: string, sign
 export interface ResolveThumbOptions {
   /** 缓存主键:服务端绝对路径 */
   key: string
-  /** 原图流地址(未命中时用于下载原图) */
-  streamUrl: string
   /** 文件字节数(指纹的一部分) */
   size: number
   /** 文件最后修改时间(指纹的一部分) */
   lastModified: number
+  /** 缩略图字节来源 */
+  source: ThumbSource
   signal?: AbortSignal
 }
 
 /**
  * 解析缩略图 objectURL。
- * 命中缓存 → 直接返回;未命中 → 下载原图、生成缩略图、入库后返回。
- * 返回 null 表示失败/被取消,调用方应回退直连原图(与旧行为一致)。
+ * 命中缓存 → 直接返回;未命中 → 按 source 取字节、入库后返回。
+ * 失败时返回带原因的结果,由调用方决定回退直连原图还是显示类型图标。
  */
-export async function resolveImageThumb(options: ResolveThumbOptions): Promise<string | null> {
+export async function resolveImageThumb(options: ResolveThumbOptions): Promise<ThumbResolveResult> {
   try {
     await ensureReady()
-    if (!ready)
-      return null
 
     const key = normalizeThumbKey(options.key)
-    const fp = `${options.size}:${options.lastModified}`
-    const db = await openThumbDb()
+    const fp = thumbFingerprint(options.size, options.lastModified)
 
-    const hit = await lookupCached(db, key, fp)
-    if (hit)
-      return URL.createObjectURL(hit)
+    if (ready) {
+      const db = await openThumbDb()
+      const hit = await lookupCached(db, key, fp)
+      if (hit)
+        return { ok: true, url: URL.createObjectURL(hit) }
+    }
 
     if (options.signal?.aborted)
-      return null
+      return { ok: false, reason: 'aborted' }
 
-    return await generateAndStore(key, options.streamUrl, fp, options.signal)
+    // 缓存不可用(隐私模式 / 配额策略)时照常取缩略图,只是不入库 ——
+    // 不能因为存储不可用就退化成类型图标。
+    return await generateAndStore(key, fp, options.source, options.signal, ready)
   }
   catch {
-    return null
+    return { ok: false, reason: 'failed' }
   }
 }
 
 /**
  * 仅查缓存(不下载、不生成):指纹匹配则返回 objectURL,否则返回 null。
- * 用于「文件超出 Preview Size 上限,但已有缓存缩略图 → 直接显示缓存」的场景。
  */
 export async function getCachedImageThumbUrl(options: { key: string, size: number, lastModified: number }): Promise<string | null> {
   try {
@@ -387,7 +493,7 @@ export async function getCachedImageThumbUrl(options: { key: string, size: numbe
       return null
     const db = await openThumbDb()
     const key = normalizeThumbKey(options.key)
-    const fp = `${options.size}:${options.lastModified}`
+    const fp = thumbFingerprint(options.size, options.lastModified)
     const blob = await lookupCached(db, key, fp)
     return blob ? URL.createObjectURL(blob) : null
   }

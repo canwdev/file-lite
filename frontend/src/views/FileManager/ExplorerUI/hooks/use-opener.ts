@@ -149,7 +149,7 @@ export function useOpener(basePath: { value: string }) {
       return
     }
     if (defaultOpenApp.openWith === OpenWithEnum.ImageViewer) {
-      // 50MB
+      // 100MB
       if (await checkTooLargeFileDialog(item, 1024 * 1024 * 100)) {
         openApp(OpenWithEnum.ImageViewer)
       }
