@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -170,6 +172,86 @@ func indexOf(args []string, want string) int {
 		}
 	}
 	return -1
+}
+
+func TestVideoUsesItsOwnAcquireTimeout(t *testing.T) {
+	video := writeDummyVideo(t)
+	t.Setenv(fakeFFmpegEnv, "jpeg")
+	s := New(Options{
+		CacheBytes:  1 << 20,
+		Concurrency: 1,
+		FFmpegPath:  func() string { return os.Args[0] },
+		// 图片那条故意设得很长；视频必须用自己那条短的，
+		// 否则一个卡住的 ffmpeg 会把前端的预览并发槽位白白占住。
+		AcquireTimeout:      10 * time.Second,
+		VideoAcquireTimeout: 10 * time.Millisecond,
+	})
+	s.videoSem <- struct{}{}
+	defer func() { <-s.videoSem }()
+
+	start := time.Now()
+	if _, _, err := s.Get(context.Background(), video, MaxEdge, KindVideo); !errors.Is(err, ErrBusy) {
+		t.Fatalf("got %v, want ErrBusy", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("视频应该用自己的短超时，实际等了 %s", elapsed)
+	}
+}
+
+// makeTestClip 用 ffmpeg 自己生成一段合成素材，这样不必往仓库里塞二进制 fixture。
+func makeTestClip(t *testing.T, bin, seconds, out string) {
+	t.Helper()
+	cmd := exec.Command(bin, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+		"-f", "lavfi", "-i", fmt.Sprintf("testsrc=duration=%s:size=64x48:rate=5", seconds),
+		"-c:v", "mpeg4", "-q:v", "10", out)
+	if err := cmd.Run(); err != nil {
+		t.Skipf("本机 ffmpeg 无法生成测试素材(%v)，跳过", err)
+	}
+}
+
+// 真的调用机器上的 ffmpeg，验证**命令本身**是对的：
+// scale 表达式里转义逗号、-ss 前置、mjpeg 输出、容器兼容性、以及不放大。
+// 这些都只有跑真 ffmpeg 才能确认 —— 假 ffmpeg 只能验证 exec/超时/缓存那一层。
+func TestVideoThumbnailWithRealFFmpeg(t *testing.T) {
+	bin, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("本机没有 ffmpeg")
+	}
+
+	dir := t.TempDir()
+	long := filepath.Join(dir, "long.avi")
+	makeTestClip(t, bin, "4", long) // -ss 3 落在片内
+	short := filepath.Join(dir, "short.avi")
+	makeTestClip(t, bin, "1", short) // -ss 3 越过结尾，必须退回第 0 帧
+
+	s := New(Options{
+		CacheBytes:  1 << 20,
+		Concurrency: 1,
+		FFmpegPath:  func() string { return bin },
+	})
+
+	for _, tc := range []struct{ name, path string }{
+		{"4 秒片子走 -ss 3", long},
+		{"1 秒短片退回第 0 帧", short},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, ct, err := s.Get(context.Background(), tc.path, MaxEdge, KindVideo)
+			if err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+			if ct != "image/jpeg" {
+				t.Fatalf("content type = %q, want image/jpeg", ct)
+			}
+			cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+			if err != nil {
+				t.Fatalf("ffmpeg 输出不是可解码的 JPEG: %v", err)
+			}
+			// scale=min(edge,iw) 的语义：既不超过请求边长，也不放大源图
+			if cfg.Width != 64 || cfg.Height != 48 {
+				t.Fatalf("输出 = %dx%d, 期望 64x48（源尺寸，不放大）", cfg.Width, cfg.Height)
+			}
+		})
+	}
 }
 
 func TestFFmpegArgs(t *testing.T) {

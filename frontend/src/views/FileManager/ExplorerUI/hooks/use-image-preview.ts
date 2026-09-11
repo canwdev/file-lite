@@ -17,7 +17,6 @@ import type { ComputedRef, Ref } from 'vue'
 import type { ThumbResolveResult } from '@/utils/image-thumb-cache'
 import { onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  getCachedImageThumbUrl,
   IMAGE_PREVIEW_RAW_MAX_BYTES,
   resolveImageThumb,
 } from '@/utils/image-thumb-cache'
@@ -68,26 +67,17 @@ function isBlobUrl(url: string | null): boolean {
 
 /**
  * 解析候选的最终显示地址。
- * `direct` 直接返回;其余先查缓存,未命中再生成。
+ * `direct` 直接返回；其余交给 resolveImageThumb —— 它内部已经先查缓存再生成，
+ * 这里不要再单独查一次（那会白白多做一次 IndexedDB 事务）。
  */
 async function resolvePreviewUrl(candidate: ImagePreviewCandidate, signal: AbortSignal): Promise<ThumbResolveResult> {
   if (candidate.mode === 'direct')
     return { ok: true, url: candidate.url }
 
-  const cacheQuery = {
+  return await resolveImageThumb({
     key: candidate.key,
     size: candidate.size,
     lastModified: candidate.lastModified,
-  }
-  const hit = await getCachedImageThumbUrl(cacheQuery)
-  if (hit)
-    return { ok: true, url: hit }
-
-  if (signal.aborted)
-    return { ok: false, reason: 'aborted' }
-
-  return await resolveImageThumb({
-    ...cacheQuery,
     source: candidate.mode === 'server'
       ? { kind: 'server', url: candidate.url }
       : candidate.mode === 'audio'

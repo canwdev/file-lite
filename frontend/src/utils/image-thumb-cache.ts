@@ -98,27 +98,54 @@ let cacheWriteFailureLogged = false
 /** 同一 key 的并发生成去重 */
 const inflightGenerations = new Map<string, Promise<ThumbResolveResult>>()
 
+/** 升级被旧连接挡住时，用它让挂起的 openDB 立刻失败 */
+let rejectBlockedOpen: ((error: unknown) => void) | null = null
+
 function openThumbDb() {
-  dbPromise ??= openDB<ThumbDb>(DB_NAME, DB_VERSION, {
-    // upgrade 不只在新建库时跑，**从任意旧版本升级**时都会跑。
-    // 老代码在 v1 里建过同名 store，如果这里无脑再 createObjectStore 一次，
-    // 就会抛 ConstraintError，导致整个缓存静默失效 —— 现象是预览正常但
-    // 「Image cache」永远是 empty，因为写缓存失败被吞掉了。
-    //
-    // v1 存的是前端 canvas 生成的 WebP，指纹语义也已经变了（现在带版本前缀），
-    // 所以升级时直接丢弃重建，不尝试兼容。
-    upgrade(db, oldVersion) {
-      if (oldVersion > 0) {
-        if (db.objectStoreNames.contains(META_STORE))
-          db.deleteObjectStore(META_STORE)
-        if (db.objectStoreNames.contains(BLOB_STORE))
-          db.deleteObjectStore(BLOB_STORE)
-      }
-      const metaStore = db.createObjectStore(META_STORE, { keyPath: 'key' })
-      metaStore.createIndex('byLastUsed', 'lastUsed')
-      db.createObjectStore(BLOB_STORE)
-    },
+  if (dbPromise)
+    return dbPromise
+
+  // 有旧版本的连接占着库时，浏览器不会让新版本升级，
+  // 而 openDB() 的 promise 在这种情况**永远不会 settle**（既不 resolve 也不 reject）。
+  // 不处理的话 await ensureReady() 会一直挂着，最终占满前端预览队列的 5 个槽位，
+  // 让整个标签页的预览全部失效。所以这里主动让它快速失败。
+  const blocked = new Promise<never>((_, reject) => {
+    rejectBlockedOpen = reject
   })
+
+  dbPromise = Promise.race([
+    openDB<ThumbDb>(DB_NAME, DB_VERSION, {
+      // upgrade 不只在新建库时跑，**从任意旧版本升级**时都会跑。
+      // 老代码在 v1 里建过同名 store，如果这里无脑再 createObjectStore 一次，
+      // 就会抛 ConstraintError，导致整个缓存静默失效 —— 现象是预览正常但
+      // 「Image cache」永远是 empty，因为写缓存失败被吞掉了。
+      //
+      // v1 存的是前端 canvas 生成的 WebP，指纹语义也已经变了（现在带版本前缀），
+      // 所以升级时直接丢弃重建，不尝试兼容。
+      upgrade(db, oldVersion) {
+        if (oldVersion > 0) {
+          if (db.objectStoreNames.contains(META_STORE))
+            db.deleteObjectStore(META_STORE)
+          if (db.objectStoreNames.contains(BLOB_STORE))
+            db.deleteObjectStore(BLOB_STORE)
+        }
+        const metaStore = db.createObjectStore(META_STORE, { keyPath: 'key' })
+        metaStore.createIndex('byLastUsed', 'lastUsed')
+        db.createObjectStore(BLOB_STORE)
+      },
+      blocked(currentVersion) {
+        console.warn(`[image-thumb-cache] IndexedDB 升级被 v${currentVersion} 的旧连接挡住，本次会话不缓存`)
+        rejectBlockedOpen?.(new Error(`indexedDB upgrade blocked by an open v${currentVersion} connection`))
+      },
+      blocking() {
+        // 反过来：本连接挡住了更晚的一次升级。立刻让路，
+        // 否则新版标签页会卡在上面那个 blocked 分支。
+        void dbPromise?.then(db => db.close()).catch(() => {})
+        dbPromise = null
+      },
+    }),
+    blocked,
+  ])
   return dbPromise
 }
 
@@ -535,25 +562,6 @@ export async function resolveImageThumb(options: ResolveThumbOptions): Promise<T
   }
   catch {
     return { ok: false, reason: 'failed' }
-  }
-}
-
-/**
- * 仅查缓存(不下载、不生成):指纹匹配则返回 objectURL,否则返回 null。
- */
-export async function getCachedImageThumbUrl(options: { key: string, size: number, lastModified: number }): Promise<string | null> {
-  try {
-    await ensureReady()
-    if (!ready)
-      return null
-    const db = await openThumbDb()
-    const key = normalizeThumbKey(options.key)
-    const fp = thumbFingerprint(options.size, options.lastModified)
-    const blob = await lookupCached(db, key, fp)
-    return blob ? URL.createObjectURL(blob) : null
-  }
-  catch {
-    return null
   }
 }
 

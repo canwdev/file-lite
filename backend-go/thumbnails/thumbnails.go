@@ -111,18 +111,22 @@ type Options struct {
 	VideoConcurrency int
 	// VideoTimeout 是单个 ffmpeg 进程的运行上限。零值取默认。
 	VideoTimeout time.Duration
+	// VideoAcquireTimeout 是等待 ffmpeg 槽位的上限。零值取默认。
+	// 它比 AcquireTimeout 短得多，理由见 video.go。
+	VideoAcquireTimeout time.Duration
 }
 
 // Service 持有 LRU、并发闸门与 singleflight 表。
 type Service struct {
-	cache          *lruCache
-	sem            chan struct{}
-	videoSem       chan struct{}
-	group          *flightGroup
-	acquireTimeout time.Duration
-	maxSourceBytes int64
-	videoTimeout   time.Duration
-	ffmpeg         ffmpegState
+	cache               *lruCache
+	sem                 chan struct{}
+	videoSem            chan struct{}
+	group               *flightGroup
+	acquireTimeout      time.Duration
+	maxSourceBytes      int64
+	videoTimeout        time.Duration
+	videoAcquireTimeout time.Duration
+	ffmpeg              ffmpegState
 }
 
 // Default 是路由使用的进程级实例。
@@ -151,15 +155,19 @@ func New(opts Options) *Service {
 	if opts.VideoTimeout <= 0 {
 		opts.VideoTimeout = defaultVideoTimeout
 	}
+	if opts.VideoAcquireTimeout <= 0 {
+		opts.VideoAcquireTimeout = videoAcquireTimeout
+	}
 	return &Service{
-		cache:          newLRUCache(opts.CacheBytes, maxCacheEntryBytes),
-		sem:            make(chan struct{}, opts.Concurrency),
-		videoSem:       make(chan struct{}, opts.VideoConcurrency),
-		group:          newFlightGroup(),
-		acquireTimeout: opts.AcquireTimeout,
-		maxSourceBytes: opts.MaxSourceBytes,
-		videoTimeout:   opts.VideoTimeout,
-		ffmpeg:         ffmpegState{pathFn: opts.FFmpegPath},
+		cache:               newLRUCache(opts.CacheBytes, maxCacheEntryBytes),
+		sem:                 make(chan struct{}, opts.Concurrency),
+		videoSem:            make(chan struct{}, opts.VideoConcurrency),
+		group:               newFlightGroup(),
+		acquireTimeout:      opts.AcquireTimeout,
+		maxSourceBytes:      opts.MaxSourceBytes,
+		videoTimeout:        opts.VideoTimeout,
+		videoAcquireTimeout: opts.VideoAcquireTimeout,
+		ffmpeg:              ffmpegState{pathFn: opts.FFmpegPath},
 	}
 }
 

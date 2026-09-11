@@ -25,6 +25,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- Previews no longer stop working entirely when another tab still holds an older version of the thumbnail cache open during an upgrade (frontend).
+- Video covers give up quickly when the server is busy instead of holding a preview slot for thirty seconds (frontend, backend).
 - The image cache no longer silently disables itself after upgrading from an earlier version, which had left the "Image cache" menu entry permanently empty (frontend).
 - A thumbnail that only failed because the server was momentarily busy is retried the next time it is looked at, instead of showing a file icon until the view is reopened (frontend).
 - Uploading or downloading many files no longer returns 429: the blanket per-request limit on the whole API was removed, and brute-force protection now rate-limits and bans only the login endpoint (backend).

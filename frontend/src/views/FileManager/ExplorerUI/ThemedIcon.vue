@@ -69,6 +69,15 @@ function isPreviewableName(name: string) {
 }
 
 /**
+ * 文件夹 2×2 格子用的更窄集合：**不含视频**。
+ * 每个格子都要单独起一次 ffmpeg，而一屏可能有几十个文件夹（×4 格），
+ * 挤在只有 1 个槽位的视频闸门上会互相拖垮。视频封面只在单文件预览里出。
+ */
+function isFolderCellPreviewableName(name: string) {
+  return regSupportedImageFormat.test(name) || regSupportedAudioFormat.test(name)
+}
+
+/**
  * 决定一个文件用哪种方式取预览：
  * - 图片（后端能解码）且超过小图阈值 → `server`：后端缩略图接口；
  * - 图片（后端解不了，avif/heic/heif）且超过阈值 → `client`：canvas 降采样；
@@ -250,7 +259,7 @@ function emptyChildCandidate(name: string): ImagePreviewCandidate {
 function buildChildPreviewCandidate(child: IEntry): ImagePreviewCandidate {
   const name = child.name
   const listingPath = folderListingPath.value
-  if (!previewSizeAllowed.value || !listingPath || child.isDirectory || child.error || !isPreviewableName(child.name))
+  if (!previewSizeAllowed.value || !listingPath || child.isDirectory || child.error || !isFolderCellPreviewableName(child.name))
     return emptyChildCandidate(name)
 
   return buildPreviewCandidate(child, `${listingPath}${name}`, name) ?? emptyChildCandidate(name)

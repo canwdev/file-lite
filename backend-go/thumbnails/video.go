@@ -28,6 +28,11 @@ const (
 	// defaultVideoTimeout 是单个 ffmpeg 进程的运行上限。
 	defaultVideoTimeout = 20 * time.Second
 
+	// videoAcquireTimeout 是等待 ffmpeg 槽位的上限，比图片那条（30s）短得多。
+	// 这个槽位只有 1 个：等太久会让前端的预览并发槽位（总共才 5 个）被白白占住，
+	// 而超时的代价只是退化成类型图标，不值得等。
+	videoAcquireTimeout = 5 * time.Second
+
 	// ffmpegProbeTTL 是「没找到 ffmpeg」这个结论的缓存时长。
 	// 到点会重试，这样用户装完 ffmpeg 不必重启进程。
 	ffmpegProbeTTL = 60 * time.Second
@@ -98,7 +103,7 @@ func (s *Service) generateVideo(ctx context.Context, path string, edge int, key 
 
 	select {
 	case s.videoSem <- struct{}{}:
-	case <-time.After(s.acquireTimeout):
+	case <-time.After(s.videoAcquireTimeout):
 		return flightResult{err: ErrBusy}
 	}
 	defer func() { <-s.videoSem }()
