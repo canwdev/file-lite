@@ -55,6 +55,11 @@ function createDefaultLocalSettingsStore() {
     isGridView: false,
     iconSizeList: 16,
     iconSizeGrid: 48,
+    /**
+     * 整体关闭内容预览（图片缩略图 / 音频封面 / 视频封面 / 文件夹内容预览）。
+     * 关闭时会一并清空缩略图缓存，所以这个开关同时是「别再缓存占我空间」的手段。
+     */
+    disablePreview: false,
   }
 }
 

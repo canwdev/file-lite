@@ -18,6 +18,7 @@ import (
 	etag "github.com/pablor21/echo-etag/v4"
 
 	"file-lite-go/config"
+	"file-lite-go/thumbnails"
 	"file-lite-go/types"
 	"file-lite-go/utils"
 )
@@ -25,7 +26,7 @@ import (
 const readDirStatConcurrency = 64
 
 func registerFiles(g *echo.Group) {
-	g.GET("/auth", func(c echo.Context) error { return c.JSON(http.StatusOK, map[string]any{}) })
+	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
 	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
@@ -38,6 +39,17 @@ func registerFiles(g *echo.Group) {
 	g.GET("/thumbnail", func(c echo.Context) error { return getThumbnail(c) })
 	g.GET("/download", func(c echo.Context) error { return downloadPath(c) })
 	g.POST("/upload-file", func(c echo.Context) error { return uploadFile(c) })
+}
+
+// getAuthInfo 兼作登录态探测与能力上报。
+// 前端启动时必调这里，所以没有 ffmpeg 时它就能知道视频封面不可用，
+// 从而不必为每个视频发一次注定失败的请求。
+func getAuthInfo(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]any{
+		"capabilities": map[string]any{
+			"videoThumbnail": thumbnails.Default.VideoAvailable(),
+		},
+	})
 }
 
 func isPathSafe(p string) bool {

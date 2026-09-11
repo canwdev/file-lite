@@ -70,8 +70,18 @@ class CookieRangeHttpClient implements IRangeRequestClient {
   constructor(
     private readonly url: string,
     config?: HttpClientConfig,
+    signal?: AbortSignal,
   ) {
     this.config = { ...DEFAULT_HTTP, ...config }
+    // 外部取消（网格里滚动出视野）时一并中断在途的 HEAD / Range 请求
+    if (signal) {
+      if (signal.aborted) {
+        this.abortController.abort()
+      }
+      else {
+        signal.addEventListener('abort', () => this.abortController.abort(), { once: true })
+      }
+    }
   }
 
   async getHeadInfo(): Promise<IHeadRequestInfo> {
@@ -113,7 +123,8 @@ export async function makeStreamMetadataTokenizer(
   streamUrl: string,
   tokenizerConfig?: IRangeRequestConfig,
   httpClientConfig?: HttpClientConfig,
+  signal?: AbortSignal,
 ): Promise<IRandomAccessTokenizer> {
-  const client = new CookieRangeHttpClient(streamUrl, httpClientConfig)
+  const client = new CookieRangeHttpClient(streamUrl, httpClientConfig, signal)
   return tokenizer(client, tokenizerConfig)
 }

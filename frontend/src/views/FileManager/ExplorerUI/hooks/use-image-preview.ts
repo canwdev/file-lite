@@ -26,13 +26,15 @@ import { requestPreviewLoad } from '../preview-load-queue'
 /**
  * 取图方式：
  * - `direct` 直连原图流，不进 IndexedDB；
- * - `server` 后端 `/api/files/thumbnail` 生成，进 IndexedDB；
- * - `client` 前端 canvas 降采样（后端解不了的格式），进 IndexedDB。
+ * - `server` 后端 `/api/files/thumbnail` 生成（图片缩略图 / ffmpeg 视频封面）；
+ * - `client` 前端 canvas 降采样（后端解不了的图片格式），进 IndexedDB；
+ * - `audio` 前端从音频内嵌标签里抽封面再降采样，进 IndexedDB。
  */
 export type ImagePreviewMode
   = | 'direct'
     | 'server'
     | 'client'
+    | 'audio'
 
 export interface ImagePreviewCandidate {
   /** 显示 key:文件夹子格为子项名,单文件预览为 absPath */
@@ -88,7 +90,9 @@ async function resolvePreviewUrl(candidate: ImagePreviewCandidate, signal: Abort
     ...cacheQuery,
     source: candidate.mode === 'server'
       ? { kind: 'server', url: candidate.url }
-      : { kind: 'client', url: candidate.url },
+      : candidate.mode === 'audio'
+        ? { kind: 'audio', url: candidate.url }
+        : { kind: 'client', url: candidate.url },
     signal,
   })
 }

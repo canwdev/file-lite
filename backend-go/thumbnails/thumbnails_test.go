@@ -390,7 +390,7 @@ func TestServiceCachesAndServes(t *testing.T) {
 	p := writeFixture(t, "a.png", opaqueFixture(64, 32))
 	s := New(Options{CacheBytes: 1 << 20, Concurrency: 2})
 
-	data, ct, err := s.Get(context.Background(), p, MaxEdge)
+	data, ct, err := s.Get(context.Background(), p, MaxEdge, KindImage)
 	if err != nil {
 		t.Fatalf("first Get: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestServiceCachesAndServes(t *testing.T) {
 		t.Fatalf("result should be cached, len = %d", s.cache.Len())
 	}
 
-	second, _, err := s.Get(context.Background(), p, MaxEdge)
+	second, _, err := s.Get(context.Background(), p, MaxEdge, KindImage)
 	if err != nil {
 		t.Fatalf("second Get: %v", err)
 	}
@@ -410,7 +410,7 @@ func TestServiceCachesAndServes(t *testing.T) {
 	}
 
 	// 不同边长必须是不同的缓存条目
-	if _, _, err := s.Get(context.Background(), p, 128); err != nil {
+	if _, _, err := s.Get(context.Background(), p, 128, KindImage); err != nil {
 		t.Fatalf("Get with another edge: %v", err)
 	}
 	if s.cache.Len() != 2 {
@@ -422,10 +422,10 @@ func TestServiceErrors(t *testing.T) {
 	dir := t.TempDir()
 	s := New(Options{CacheBytes: 1 << 20, Concurrency: 1})
 
-	if _, _, err := s.Get(context.Background(), filepath.Join(dir, "missing.png"), MaxEdge); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.Get(context.Background(), filepath.Join(dir, "missing.png"), MaxEdge, KindImage); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing file: got %v, want ErrNotFound", err)
 	}
-	if _, _, err := s.Get(context.Background(), dir, MaxEdge); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.Get(context.Background(), dir, MaxEdge, KindImage); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("directory: got %v, want ErrNotFound", err)
 	}
 
@@ -433,7 +433,7 @@ func TestServiceErrors(t *testing.T) {
 	if err := os.WriteFile(bomb, oversizedPNG(), 0o644); err != nil {
 		t.Fatalf("write bomb: %v", err)
 	}
-	if _, _, err := s.Get(context.Background(), bomb, MaxEdge); !errors.Is(err, ErrTooLarge) {
+	if _, _, err := s.Get(context.Background(), bomb, MaxEdge, KindImage); !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("bomb: got %v, want ErrTooLarge", err)
 	}
 }
@@ -443,7 +443,7 @@ func TestServiceRejectsOversizedSourceFile(t *testing.T) {
 
 	// 上限压到 1 字节：保险丝必须在解码之前生效
 	s := New(Options{CacheBytes: 1 << 20, Concurrency: 1, MaxSourceBytes: 1})
-	if _, _, err := s.Get(context.Background(), p, MaxEdge); !errors.Is(err, ErrTooLarge) {
+	if _, _, err := s.Get(context.Background(), p, MaxEdge, KindImage); !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("oversized source: got %v, want ErrTooLarge", err)
 	}
 
@@ -452,9 +452,9 @@ func TestServiceRejectsOversizedSourceFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat fixture: %v", err)
 	}
-	s.cache.Add(cacheKey(p, MaxEdge, fi), []byte("cached-thumb"), "image/jpeg")
+	s.cache.Add(cacheKey(KindImage, p, MaxEdge, fi), []byte("cached-thumb"), "image/jpeg")
 
-	data, ct, err := s.Get(context.Background(), p, MaxEdge)
+	data, ct, err := s.Get(context.Background(), p, MaxEdge, KindImage)
 	if err != nil {
 		t.Fatalf("cached entry should still be served: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestServiceReturnsBusyWhenSaturated(t *testing.T) {
 	s.sem <- struct{}{}
 	defer func() { <-s.sem }()
 
-	if _, _, err := s.Get(context.Background(), p, MaxEdge); !errors.Is(err, ErrBusy) {
+	if _, _, err := s.Get(context.Background(), p, MaxEdge, KindImage); !errors.Is(err, ErrBusy) {
 		t.Fatalf("got %v, want ErrBusy", err)
 	}
 }
@@ -487,7 +487,7 @@ func TestServiceReturnsOnCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, _, err := s.Get(ctx, p, MaxEdge); !errors.Is(err, context.Canceled) {
+	if _, _, err := s.Get(ctx, p, MaxEdge, KindImage); !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
 	}
 }

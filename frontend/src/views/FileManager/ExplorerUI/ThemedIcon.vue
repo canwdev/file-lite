@@ -3,8 +3,10 @@ import type { ImagePreviewCandidate } from './hooks/use-image-preview'
 import type { IEntry } from '@/types/server.ts'
 import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
+import { serverCapabilities } from '@/store/capabilities'
+import { localSettingsStore } from '@/store/index.ts'
 import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
-import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedImageFormat } from '@/utils/is.ts'
+import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedAudioFormat, regSupportedImageFormat, regSupportedVideoFormat } from '@/utils/is.ts'
 import { normalizeListingPath } from '../utils'
 import { getFileIconClass } from './file-icons'
 import { applyFolderListSort, readFolderRawList } from './folder-listing'
@@ -54,56 +56,102 @@ const MIN_PREVIEW_ICON_SIZE = 48
 const previewSizeAllowed = computed(() => props.iconSize >= MIN_PREVIEW_ICON_SIZE)
 
 /**
- * 决定一个图片文件用哪种方式取预览：
- * - 后端能解码且超过小图阈值 → `server`：后端缩略图接口 + IndexedDB；
- * - 后端解不了（avif/heic/heif）且超过阈值 → `client`：canvas 降采样 + IndexedDB；
+ * 用户可以在菜单里整体关掉内容预览（仅存本机）。
+ * 关掉后连文件夹内容预览一起不显示 —— 它同样是「预览」。
+ */
+const previewDisabled = computed(() => localSettingsStore.value.disablePreview)
+
+/** 这三类文件才可能出内容预览（图片 / 音频封面 / 视频封面） */
+function isPreviewableName(name: string) {
+  return regSupportedImageFormat.test(name)
+    || regSupportedAudioFormat.test(name)
+    || regSupportedVideoFormat.test(name)
+}
+
+/**
+ * 决定一个文件用哪种方式取预览：
+ * - 图片（后端能解码）且超过小图阈值 → `server`：后端缩略图接口；
+ * - 图片（后端解不了，avif/heic/heif）且超过阈值 → `client`：canvas 降采样；
+ * - 音频 → `audio`：前端从内嵌标签抽封面（不需要后端能力）；
+ * - 视频 → `server` + `kind=video`（需要后端 ffmpeg 能力，否则压根不请求）；
  * - 其余（svg/ico 等矢量与图标容器、以及所有小图）→ `direct`：直连原图流，不入缓存。
  *
  * 后端解不了的格式走 canvas 有一个例外：svg/ico 永远是 `direct`。
  * 它们本来就小，而且 createImageBitmap 对没有固有尺寸的 SVG 会直接抛错。
  *
- * 另外，后端白名单之外的格式必须由前端自己下载原图，因此受
+ * 另外，后端白名单之外的图片必须由前端自己下载原图，因此受
  * IMAGE_PREVIEW_RAW_MAX_BYTES 约束，超限直接不出预览（显示类型图标）。
  */
-function buildImagePreviewCandidate(item: IEntry, absPath: string, name: string): ImagePreviewCandidate | null {
+function buildPreviewCandidate(item: IEntry, absPath: string, name: string): ImagePreviewCandidate | null {
   if (!absPath)
     return null
 
   const size = Number(item.size ?? 0)
   const lastModified = item.lastModified ?? 0
   const streamUrl = fsWebApi.getStreamUrl(absPath)
-  const cacheable = size > IMAGE_THUMB_SMALL_DIRECT_MAX && lastModified > 0
+  // 指纹必须有 lastModified：没有它就没法判断文件变没变，不值得入缓存
+  const fingerprintable = lastModified > 0
+  const smallImage = size <= IMAGE_THUMB_SMALL_DIRECT_MAX || !fingerprintable
 
-  if (regServerThumbFormat.test(item.name)) {
-    if (!cacheable)
-      return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+  if (regSupportedImageFormat.test(item.name)) {
+    if (regServerThumbFormat.test(item.name)) {
+      if (smallImage)
+        return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+      return {
+        name,
+        key: absPath,
+        mode: 'server',
+        url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified),
+        fallbackUrl: streamUrl,
+        size,
+        lastModified,
+      }
+    }
+
+    // 以下格式都要前端自己拉原图（canvas 降采样或直连），超出上限一律不出预览
+    if (size > IMAGE_PREVIEW_RAW_MAX_BYTES)
+      return null
+
+    if (regClientCanvasThumbFormat.test(item.name) && !smallImage)
+      return { name, key: absPath, mode: 'client', url: streamUrl, size, lastModified }
+
+    return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+  }
+
+  // 音频封面由前端解析内嵌标签，不依赖任何后端能力
+  if (regSupportedAudioFormat.test(item.name)) {
+    if (!fingerprintable)
+      return null
+    return { name, key: absPath, mode: 'audio', url: streamUrl, size, lastModified }
+  }
+
+  // 视频封面必须由后端 ffmpeg 出；能力没开就不出预览。
+  // 注意这里**不给 fallbackUrl**：失败时只能显示类型图标，
+  // 不能为了一个网格格子去把整部影片下下来。
+  if (regSupportedVideoFormat.test(item.name)) {
+    if (!fingerprintable || !serverCapabilities.value.videoThumbnail)
+      return null
     return {
       name,
       key: absPath,
       mode: 'server',
-      url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified),
-      fallbackUrl: streamUrl,
+      url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified, 'video'),
       size,
       lastModified,
     }
   }
 
-  // 以下格式都要前端自己拉原图（canvas 降采样或直连），超出上限一律不出预览
-  if (size > IMAGE_PREVIEW_RAW_MAX_BYTES)
-    return null
-
-  if (regClientCanvasThumbFormat.test(item.name) && cacheable)
-    return { name, key: absPath, mode: 'client', url: streamUrl, size, lastModified }
-
-  return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
+  return null
 }
 
 const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
   const { item, absPath } = props
-  if (!absPath || !item || item.isDirectory || !regSupportedImageFormat.test(item.name))
+  if (!absPath || !item || item.isDirectory || !isPreviewableName(item.name))
+    return null
+  if (previewDisabled.value)
     return null
 
-  return buildImagePreviewCandidate(item, absPath, absPath)
+  return buildPreviewCandidate(item, absPath, absPath)
 })
 
 // ---------------------------------------------------------------------------
@@ -174,7 +222,8 @@ const FOLDER_PREVIEW_LOAD_DEBOUNCE_MS = 120
 
 const folderPreviewEligible = computed(() => {
   const { item, absPath } = props
-  return !!item?.isDirectory && !item.error && !!absPath && previewSizeAllowed.value
+  return !!item?.isDirectory && !item.error && !!absPath
+    && previewSizeAllowed.value && !previewDisabled.value
 })
 
 const folderListingPath = computed(() =>
@@ -201,10 +250,10 @@ function emptyChildCandidate(name: string): ImagePreviewCandidate {
 function buildChildPreviewCandidate(child: IEntry): ImagePreviewCandidate {
   const name = child.name
   const listingPath = folderListingPath.value
-  if (!previewSizeAllowed.value || !listingPath || child.isDirectory || child.error || !regSupportedImageFormat.test(child.name))
+  if (!previewSizeAllowed.value || !listingPath || child.isDirectory || child.error || !isPreviewableName(child.name))
     return emptyChildCandidate(name)
 
-  return buildImagePreviewCandidate(child, `${listingPath}${name}`, name) ?? emptyChildCandidate(name)
+  return buildPreviewCandidate(child, `${listingPath}${name}`, name) ?? emptyChildCandidate(name)
 }
 
 const folderPreviewCells = computed(() =>
@@ -229,19 +278,30 @@ const folderPreviewFrameStyle = computed(() => {
 
 const folderMiniIconFontSize = computed(() => Math.max(10, Math.round(props.iconSize * 0.4)))
 
-// 链接角标（左下角小图标）：随图标尺寸等比缩放，避免小图标下遮住整个字形
-const linkBadgeSize = computed(() => {
+// 角标（右下角类型 / 左下角链接）：随图标尺寸等比缩放，避免小图标下遮住整个字形
+const badgeSize = computed(() => {
   const size = props.iconSize
   return Math.min(18, Math.max(9, Math.round(size * 0.34)))
 })
-const linkBadgeStyle = computed(() => {
-  const box = linkBadgeSize.value
+function badgeBoxStyle(box: number) {
   return {
     width: `${box}px`,
     height: `${box}px`,
     fontSize: `${Math.round(box * 0.8)}px`,
   }
-})
+}
+const linkBadgeStyle = computed(() => badgeBoxStyle(badgeSize.value))
+const typeBadgeStyle = computed(() => badgeBoxStyle(badgeSize.value))
+
+/**
+ * 非图片文件出预览时，在右下角压一个类型图标：
+ * 缩略图本身看不出这是音频还是视频，角标用来区分文件类型。
+ * 图片不加（对图片而言类型没有区分价值），文件夹 2×2 预览也不加（格子太小看不清）。
+ */
+const typeBadgeIcon = computed(() => props.iconClass || getFileIconClass(props.item))
+const showTypeBadge = computed(() =>
+  !!previewUrl.value && !!props.item && !regSupportedImageFormat.test(props.item.name),
+)
 
 let folderReadSeq = 0
 let folderReadTimer: ReturnType<typeof setTimeout> | null = null
@@ -329,6 +389,14 @@ onBeforeUnmount(() => {
       <MdiIcon name="file-question" />
     </span>
     <span
+      v-if="showTypeBadge"
+      class="themed-icon-type-badge"
+      :style="typeBadgeStyle"
+      aria-hidden="true"
+    >
+      <MdiIcon :name="typeBadgeIcon" />
+    </span>
+    <span
       v-if="item?.isLink"
       class="themed-icon-link-badge"
       :style="linkBadgeStyle"
@@ -413,6 +481,24 @@ onBeforeUnmount(() => {
   .themed-icon-link-badge {
     position: absolute;
     left: 0;
+    bottom: 0;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: var(--vgo-radius);
+    background-color: var(--vgo-primary);
+    color: var(--vgo-on-primary);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  // 右下角类型角标：音频 / 视频出了封面之后，光看缩略图分不出是什么文件类型。
+  // 放在右下角，和左下角的链接角标错开。
+  .themed-icon-type-badge {
+    position: absolute;
+    right: 0;
     bottom: 0;
     z-index: 1;
     display: inline-flex;

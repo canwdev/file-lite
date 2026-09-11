@@ -13,6 +13,7 @@
  */
 import type { DBSchema, IDBPDatabase } from 'idb'
 import { openDB } from 'idb'
+import { extractEmbeddedCover } from '@/utils/audio-cover'
 
 export const IMAGE_THUMB_MAX_EDGE = 512
 /** 小于该体积的图片不值得入缓存,直接显示原图 */
@@ -90,12 +91,29 @@ let ready = false
 let totalBytes = 0
 let totalEntries = 0
 
+/** 缓存初始化 / 写缓存失败各只告警一次,避免刷屏又保证问题可见 */
+let cacheInitFailureLogged = false
+let cacheWriteFailureLogged = false
+
 /** 同一 key 的并发生成去重 */
 const inflightGenerations = new Map<string, Promise<ThumbResolveResult>>()
 
 function openThumbDb() {
   dbPromise ??= openDB<ThumbDb>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    // upgrade 不只在新建库时跑，**从任意旧版本升级**时都会跑。
+    // 老代码在 v1 里建过同名 store，如果这里无脑再 createObjectStore 一次，
+    // 就会抛 ConstraintError，导致整个缓存静默失效 —— 现象是预览正常但
+    // 「Image cache」永远是 empty，因为写缓存失败被吞掉了。
+    //
+    // v1 存的是前端 canvas 生成的 WebP，指纹语义也已经变了（现在带版本前缀），
+    // 所以升级时直接丢弃重建，不尝试兼容。
+    upgrade(db, oldVersion) {
+      if (oldVersion > 0) {
+        if (db.objectStoreNames.contains(META_STORE))
+          db.deleteObjectStore(META_STORE)
+        if (db.objectStoreNames.contains(BLOB_STORE))
+          db.deleteObjectStore(BLOB_STORE)
+      }
       const metaStore = db.createObjectStore(META_STORE, { keyPath: 'key' })
       metaStore.createIndex('byLastUsed', 'lastUsed')
       db.createObjectStore(BLOB_STORE)
@@ -129,8 +147,15 @@ async function ensureReady() {
       ready = true
       requestPersistentStorage()
     }
-    catch {
-      // 缓存不可用(隐私模式/配额策略等):ready 保持 false,resolve 一律失败 → 调用方回退
+    catch (error) {
+      // 缓存不可用(隐私模式/配额策略/升级失败):ready 保持 false,
+      // 后续一律不入库,调用方照常取图。
+      // 只喊一次:否则这里静默失效会完全查不出来(曾经就是这样:
+      // 预览一切正常,而「Image cache」永远显示 empty)。
+      if (!cacheInitFailureLogged) {
+        cacheInitFailureLogged = true
+        console.warn('[image-thumb-cache] IndexedDB 不可用，缩略图将不会入缓存', error)
+      }
       dbPromise = null
     }
   })()
@@ -278,15 +303,13 @@ async function downscaleToBlob(bitmap: ImageBitmap, maxEdge: number): Promise<Bl
   })
 }
 
-/** 拉取原图流并生成 <= maxEdge 的缩略 blob;失败返回 null */
-async function downloadAndDownscale(streamUrl: string, maxEdge: number, signal?: AbortSignal) {
+/**
+ * 把任意图片 blob 降采样到 <= maxEdge;失败返回 null。
+ * client（后端解不了的位图）与 audio（内嵌封面）两条路共用。
+ */
+async function downscaleBlob(sourceBlob: Blob, maxEdge: number): Promise<Blob | null> {
   if (typeof createImageBitmap !== 'function')
     return null
-
-  const response = await fetch(streamUrl, { signal, credentials: 'same-origin' })
-  if (!response.ok)
-    return null
-  const sourceBlob = await response.blob()
 
   const bitmap = await createImageBitmap(sourceBlob)
   try {
@@ -299,6 +322,14 @@ async function downloadAndDownscale(streamUrl: string, maxEdge: number, signal?:
   finally {
     bitmap.close()
   }
+}
+
+/** 拉取原图流并生成 <= maxEdge 的缩略 blob;失败返回 null */
+async function downloadAndDownscale(streamUrl: string, maxEdge: number, signal?: AbortSignal) {
+  const response = await fetch(streamUrl, { signal, credentials: 'same-origin' })
+  if (!response.ok)
+    return null
+  return await downscaleBlob(await response.blob(), maxEdge)
 }
 
 /** 解码/降采样阶段的全局并发信号量(仅 client 路径) */
@@ -340,25 +371,29 @@ async function lookupCached(db: IDBPDatabase<ThumbDb>, key: string, fp: string):
 
 /**
  * 缩略图字节的来源：
- * - `server` 后端生成的缩略图接口；
- * - `client` 原图流地址，由前端 canvas 降采样。
+ * - `server` 后端生成的缩略图接口（图片缩略图 / ffmpeg 视频封面）；
+ * - `client` 原图流地址，由前端 canvas 降采样；
+ * - `audio` 音频流地址，由前端从内嵌标签里抽出封面再降采样。
  */
 export type ThumbSource
   = | { kind: 'server', url: string }
     | { kind: 'client', url: string }
+    | { kind: 'audio', url: string }
 
 /**
  * 生成失败的原因，决定调用方的回退动作：
  * - `aborted` 请求被取消（组件卸载 / 滚动出视野）；
  * - `unsupported` 后端不支持该格式（HTTP 415）：调用方应回退原图直连；
  * - `rejected` 后端拒绝，源图超过上限（HTTP 422）：调用方应显示类型图标；
- * - `busy` 服务端暂时繁忙（HTTP 503）：显示图标，但**不要**记住这次失败，下次还能重试；
+ * - `empty` 文件里没有内嵌封面：确定的否定结果，显示图标并记住它；
+ * - `busy` 服务端此刻不能提供（503 繁忙 / 501 能力未启用）：可重试，**不要**记住；
  * - `failed` 网络 / 配额 / 解码失败：调用方应显示类型图标。
  */
 export type ThumbFailureReason
   = | 'aborted'
     | 'unsupported'
     | 'rejected'
+    | 'empty'
     | 'busy'
     | 'failed'
 
@@ -374,12 +409,25 @@ async function fetchThumbBlob(source: ThumbSource, signal?: AbortSignal): Promis
     return blob
   }
 
+  if (source.kind === 'audio') {
+    // 封面要从标签里抽，所以先解析再降采样；解析走 HTTP Range，不会整份下载音频
+    return await runWithDecodeSlot(async () => {
+      const cover = await extractEmbeddedCover(source.url, signal)
+      if (!cover)
+        throw new NoCoverError()
+      const scaled = await downscaleBlob(cover.blob, IMAGE_THUMB_MAX_EDGE)
+      if (!scaled)
+        throw new Error('audio cover downscale failed')
+      return scaled
+    })
+  }
+
   const response = await fetch(source.url, { signal, credentials: 'same-origin' })
   if (response.status === 415)
     throw new UnsupportedFormatError()
   if (response.status === 422)
     throw new RejectedImageError()
-  if (response.status === 503)
+  if (response.status === 501 || response.status === 503)
     throw new TransientThumbError()
   if (!response.ok)
     throw new Error(`thumbnail request failed: ${response.status}`)
@@ -390,7 +438,9 @@ async function fetchThumbBlob(source: ThumbSource, signal?: AbortSignal): Promis
 class UnsupportedFormatError extends Error {}
 /** 后端按上限拒绝：文件本身的问题，重试无意义 */
 class RejectedImageError extends Error {}
-/** 服务端暂时繁忙（解码槽位排队超时）：属于可重试失败，调用方不应记成永久结果 */
+/** 这个文件里没有内嵌封面：确定的否定结果 */
+class NoCoverError extends Error {}
+/** 服务端此刻不能提供（503 繁忙 / 501 能力未启用）：可重试，不该记成永久结果 */
 class TransientThumbError extends Error {}
 
 async function generateAndStore(
@@ -412,8 +462,11 @@ async function generateAndStore(
         try {
           await storeBlob(key, fp, blob)
         }
-        catch {
-          // ignore
+        catch (error) {
+          if (!cacheWriteFailureLogged) {
+            cacheWriteFailureLogged = true
+            console.warn('[image-thumb-cache] 缩略图写缓存失败，本次仍正常显示', error)
+          }
         }
       }
       return { ok: true, url: URL.createObjectURL(blob) }
@@ -425,6 +478,8 @@ async function generateAndStore(
         return { ok: false, reason: 'unsupported' }
       if (error instanceof RejectedImageError)
         return { ok: false, reason: 'rejected' }
+      if (error instanceof NoCoverError)
+        return { ok: false, reason: 'empty' }
       if (error instanceof TransientThumbError)
         return { ok: false, reason: 'busy' }
       return { ok: false, reason: 'failed' }
@@ -502,9 +557,17 @@ export async function getCachedImageThumbUrl(options: { key: string, size: numbe
   }
 }
 
-/** 当前缓存真实占用(只读 meta,不加载 blob) */
-export async function getImageThumbCacheStats(): Promise<{ entries: number, bytes: number }> {
+/**
+ * 当前缓存真实占用(只读 meta,不加载 blob)。
+ * `available` 区分「缓存为空」和「缓存根本用不了」(隐私模式 / 配额 / 升级失败)——
+ * 这两种情况在 UI 上必须长得不一样,否则一次静默失效会被当成"还没缓存东西"。
+ */
+export async function getImageThumbCacheStats(): Promise<{ entries: number, bytes: number, available: boolean }> {
   try {
+    await ensureReady()
+    if (!ready)
+      return { entries: 0, bytes: 0, available: false }
+
     const db = await openThumbDb()
     let cursor = await db.transaction(META_STORE).store.openCursor()
     let entries = 0
@@ -514,10 +577,10 @@ export async function getImageThumbCacheStats(): Promise<{ entries: number, byte
       bytes += cursor.value.byteSize
       cursor = await cursor.continue()
     }
-    return { entries, bytes }
+    return { entries, bytes, available: true }
   }
   catch {
-    return { entries: 0, bytes: 0 }
+    return { entries: 0, bytes: 0, available: false }
   }
 }
 

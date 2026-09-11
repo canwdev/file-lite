@@ -33,6 +33,9 @@ type Cfg struct {
 	SSLKey       string   `json:"sslKey"`
 	SSLCert      string   `json:"sslCert"`
 	AllowedCIDRs []string `json:"allowedCIDRs"`
+	// FFmpegPath 是 ffmpeg 可执行文件路径，用于生成视频封面。
+	// 留空表示在 PATH 中自动查找；两者都没有时视频封面功能关闭（不报错）。
+	FFmpegPath string `json:"ffmpegPath"`
 }
 
 const PkgName = "file-lite-go"
@@ -101,6 +104,7 @@ func LoadConfig(allowCreate bool) error {
 		EnableLog:   true,
 		SSLKey:      "",
 		SSLCert:     "",
+		FFmpegPath:  "",
 	}
 	fp := filepath.Join(dataBaseDir, "config.json")
 	configFilePath = fp

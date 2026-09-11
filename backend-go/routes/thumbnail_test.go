@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"hash/crc32"
 	"image"
 	"image/jpeg"
@@ -15,6 +16,8 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+
+	"file-lite-go/thumbnails"
 )
 
 func newThumbnailServer() *echo.Echo {
@@ -129,6 +132,41 @@ func TestGetThumbnailNormalizesEdge(t *testing.T) {
 	}
 	if cfg.Width != 128 || cfg.Height != 64 {
 		t.Fatalf("thumbnail = %dx%d, want 128x64", cfg.Width, cfg.Height)
+	}
+}
+
+func TestAuthReportsCapabilities(t *testing.T) {
+	e := echo.New()
+	e.GET("/api/files/auth", getAuthInfo)
+
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/files/auth", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+
+	// 只断言形状可解析：具体取值取决于这台机器是否装了 ffmpeg
+	var body struct {
+		Capabilities struct {
+			VideoThumbnail bool `json:"videoThumbnail"`
+		} `json:"capabilities"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("capabilities payload is not the expected shape: %v (%s)", err, rec.Body.String())
+	}
+}
+
+func TestGetThumbnailVideoUnavailableIs501(t *testing.T) {
+	if thumbnails.Default.VideoAvailable() {
+		t.Skip("这台机器装了 ffmpeg，走不到 501 分支")
+	}
+	e := newThumbnailServer()
+	// 能力检查发生在读文件内容之前，所以内容是什么无所谓
+	clip := writeJPEG(t, t.TempDir(), "clip.mp4", 64, 64)
+
+	rec := requestThumbnail(t, e, url.Values{"path": {clip}, "kind": {"video"}}, "")
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want 501 (body: %s)", rec.Code, rec.Body.String())
 	}
 }
 

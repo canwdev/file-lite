@@ -64,8 +64,27 @@ export function useFileLiteMenu() {
     return `${bytes} B`
   }
 
+  /**
+   * 开关内容预览。关闭时顺手清空缩略图缓存 —— 它们已经不会再被用到，
+   * 留着只是白占浏览器配额，所以这一个开关同时是「别再缓存占我空间」的手段。
+   */
+  async function toggleDisablePreview() {
+    const disabled = !localSettingsStore.value.disablePreview
+    // 先改开关再清缓存：否则清理过程中滚动出来的图还会继续写入新缓存
+    localSettingsStore.value.disablePreview = disabled
+    if (!disabled)
+      return
+
+    await clearImageThumbCache()
+    window.$message.success('Previews disabled · image cache cleared')
+  }
+
   async function clearImageCache() {
-    const { entries, bytes } = await getImageThumbCacheStats()
+    const { entries, bytes, available } = await getImageThumbCacheStats()
+    if (!available) {
+      window.$message.warning('Image cache is unavailable in this browser')
+      return
+    }
     if (entries === 0) {
       window.$message.info('Image cache is already empty')
       return
@@ -117,10 +136,12 @@ export function useFileLiteMenu() {
   }
 
   async function showMenu(event: MouseEvent) {
-    const { entries: cacheEntries, bytes: cacheBytes } = await getImageThumbCacheStats()
-    const imageCacheLabel = cacheEntries > 0
-      ? `Image cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
-      : 'Image cache: empty'
+    const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
+    const imageCacheLabel = !cacheAvailable
+      ? 'Image cache: unavailable'
+      : cacheEntries > 0
+        ? `Image cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
+        : 'Image cache: empty'
     const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
     const rect = button?.getBoundingClientRect()
 
@@ -185,6 +206,13 @@ export function useFileLiteMenu() {
           icon: 'mdi mdi-cog',
           divided: true,
           children: [
+            {
+              icon: localSettingsStore.value.disablePreview ? 'mdi mdi-check' : '',
+              label: `Disable preview`,
+              onClick: () => {
+                void toggleDisablePreview()
+              },
+            },
             {
               label: `App Settings`,
               children: [

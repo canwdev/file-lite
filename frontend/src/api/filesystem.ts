@@ -1,3 +1,4 @@
+import type { ServerCapabilities } from '@/store/capabilities'
 import type { IDrive, IEntry } from '@/types/server'
 import type { ServiceRequestConfig } from '@/utils/service'
 import qs from 'qs'
@@ -5,9 +6,14 @@ import service from '@/utils/service'
 
 const baseURL = `/api/files`
 
+/** 登录态探测的响应，同时携带后端能力开关 */
+export interface IAuthInfo {
+  capabilities?: Partial<ServerCapabilities>
+}
+
 export const fsWebApi = {
-  auth() {
-    return service.get(`${baseURL}/auth`)
+  async auth() {
+    return (await service.get(`${baseURL}/auth`)) as unknown as IAuthInfo
   },
   login(password: string) {
     return service.post(`${baseURL}/auth`, { password }, { isAuth: false } satisfies ServiceRequestConfig) as Promise<{ token: string }>
@@ -73,14 +79,18 @@ export const fsWebApi = {
     return `${baseURL}/stream?path=${encodeURIComponent(path)}`
   },
   /**
-   * 后端生成的缩略图地址。`m` 只是给 HTTP 缓存/日志做标识，
-   * 服务端会自己 stat 文件，不信任这个值。
+   * 后端生成的缩略图地址。`kind` 区分图片来源（图片 / ffmpeg 视频封面），
+   * 它参与后端的缓存键与 ETag。
+   * `m` 只是给 HTTP 缓存/日志做标识，服务端会自己 stat 文件，不信任这个值。
    */
-  getThumbnailUrl(path: string, size: number, lastModified = 0) {
+  getThumbnailUrl(path: string, size: number, lastModified = 0, kind: 'image' | 'video' = 'image') {
     if (!path) {
       return ''
     }
     const params = new URLSearchParams({ path, size: String(size) })
+    if (kind !== 'image') {
+      params.set('kind', kind)
+    }
     if (lastModified > 0) {
       params.set('m', String(lastModified))
     }

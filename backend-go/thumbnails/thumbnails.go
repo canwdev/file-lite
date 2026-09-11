@@ -23,6 +23,8 @@ import (
 	// x/image/webp 只提供解码器；注册进 image.Decode / image.DecodeConfig。
 	// jpeg/png/gif 由 image 包自带，bmp/tiff 由 imaging 内部引入。
 	_ "golang.org/x/image/webp"
+
+	"file-lite-go/config"
 )
 
 const (
@@ -64,13 +66,33 @@ var allowedEdges = [...]int{64, 128, 256, 512}
 var (
 	// ErrNotFound 表示路径不存在或不是文件。
 	ErrNotFound = errors.New("thumbnail: file not found")
-	// ErrUnsupported 表示不是可解码的图片（含格式不支持、文件损坏、动画 WebP 等）。
+	// ErrUnsupported 表示不是可解码的图片/视频（含格式不支持、文件损坏、动画 WebP 等）。
 	ErrUnsupported = errors.New("thumbnail: unsupported image format")
-	// ErrTooLarge 表示源图像素总量超过上限。
+	// ErrTooLarge 表示源文件体积或解码后占用超过上限。
 	ErrTooLarge = errors.New("thumbnail: source image too large")
 	// ErrBusy 表示等待解码槽位超时。
 	ErrBusy = errors.New("thumbnail: too many pending jobs")
+	// ErrUnavailable 表示该能力在这台机器上不可用（典型是没有 ffmpeg）。
+	// 路由层映射成 HTTP 501：前端把它当作「能力关闭」，而不是这个文件出了问题。
+	ErrUnavailable = errors.New("thumbnail: feature unavailable")
 )
+
+// Kind 区分缩略图的来源类型。它参与缓存键与 ETag，所以同一个路径的
+// 图片缩略图和视频封面不会互相覆盖。
+type Kind string
+
+const (
+	KindImage Kind = "image"
+	KindVideo Kind = "video"
+)
+
+// ParseKind 解析 kind 查询参数；未知/缺省一律按图片处理。
+func ParseKind(s string) Kind {
+	if s == string(KindVideo) {
+		return KindVideo
+	}
+	return KindImage
+}
 
 // Options 用于构造 Service；零值字段取默认值。
 type Options struct {
@@ -79,21 +101,36 @@ type Options struct {
 	// AcquireTimeout 是等待解码槽位的上限，超时返回 ErrBusy(HTTP 503)。
 	// 超过它宁可让前端显示图标，也不无限排队把请求堆在内存里。
 	AcquireTimeout time.Duration
-	// MaxSourceBytes 是允许参与生成的源文件体积上限，超过直接返回 ErrTooLarge。
+	// MaxSourceBytes 是允许参与**图片**生成的源文件体积上限，超过直接返回 ErrTooLarge。
+	// 视频不适用这条：几 GB 的影片是常态，视频靠 VideoTimeout 兜底。
 	MaxSourceBytes int64
+	// FFmpegPath 返回 ffmpeg 可执行文件路径；返回空串表示在 PATH 中查找。
+	// 做成函数是因为 Default 在 config 加载之前就构造了，路径要延迟到请求时再读。
+	FFmpegPath func() string
+	// VideoConcurrency 是同时运行的 ffmpeg 进程数上限。零值取默认。
+	VideoConcurrency int
+	// VideoTimeout 是单个 ffmpeg 进程的运行上限。零值取默认。
+	VideoTimeout time.Duration
 }
 
 // Service 持有 LRU、并发闸门与 singleflight 表。
 type Service struct {
 	cache          *lruCache
 	sem            chan struct{}
+	videoSem       chan struct{}
 	group          *flightGroup
 	acquireTimeout time.Duration
 	maxSourceBytes int64
+	videoTimeout   time.Duration
+	ffmpeg         ffmpegState
 }
 
 // Default 是路由使用的进程级实例。
-var Default = New(Options{CacheBytes: defaultCacheBytes, Concurrency: decodeConcurrency})
+var Default = New(Options{
+	CacheBytes:  defaultCacheBytes,
+	Concurrency: decodeConcurrency,
+	FFmpegPath:  func() string { return config.Config().FFmpegPath },
+})
 
 func New(opts Options) *Service {
 	if opts.CacheBytes <= 0 {
@@ -108,12 +145,21 @@ func New(opts Options) *Service {
 	if opts.MaxSourceBytes <= 0 {
 		opts.MaxSourceBytes = maxSourceBytes
 	}
+	if opts.VideoConcurrency <= 0 {
+		opts.VideoConcurrency = defaultVideoConcurrency
+	}
+	if opts.VideoTimeout <= 0 {
+		opts.VideoTimeout = defaultVideoTimeout
+	}
 	return &Service{
 		cache:          newLRUCache(opts.CacheBytes, maxCacheEntryBytes),
 		sem:            make(chan struct{}, opts.Concurrency),
+		videoSem:       make(chan struct{}, opts.VideoConcurrency),
 		group:          newFlightGroup(),
 		acquireTimeout: opts.AcquireTimeout,
 		maxSourceBytes: opts.MaxSourceBytes,
+		videoTimeout:   opts.VideoTimeout,
+		ffmpeg:         ffmpegState{pathFn: opts.FFmpegPath},
 	}
 }
 
@@ -130,19 +176,19 @@ func NormalizeEdge(v int) int {
 	return MaxEdge
 }
 
-// ETag 由「生成参数版本 + 文件大小 + 修改时间 + 边长」组成，
+// ETag 由「类型 + 生成参数版本 + 文件大小 + 修改时间 + 边长」组成，
 // 任一变化都会让客户端已缓存的缩略图失效。
-func ETag(fi os.FileInfo, edge int) string {
-	return fmt.Sprintf(`"th%d-%x-%x-%d"`, genVersion, fi.Size(), fi.ModTime().UnixMilli(), edge)
+func ETag(kind Kind, fi os.FileInfo, edge int) string {
+	return fmt.Sprintf(`"th%s%d-%x-%x-%d"`, kind, genVersion, fi.Size(), fi.ModTime().UnixMilli(), edge)
 }
 
-func cacheKey(path string, edge int, fi os.FileInfo) string {
-	return fmt.Sprintf("%s\x00%d\x00%d\x00%d", path, edge, fi.Size(), fi.ModTime().UnixNano())
+func cacheKey(kind Kind, path string, edge int, fi os.FileInfo) string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d", kind, path, edge, fi.Size(), fi.ModTime().UnixNano())
 }
 
 // Get 返回缩略图字节与 Content-Type。
 // 命中 LRU 直接返回；未命中则合并同 key 的并发请求后生成。
-func (s *Service) Get(ctx context.Context, path string, edge int) ([]byte, string, error) {
+func (s *Service) Get(ctx context.Context, path string, edge int, kind Kind) ([]byte, string, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -154,19 +200,25 @@ func (s *Service) Get(ctx context.Context, path string, edge int) ([]byte, strin
 		return nil, "", ErrNotFound
 	}
 
-	key := cacheKey(path, edge, fi)
+	key := cacheKey(kind, path, edge, fi)
 	if data, ct, ok := s.cache.Get(key); ok {
 		return data, ct, nil
 	}
 
-	// 保险丝：超过体积上限的文件一律不生成。放在缓存查询之后，
-	// 这样文件后来变大时，已缓存的缩略图仍然可用。
-	if fi.Size() > s.maxSourceBytes {
+	if kind == KindVideo {
+		// 视频封面能力没开就没有「生成」这一步可言，直接如实上报。
+		if _, ok := s.ffmpegBinary(); !ok {
+			return nil, "", ErrUnavailable
+		}
+	} else if fi.Size() > s.maxSourceBytes {
+		// 保险丝：超过体积上限的图片一律不生成。放在缓存查询之后，
+		// 这样文件后来变大时，已缓存的缩略图仍然可用。
+		// 不适用于视频：几 GB 的影片是常态。
 		return nil, "", ErrTooLarge
 	}
 
 	ch := s.group.DoChan(key, func() flightResult {
-		return s.generate(path, edge, key)
+		return s.generate(ctx, kind, path, edge, key)
 	})
 
 	select {
@@ -184,7 +236,14 @@ type flightResult struct {
 	err  error
 }
 
-func (s *Service) generate(path string, edge int, key string) flightResult {
+func (s *Service) generate(ctx context.Context, kind Kind, path string, edge int, key string) flightResult {
+	if kind == KindVideo {
+		return s.generateVideo(ctx, path, edge, key)
+	}
+	return s.generateImage(path, edge, key)
+}
+
+func (s *Service) generateImage(path string, edge int, key string) flightResult {
 	select {
 	case s.sem <- struct{}{}:
 	case <-time.After(s.acquireTimeout):
