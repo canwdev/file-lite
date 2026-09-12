@@ -1,0 +1,16 @@
+{
+  "name": "file-lite-e2e",
+  "private": true,
+  "type": "module",
+  "description": "File Lite 的端到端 UI 测试子项目（Playwright）",
+  "scripts": {
+    "build": "node scripts/build-app.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "test:headed": "node scripts/run-tests.mjs --headed",
+    "report": "playwright show-report",
+    "install:browser": "node scripts/install-browser.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

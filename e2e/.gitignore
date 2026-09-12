@@ -1,0 +1,7 @@
+node_modules
+test-results
+playwright-report
+.tmp
+.bun-cache
+.browsers
+.file-lite-e2e
