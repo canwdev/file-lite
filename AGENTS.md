@@ -44,10 +44,10 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 
 `e2e/` is a separate Playwright sub-project that drives the built app in a real browser (see `e2e/README.md`).
 
-- **A change to what the file manager does on screen must come with an end-to-end case**: dialogs, toolbar actions, keyboard shortcuts, task progress and cancel, upload/download flows, context menus. Backend unit tests do not cover these — three real bugs (tasks never reaching the client list, the initial snapshot never being requested, the task window blocking the file list) were only visible in a browser.
-- Run it with `cd e2e && bun run test`. It builds the frontend, embeds it into the Go binary and runs the real thing, so it also catches "the frontend changed but the binary still serves the old page".
-- Screenshots come from the tests (`e2e/screenshots/`) and are what the docs embed; after a UI change, re-run the suite so the screenshots follow.
-- Test the user-visible contract, not the implementation: assert on the clipboard, the files on disk, and the dialogs the user sees.
+- **Do not add or run E2E tests unless the user asks.** A small change — copy, styling, a menu entry, a debug fixture — is verified by reading the code and running `bun run lint` / `bun run type-check`, plus the Go tests next to whatever backend code it touches. The suite rebuilds the frontend, embeds it and starts a server, so it costs about a minute for a one-line change.
+- When the user does ask for tests, or the change is large enough that reading it is not enough (dialogs, task lifecycle, upload/download flows), add the case to `e2e/` and run **only the affected spec** first (`cd e2e && node scripts/run-tests.mjs tests/0x-....spec.ts`). Run the whole suite only when asked.
+- Keep the suite worth its cost: test the user-visible contract (the clipboard, the files on disk, the dialogs on screen), not the implementation. The three bugs it did find were only visible in a browser.
+- Screenshots come from the tests (`e2e/screenshots/`) and are what the docs embed; when a test is removed, its screenshot goes too, and the docs reference is dropped with them.
 - `expect.poll` fails immediately when its callback throws instead of retrying, so waiting for an asynchronous result must read through a non-throwing helper (`readTextIfExists` in `e2e/tests/helpers.ts`).
 - Things that cannot be driven from a browser (file-operations primitives, task state machine, HTTP handlers) belong in Go tests next to the code.
 

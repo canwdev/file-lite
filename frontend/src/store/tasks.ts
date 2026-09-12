@@ -30,6 +30,8 @@ export function isTerminalState(state: TaskState) {
 export interface TaskEntry extends TaskSnapshot {
   results?: TaskItemResult[]
   resultsTruncated?: boolean
+  /** 调试视图注入的假任务：不来自服务端，取消 / 移除只在本地生效。 */
+  debug?: boolean
 }
 
 export const taskList = ref<TaskEntry[]>([])
@@ -151,17 +153,49 @@ export async function createTask(payload: TaskCreatePayload): Promise<string> {
  * 因此即使 done 事件里的结果被截断到 200 条，重试依然是完整的。
  */
 export async function retryTask(taskId: string): Promise<string> {
+  if (isDebugTask(taskId)) {
+    throw new Error('This is a debug task: "Try Again" is not sent to the server')
+  }
   const newTaskId = await awaitTaskAck(requestId => sendRetryTask(requestId, taskId))
   locallyCreatedTasks.add(newTaskId)
   return newTaskId
 }
 
+/** 该任务是不是调试视图注入的假数据。 */
+export function isDebugTask(taskId: string) {
+  return Boolean(taskList.value.find(task => task.id === taskId)?.debug)
+}
+
 export function cancelTask(taskId: string) {
+  if (isDebugTask(taskId)) {
+    // 假任务没有对应的服务端任务，取消只改本地状态
+    patchTask(taskId, { state: 'cancelled', canCancel: false })
+    return
+  }
   return sendCancelTask(taskId)
 }
 
 export function dismissTask(taskId: string) {
+  if (isDebugTask(taskId)) {
+    taskList.value = taskList.value.filter(task => task.id !== taskId)
+    return
+  }
   return sendDismissTask(taskId)
+}
+
+/**
+ * 调试视图专用：把一组假任务放进列表，用来检查后台任务行的排版。
+ * 它们带 debug 标记，因此不会被自动清理，取消 / 移除也不会打扰服务端。
+ */
+export function replaceDebugTasks(entries: (TaskSnapshot & { results?: TaskItemResult[] })[]) {
+  taskList.value = [
+    ...taskList.value.filter(task => !task.debug),
+    ...entries.map(entry => ({ ...entry, debug: true })),
+  ]
+}
+
+export function removeDebugTasks() {
+  taskList.value = taskList.value.filter(task => !task.debug)
 }
 
 let localConflictSequence = 0

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { UploadConflictPolicy } from '@/api/filesystem'
-import type { TaskKind, TaskSnapshot } from '@/types/server'
+import type { TaskItemResult, TaskKind, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import { useStorage } from '@vueuse/core'
@@ -13,6 +13,8 @@ import {
   isTerminalState,
   openConflictDialog,
   openFailureDialog,
+  removeDebugTasks,
+  replaceDebugTasks,
   taskList,
 } from '@/store/tasks'
 import { bytesToSize, downloadUrl } from '@/utils'
@@ -69,7 +71,10 @@ export interface ITransferItem extends IBatchFile {
 // ---- 服务端异步任务（复制 / 移动 / 删除 / 复制副本）----
 // 进度由服务端通过 WS 推送，这里只负责渲染进度条和操作入口。
 const serverTasks = computed(() => taskList.value)
-const hasServerActive = computed(() => serverTasks.value.some(task => !isTerminalState(task.state)))
+// 调试视图注入的假任务不参与「还有任务在跑」的判断，否则窗口会被它们顶住关不掉
+const hasServerActive = computed(() => serverTasks.value.some(task => !task.debug && !isTerminalState(task.state)))
+/** 调试视图打开期间：不自动收起、不自动清理，随时可以关掉。 */
+const debugMode = ref(false)
 
 watch(
   () => serverTasks.value.length,
@@ -195,22 +200,30 @@ function measureTransferItemHeight() {
 }
 
 watch(isVisible, (val) => {
-  if (!val) {
-    transferIndex.value = 0
-    cancelAll()
-    listData.value = []
-    scheduleFlush()
+  if (val) {
+    return
   }
+  transferIndex.value = 0
+  if (debugMode.value) {
+    // 调试数据：只回收自己注入的假任务，绝不能顺手取消用户真实的任务
+    exitDebugMode()
+  }
+  else {
+    cancelAll()
+  }
+  listData.value = []
+  scheduleFlush()
 })
 
 // 所有服务端任务都到终态后自动收起窗口——资源管理器也是这样，
 // 否则一个浮动窗口会一直盖在文件列表上挡住操作。
 const allServerTasksDone = computed(() => {
-  return serverTasks.value.length > 0 && serverTasks.value.every(task => isTerminalState(task.state))
+  const real = serverTasks.value.filter(task => !task.debug)
+  return real.length > 0 && real.every(task => isTerminalState(task.state))
 })
 
 watch(allServerTasksDone, (done) => {
-  if (!done || pendingNum.value > 0 || transferringNum.value > 0) {
+  if (debugMode.value || !done || pendingNum.value > 0 || transferringNum.value > 0) {
     return
   }
   isVisible.value = false
@@ -218,7 +231,7 @@ watch(allServerTasksDone, (done) => {
   // 顺带把「没有任何问题」的任务从列表里清掉：一次普通复制不该在任务列表里留下
   // 一条记录，否则会越积越多，状态栏的任务入口也永远亮着。
   // 部分成功 / 失败 / 已取消的保留——用户可能还要看原因或点 Try Again。
-  const finishedCleanly = serverTasks.value.filter(task => task.state === 'succeeded')
+  const finishedCleanly = serverTasks.value.filter(task => !task.debug && task.state === 'succeeded')
   for (const task of finishedCleanly) {
     void dismissTask(task.id)
   }
@@ -226,6 +239,10 @@ watch(allServerTasksDone, (done) => {
 
 // 关闭面板：只清理已经结束的服务端任务，仍在运行的保留在 store 里继续跑
 function closePanel() {
+  if (debugMode.value) {
+    isVisible.value = false
+    return
+  }
   for (const task of serverTasks.value) {
     if (isTerminalState(task.state)) {
       void dismissTask(task.id)
@@ -694,6 +711,8 @@ const totalProgressText = computed(() => `${Number.parseFloat(totalProgress.valu
 const hasActiveTasks = computed(() => {
   return pendingNum.value > 0 || transferringNum.value > 0 || hasServerActive.value
 })
+// 调试视图里的假任务永远不该把窗口顶住关不掉
+const canClose = computed(() => debugMode.value || !hasActiveTasks.value)
 function clearFailed() {
   listData.value = listData.value.filter(i => i.status !== 'failed')
   scheduleFlush()
@@ -731,10 +750,36 @@ async function setConcurrentNum() {
   taskQueueRef.value.concurrent = intNum
 }
 /**
- * 用一组覆盖各种状态的假数据填满用户队列，用来检查传输窗口的排版。
- * 由 Development 菜单触发；真实的复制 / 上传任务不受影响。
+ * 调试视图：用一组覆盖各种边界情况的假数据填满传输窗口，方便手动检查排版。
+ * 由 Development 菜单触发；假任务带 debug 标记，取消 / 移除都只在本地生效，
+ * 真实的复制 / 上传任务不受影响。
  */
+function debugServerTask(
+  id: string,
+  overrides: Partial<TaskSnapshot> & { results?: TaskItemResult[] },
+) {
+  return {
+    id: `debug_${id}`,
+    kind: 'copy' as TaskKind,
+    state: 'running' as TaskSnapshot['state'],
+    fromPaths: ['/mock/source'],
+    toPath: '/mock/target/',
+    isMove: false,
+    progress: { itemsTotal: 0, itemsDone: 0, bytesTotal: 0, bytesDone: 0 },
+    stats: { succeeded: 0, skipped: 0, renamed: 0, failed: 0, conflict: 0 },
+    canCancel: true,
+    createdAt: Date.now(),
+    ...overrides,
+  }
+}
+
+const debugFailureResults: TaskItemResult[] = [
+  { fromPath: '/mock/source/report.pdf', status: 'failed', message: 'permission denied' },
+  { fromPath: '/mock/source/locked.bin', status: 'conflict', message: 'A conflicting item appeared at the destination' },
+]
+
 function loadMockTransferList() {
+  debugMode.value = true
   isVisible.value = true
   let index = 0
   const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
@@ -754,41 +799,165 @@ function loadMockTransferList() {
   }
 
   listData.value = [
-    // 上传状态覆盖
+    // ---- 上传：待处理 / 传输中（有速度）/ 传输中（总量未知）/ 成功 / 失败 ----
     createItem({ status: 'pending', message: 'Waiting' }),
     createItem({
       status: 'transferring',
       message: 'Uploading',
       progress: 0.45,
-      speedInfo: { loaded: 450000, total: 1000000, rate: 102400, bytes: 102400 },
+      speedInfo: { loaded: 450_000, total: 1_000_000, rate: 102_400, bytes: 102_400 },
+      abortObj: { abort: () => console.log('Abort Upload') },
+    }),
+    // 刚开始、还没拿到任何进度
+    createItem({
+      status: 'transferring',
+      message: 'Uploading',
+      progress: 0,
+      speedInfo: { loaded: 0, total: 0, rate: 0, bytes: 0 },
       abortObj: { abort: () => console.log('Abort Upload') },
     }),
     createItem({ status: 'success', message: 'Success', progress: 1 }),
     createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
 
-    // 下载状态覆盖
+    // ---- 下载：同样的状态组合 ----
     createItem({ status: 'pending', type: 'download' }),
     createItem({
       status: 'transferring',
       message: 'Downloading',
       type: 'download',
       progress: 0.75,
-      speedInfo: { loaded: 750000, total: 1000000, rate: 204800, bytes: 204800 },
+      speedInfo: { loaded: 750_000, total: 1_000_000, rate: 204_800, bytes: 204_800 },
       abortObj: { abort: () => console.log('Abort Download') },
     }),
     createItem({ status: 'success', type: 'download', progress: 1 }),
-    // Windows 可能对 .url,.dll 等文件名进行限制
-    createItem({ status: 'failed', type: 'download', message: `TypeError: Failed to execute 'getFileHandle' on 'FileSystemDirectoryHandle': Name is not allowed.`, progress: 0.8 }),
+    // Windows 对 .url / .dll 等文件名的限制
+    createItem({
+      status: 'failed',
+      type: 'download',
+      message: `TypeError: Failed to execute 'getFileHandle' on 'FileSystemDirectoryHandle': Name is not allowed.`,
+      progress: 0.8,
+    }),
 
-    // 特殊情况：长文件名
+    // ---- 文件名边界 ----
     createItem({
       filename: 'very_long_filename_to_test_ui_truncation_behavior_in_transfer_queue_list_item.png',
       status: 'transferring',
       progress: 0.15,
+      speedInfo: { loaded: 150_000, total: 1_000_000, rate: 51_200, bytes: 51_200 },
+      abortObj: { abort: () => console.log('Abort Upload') },
+    }),
+    createItem({ filename: '039.+Vexento+-+Borealis.mp3', status: 'success', progress: 1 }),
+    createItem({ filename: '中文 名称 带空格 和 emoji 🎵.flac', status: 'transferring', type: 'download', progress: 0.5, abortObj: { abort: () => {} } }),
+    createItem({ filename: '.hidden-dotfile', status: 'success', progress: 1 }),
+    createItem({ filename: 'README', status: 'pending' }),
+    createItem({ filename: '', path: 'D:/TEST/', status: 'failed', message: 'Empty name', progress: 0 }),
+
+    // ---- 大小边界：0 字节 / 极大文件（检查字节格式化） ----
+    createItem({ filename: 'empty.txt', size: 0, status: 'success', progress: 1 }),
+    createItem({
+      filename: 'archive.tar.zst',
+      size: 1.6e12,
+      status: 'transferring',
+      progress: 0.02,
+      speedInfo: { loaded: 32_000_000_000, total: 1_600_000_000_000, rate: 524_288_000, bytes: 524_288_000 },
+      abortObj: { abort: () => {} },
+    }),
+
+    // ---- 失败信息很长（检查换行与溢出） ----
+    createItem({
+      status: 'failed',
+      message: 'Error: EACCES: permission denied, open \'/mnt/data/some/deeply/nested/path/that/keeps/going/report-final-v2.pdf\'',
+      progress: 0.62,
     }),
   ]
   recomputeTotals()
   triggerRef(listData)
+
+  // ---- 后台任务（复制 / 移动 / 删除）的每一种状态 ----
+  replaceDebugTasks([
+    debugServerTask('queued', {
+      progress: { itemsTotal: 320, itemsDone: 0, bytesTotal: 0, bytesDone: 0 },
+    }),
+    debugServerTask('scanning', {
+      state: 'scanning',
+      progress: { itemsTotal: 12_480, itemsDone: 0, bytesTotal: 0, bytesDone: 0 },
+    }),
+    debugServerTask('conflict', {
+      state: 'awaiting-conflict',
+      progress: { itemsTotal: 5, itemsDone: 0, bytesTotal: 0, bytesDone: 0 },
+      stats: { succeeded: 0, skipped: 0, renamed: 0, failed: 0, conflict: 3 },
+    }),
+    debugServerTask('running-copy', {
+      progress: {
+        itemsTotal: 120,
+        itemsDone: 37,
+        bytesTotal: 812_345_678,
+        bytesDone: 229_102_233,
+        currentPath: '/mock/source/holiday/big-video.mkv',
+      },
+    }),
+    debugServerTask('running-move', {
+      kind: 'move',
+      isMove: true,
+      toPath: '/mock/elsewhere/',
+      progress: { itemsTotal: 42, itemsDone: 11, bytesTotal: 4_294_967_296, bytesDone: 1_073_741_824 },
+    }),
+    // 删除没有字节总量，只能按条数显示进度
+    debugServerTask('running-delete', {
+      kind: 'delete',
+      toPath: '',
+      fromPaths: ['/mock/junk'],
+      progress: { itemsTotal: 48_213, itemsDone: 1_204, bytesTotal: 0, bytesDone: 0 },
+    }),
+    debugServerTask('succeeded', {
+      state: 'succeeded',
+      toPath: '',
+      canCancel: false,
+      progress: { itemsTotal: 9, itemsDone: 9, bytesTotal: 104_857_600, bytesDone: 104_857_600 },
+      stats: { succeeded: 9, skipped: 0, renamed: 0, failed: 0, conflict: 0 },
+    }),
+    // 部分成功：有失败项，行上会出现「查看失败」按钮
+    debugServerTask('partial', {
+      state: 'partial',
+      canCancel: false,
+      progress: { itemsTotal: 4, itemsDone: 4, bytesTotal: 2_097_152, bytesDone: 2_097_152 },
+      stats: { succeeded: 2, skipped: 1, renamed: 0, failed: 1, conflict: 1 },
+      results: debugFailureResults,
+    }),
+    debugServerTask('failed', {
+      state: 'failed',
+      canCancel: false,
+      toPath: '/mock/read-only/',
+      error: 'permission denied',
+      progress: { itemsTotal: 1, itemsDone: 1, bytesTotal: 1_048_576, bytesDone: 0 },
+      stats: { succeeded: 0, skipped: 0, renamed: 0, failed: 1, conflict: 0 },
+      results: [debugFailureResults[0]!],
+    }),
+    debugServerTask('cancelled', {
+      state: 'cancelled',
+      canCancel: false,
+      progress: { itemsTotal: 120, itemsDone: 41, bytesTotal: 812_345_678, bytesDone: 240_123_456 },
+      stats: { succeeded: 40, skipped: 0, renamed: 1, failed: 0, conflict: 0 },
+    }),
+    debugServerTask('duplicate', {
+      kind: 'duplicate',
+      state: 'succeeded',
+      canCancel: false,
+      toPath: '/mock/source/',
+      progress: { itemsTotal: 1, itemsDone: 1, bytesTotal: 4096, bytesDone: 4096 },
+      stats: { succeeded: 1, skipped: 0, renamed: 1, failed: 0, conflict: 0 },
+    }),
+    // 超长目标路径（检查标题溢出）
+    debugServerTask('long-path', {
+      toPath: '/mock/target/a/very/long/nested/destination/path/that/should/be/truncated/when/it/does/not/fit/in/the/row/',
+      progress: { itemsTotal: 2_048, itemsDone: 1_536, bytesTotal: 8_589_934_592, bytesDone: 6_442_450_944 },
+    }),
+  ])
+}
+
+function exitDebugMode() {
+  debugMode.value = false
+  removeDebugTasks()
 }
 
 // 菜单里的「Debug Transfer Window」
@@ -810,7 +979,7 @@ defineExpose({
 <template>
   <ViewPortWindow
     v-model:visible="isVisible"
-    :show-close="!hasActiveTasks"
+    :show-close="canClose"
     :init-win-options="{
       width: '360px',
     }"
@@ -1029,7 +1198,7 @@ defineExpose({
           <button v-if="hasActiveTasks" class="vgo-button vgo-button--danger vgo-button--sm" @click="cancelAll">
             Cancel All
           </button>
-          <button v-else class="vgo-button vgo-button--primary vgo-button--sm" @click="closePanel">
+          <button v-if="canClose" class="vgo-button vgo-button--primary vgo-button--sm" @click="closePanel">
             Close
           </button>
         </div>

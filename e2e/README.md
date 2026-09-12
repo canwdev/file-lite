@@ -60,9 +60,8 @@ bun run report       # 打开上一次的 HTML 报告
 | `04-task-progress.spec.ts` | 进度条与计数、运行中取消且不留半个文件、完成后窗口自动收起、成功任务不留记录、任务跨窗口可见 | `04-task-progress` |
 | `05-failure-retry.spec.ts` | 失败清单（哪一项、为什么、不泄露临时文件名）、Try Again 只重跑失败项 | `05-failure-dialog` |
 | `06-download.spec.ts` | 浏览器最终保存的文件名（含 `+` 与空格）、文件夹下载的 zip 名 | — |
-| `07-development-menu.spec.ts` | Development 菜单里的「Debug Transfer Window」用假数据打开传输窗口 | `07-debug-transfer-window` |
 
-合计 18 个用例，单次运行约 50 秒。
+合计 17 个用例，单次运行约 50 秒。
 
 ## 截图
 
