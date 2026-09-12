@@ -6,33 +6,13 @@ import dayjs from 'dayjs'
 import { computed } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, normalizePath } from '../../utils'
 import { getDefaultOpenApp } from './use-opener'
-
-function appendCopySuffix(name: string, index?: number) {
-  const suffix = index ? `-copy-${index}` : '-copy'
-  const dotIndex = name.lastIndexOf('.')
-  if (dotIndex > 0)
-    return `${name.slice(0, dotIndex)}${suffix}${name.slice(dotIndex)}`
-  return `${name}${suffix}`
-}
-
-function buildDuplicateName(originalName: string, existingNames: Set<string>) {
-  const first = appendCopySuffix(originalName)
-  if (!existingNames.has(first))
-    return first
-
-  for (let i = 2; i < 1000; i++) {
-    const candidate = appendCopySuffix(originalName, i)
-    if (!existingNames.has(candidate))
-      return candidate
-  }
-  return `${first}-${Date.now()}`
-}
 
 function getEntryExt(name: string) {
   const dotIndex = name.lastIndexOf('.')
@@ -53,7 +33,6 @@ export function useFileActions({
   basePath,
   selectedItemsSet,
   selectedItems,
-  entries,
   enablePaste,
   handlePaste,
   handlePasteFromClipboard,
@@ -69,7 +48,6 @@ export function useFileActions({
   basePath: Ref<string>
   selectedItemsSet: Ref<Set<IEntry>>
   selectedItems: Ref<IEntry[]>
-  entries: Ref<IEntry[]>
   enablePaste: Ref<boolean>
   handlePaste: () => Promise<void>
   handlePasteFromClipboard: () => Promise<void>
@@ -164,56 +142,39 @@ export function useFileActions({
       }
     }
   }
+  // 删除改为服务端异步任务：可取消、有进度，目录刷新由 fs changed 通知驱动
   const doDeleteSelected = async () => {
+    if (!selectedPaths.value.length) {
+      return
+    }
+    isLoading.value = true
     try {
-      isLoading.value = true
-
-      await fsWebApi.deleteEntry({
-        path: selectedPaths.value,
+      await createTask({
+        kind: 'delete',
+        fromPaths: [...selectedPaths.value],
       })
-      // 删除成功才刷新列表；失败时后端返回错误（service 层自动 toast），目录未变化无需刷新
-      emit('refresh')
+    }
+    catch (e: any) {
+      window.$message?.error(e?.message || 'Failed to start the task')
     }
     finally {
       isLoading.value = false
     }
   }
-  const duplicateEntry = async (item: IEntry, destName: string) => {
-    const sourcePath = normalizePath(`${basePath.value}/${item.name}`)
-    const destPath = normalizePath(`${basePath.value}/${destName}`)
-    const tempDir = normalizePath(`${basePath.value}/.dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-
-    await fsWebApi.createDir({ path: tempDir })
-    try {
-      await fsWebApi.copyPaste({
-        fromPaths: [sourcePath],
-        toPath: tempDir,
-        isMove: false,
-      })
-      await fsWebApi.renameEntry({
-        fromPath: normalizePath(`${tempDir}/${item.name}`),
-        toPath: destPath,
-      })
-    }
-    finally {
-      await fsWebApi.deleteEntry({ path: [tempDir] }).catch(() => {})
-    }
-  }
-
   const handleDuplicate = async () => {
     if (!selectedItems.value.length)
       return
 
-    const existingNames = new Set(entries.value.map(entry => entry.name))
-
+    isLoading.value = true
     try {
-      isLoading.value = true
-      for (const item of selectedItems.value) {
-        const destName = buildDuplicateName(item.name, existingNames)
-        existingNames.add(destName)
-        await duplicateEntry(item, destName)
-      }
-      emit('refresh')
+      await createTask({
+        kind: 'duplicate',
+        fromPaths: [...selectedPaths.value],
+        toPath: basePath.value,
+      })
+    }
+    catch (e: any) {
+      window.$message?.error(e?.message || 'Failed to start the task')
     }
     finally {
       isLoading.value = false

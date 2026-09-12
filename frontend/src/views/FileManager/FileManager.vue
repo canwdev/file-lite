@@ -13,10 +13,12 @@ import { localSettingsStore } from '@/store'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
+import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
+import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
 import FileSidebar from './FileSidebar.vue'
 import { getLastDirName, normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
@@ -491,6 +493,9 @@ useShortcut({
         </el-splitter-panel>
       </el-splitter>
     </div>
+
+    <ConflictDialog />
+    <TaskFailureDialog />
 
     <!-- 文件选择器 -->
     <div v-if="selectFileMode && fileListRef" class="vgo-u-surface explorer-bottom-wrap">

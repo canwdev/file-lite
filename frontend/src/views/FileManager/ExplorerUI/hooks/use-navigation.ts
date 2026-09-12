@@ -3,6 +3,7 @@ import type { OpenWithEnum } from '@/views/Apps/apps'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
+import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
 import { seedFolderListing } from '../folder-listing'
@@ -69,6 +70,19 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
   onBeforeUnmount(() => {
     refreshController?.abort()
   })
+
+  // 服务端在任务改动目录后广播 fs changed；命中当前目录就刷新。
+  // 这取代了过去跨实例的 moveRefresh 补丁。
+  const unsubscribeFsChanged = subscribeFsChanged((paths) => {
+    if (!paths.length) {
+      return
+    }
+    const current = basePathNormalized.value
+    if (paths.some(path => normalizeListingPath(path) === current)) {
+      void handleRefresh(false)
+    }
+  })
+  onBeforeUnmount(unsubscribeFsChanged)
 
   /* 历史记录功能 START */
   const goBack = async () => {

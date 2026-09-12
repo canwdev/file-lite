@@ -34,6 +34,10 @@ func zipPath(z *zip.Writer, base string, path string) error {
 			return addEmptyDir(z, name)
 		}
 		for _, e := range entries {
+			// 崩溃可能留下孤儿临时文件；列表接口会过滤它，打包也不能漏出去
+			if IsReservedTempName(e.Name()) {
+				continue
+			}
 			if err := zipPath(z, name, filepath.Join(path, e.Name())); err != nil {
 				return err
 			}

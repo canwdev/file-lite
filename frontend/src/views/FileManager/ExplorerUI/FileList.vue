@@ -11,6 +11,7 @@ import MdiMenuUp from '~icons/mdi/menu-up'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
+import { activeTaskCount, taskList } from '@/store/tasks'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
@@ -381,7 +382,6 @@ const { enablePaste, handleCut, handleCopy, handlePaste, currentCutNames } = use
   selectedPaths,
   basePath,
   isLoading,
-  emit,
 })
 
 const { handlePasteFromClipboard } = useSystemClipboardPaste({
@@ -440,7 +440,6 @@ const {
   selectedPaths,
   basePath,
   selectedItems,
-  entries: files,
   enablePaste,
   handlePaste,
   handlePasteFromClipboard,
@@ -970,6 +969,21 @@ defineExpose({
       </div>
 
       <div class="vgo-u-flex-wrap-center">
+        <!-- 任务窗口会自动收起，这里留一个重新打开的入口 -->
+        <button
+          v-if="taskList.length"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+          :title="`Tasks (${activeTaskCount} running)`"
+          @click="transferQueueRef?.show()"
+        >
+          <template v-if="activeTaskCount">
+            <i-mdi-cloud-sync />
+          </template>
+          <template v-else>
+            <i-mdi-cloud-check-outline />
+          </template>
+          <span v-if="activeTaskCount" class="vgo-badge vgo-badge--primary">{{ activeTaskCount }}</span>
+        </button>
         <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
         <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />
         <button

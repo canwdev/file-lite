@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -18,6 +19,13 @@ const (
 	sharedWSPath              = "/api/ws"
 	sharedWSAuthCookieName    = "file_lite_auth_token"
 	sharedWSMaxConnectionsPer = 20
+
+	// 每个连接的出站队列长度。异步任务会高频推送进度，队列满时进度类消息
+	// 会被丢弃（进度可丢，终态 / 冲突不可丢），绝不能因为一个慢客户端把广播阻塞住。
+	sharedWSSendBufferSize = 256
+	sharedWSWriteWait      = 10 * time.Second
+	sharedWSPongWait       = 60 * time.Second
+	sharedWSPingPeriod     = 25 * time.Second
 )
 
 var (
@@ -44,7 +52,57 @@ type sharedWSClient struct {
 	conn            *websocket.Conn
 	ip              string
 	textSyncChannel string
-	writeMu         sync.Mutex
+
+	send      chan []byte
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+// enqueue 把已序列化的消息放进出站队列。
+// droppable 为 true（进度等可丢消息）时队列满就丢弃，绝不阻塞调用方。
+func (c *sharedWSClient) enqueue(payload []byte, droppable bool) {
+	if droppable {
+		select {
+		case c.send <- payload:
+		default:
+		}
+		return
+	}
+	select {
+	case c.send <- payload:
+	case <-c.done:
+	}
+}
+
+func (c *sharedWSClient) close() {
+	c.closeOnce.Do(func() {
+		close(c.done)
+		_ = c.conn.Close()
+	})
+}
+
+// writeLoop 是唯一的写协程：串行化写操作，并周期性发 ping 探测半死连接。
+func (c *sharedWSClient) writeLoop() {
+	ticker := time.NewTicker(sharedWSPingPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.done:
+			return
+		case msg := <-c.send:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(sharedWSWriteWait))
+			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				c.close()
+				return
+			}
+		case <-ticker.C:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(sharedWSWriteWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				c.close()
+				return
+			}
+		}
+	}
 }
 
 type sharedWSBaseMessage struct {
@@ -98,10 +156,22 @@ func handleSharedWebSocket(c echo.Context) error {
 	client := &sharedWSClient{
 		conn: conn,
 		ip:   ip,
+		send: make(chan []byte, sharedWSSendBufferSize),
+		done: make(chan struct{}),
 	}
+	go client.writeLoop()
 	sharedWSRegisterClient(client)
 	defer sharedWSUnregisterClient(client)
+	defer client.close()
+
+	// 心跳：读超时由 pong 续期，半死连接会被清理，连接计数随之释放
+	_ = conn.SetReadDeadline(time.Now().Add(sharedWSPongWait))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(sharedWSPongWait))
+	})
+
 	go syncSharedWSSettingsToClient(client)
+	go sendSharedWSTasksSnapshot(client)
 
 	for {
 		_, raw, err := conn.ReadMessage()
@@ -130,6 +200,13 @@ func handleSharedWebSocket(c echo.Context) error {
 				continue
 			}
 			handleSharedWSSettingsMessage(client, msg)
+		case "tasks":
+			msg, err := parseSharedWSTasksMessage(raw)
+			if err != nil {
+				sendSharedWSError(client, "tasks", "", err.Error())
+				continue
+			}
+			handleSharedWSTasksMessage(client, msg)
 		default:
 			sendSharedWSError(client, "ws", "", "Invalid payload")
 		}
@@ -224,9 +301,20 @@ func snapshotSharedWSClients() []*sharedWSClient {
 }
 
 func sendSharedWSJSON(client *sharedWSClient, payload any) {
-	client.writeMu.Lock()
-	defer client.writeMu.Unlock()
-	_ = client.conn.WriteJSON(payload)
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	client.enqueue(raw, false)
+}
+
+// sendSharedWSJSONDroppable 用于进度这类可丢消息：慢客户端不会拖住广播。
+func sendSharedWSJSONDroppable(client *sharedWSClient, payload any) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	client.enqueue(raw, true)
 }
 
 func sendSharedWSError(client *sharedWSClient, scope, requestID, message string) {

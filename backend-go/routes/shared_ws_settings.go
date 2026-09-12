@@ -23,11 +23,13 @@ var sharedWSSettingsWatcher = struct {
 
 func StartSharedWSServices() {
 	startSharedWSFrontendStorageWatcher()
+	startTaskManager()
 }
 
 func StopSharedWSServices() {
 	stopSharedWSFrontendStorageWatcher()
 	clearSharedWSTextSyncState()
+	stopTaskManager()
 }
 
 func handleSharedWSSettingsMessage(client *sharedWSClient, msg sharedWSSettingsClientMessage) {

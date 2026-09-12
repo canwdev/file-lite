@@ -2,6 +2,41 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.5.0
+
+### UI
+
+- The task window now lays out uploads, downloads and background copy / move / delete tasks as one clean row type, with a status icon, the name and progress details on aligned columns (frontend).
+
+### Features
+
+- Copying, moving, deleting and duplicating are now background tasks: they show a progress bar, can be cancelled, and every open window sees and can cancel them (frontend, backend).
+- When a copy or move lands on a name that already exists, a "Replace or Skip Files" dialog asks whether to replace, skip or keep both, with a "do this for all" option, instead of failing the whole batch (frontend, backend).
+- Folders are merged the way Windows Explorer does it when the destination already has a folder of the same name, so only the conflicting files inside are asked about (backend).
+- "Duplicate" now creates the copy directly with a `name - Copy` name instead of going through a temporary folder (frontend, backend).
+- A finished copy or move refreshes both the source and the destination listing, in every open window (frontend, backend).
+- Uploading a file whose name already exists now asks whether to replace it, skip it or keep both, instead of overwriting it without a word (frontend, backend).
+- A copy, move or delete that fails now lists exactly which items failed and why, and "Try Again" retries only those items (frontend, backend).
+- The progress window closes itself once every task has finished, and a "Tasks" button in the status bar brings it back (frontend).
+- Tasks started in one window are now visible in every other open window, including ones that were already open (frontend).
+
+### Fixes
+
+- Opening File Lite now shows the tasks that are already running instead of an empty task window (frontend).
+- New tasks appear in the task window immediately, so the progress bar, cancel button and failure list work for them (frontend, backend).
+- Cancelling a copy can no longer leave half a file behind: every file is written to a temporary file next to the destination and only renamed into place once complete (backend).
+- A batch copy or move no longer stops at the first conflicting name and silently leaves the earlier items done: every item now reports its own result (backend).
+- Deleting a large folder no longer blocks the page: it runs as a cancellable task and the listing refreshes when it finishes (frontend, backend).
+- An interrupted upload no longer leaves a half-written file at the destination, and the server refuses to overwrite an existing file unless the client asked for it (backend).
+- Uploading a folder no longer skips files after the first 100 entries of a subfolder (frontend).
+- Cancelling an upload no longer risks deleting a file that had already finished uploading (frontend).
+- When a copy or move fails, the failed items are now always included in the report even if there are more results than fit in one message (backend).
+- Error messages for a failed copy, move or upload no longer mention the internal temporary file name (backend).
+
+### Engineering
+
+- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
+
 ## 1.4.5
 
 ### UI

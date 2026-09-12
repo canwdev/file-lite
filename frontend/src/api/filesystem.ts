@@ -6,6 +6,9 @@ import service from '@/utils/service'
 
 const baseURL = `/api/files`
 
+/** 上传同名冲突策略，与服务端 upload-file 的 onConflict 参数一致。 */
+export type UploadConflictPolicy = 'error' | 'overwrite' | 'keep-both'
+
 /** 登录态探测的响应，同时携带后端能力开关 */
 export interface IAuthInfo {
   capabilities?: Partial<ServerCapabilities>
@@ -34,26 +37,30 @@ export const fsWebApi = {
   createDir(params: { path: string, ignoreExisted?: boolean }) {
     return service.post(`${baseURL}/create-dir`, params)
   },
-  // 上传，创建或写入文件
-  uploadFile(params: { path: string, file: File }, config: ServiceRequestConfig = {}) {
-    // console.log('[uploadFile]', params)
-    const { path, file } = params
+  /**
+   * 上传，创建或写入文件。
+   * `onConflict` 决定同名时的行为：`error`（缺省，服务端返回 409）、
+   * `overwrite`、`keep-both`（改名为 name (1).ext）。
+   */
+  uploadFile(
+    params: { path: string, file: File, onConflict?: UploadConflictPolicy },
+    config: ServiceRequestConfig = {},
+  ) {
+    const { path, file, onConflict } = params
     const formData = new FormData()
     formData.append('file', file)
 
     return service.post(`${baseURL}/upload-file`, formData, {
-      params: { path },
+      params: { path, onConflict },
       ...config,
     })
   },
+  /** 批量查询路径是否存在，用于上传前的冲突预检（文件夹上传也能覆盖到嵌套路径）。 */
+  async checkExists(paths: string[]) {
+    return (await service.post(`${baseURL}/exists`, { paths })) as unknown as { existing: string[] }
+  },
   renameEntry(params: { fromPath: string, toPath: string }) {
     return service.post(`${baseURL}/rename`, params)
-  },
-  copyPaste(params: { fromPaths: string[], toPath: string, isMove: boolean }) {
-    return service.post(`${baseURL}/copy-paste`, params)
-  },
-  deleteEntry(params: { path: string[] }) {
-    return service.post(`${baseURL}/delete`, params)
   },
   openInHostExplorer(params: { paths: string[] }) {
     return service.post(`${baseURL}/open-in-host-explorer`, params)

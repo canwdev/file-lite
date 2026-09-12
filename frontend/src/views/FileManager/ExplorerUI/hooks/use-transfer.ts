@@ -1,11 +1,19 @@
+import type { UploadConflictPolicy } from '@/api/filesystem'
 import type { IEntry } from '@/types/server'
 import { useDropZone, useFileDialog } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
+import { requestLocalConflict } from '@/store/tasks'
 import { downloadUrl } from '@/utils'
 import { normalizePath } from '../../utils'
 
 const DOWNLOAD_TASK_BATCH_SIZE = 200
 const DOWNLOAD_YIELD_INTERVAL = 1500
+
+/** 一次待上传的文件：绝对目标路径 + 内容。 */
+interface PendingUpload {
+  file: File
+  path: string
+}
 
 export function useTransfer({
   basePath,
@@ -17,15 +25,75 @@ export function useTransfer({
   selectedItems: Ref<IEntry[]>
 }) {
   const transferQueueRef = ref()
-  const uploadFiles = async (files: File[] | FileList | null) => {
-    if (!files) {
+
+  /** 弹窗里展示用的相对路径 */
+  function relativeLabel(path: string) {
+    const prefix = normalizePath(`${basePath.value}/`)
+    return path.startsWith(prefix) ? path.slice(prefix.length) : path
+  }
+
+  /**
+   * 所有上传的唯一入队口。先向服务端批量确认同名冲突，必要时弹一次决策
+   * （Replace / Skip / Keep both），再按策略入队。
+   *
+   * 服务端 upload-file 也会独立校验，所以即使这里的预检因为竞态漏判，
+   * 也只会得到一个明确的失败，不会静默覆盖。
+   */
+  async function enqueueUploads(items: PendingUpload[]) {
+    if (!items.length) {
       return
     }
-    for (const file of files) {
+
+    let policy: UploadConflictPolicy = 'error'
+    let pending = items
+
+    try {
+      const { existing } = await fsWebApi.checkExists(items.map(item => item.path))
+      if (existing.length) {
+        const existingSet = new Set(existing)
+        const conflictItems = items
+          .filter(item => existingSet.has(item.path))
+          .map(item => ({
+            relativePath: relativeLabel(item.path),
+            kind: 'file-vs-file' as const,
+            sourceIsDirectory: false,
+            destIsDirectory: false,
+            sourceSize: item.file.size,
+          }))
+
+        const resolution = await requestLocalConflict({
+          destPath: basePath.value,
+          isMove: false,
+          totalCount: conflictItems.length,
+          truncated: false,
+          conflicts: conflictItems,
+          action: 'Upload',
+        })
+
+        if (!resolution) {
+          window.$message?.info('Upload cancelled')
+          return
+        }
+        if (resolution.policy === 'skip') {
+          pending = items.filter(item => !existingSet.has(item.path))
+        }
+        else {
+          policy = resolution.policy === 'keep-both' ? 'keep-both' : 'overwrite'
+        }
+      }
+    }
+    catch (error) {
+      // 预检失败不阻断上传：交给服务端的缺省策略（同名即拒绝并如实报错）
+      console.error('[upload] conflict pre-check failed', error)
+      policy = 'error'
+    }
+
+    for (const item of pending) {
       transferQueueRef.value.addTask({
-        filename: file.name,
-        path: normalizePath(`${basePath.value}/${file.name}`),
-        file,
+        filename: item.file.name,
+        path: item.path,
+        file: item.file,
+        onConflict: policy,
       })
     }
   }
@@ -38,55 +106,14 @@ export function useTransfer({
     if (!files) {
       return
     }
-    await uploadFiles(files)
-    // emit('refresh')
+    await enqueueUploads(Array.from(files).map(file => ({
+      file,
+      path: normalizePath(`${basePath.value}/${file.name}`),
+    })))
   })
 
-  // 支持递归上传文件夹
-  function traverseFileTree(item: FileSystemEntry | File, path = '') {
-    if (item instanceof File) {
-      transferQueueRef.value.addTask({
-        filename: item.name,
-        path: normalizePath(`${basePath.value}/${item.webkitRelativePath}`),
-        file: item,
-      })
-      return
-    }
-    if (item.isFile) {
-      // Get file
-      ;(item as FileSystemFileEntry).file((file: File) => {
-        // console.log('File:', {path, file})
-
-        transferQueueRef.value.addTask({
-          filename: file.name,
-          path: normalizePath(`${basePath.value}/${path}${file.name}`),
-          file,
-        })
-      })
-    }
-    else if (item.isDirectory) {
-      // console.log('Dir', item)
-      // Get folder contents
-      const dir = item as FileSystemDirectoryEntry
-      const dirReader = dir.createReader()
-      dirReader.readEntries((entries: FileSystemEntry[]) => {
-        for (let i = 0; i < entries.length; i++) {
-          traverseFileTree(entries[i], `${path + item.name}/`)
-        }
-      })
-
-      fsWebApi.createDir({
-        path: normalizePath(basePath.value + item.fullPath),
-        ignoreExisted: true,
-      })
-    }
-  }
-
-  const {
-    open: selectUploadFolder,
-    // reset: resetSelectFolder,
-    onChange: onSelectFolder,
-  } = useFileDialog({
+  // 文件夹选择框只给到 FileList + webkitRelativePath，父目录由上传接口按需创建
+  const { open: selectUploadFolder, onChange: onSelectFolder } = useFileDialog({
     directory: true,
     reset: true,
   })
@@ -94,15 +121,42 @@ export function useTransfer({
     if (!filesList) {
       return
     }
-    // console.log('[onSelectFolder]', filesList)
-
+    const items: PendingUpload[] = []
     for (let i = 0; i < filesList.length; i++) {
-      const item = filesList[i]
-      if (item) {
-        traverseFileTree(item)
+      const file = filesList[i]
+      if (!file) {
+        continue
+      }
+      items.push({
+        file,
+        path: normalizePath(`${basePath.value}/${file.webkitRelativePath || file.name}`),
+      })
+    }
+    await enqueueUploads(items)
+  })
+
+  /** 从拖放进来的文件系统条目递归收集待上传文件（浏览器拖拽才有目录信息）。 */
+  async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUpload[]) {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => {
+        (entry as FileSystemFileEntry).file(resolve, reject)
+      })
+      out.push({ file, path: normalizePath(`${basePath.value}/${path}${file.name}`) })
+      return
+    }
+    if (entry.isDirectory) {
+      const dir = entry as FileSystemDirectoryEntry
+      await fsWebApi.createDir({
+        path: normalizePath(basePath.value + dir.fullPath),
+        ignoreExisted: true,
+      })
+      const children = await readAllDirectoryEntries(dir.createReader())
+      for (const child of children) {
+        await collectEntry(child, `${path}${dir.name}/`, out)
       }
     }
-  })
+  }
+
   const handleDownload = async () => {
     try {
       isLoading.value = true
@@ -238,17 +292,16 @@ export function useTransfer({
 
   const dropZoneRef = ref<HTMLDivElement>()
   const { isOverDropZone } = useDropZone(() => dropZoneRef.value ?? null, {
-    onDrop: (files, event) => {
-      const items = event.dataTransfer?.items || []
-      // console.log(items)
-
-      for (let i = 0; i < items.length; i++) {
-        // webkitGetAsEntry is where the magic happens
-        const entry = items[i].webkitGetAsEntry()
+    onDrop: async (_files, event) => {
+      const dataTransferItems = event.dataTransfer?.items || []
+      const collected: PendingUpload[] = []
+      for (let i = 0; i < dataTransferItems.length; i++) {
+        const entry = dataTransferItems[i].webkitGetAsEntry()
         if (entry) {
-          traverseFileTree(entry)
+          await collectEntry(entry, '', collected)
         }
       }
+      await enqueueUploads(collected)
     },
   })
 
@@ -262,6 +315,27 @@ export function useTransfer({
     confirmDownload,
     downloadToFolder,
   }
+}
+
+/**
+ * readEntries 每次最多返回 100 个条目，必须循环读到空为止。
+ * 之前只读一次，超过 100 个文件的目录会被静默漏掉。
+ */
+function readAllDirectoryEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+  return new Promise((resolve, reject) => {
+    const all: FileSystemEntry[] = []
+    const readBatch = () => {
+      reader.readEntries((entries) => {
+        if (!entries.length) {
+          resolve(all)
+          return
+        }
+        all.push(...entries)
+        readBatch()
+      }, reject)
+    }
+    readBatch()
+  })
 }
 
 function yieldToBrowser() {

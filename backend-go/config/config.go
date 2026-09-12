@@ -36,10 +36,18 @@ type Cfg struct {
 	// FFmpegPath 是 ffmpeg 可执行文件路径，用于生成视频封面。
 	// 留空表示在 PATH 中自动查找；两者都没有时视频封面功能关闭（不报错）。
 	FFmpegPath string `json:"ffmpegPath"`
+
+	// TaskConcurrency 是同时执行的文件操作任务数上限（缺省 2）。
+	TaskConcurrency int `json:"taskConcurrency,omitempty"`
+	// CopyFileConcurrency 是单个任务内并行复制的文件数（缺省 4）。
+	CopyFileConcurrency int `json:"copyFileConcurrency,omitempty"`
+	// CopyFsync 决定原子改名之前是否 fsync 临时文件。
+	// 缺省 true：保证断电也不会出现「已改名但内容未落盘」的文件；机械盘大量小文件时可关掉换速度。
+	CopyFsync *bool `json:"copyFsync,omitempty"`
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.4.5"
+const Version = "1.5.0"
 
 var cfg Cfg
 var dataBaseDir string
@@ -377,3 +385,27 @@ func Host() string {
 }
 
 func IsHTTPS() bool { return cfg.SSLKey != "" && cfg.SSLCert != "" }
+
+// TaskConcurrency 返回文件操作任务的并发上限。
+func TaskConcurrency() int {
+	if cfg.TaskConcurrency > 0 {
+		return cfg.TaskConcurrency
+	}
+	return 2
+}
+
+// CopyFileConcurrency 返回单任务内并行复制的文件数。
+func CopyFileConcurrency() int {
+	if cfg.CopyFileConcurrency > 0 {
+		return cfg.CopyFileConcurrency
+	}
+	return 4
+}
+
+// CopyFsyncEnabled 返回是否在原子改名之前 fsync 临时文件，缺省开启。
+func CopyFsyncEnabled() bool {
+	if cfg.CopyFsync != nil {
+		return *cfg.CopyFsync
+	}
+	return true
+}

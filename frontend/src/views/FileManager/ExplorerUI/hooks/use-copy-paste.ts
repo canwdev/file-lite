@@ -1,30 +1,28 @@
-import { fsWebApi } from '@/api/filesystem'
+import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import { useSharedRef } from '@/hooks/use-shared-ref'
+import { createTask, onTaskDone } from '@/store/tasks'
 import { normalizeListingPath, normalizePath } from '../../utils'
 
 const explorerStore = useSharedRef<{
   cutPaths: string[]
   copyPaths: string[]
   cutBasePath: string
-  /** 剪切粘贴完成后通知仍停留在源目录的实例刷新 */
-  moveRefresh: { fromPath: string, token: number } | null
 }>('file-lite:explorer-copy-paste', {
   cutPaths: [],
   copyPaths: [],
   cutBasePath: '',
-  moveRefresh: null,
 })
+
+const MOVED_STATUSES = new Set(['moved', 'replaced', 'deleted'])
 
 export function useCopyPaste({
   selectedPaths,
   basePath,
   isLoading,
-  emit,
 }: {
   selectedPaths: Ref<string[]>
   basePath: Ref<string>
   isLoading: Ref<boolean>
-  emit: any
 }) {
   const enablePaste = computed(() => {
     return explorerStore.value.cutPaths.length > 0 || explorerStore.value.copyPaths.length > 0
@@ -54,63 +52,78 @@ export function useCopyPaste({
     explorerStore.value.copyPaths = [...selectedPaths.value]
   }
 
+  /**
+   * 粘贴改为提交服务端异步任务。冲突由服务端预扫描后通过 conflict 事件
+   * 触发弹窗，这里不再做前端预检（列表可能是过期的）。
+   */
   const handlePaste = async () => {
-    let paths: string[] = []
-    let isMove = false
-    if (explorerStore.value.cutPaths.length) {
-      paths = explorerStore.value.cutPaths
-      isMove = true
-    }
-    else if (explorerStore.value.copyPaths.length) {
-      paths = explorerStore.value.copyPaths
-    }
-    else {
+    const isMove = explorerStore.value.cutPaths.length > 0
+    const paths = isMove ? [...explorerStore.value.cutPaths] : [...explorerStore.value.copyPaths]
+    if (!paths.length) {
       return
     }
 
-    const sourceBasePath = explorerStore.value.cutBasePath
-
+    isLoading.value = true
     try {
-      isLoading.value = true
-      await fsWebApi.copyPaste({
+      const taskId = await createTask({
+        kind: isMove ? 'move' : 'copy',
         fromPaths: paths,
         toPath: basePath.value,
-        isMove,
+        onConflict: 'ask',
       })
-      if (isMove) {
-        explorerStore.value.cutPaths = []
-        explorerStore.value.cutBasePath = ''
-        // 始终刷新目标目录（当前目录）
-        emit('refresh')
-        // 若源目录与目标不同，通知仍停留在源目录的实例刷新（含跨窗口）
-        const destPath = normalizeListingPath(basePath.value)
-        if (sourceBasePath && sourceBasePath !== destPath) {
-          explorerStore.value.moveRefresh = {
-            fromPath: sourceBasePath,
-            token: Date.now(),
-          }
-        }
-      }
-      else {
-        explorerStore.value.copyPaths = []
-        emit('refresh')
-      }
+      onTaskDone(taskId, (task, results, truncated) => {
+        applyClipboardResult({ isMove, task, results, truncated })
+      })
     }
-    finally {
+    catch (error: any) {
       isLoading.value = false
+      window.$message?.error(error?.message || 'Failed to start the task')
+      return
     }
+    isLoading.value = false
   }
 
-  // 剪切粘贴完成后：若当前仍在源文件夹则刷新
-  watch(
-    () => explorerStore.value.moveRefresh,
-    (val) => {
-      if (!val?.fromPath)
-        return
-      if (normalizeListingPath(basePath.value) === normalizeListingPath(val.fromPath))
-        emit('refresh')
-    },
-  )
+  /**
+   * 任务结束后按结果更新剪贴板：
+   * 取消 / 失败时保持原样（用户还能重试），移动只移除真正搬走的项。
+   */
+  function applyClipboardResult({
+    isMove,
+    task,
+    results,
+    truncated,
+  }: {
+    isMove: boolean
+    task: TaskSnapshot
+    results: TaskItemResult[]
+    truncated: boolean
+  }) {
+    const finishedOk = task.state === 'succeeded' || task.state === 'partial'
+    if (!finishedOk) {
+      return
+    }
+
+    if (!isMove) {
+      explorerStore.value.copyPaths = []
+      return
+    }
+
+    if (truncated) {
+      // 结果被截断时无法逐项判断，保守地清空剪贴板
+      explorerStore.value.cutPaths = []
+      explorerStore.value.cutBasePath = ''
+      return
+    }
+
+    const moved = new Set(
+      results.filter(item => MOVED_STATUSES.has(item.status)).map(item => item.fromPath),
+    )
+    const remaining = explorerStore.value.cutPaths.filter(path => !moved.has(path))
+    explorerStore.value.cutPaths = remaining
+    if (!remaining.length) {
+      explorerStore.value.cutBasePath = ''
+    }
+  }
 
   return {
     enablePaste,

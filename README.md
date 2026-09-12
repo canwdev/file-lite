@@ -68,6 +68,8 @@ bun run build
 ```
 
 - **Go backend**: build steps and `bun run build:all` are documented in [backend-go/README.md](backend-go/README.md)
+- **E2E UI tests**: a Playwright sub-project drives the real app in a browser — [e2e/README.md](e2e/README.md); method and screenshots in [docs/frontend-ui-testing.md](docs/frontend-ui-testing.md)
+- **File operations**: copy / move / delete run as cancellable background tasks over the WebSocket — design and implementation notes in [docs/async-file-operations-ws-design.md](docs/async-file-operations-ws-design.md)
 
 ## Configuration
 
@@ -75,6 +77,7 @@ bun run build
 - Type reference: `Cfg` in [backend-go/config/config.go](backend-go/config/config.go)
 - [Generate and trust self-signed certificates with mkcert](./docs/mkcert.md)
 - [Restrict access to specific IP ranges (`allowedCIDRs`)](./docs/ip-allowlist.md)
+- [Thumbnail and preview architecture](./docs/thumbnails.md)
 - If `password` is empty, File Lite generates a random password; when the config file already exists, the generated password is written back
 - `jwtToken` is the JWT signing secret; when an existing config file has an empty value, it is generated and written back
 - The console does not print JWTs or signing secrets; check the config file for the login password

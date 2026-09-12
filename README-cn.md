@@ -68,6 +68,8 @@ bun run build
 ```
 
 - **Go 后端**：编译与 `bun run build:all` 说明见 [backend-go/README.md](backend-go/README.md)
+- **E2E UI 测试**：独立的 Playwright 子项目 [e2e/README.md](e2e/README.md)，测试方法与截图见 [docs/frontend-ui-testing.md](docs/frontend-ui-testing.md)
+- **文件操作**：复制 / 移动 / 删除是走 WebSocket 的可取消后台任务，设计与实现说明见 [docs/async-file-operations-ws-design.md](docs/async-file-operations-ws-design.md)（未实现的多面板方案在 [docs/todo/](docs/todo/)）
 
 ## 配置文件
 
@@ -75,6 +77,7 @@ bun run build
 - 配置类型说明：`Cfg` 见 [backend-go/config/config.go](backend-go/config/config.go)
 - [使用 mkcert 生成并信任自签名证书](./docs/mkcert.md)
 - [限制可访问的 IP 段（`allowedCIDRs`）](./docs/ip-allowlist.md)
+- [缩略图与预览架构](./docs/thumbnails.md)
 - `password` 为空时会自动生成随机密码；如果配置文件已存在，会写回到配置文件中
 - `jwtToken` 是 JWT 签名密钥；如果配置文件已存在但为空，会自动生成并写回
 - 控制台不会打印 JWT 或签名密钥；请通过配置文件查看登录密码
