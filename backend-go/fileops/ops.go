@@ -399,7 +399,9 @@ func (rs *runState) scheduleCopy(srcPath, dstPath string, status ItemStatus, inf
 			}
 		}
 		rs.addItem(1, srcPath)
-		if !info.IsDir() {
+		// 常规文件的字节已经在 progressWriter 里按块累加过了；只有符号链接走
+		// copyLinkSafely（没有 progressWriter），这里补它的字节。
+		if info.Mode()&os.ModeSymlink != 0 {
 			rs.addBytes(info.Size(), srcPath)
 		}
 		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: status})

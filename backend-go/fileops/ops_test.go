@@ -1,6 +1,7 @@
 package fileops
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -77,6 +78,43 @@ func TestCopyBasic(t *testing.T) {
 		t.Fatalf("unexpected content %q", got)
 	}
 	assertNoTempFiles(t, dst)
+}
+
+func TestCopyProgressCountsEachByteOnce(t *testing.T) {
+	// 复制时 progressWriter 已经按块累加过字节，收尾不能再加一次文件大小，
+	// 否则 bytesDone 会是真实值的两倍，进度条在一半时就到 100%。
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src", "a.bin")
+	dst := filepath.Join(dir, "dst")
+	payload := bytes.Repeat([]byte{7}, 4096)
+	writeFile(t, src, payload)
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	var lastItems int
+	var lastBytes int64
+	results, err := NewEngine(false).Run(context.Background(), Options{
+		FromPaths: []string{src},
+		ToPath:    dst,
+		Policy:    PolicyOverwrite,
+	}, Callbacks{
+		OnProgress: func(items int, bytesDone int64, _ string) {
+			lastItems, lastBytes = items, bytesDone
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := statuses(results)["copied"]; got != 1 {
+		t.Fatalf("expected 1 copied, got %v", statuses(results))
+	}
+	if lastItems != 1 {
+		t.Fatalf("itemsDone = %d, want 1", lastItems)
+	}
+	if lastBytes != int64(len(payload)) {
+		t.Fatalf("bytesDone = %d, want %d", lastBytes, len(payload))
+	}
 }
 
 func TestCopyDoesNotClobberSourceWhenDestinationIsInside(t *testing.T) {

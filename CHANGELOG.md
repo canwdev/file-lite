@@ -33,6 +33,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- Copy progress is no longer counted twice: the bar, the percentage and the transferred-bytes readout used to reach 100% after roughly half the data, because each file's size was added once during the copy and again when it finished (backend).
 - Cancelling a background task — from its row or from the Replace or Skip Files dialog — now removes it from the list instead of leaving a "Cancelled" entry behind, and the dialog's Cancel no longer leaves the task waiting for a decision (frontend).
 - Retrying a failed or cancelled transfer now shows the retried row and its progress instead of leaving the old, cancelled row on screen (frontend).
 - Upload and download rows in the transfer panel now update while they run: the progress bar, percentage and speed used to stay at their first value because the virtualized rows never saw the field changes (frontend).
