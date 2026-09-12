@@ -19,6 +19,8 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
   const isLoading = ref(false)
   const navigationHistory = ref<NavigationHistory | null>(null)
   const highlightFolderName = ref<string | null>(null)
+  /** files 当前对应的目录，用来区分「同目录重载」和「切换到别的目录」。 */
+  const loadedPath = ref('')
   let refreshController: AbortController | null = null
   let refreshSeq = 0
 
@@ -27,23 +29,39 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     const controller = new AbortController()
     refreshController = controller
     const currentSeq = ++refreshSeq
+    // 同目录重载保留旧列表到新数据到达：否则所有行（含虚拟滚动位置）会先卸载再重建。
+    // 切换目录必须清空，否则新地址栏会配着上一个目录的行。
+    let sameDir = false
 
     try {
       basePath.value = basePathNormalized.value
-
-      isLoading.value = true
-      files.value = []
       if (!basePath.value) {
         basePath.value = '/'
       }
+      const target = normalizeListingPath(basePath.value)
+      sameDir = loadedPath.value === target
+
+      isLoading.value = true
+      if (!sameDir) {
+        files.value = []
+      }
+
       const list = (await getListFn({ signal: controller.signal })) as unknown as IEntry[]
       if (controller.signal.aborted || currentSeq !== refreshSeq) {
         return
       }
 
-      files.value = list
-      // 当前目录列表是最新鲜的，写入目录子项缓存供预览/下拉复用
-      seedFolderListing(basePath.value, list)
+      // 列表内容没变就不动 files：数组引用不变，下游 computed 与行组件都不会重算 / 重渲染。
+      if (!sameDir || !sameListing(files.value, list)) {
+        files.value = list
+        // 当前目录列表是最新鲜的，写入目录子项缓存供预览/下拉复用
+        seedFolderListing(basePath.value, list)
+      }
+      else {
+        // 内容一致：继续用同一份数组（含对象引用），只确认缓存可用
+        seedFolderListing(basePath.value, files.value)
+      }
+      loadedPath.value = target
 
       if (!navigationHistory.value) {
         navigationHistory.value = new NavigationHistory(basePath.value)
@@ -57,7 +75,10 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
         return
       }
       console.error(e)
-      files.value = []
+      // 同目录重载失败时保留旧列表，别因为一次瞬时错误把它清空
+      if (!sameDir) {
+        files.value = []
+      }
     }
     finally {
       if (currentSeq === refreshSeq) {
@@ -110,6 +131,10 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
       byName.set(entry.name, entry)
     }
     const next = [...byName.values()]
+    // 补丁没带来实际变化（例如服务端把同一个未变条目又报了一次）就别换数组引用
+    if (sameListing(files.value, next)) {
+      return
+    }
     files.value = next
     // 目录预览 / 面包屑下拉共享同一份原始列表缓存，补丁要同步写回
     seedFolderListing(basePath.value, next)
@@ -212,6 +237,42 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     isStared,
     highlightFolderName,
   }
+}
+
+/**
+ * 两份目录列表是否内容一致。
+ *
+ * 一致时调用方可以继续沿用旧数组（对象引用不变），下游 computed 与行组件都不会重算；
+ * 只比较列表会展示 / 排序用到的字段，顺序无关（展示前都会重新排序）。
+ */
+function sameListing(a: IEntry[], b: IEntry[]): boolean {
+  if (a === b) {
+    return true
+  }
+  if (a.length !== b.length) {
+    return false
+  }
+  const map = new Map(a.map(entry => [entry.name, entry]))
+  for (const entry of b) {
+    const prev = map.get(entry.name)
+    if (!prev || !sameEntry(prev, entry)) {
+      return false
+    }
+  }
+  return true
+}
+
+function sameEntry(a: IEntry, b: IEntry): boolean {
+  return (
+    a.ext === b.ext
+    && a.isDirectory === b.isDirectory
+    && a.isLink === b.isLink
+    && a.hidden === b.hidden
+    && a.lastModified === b.lastModified
+    && a.birthtime === b.birthtime
+    && a.size === b.size
+    && a.error === b.error
+  )
 }
 
 function isAbortError(error: unknown) {

@@ -14,6 +14,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A new transfer opens the panel on its own tab: an upload or download brings up Transfers, a background copy, move, delete or duplicate brings up Tasks (frontend).
 - Transfer and task rows keep their type icon — uploads and downloads now use a progress-upload / progress-download icon — and show running, paused, success or failure as a small corner badge instead of replacing the whole icon (frontend).
 - A finished copy, move, delete or duplicate now updates the folder you are looking at in place instead of reloading it, so the list no longer blanks and the selection and scroll position stay put; uploads, new files and renames do the same (frontend).
+- Reloading the current folder keeps the list on screen instead of blanking it, and a reload that finds nothing changed no longer redraws the rows (frontend).
 - The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
 - The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
