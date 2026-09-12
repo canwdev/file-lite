@@ -3,6 +3,7 @@ package utils
 import (
 	"net/url"
 	"regexp"
+	"strings"
 )
 
 var illegalRe = regexp.MustCompile(`[/?<>\\:*|"]`)
@@ -33,16 +34,22 @@ func SanitizeAttachmentFilename(s string) string {
 	return r.ReplaceAllString(s, "_")
 }
 
+// contentDisposition 拼出 Content-Disposition。
+//
+// filename 是不认 filename* 的老客户端的 ASCII 回退，filename*=UTF-8”… 是 RFC 5987 形式。
+// ext-value 只允许 attr-char，所以必须是百分号编码：url.QueryEscape 会把空格编成 "+"，
+// 而 ext-value 里的 "+" 是字面加号——带空格的文件名下载下来会变成加号，故再换回 %20。
+func contentDisposition(disposition string, name string) string {
+	fallback := SanitizeAttachmentFilename(name)
+	// 先按文件名规则清洗，再对清洗结果做 RFC 5987 百分号编码
+	encoded := strings.ReplaceAll(url.QueryEscape(Sanitize(name, "_")), "+", "%20")
+	return disposition + `; filename="` + fallback + `"; filename*=UTF-8''` + encoded
+}
+
 func InlineDisposition(name string) string {
-	t := Sanitize(name, "_")
-	enc := url.QueryEscape(t)
-	fb := SanitizeAttachmentFilename(name)
-	return `inline; filename="` + fb + `"; filename*=UTF-8''` + enc
+	return contentDisposition("inline", name)
 }
 
 func AttachmentDisposition(name string) string {
-	t := Sanitize(name, "_")
-	enc := url.QueryEscape(t)
-	fb := SanitizeAttachmentFilename(name)
-	return `attachment; filename="` + fb + `"; filename*=UTF-8''` + enc
+	return contentDisposition("attachment", name)
 }

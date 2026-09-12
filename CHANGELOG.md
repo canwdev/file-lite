@@ -32,6 +32,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Cancelling an upload no longer risks deleting a file that had already finished uploading (frontend).
 - When a copy or move fails, the failed items are now always included in the report even if there are more results than fit in one message (backend).
 - Error messages for a failed copy, move or upload no longer mention the internal temporary file name (backend).
+- Downloading a file whose name contains a `+` no longer fails: the download path was decoded twice, and the second pass turned `+` into a space, so the file was reported as not found and the browser saved the error as `download.json` (backend).
+- Downloads keep their real name. A space in the name came out as `+`, and every file was saved as `download.<ext>` because the `download` attribute overrode the filename the server sent (frontend, backend).
 
 ### Engineering
 

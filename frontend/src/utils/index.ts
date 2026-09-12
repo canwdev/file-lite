@@ -152,8 +152,13 @@ export function downloadUrl(url: string, filename?: string) {
   const a = document.createElement('a')
   // 设置 href 为文件的 URL
   a.href = url
-  // 设置 download 属性，以指定下载时的文件名
-  a.download = filename || 'download'
+  // 只在调用方明确给出文件名时才设置 download 属性。
+  // 同源下载时该属性会覆盖服务端的 Content-Disposition：以前无脑写成 "download"，
+  // 结果是所有下载都变成 download.<按 Content-Type 猜的扩展名>，
+  // 服务端精心编好的 filename*（含中文、空格、加号）全被丢弃。
+  if (filename) {
+    a.download = filename
+  }
   // 将 <a> 标签添加到 DOM 中
   document.body.appendChild(a)
   // 模拟点击 <a> 标签以触发下载

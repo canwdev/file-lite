@@ -31,6 +31,9 @@ export function resetFixture() {
   fs.writeFileSync(path.join(filesDir, 'source', 'a.txt'), 'alpha')
   fs.writeFileSync(path.join(filesDir, 'source', 'b.txt'), 'beta')
   fs.writeFileSync(path.join(filesDir, 'source', 'note.md'), '# note')
+  // 文件名里的 "+" 与空格：下载用例靠它们复现「二次解码」和「download 属性覆盖文件名」
+  fs.writeFileSync(path.join(filesDir, 'source', '039.+Vexento+-+Borealis.mp3'), 'fake-audio-bytes')
+  fs.writeFileSync(path.join(filesDir, 'source', 'report final.txt'), 'report body')
   fs.writeFileSync(path.join(filesDir, 'source', 'nested', 'deep.txt'), 'deep')
 
   // target 里预置同名文件：复制/上传的冲突用例依赖它

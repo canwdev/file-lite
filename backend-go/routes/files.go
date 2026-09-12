@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -363,9 +362,6 @@ func downloadPath(c echo.Context) error {
 	} else {
 		paths = q["paths"]
 	}
-	for i := range paths {
-		paths[i] = urlDecode(paths[i])
-	}
 	if len(paths) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path(s) parameter is required"})
 	}
@@ -483,14 +479,6 @@ func existsPaths(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, map[string]any{"existing": existing})
 }
-func urlDecode(s string) string {
-	u, err := url.QueryUnescape(s)
-	if err != nil {
-		return s
-	}
-	return u
-}
-
 func ptrI64(v int64) *int64 { return &v }
 
 func fmtError(f string, a ...any) error { return fmt.Errorf(f, a...) }

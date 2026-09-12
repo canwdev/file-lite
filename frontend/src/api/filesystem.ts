@@ -65,9 +65,14 @@ export const fsWebApi = {
   openInHostExplorer(params: { paths: string[] }) {
     return service.post(`${baseURL}/open-in-host-explorer`, params)
   },
+  /**
+   * 下载地址。传入的必须是**未经编码**的绝对路径，编码在这里统一做一次。
+   * （曾经由调用方先 encodeURIComponent、这里再拼/再编码，导致单路径与多路径的
+   * 编码次数不一致，服务端只好补一次解码，反而把文件名里的 "+" 解成了空格。）
+   */
   getDownloadUrl(paths: string[]) {
     if (paths.length === 1) {
-      return `${baseURL}/download?path=${paths[0]}`
+      return `${baseURL}/download?path=${encodeURIComponent(paths[0])}`
     }
 
     const query = qs.stringify({ paths }, { arrayFormat: 'repeat' })

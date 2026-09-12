@@ -161,13 +161,14 @@ export function useTransfer({
     try {
       isLoading.value = true
       const paths: string[] = []
+      // 传原始路径，编码由 getDownloadUrl 统一负责
       if (selectedItems.value.length === 0) {
-        paths.push(encodeURIComponent(normalizePath(basePath.value)))
+        paths.push(normalizePath(basePath.value))
       }
       else {
         for (const itemsKey in selectedItems.value) {
           const item = selectedItems.value[itemsKey]
-          paths.push(encodeURIComponent(normalizePath(`${basePath.value}/${item.name}`)))
+          paths.push(normalizePath(`${basePath.value}/${item.name}`))
         }
       }
 

@@ -1,6 +1,6 @@
 # 前端 UI 端到端测试方法与结果
 
-> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，13 个用例，约 35 秒）
+> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，15 个用例，约 45 秒）
 > 运行：`cd e2e && bun install && bun run install:browser && bun run test`
 
 本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。截图由测试自己产出，

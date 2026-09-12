@@ -59,8 +59,9 @@ bun run report       # 打开上一次的 HTML 报告
 | `03-upload-conflict.spec.ts` | 上传同名弹窗、Replace / Skip、新文件不弹窗 | `06-upload-conflict` |
 | `04-task-progress.spec.ts` | 进度条与计数、运行中取消且不留半个文件、完成后窗口自动收起、任务跨窗口可见 | `04-task-progress` |
 | `05-failure-retry.spec.ts` | 失败清单（哪一项、为什么、不泄露临时文件名）、Try Again 只重跑失败项 | `05-failure-dialog` |
+| `06-download.spec.ts` | 浏览器最终保存的文件名（含 `+` 与空格）、文件夹下载的 zip 名 | — |
 
-合计 13 个用例，单次运行约 35 秒。
+合计 15 个用例，单次运行约 45 秒。
 
 ## 截图
 
