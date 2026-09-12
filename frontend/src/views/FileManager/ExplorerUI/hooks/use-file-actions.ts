@@ -19,6 +19,36 @@ function getEntryExt(name: string) {
   return dotIndex > 0 ? name.slice(dotIndex) : ''
 }
 
+/** 本地造一个文件条目，用于「新建 / 上传后直接补进列表」。 */
+function fileEntry(name: string, file: File): IEntry {
+  const mtime = file.lastModified || Date.now()
+  return {
+    name,
+    ext: getEntryExt(name),
+    isDirectory: false,
+    hidden: name.startsWith('.'),
+    lastModified: mtime,
+    birthtime: mtime,
+    size: file.size,
+    error: null,
+  }
+}
+
+/** 本地造一个目录条目，用于「新建目录后直接补进列表」。 */
+function dirEntry(name: string): IEntry {
+  const now = Date.now()
+  return {
+    name,
+    ext: '',
+    isDirectory: true,
+    hidden: name.startsWith('.'),
+    lastModified: now,
+    birthtime: now,
+    size: null,
+    error: null,
+  }
+}
+
 export function getOpenActionMeta(item: IEntry) {
   const defaultOpenApp = item.isDirectory ? null : getDefaultOpenApp(item)
   return {
@@ -67,12 +97,13 @@ export function useFileActions({
             value: `${dayjs().format('YYYYMMDD_HHmmss')}.txt`,
           }))
       isLoading.value = true
+      const file = generateTextFile(content, name)
       await fsWebApi.uploadFile({
         path: normalizePath(`${basePath.value}/${name}`),
-        file: generateTextFile(content, name),
+        file,
       })
       onEntryCreated?.(name)
-      emit('refresh')
+      emit('patch', { added: [fileEntry(name, file)] })
     }
     finally {
       isLoading.value = false
@@ -87,7 +118,7 @@ export function useFileActions({
       isLoading.value = true
       await fsWebApi.createDir({ path: normalizePath(`${basePath.value}/${name}`) })
       onEntryCreated?.(name)
-      emit('refresh')
+      emit('patch', { added: [dirEntry(name)] })
     }
     finally {
       isLoading.value = false
@@ -116,7 +147,6 @@ export function useFileActions({
       return
     }
 
-    let shouldKeepLoadingForRefresh = false
     try {
       isLoading.value = true
       await fsWebApi.renameEntry({
@@ -133,13 +163,10 @@ export function useFileActions({
           selectedItem.name === item.name ? renamedItem : selectedItem,
         ),
       )
-      shouldKeepLoadingForRefresh = true
-      emit('refresh')
+      emit('patch', { removed: [item.name], added: [renamedItem] })
     }
     finally {
-      if (!shouldKeepLoadingForRefresh) {
-        isLoading.value = false
-      }
+      isLoading.value = false
     }
   }
   // 删除改为服务端异步任务：可取消、有进度，目录刷新由 fs changed 通知驱动

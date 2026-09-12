@@ -55,6 +55,9 @@ type Options struct {
 type Callbacks struct {
 	OnProgress func(itemsDone int, bytesDone int64, currentPath string)
 	OnResult   func(ItemResult)
+	// OnTopLevel 在每个顶层源条目定案时调用一次（成功 / 跳过 / 失败都会调），
+	// 且不受 OnResult 的条数上限约束。任务层用它构造「目录变更集」。
+	OnTopLevel func(ItemResult)
 }
 
 // 内存里保留的结果条数上限。失败 / 冲突与成功项分开计数，
@@ -92,11 +95,15 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 	}
 
 	rs := &runState{
-		ctx:    ctx,
-		opts:   opts,
-		cb:     cb,
-		engine: e,
-		sem:    make(chan struct{}, opts.FileConcurrency),
+		ctx:      ctx,
+		opts:     opts,
+		cb:       cb,
+		engine:   e,
+		sem:      make(chan struct{}, opts.FileConcurrency),
+		topLevel: make(map[string]struct{}, len(opts.FromPaths)),
+	}
+	for _, p := range opts.FromPaths {
+		rs.topLevel[p] = struct{}{}
 	}
 
 	if opts.ToPath == "" {
@@ -185,6 +192,10 @@ type runState struct {
 
 	engine *Engine
 
+	// topLevel 是 opts.FromPaths 的集合；只有它的成员才会触发 OnTopLevel。
+	// 构造后只读，不需要加锁。
+	topLevel map[string]struct{}
+
 	mu              sync.Mutex
 	results         []ItemResult
 	storedFailures  int
@@ -212,6 +223,18 @@ func (rs *runState) record(r ItemResult) {
 	if rs.cb.OnResult != nil {
 		rs.cb.OnResult(r)
 	}
+	rs.topLevelResult(r)
+}
+
+// topLevelResult 把顶层源条目的最终去向单独上报一次，不受结果条数上限影响。
+func (rs *runState) topLevelResult(r ItemResult) {
+	if rs.cb.OnTopLevel == nil {
+		return
+	}
+	if _, ok := rs.topLevel[r.FromPath]; !ok {
+		return
+	}
+	rs.cb.OnTopLevel(r)
 }
 
 func (rs *runState) resultsSnapshot() []ItemResult {
@@ -434,6 +457,10 @@ func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
 			return nil
 		}
 		rs.record(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: status})
+	} else {
+		// 目录 copy 不为目录本身 record（那会改变成功计数），
+		// 但目录变更集需要知道顶层目录最终落在哪
+		rs.topLevelResult(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: status})
 	}
 	return nil
 }

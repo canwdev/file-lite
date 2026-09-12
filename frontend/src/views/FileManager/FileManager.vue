@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { FileSelectResult } from './types'
-import type { IDrive, IEntry } from '@/types/server'
+import type { FsDirChange, IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { provide } from 'vue'
@@ -57,6 +57,7 @@ const {
   files,
   handleOpen,
   handleRefresh,
+  applyEntryChange,
   basePathNormalized,
   starList,
   handleOpenPath,
@@ -85,6 +86,11 @@ const {
 const debounceHandleRefresh = useDebounceFn(() => {
   handleRefresh()
 }, 100)
+
+/** 文件操作完成后的条目级更新：直接改列表，不整目录重读。 */
+function handleEntryChange(change: Pick<FsDirChange, 'added' | 'updated' | 'removed'>) {
+  applyEntryChange(change)
+}
 
 const addressBarPath = computed({
   get: () => basePath.value,
@@ -470,6 +476,7 @@ useShortcut({
               @open-path-in-new-tab="openPathInNewTab"
               @clear-filter="clearFilter"
               @refresh="debounceHandleRefresh"
+              @patch="handleEntryChange"
             />
             <Transition name="last-media-fab">
               <div v-if="lastOpenedMediaItem" class="last-media-fab-wrapper">

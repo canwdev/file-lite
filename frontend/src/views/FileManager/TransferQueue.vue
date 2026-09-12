@@ -187,7 +187,9 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
   if (!file) {
     throw new Error('File is required for upload')
   }
-  await fsWebApi.uploadFile(
+  // 记下服务端返回的最终路径 / 名字（keep-both 时可能被改名），
+  // 供 allDone 后直接用条目级补丁改当前目录列表。
+  data.result = await fsWebApi.uploadFile(
     { path, file, onConflict },
     {
       onUploadProgress(event: any) {

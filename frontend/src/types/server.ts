@@ -313,11 +313,24 @@ export type TasksServerMessage
     | TasksRemovedMessage
     | WsErrorMessage
 
+/** 目录里发生的条目级变化，客户端据此原地改列表而不整目录刷新。 */
+export interface FsDirChange {
+  dir: string
+  /** 新增 / 改名后的条目（按名字 upsert） */
+  added?: IEntry[]
+  /** 覆盖已有条目，size / mtime 变了（同样按名字 upsert） */
+  updated?: IEntry[]
+  /** 被删除的名字 */
+  removed?: string[]
+}
+
 /** 目录变化通知（scope: "fs"），用于取代跨实例的 moveRefresh 补丁。 */
 export interface FsChangedMessage {
   scope: 'fs'
   type: 'changed'
   paths: string[]
+  /** 有它就能原地打补丁；没有则退回整目录刷新 */
+  changes?: FsDirChange[]
 }
 
 export type FsServerMessage = FsChangedMessage | WsErrorMessage

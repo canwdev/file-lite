@@ -35,7 +35,7 @@ export function useSystemClipboardPaste({
   basePath: Ref<string>
   entries: Ref<IEntry[]>
   isLoading: Ref<boolean>
-  emit: (event: 'refresh', ...args: any[]) => void
+  emit: (event: 'refresh' | 'patch', ...args: any[]) => void
 }) {
   const handlePasteFromClipboard = async () => {
     try {
@@ -51,27 +51,32 @@ export function useSystemClipboardPaste({
 
       isLoading.value = true
 
+      let file: File
       if (content.kind === 'image') {
-        await fsWebApi.uploadFile({
-          path,
-          file: new File([content.blob], filename, { type: content.mime }),
-        })
+        file = new File([content.blob], filename, { type: content.mime })
       }
       else if (content.kind === 'html') {
-        await fsWebApi.uploadFile({
-          path,
-          file: new File([content.text], filename, { type: 'text/html;charset=utf-8' }),
-        })
+        file = new File([content.text], filename, { type: 'text/html;charset=utf-8' })
       }
       else {
-        await fsWebApi.uploadFile({
-          path,
-          file: generateTextFile(content.text, filename),
-        })
+        file = generateTextFile(content.text, filename)
       }
+      await fsWebApi.uploadFile({ path, file })
 
       window.$message.success(`Pasted ${filename}`)
-      emit('refresh')
+      const mtime = file.lastModified || Date.now()
+      emit('patch', {
+        added: [{
+          name: filename,
+          ext: content.ext,
+          isDirectory: false,
+          hidden: filename.startsWith('.'),
+          lastModified: mtime,
+          birthtime: mtime,
+          size: file.size,
+          error: null,
+        }],
+      })
     }
     catch (error) {
       console.error('[pasteFromClipboard]', error)

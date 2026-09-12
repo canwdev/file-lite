@@ -464,6 +464,7 @@ func (m *Manager) run(t *task) {
 	results, err := m.engine.Run(t.ctx, opts, fileops.Callbacks{
 		OnProgress: t.onProgress,
 		OnResult:   t.addResult,
+		OnTopLevel: t.addTopLevelResult,
 	})
 	if err != nil && t.ctx.Err() == nil {
 		m.finish(t, StateFailed, err.Error())
@@ -542,13 +543,14 @@ func (m *Manager) finish(t *task, state State, msg string) {
 		t.errMsg = msg
 	}
 	t.mu.Unlock()
-	m.emitDone(t, state, nil, false)
+	m.emitDone(t, state, nil, false, nil)
 }
 
 func (m *Manager) finishFromContextOrResults(t *task, results []fileops.ItemResult) {
 	t.mu.Lock()
 	stats := t.stats
 	t.storedResults = results
+	topLevel := append([]fileops.ItemResult(nil), t.topLevelResults...)
 	cancelled := t.ctx.Err() != nil
 	t.mu.Unlock()
 
@@ -568,13 +570,13 @@ func (m *Manager) finishFromContextOrResults(t *task, results []fileops.ItemResu
 	payload, capped := prioritizeResults(results, maxDoneResults)
 	truncated := capped || t.resultTotals() > len(results)
 
-	m.emitDone(t, state, payload, truncated)
+	m.emitDone(t, state, payload, truncated, topLevel)
 }
 
 // emitDone 是所有结束路径共用的收尾：落终态、广播一次 done、按上限清理历史。
-func (m *Manager) emitDone(t *task, state State, results []fileops.ItemResult, truncated bool) {
+func (m *Manager) emitDone(t *task, state State, results []fileops.ItemResult, truncated bool, topLevel []fileops.ItemResult) {
 	t.setState(state)
-	m.emit(Event{Type: EventDone, Task: t.snapshot(), Results: results, ResultsTruncated: truncated})
+	m.emit(Event{Type: EventDone, Task: t.snapshot(), Results: results, ResultsTruncated: truncated, TopLevel: topLevel})
 	m.pruneCompleted()
 }
 

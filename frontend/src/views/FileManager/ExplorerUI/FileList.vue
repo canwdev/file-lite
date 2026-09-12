@@ -19,6 +19,7 @@ import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import TransferQueue from '../TransferQueue.vue'
+import { normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
@@ -55,7 +56,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter'])
+const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter', 'patch'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
@@ -402,11 +403,80 @@ const {
   downloadToFolder,
 } = useTransfer({ basePath, isLoading, selectedItems })
 
-function handleTransferAllDone(items: Array<{ type?: 'upload' | 'download', status?: 'success' | 'failed' | 'pending' | 'transferring' }>) {
-  // 只有存在成功上传时目录内容才可能变化、需要刷新；全部失败/取消则无需刷新
-  const hasUploadSuccess = items.some(item => (item.type ?? 'upload') === 'upload' && item.status === 'success')
-  if (hasUploadSuccess) {
-    emit('refresh')
+function entryExt(name: string) {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot) : ''
+}
+
+/**
+ * 上传成功后直接补进当前列表，而不是整目录刷新。
+ *
+ * 上传接口是逐个文件独立的，所以这里按「当前目录下的第一段路径」聚合：
+ * 直接传进本目录的文件补一个文件条目，传进子目录的只补最外层那个目录条目。
+ */
+function uploadEntries(items: Array<{
+  type?: 'upload' | 'download'
+  status?: 'success' | 'failed' | 'pending' | 'transferring'
+  path?: string
+  filename?: string
+  file?: File
+  result?: { path?: string, name?: string }
+}>): IEntry[] {
+  const base = normalizePath(`${basePath.value}/`)
+  const now = Date.now()
+  const byName = new Map<string, IEntry>()
+
+  for (const item of items) {
+    if ((item.type ?? 'upload') !== 'upload' || item.status !== 'success') {
+      continue
+    }
+    const dest = normalizePath(item.result?.path ?? item.path ?? '')
+    if (!dest || !dest.startsWith(base)) {
+      continue
+    }
+    const rel = dest.slice(base.length)
+    if (!rel) {
+      continue
+    }
+    const slash = rel.indexOf('/')
+    if (slash === -1) {
+      const name = item.result?.name ?? item.filename ?? rel
+      byName.set(name, {
+        name,
+        ext: entryExt(name),
+        isDirectory: false,
+        hidden: name.startsWith('.'),
+        lastModified: item.file?.lastModified ?? now,
+        birthtime: item.file?.lastModified ?? now,
+        size: item.file?.size ?? null,
+        error: null,
+      })
+    }
+    else {
+      const name = rel.slice(0, slash)
+      if (byName.get(name)?.isDirectory) {
+        continue
+      }
+      byName.set(name, {
+        name,
+        ext: '',
+        isDirectory: true,
+        hidden: name.startsWith('.'),
+        lastModified: now,
+        birthtime: now,
+        size: null,
+        error: null,
+      })
+    }
+  }
+  return [...byName.values()]
+}
+
+function handleTransferAllDone(items: Array<Parameters<typeof uploadEntries>[0][number]>) {
+  // 只有成功上传才可能改动目录；全部失败/取消则不动列表
+  const added = uploadEntries(items)
+  if (added.length) {
+    emit('patch', { added })
   }
 }
 

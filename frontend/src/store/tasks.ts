@@ -1,5 +1,6 @@
 import type {
   ConflictPolicy,
+  FsDirChange,
   FsServerMessage,
   TaskConflictItem,
   TaskCreatePayload,
@@ -439,7 +440,7 @@ function handleTasksMessage(msg: TasksServerMessage) {
 
 /* ------------------------------ 目录变化 ------------------------------ */
 
-export type FsChangedListener = (paths: string[]) => void
+export type FsChangedListener = (paths: string[], changes: FsDirChange[]) => void
 const fsChangedListeners = new Set<FsChangedListener>()
 
 /** 订阅目录变化。返回取消订阅函数。 */
@@ -454,8 +455,9 @@ function handleFsMessage(msg: FsServerMessage) {
   if (msg.type !== 'changed') {
     return
   }
+  const changes = msg.changes ?? []
   for (const listener of fsChangedListeners) {
-    listener(msg.paths)
+    listener(msg.paths, changes)
   }
 }
 

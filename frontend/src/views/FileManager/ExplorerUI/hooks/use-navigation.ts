@@ -1,4 +1,4 @@
-import type { IEntry } from '@/types/server'
+import type { FsDirChange, IEntry } from '@/types/server'
 import type { OpenWithEnum } from '@/views/Apps/apps'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
@@ -71,18 +71,49 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     refreshController?.abort()
   })
 
-  // 服务端在任务改动目录后广播 fs changed；命中当前目录就刷新。
+  // 服务端在任务改动目录后广播 fs changed：带上条目级 changes 就原地打补丁，
+  // 只有拿不到 changes 时才退回整目录刷新。
   // 这取代了过去跨实例的 moveRefresh 补丁。
-  const unsubscribeFsChanged = subscribeFsChanged((paths) => {
-    if (!paths.length) {
+  const unsubscribeFsChanged = subscribeFsChanged((paths, changes) => {
+    if (!paths.length && !changes.length) {
       return
     }
     const current = basePathNormalized.value
+    const change = changes.find(item => normalizeListingPath(item.dir) === current)
+    // 正在整目录刷新时不打补丁（列表可能是空的 / 旧的），让刷新自己收尾
+    if (change && !isLoading.value) {
+      applyEntryChange(change)
+      return
+    }
     if (paths.some(path => normalizeListingPath(path) === current)) {
       void handleRefresh(false)
     }
   })
   onBeforeUnmount(unsubscribeFsChanged)
+
+  /**
+   * 用条目级变化原地改当前列表。
+   * 排序与隐藏过滤都在展示层的 computed 里做，所以这里只改原始列表；
+   * 选区由 use-selection 按名字自动 reconcile。
+   */
+  function applyEntryChange(change: Pick<FsDirChange, 'added' | 'updated' | 'removed'>) {
+    const removed = change.removed ?? []
+    const upserts = [...(change.added ?? []), ...(change.updated ?? [])]
+    if (!removed.length && !upserts.length) {
+      return
+    }
+    const byName = new Map(files.value.map(entry => [entry.name, entry]))
+    for (const name of removed) {
+      byName.delete(name)
+    }
+    for (const entry of upserts) {
+      byName.set(entry.name, entry)
+    }
+    const next = [...byName.values()]
+    files.value = next
+    // 目录预览 / 面包屑下拉共享同一份原始列表缓存，补丁要同步写回
+    seedFolderListing(basePath.value, next)
+  }
 
   /* 历史记录功能 START */
   const goBack = async () => {
@@ -167,6 +198,7 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     files,
     handleOpen,
     handleRefresh,
+    applyEntryChange,
     basePathNormalized,
     starList,
     handleOpenPath,

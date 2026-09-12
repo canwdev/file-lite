@@ -22,7 +22,7 @@
 - **后端 `fileops` 包**：ctx 感知的复制 / 移动 / 删除；「同目录临时文件 + 原子改名」发布；`.fl-part-` 前缀对列表 / 创建 / 重命名 / 上传 / **zip 打包**全部屏蔽；预扫描（条目 / 字节 / 冲突）与 Windows 式目录合并语义；结果集有内存上限（失败 / 冲突单独限额，见 0.3）。
 - **后端 `tasks` 包**：任务状态机（queued / scanning / awaiting-conflict / running / 终态）、全局并发闸门、单任务文件并发、200ms 节流广播、取消、冲突 TTL、完成任务保留与 `PendingConflicts` 补齐。
 - **WebSocket**：`tasks` 与 `fs` 两个 scope；每客户端出站队列（进度可丢、终态不可丢）+ 写超时 + ping/pong 心跳；连上即全量快照 + 未决冲突补发。
-- **前端**：任务 store（快照 / patch / done / 冲突队列、重连对账）、`api/tasks-ws.ts`、element 冲突弹窗（Replace / Skip / Keep both + 逐项或「应用于全部」+ 前后信息对照）、复制 / 移动 / 删除 / 复制副本全部切到任务模型、`fs changed` 驱动目录刷新（取代 `moveRefresh`）、右下角常驻的 `Transfers / Tasks` 双页签面板（见 §5.2）。
+- **前端**：任务 store（快照 / patch / done / 冲突队列、重连对账）、`api/tasks-ws.ts`、element 冲突弹窗（Replace / Skip / Keep both + 逐项或「应用于全部」+ 前后信息对照）、复制 / 移动 / 删除 / 复制副本全部切到任务模型、`fs changed` 带着条目级变更让当前目录原地打补丁（取代 `moveRefresh`）、右下角常驻的 `Transfers / Tasks` 双页签面板（见 §5.2）。
 - **配置**：`taskConcurrency` / `copyFileConcurrency` / `copyFsync`（缺省 fsync 开启）。
 - **失败清单与重试**：任务结束时若存在失败 / 冲突项，本窗口会弹出 `N items failed` 清单（可滚动、带原因，超出 200 条时提示只展示前 200 条）；`retry` 命令由服务端从内部保存的结果里取失败路径重建任务（失败项上限 500，比 done 的 200 条更全，但并非无限）。任务行上也有入口可重新打开清单。
 - **上传同名冲突**：`upload-file` 新增 `onConflict`（`error` 缺省 / `overwrite` / `keep-both`），并新增 `POST /files/exists` 做上传前批量预检；上传改为复用 `fileops.PublishFile`，因此中断的上传也不会留下半个文件。前端在入队前预检并复用同一个冲突弹窗。
@@ -80,7 +80,7 @@
 1. 复制/移动/删除/复制副本 → 服务端异步任务：提交即返回、后台执行、推送进度、可取消。
 2. WebSocket（复用现有 `/api/ws`）作为唯一的操作通道，新增 `tasks` 与 `fs` 两个 scope。
 3. 冲突在异步模型里被正确解决：任务**先扫描、再暂停等待用户决策**，磁盘零副作用。
-4. 目录变化主动通知前端刷新，取代现有 `moveRefresh` 补丁。
+4. 目录变化主动通知前端更新列表（能打补丁就不整目录刷新），取代现有 `moveRefresh` 补丁。
 5. 交互形态对齐 Windows 资源管理器。
 
 ---
@@ -305,10 +305,19 @@ type Snapshot struct {
 **目录变化（新增 `fs` scope）**
 
 ```jsonc
-{ "scope": "fs", "type": "changed", "paths": ["/data/target/"] }
+{ "scope": "fs", "type": "changed",
+  "paths": ["/data/target/"],          // 兜底：拿不到 changes 时整目录刷新
+  "changes": [                          // 条目级变更，前端原地打补丁
+    { "dir": "/data/target/",
+      "added":   [ { /* Entry */ } ],   // 新增 / keep-both 改名后的最终名字
+      "updated": [ { /* Entry */ } ],   // 覆盖了已有条目，size / mtime 变了
+      "removed": [ "old.txt" ] } ] }
 ```
 
-任务到达终态时广播；前端只要 `basePath` 命中就刷新。这一条取代 `use-copy-paste.ts:105-113` 的 `moveRefresh`。
+任务到终态时广播一次。`changes` 按**顶层条目**给出每个受影响目录增删了谁（取自不受
+done 的 200 条上限约束的顶层结果），前端据此 upsert / 删除列表项并同步目录缓存，
+不再整目录重读；`paths` 仍然保留，拿不到 `changes`（旧客户端、条目过多、stat 失败）时退回刷新。
+上传 / 新建 / 重命名这类同步或客户端操作走同一套前端补丁路径，由前端本地更新列表。
 
 ### 3.8 传输层健壮性
 
@@ -490,7 +499,7 @@ type Snapshot struct {
 | `hooks/use-file-actions.ts` | `doDeleteSelected` → delete 任务；`handleDuplicate` → duplicate 任务（删掉临时目录三段式） |
 | `use-transfer.ts` / `TransferQueue.vue` | 客户端上传 / 下载仍由 `TransferQueue` 编排；服务端任务在 `store/tasks.ts`。两者共用一个 `TransferPanel` 的两个页签，不合并成一个 store |
 | `ExplorerUI/conflict-dialog.ts` / `ConflictDialog.vue` | 改为 `conflict` 事件驱动 + 弹窗队列 |
-| `use-navigation.ts` | 订阅 `fs changed` |
+| `use-navigation.ts` | 订阅 `fs changed`：命中当前目录且有条目级 `changes` 就原地打补丁，否则退回整目录刷新 |
 | `types/server.ts` | 扩展 `WsScope`，新增 tasks / fs 消息类型 |
 | `api/shared-ws.ts` | 基本不动 |
 

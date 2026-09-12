@@ -12,6 +12,7 @@ import {
   paste,
   readTextIfExists,
   resetTargetDirs,
+  row,
   screenshot,
   selectItem,
   serverTaskRows,
@@ -98,6 +99,8 @@ test.describe('复制同名冲突', () => {
     await expect.poll(() => fs.existsSync(path.join(sourceDir, 'a - Copy.txt'))).toBe(true)
     await expect(conflictDialog(page)).toBeHidden()
     expect(fs.readFileSync(path.join(sourceDir, 'a.txt'), 'utf8')).toBe('alpha')
+    // 当前目录直接补上新行（fs changed 带条目级 changes，不再整目录刷新）
+    await expect(row(page, 'a - Copy.txt')).toBeVisible()
   })
 
   test('目录同名时静默合并，只对内部同名文件提问', async ({ page }) => {

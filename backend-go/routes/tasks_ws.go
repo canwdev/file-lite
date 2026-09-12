@@ -283,11 +283,14 @@ func broadcastTaskEvent(ev tasks.Event) {
 		for _, c := range clients {
 			sendSharedWSJSON(c, payload)
 		}
-		broadcastFSChanged(changedPathsForTask(ev.Task))
+		broadcastFSChanged(changedPathsForTask(ev.Task), dirChangesForTask(ev.Task, ev.TopLevel))
 	}
 }
 
 // changedPathsForTask 推断这次任务影响了哪些目录，供前端刷新。
+//
+// copy / duplicate 不动源目录，所以不把源目录算进去——否则「从当前目录复制到
+// 别处」会白白刷新一次什么都没变的当前目录。
 func changedPathsForTask(snap tasks.Snapshot) []string {
 	seen := map[string]struct{}{}
 	var out []string
@@ -304,8 +307,10 @@ func changedPathsForTask(snap tasks.Snapshot) []string {
 	if snap.ToPath != "" {
 		add(snap.ToPath)
 	}
-	for _, p := range snap.FromPaths {
-		add(filepath.Dir(p))
+	if snap.Kind == tasks.KindMove || snap.Kind == tasks.KindDelete {
+		for _, p := range snap.FromPaths {
+			add(filepath.Dir(p))
+		}
 	}
 	return out
 }

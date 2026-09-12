@@ -119,6 +119,9 @@ type Event struct {
 	Results  []fileops.ItemResult
 	// ResultsTruncated 为 true 时 Results 只是前若干条，需要看 Stats 拿总数。
 	ResultsTruncated bool
+	// TopLevel 是每个顶层源条目的最终去向（不受 Results 上限约束），仅 EventDone 时有值，
+	// 供传输层构造「当前目录该增删哪些行」的变更集。
+	TopLevel []fileops.ItemResult
 }
 
 // ResolveRequest 是用户对冲突的决策。
@@ -148,10 +151,13 @@ type task struct {
 	errMsg   string
 	// storedResults 是引擎返回的（有上限的）逐条结果，供失败清单与 Retry 使用。
 	storedResults []fileops.ItemResult
-	decisions     map[string]fileops.Policy
-	createdAt     int64
-	startedAt     int64
-	finishedAt    int64
+	// topLevelResults 是每个顶层源条目的最终去向，不受结果条数上限约束，
+	// 只用于构造目录变更集。
+	topLevelResults []fileops.ItemResult
+	decisions       map[string]fileops.Policy
+	createdAt       int64
+	startedAt       int64
+	finishedAt      int64
 	// pendingConflict 保存最后一次冲突载荷，供新连接 / 重连的客户端补齐弹窗。
 	pendingConflict *ConflictPayload
 
@@ -240,6 +246,13 @@ func (t *task) addResult(r fileops.ItemResult) {
 	default:
 		t.stats.Succeeded++
 	}
+	t.mu.Unlock()
+}
+
+// addTopLevelResult 记录顶层源条目的最终去向（引擎的 OnTopLevel 回调）。
+func (t *task) addTopLevelResult(r fileops.ItemResult) {
+	t.mu.Lock()
+	t.topLevelResults = append(t.topLevelResults, r)
 	t.mu.Unlock()
 }
 
