@@ -12,7 +12,15 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="vgo-list-item transfer-item">
+  <div
+    class="vgo-list-item transfer-item"
+    :class="{
+      'is-success': item.status === 'success',
+      'is-failed': item.status === 'failed',
+    }"
+  >
+    <div class="transfer-item__progress" :style="{ width: `${item.progress * 100}%` }" />
+
     <div class="item-main">
       <div class="item-status-icon">
         <template v-if="item.status === 'success'">
@@ -74,16 +82,6 @@ defineEmits<{
           <i-mdi-download />
         </button>
       </div>
-    </div>
-
-    <div
-      class="vgo-progress"
-      :class="{
-        'vgo-progress--success': item.status === 'success',
-        'vgo-progress--danger': item.status === 'failed',
-      }"
-    >
-      <div :style="{ width: `${item.progress * 100}%` }" class="vgo-progress__value" />
     </div>
   </div>
 </template>

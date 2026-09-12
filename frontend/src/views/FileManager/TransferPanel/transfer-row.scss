@@ -8,10 +8,12 @@
 .status-warning { color: var(--vgo-warning); }
 
 .transfer-item {
+  position: relative;
   flex-direction: column;
   align-items: stretch;
   min-height: 0;
   padding: 0;
+  overflow: hidden;
   cursor: default;
 
   // 这些行不是点击目标，去掉 .vgo-list-item 的悬停底色。
@@ -21,7 +23,30 @@
     background-color: transparent;
   }
 
+  // 进度就是整行的背景色：半透明铺底，不占额外高度，也不跟名字抢横向空间。
+  // 它必须绝对定位在内容之下——否则定位层会盖住静态的文字。
+  &__progress {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background-color: var(--vgo-primary);
+    opacity: 0.25;
+    pointer-events: none;
+    transition: width var(--vgo-duration-fast) linear;
+  }
+
+  &.is-success &__progress {
+    background-color: var(--vgo-success);
+  }
+
+  &.is-failed &__progress {
+    background-color: var(--vgo-danger);
+  }
+
   .item-main {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: var(--vgo-space-2);

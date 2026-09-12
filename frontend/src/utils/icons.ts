@@ -2,6 +2,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { Component, VNode } from 'vue'
 import { h } from 'vue'
 import MdiAlertCircle from '~icons/mdi/alert-circle'
+import MdiAlertCircleOutline from '~icons/mdi/alert-circle-outline'
 import MdiApplicationSettingsOutline from '~icons/mdi/application-settings-outline'
 import MdiArrowDownBoldCircleOutline from '~icons/mdi/arrow-down-bold-circle-outline'
 import MdiArrowDownThinCircleOutline from '~icons/mdi/arrow-down-thin-circle-outline'
@@ -11,6 +12,7 @@ import MdiArrowUp from '~icons/mdi/arrow-up'
 import MdiArrowUpBoldCircleOutline from '~icons/mdi/arrow-up-bold-circle-outline'
 import MdiArrowUpThinCircleOutline from '~icons/mdi/arrow-up-thin-circle-outline'
 import MdiBroom from '~icons/mdi/broom'
+import MdiBugPlayOutline from '~icons/mdi/bug-play-outline'
 import MdiCheck from '~icons/mdi/check'
 import MdiCheckAll from '~icons/mdi/check-all'
 import MdiCheckCircle from '~icons/mdi/check-circle'
@@ -27,7 +29,9 @@ import MdiClipboard from '~icons/mdi/clipboard'
 import MdiClipboardArrowDownOutline from '~icons/mdi/clipboard-arrow-down-outline'
 import MdiClipboardTextOutline from '~icons/mdi/clipboard-text-outline'
 import MdiClose from '~icons/mdi/close'
+import MdiCloudOutline from '~icons/mdi/cloud-outline'
 import MdiCloudSync from '~icons/mdi/cloud-sync'
+import MdiCloudUploadOutline from '~icons/mdi/cloud-upload-outline'
 import MdiCodeJson from '~icons/mdi/code-json'
 import MdiCog from '~icons/mdi/cog'
 import MdiCompareVertical from '~icons/mdi/compare-vertical'
@@ -37,6 +41,7 @@ import MdiContentDuplicate from '~icons/mdi/content-duplicate'
 import MdiContentPaste from '~icons/mdi/content-paste'
 import MdiCrosshairsGps from '~icons/mdi/crosshairs-gps'
 import MdiDeleteForeverOutline from '~icons/mdi/delete-forever-outline'
+import MdiDeleteOutline from '~icons/mdi/delete-outline'
 import MdiDeleteSweep from '~icons/mdi/delete-sweep'
 import MdiDotsVertical from '~icons/mdi/dots-vertical'
 import MdiDownload from '~icons/mdi/download'
@@ -48,6 +53,8 @@ import MdiFileAlertOutline from '~icons/mdi/file-alert-outline'
 import MdiFileDocumentOutline from '~icons/mdi/file-document-outline'
 import MdiFileDocumentPlusOutline from '~icons/mdi/file-document-plus-outline'
 import MdiFileImage from '~icons/mdi/file-image'
+import MdiFileMoveOutline from '~icons/mdi/file-move-outline'
+import MdiFileOutline from '~icons/mdi/file-outline'
 import MdiFileQuestion from '~icons/mdi/file-question'
 import MdiFileUploadOutline from '~icons/mdi/file-upload-outline'
 import MdiFileVideoOutline from '~icons/mdi/file-video-outline'
@@ -59,14 +66,17 @@ import MdiFlagCheckered from '~icons/mdi/flag-checkered'
 import MdiFlagOutline from '~icons/mdi/flag-outline'
 import MdiFolder from '~icons/mdi/folder'
 import MdiFolderDownloadOutline from '~icons/mdi/folder-download-outline'
+import MdiFolderMoveOutline from '~icons/mdi/folder-move-outline'
 import MdiFolderOpenOutline from '~icons/mdi/folder-open-outline'
 import MdiFolderOutline from '~icons/mdi/folder-outline'
 import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
 import MdiFolderPoundOutline from '~icons/mdi/folder-pound-outline'
+import MdiFolderSyncOutline from '~icons/mdi/folder-sync-outline'
 import MdiFolderUploadOutline from '~icons/mdi/folder-upload-outline'
 import MdiFormatTitle from '~icons/mdi/format-title'
 import MdiGithub from '~icons/mdi/github'
 import MdiHarddisk from '~icons/mdi/harddisk'
+import MdiHelpCircleOutline from '~icons/mdi/help-circle-outline'
 import MdiHome from '~icons/mdi/home'
 import MdiHomeAccount from '~icons/mdi/home-account'
 import MdiImage from '~icons/mdi/image'
@@ -120,6 +130,7 @@ import MdiSpeedometer from '~icons/mdi/speedometer'
 import MdiStar from '~icons/mdi/star'
 import MdiStarOffOutline from '~icons/mdi/star-off-outline'
 import MdiStarOutline from '~icons/mdi/star-outline'
+import MdiTestTube from '~icons/mdi/test-tube'
 import MdiTextBoxEdit from '~icons/mdi/text-box-edit'
 import MdiTextBoxOutline from '~icons/mdi/text-box-outline'
 import MdiThemeLightDark from '~icons/mdi/theme-light-dark'
@@ -155,6 +166,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'home-account': MdiHomeAccount,
   'folder-pound-outline': MdiFolderPoundOutline,
   'folder-outline': MdiFolderOutline,
+  'folder-move-outline': MdiFolderMoveOutline,
+  'folder-sync-outline': MdiFolderSyncOutline,
   'harddisk': MdiHarddisk,
   'star-off-outline': MdiStarOffOutline,
   'arrow-left': MdiArrowLeft,
@@ -183,6 +196,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'content-paste': MdiContentPaste,
   'rename': MdiRename,
   'delete-forever-outline': MdiDeleteForeverOutline,
+  'delete-outline': MdiDeleteOutline,
   'eye-outline': MdiEyeOutline,
   'eye-off-outline': MdiEyeOffOutline,
   'check-all': MdiCheckAll,
@@ -195,7 +209,11 @@ export const mdiIconRegistry: Record<string, Component> = {
   'chevron-right': MdiChevronRight,
   'reload': MdiReload,
   'cloud-sync': MdiCloudSync,
+  'cloud-outline': MdiCloudOutline,
+  'cloud-upload-outline': MdiCloudUploadOutline,
   'alert-circle': MdiAlertCircle,
+  'alert-circle-outline': MdiAlertCircleOutline,
+  'help-circle-outline': MdiHelpCircleOutline,
   'check-circle': MdiCheckCircle,
   'loading': MdiLoading,
   'compare-vertical': MdiCompareVertical,
@@ -224,6 +242,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'music-circle': MdiMusicCircle,
   'play-circle': MdiPlayCircle,
   'file-document-outline': MdiFileDocumentOutline,
+  'file-move-outline': MdiFileMoveOutline,
+  'file-outline': MdiFileOutline,
   'shuffle-disabled': MdiShuffleDisabled,
   'shuffle': MdiShuffle,
   'repeat': MdiRepeat,
@@ -269,6 +289,9 @@ export const mdiIconRegistry: Record<string, Component> = {
   'upload': MdiUpload,
   'upload-outline': MdiUploadOutline,
   'download-outline': MdiDownloadOutline,
+  // Development 菜单
+  'test-tube': MdiTestTube,
+  'bug-play-outline': MdiBugPlayOutline,
 }
 /**
  * 把任意图标字符串归一化为注册表 key（去掉 'mdi ' 基类、'mdi-' 前缀及无关修饰类）。

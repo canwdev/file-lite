@@ -18,7 +18,7 @@ A lightweight web file manager with a Go backend implementation. `README.md` is 
 - Opening specific file types with apps: `frontend/src/views/Apps`
 - API definitions: `frontend/src/api`
 - Pure SCSS UI framework: `@canwdev/vgo-ui` — use native HTML where possible; `element-plus` is used in a few places
-- Icon library: `@mdi/font`
+- Icons: `@mdi/font` plus `unplugin-icons`. Prefer the directly imported component (`<i-mdi-folder />`) whenever the name is a literal — it is compiled in and needs nothing else. `MdiIcon` (and a context menu's `icon:` field) takes a *name* that is resolved at runtime through `mdiIconRegistry` in `frontend/src/utils/icons.ts`, and an unregistered name silently falls back to a question-mark file icon instead of failing the build. **Every new name handed to `MdiIcon` or to a menu `icon:` must be registered**: import `~icons/mdi/<name>` and add the entry to that registry.
 - `@vueuse/core` for persistence and common hooks such as `useStorage`, `useDebounceFn`, etc.
 - The project-wide version is defined in `frontend/src/enum/version.ts`; the `const Version` in `config.go` must be updated to keep in sync
 

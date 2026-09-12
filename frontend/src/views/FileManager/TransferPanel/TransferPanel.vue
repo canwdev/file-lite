@@ -146,7 +146,8 @@ function badge(counts: TransferTabCounts) {
 
   &__summary {
     flex-shrink: 0;
-    padding: 0 var(--vgo-space-3) var(--vgo-space-1);
+    padding: var(--vgo-space-2) var(--vgo-space-3);
+    border-bottom: 1px solid var(--vgo-border);
     font-size: var(--vgo-font-sm);
     color: var(--vgo-text-secondary);
     font-variant-numeric: tabular-nums;

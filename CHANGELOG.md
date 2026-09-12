@@ -9,6 +9,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The floating task window became a panel docked to the bottom right that stays out of the file list, and it is full width on phones (frontend).
 - The panel has two tabs: Transfers for uploads and downloads, which always run in the browser, and Tasks for background copy, move, delete and duplicate work on the server. Each tab has its own summary and its own actions, so a progress percentage or a "Cancel All" never mixes the two (frontend).
 - Rows in both tabs share one layout — status icon, name, progress details on aligned columns — and the panel's footer only offers what applies to the tab you are looking at (frontend).
+- Progress in the panel is now a translucent wash behind each row instead of a bar along its bottom edge, so the row keeps its height and nothing competes with the file name (frontend).
 - The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
 - The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
@@ -27,6 +28,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- Several icons showed a question-mark file instead of the real one — the panel's tabs, the Development menu, and the conflict and failure dialogs — because icons named at runtime have to be registered (frontend).
 - Opening File Lite now shows the tasks that are already running instead of an empty task window (frontend).
 - New tasks appear in the task window immediately, so the progress bar, cancel button and failure list work for them (frontend, backend).
 - Cancelling a copy can no longer leave half a file behind: every file is written to a temporary file next to the destination and only renamed into place once complete (backend).

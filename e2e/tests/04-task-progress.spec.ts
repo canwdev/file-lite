@@ -49,7 +49,8 @@ test.describe('任务进度与取消', () => {
     const task = lastServerTask(page)
     await expect(task).toBeVisible()
     await expect(task).toContainText(`Copying ${BULK_FILES} item(s)`)
-    await expect(task.locator('.vgo-progress')).toBeVisible()
+    // 进度是整行的半透明背景条：宽度就是进度，起点必须是 0 之后真正在走
+    await expect(task.locator('.transfer-item__progress')).not.toHaveCSS('width', '0px')
     await task.scrollIntoViewIfNeeded()
     await screenshot(page, '04-task-progress')
 

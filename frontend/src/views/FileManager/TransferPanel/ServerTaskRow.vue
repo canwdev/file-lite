@@ -14,7 +14,15 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="vgo-list-item transfer-item server-task-item">
+  <div
+    class="vgo-list-item transfer-item server-task-item"
+    :class="{
+      'is-success': task.state === 'succeeded',
+      'is-failed': task.state === 'failed' || task.state === 'partial',
+    }"
+  >
+    <div class="transfer-item__progress" :style="{ width: `${taskProgress(task) * 100}%` }" />
+
     <div class="item-main">
       <div class="item-status-icon">
         <template v-if="task.state === 'succeeded'">
@@ -78,16 +86,6 @@ defineEmits<{
           <i-mdi-close />
         </button>
       </div>
-    </div>
-
-    <div
-      class="vgo-progress"
-      :class="{
-        'vgo-progress--success': task.state === 'succeeded',
-        'vgo-progress--danger': task.state === 'failed' || task.state === 'partial',
-      }"
-    >
-      <div :style="{ width: `${taskProgress(task) * 100}%` }" class="vgo-progress__value" />
     </div>
   </div>
 </template>

@@ -1103,6 +1103,17 @@ defineExpose({
     .el-slider {
       width: 100px;
     }
+
+    // 这个按钮是「图标 + 计数角标」并排，不是单图标按钮：--icon 的定宽会把图标挤小，
+    // 所以按内容撑开，并显式禁止图标被压缩。
+    .explorer-activity-toggle {
+      width: auto;
+      padding-inline: var(--vgo-space-2);
+
+      :deep(svg) {
+        flex: 0 0 auto;
+      }
+    }
   }
 
   :deep(.title-wrapper) {
