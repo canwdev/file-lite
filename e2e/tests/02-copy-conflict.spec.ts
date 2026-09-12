@@ -14,6 +14,7 @@ import {
   resetTargetDirs,
   screenshot,
   selectItem,
+  serverTaskRows,
   sourceDir,
   targetDir,
 } from './helpers'
@@ -41,7 +42,7 @@ test.describe('复制同名冲突', () => {
     await expect(conflictDialog(page)).toBeVisible()
   }
 
-  test('弹出 Replace or Skip Files，弹窗期间磁盘零改动', async ({ page }) => {
+  test('弹出 Replace or Skip Files，Cancel 会取消并移除任务，弹窗期间磁盘零改动', async ({ page }) => {
     await startConflictCopy(page)
 
     await expect(conflictDialog(page)).toContainText('Replace or Skip Files')
@@ -51,23 +52,13 @@ test.describe('复制同名冲突', () => {
 
     await screenshot(page, '02-conflict-dialog')
 
-    // 先取消：任务停在等待决策，目标不动，窗口保持打开以便重新决策
+    // Cancel = 取消这次操作：任务被取消并直接移出列表，不留下等待决策的行，
+    // 也不留下「已取消」状态；目标文件保持原样。
     await conflictDialog(page).getByRole('button', { name: 'Cancel' }).click()
     await expect(conflictDialog(page)).toBeHidden()
     expect(fs.readFileSync(path.join(targetDir, 'a.txt'), 'utf8')).toBe('existing-alpha')
-
-    // 从任务行重新打开弹窗，选 Skip 并继续
-    await expect(lastServerTask(page)).toContainText('Waiting for your decision')
-    await lastServerTask(page).locator('button[title="Resolve conflict"]').click()
-    await expect(conflictDialog(page)).toBeVisible()
-    await screenshot(page, '03-conflict-reopen')
-    await conflictDialog(page).getByText('Skip this file').click()
-    await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
-    await expect(conflictDialog(page)).toBeHidden()
-
-    // 任务结束后窗口自动收起，磁盘保持原样
-    await expect(lastServerTask(page)).toBeHidden()
-    expect(fs.readFileSync(path.join(targetDir, 'a.txt'), 'utf8')).toBe('existing-alpha')
+    await expect(serverTaskRows(page)).toHaveCount(0)
+    await expect(page.locator('.explorer-activity-toggle')).toHaveCount(0)
   })
 
   test('选择 Replace 会用源文件替换目标', async ({ page }) => {

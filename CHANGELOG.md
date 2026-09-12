@@ -10,6 +10,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The panel has two tabs: Transfers for uploads and downloads, which always run in the browser, and Tasks for background copy, move, delete and duplicate work on the server. Each tab has its own summary and its own actions, so a progress percentage or a "Cancel All" never mixes the two (frontend).
 - Rows in both tabs share one layout — status icon, name, progress details on aligned columns — and the panel's footer only offers what applies to the tab you are looking at (frontend).
 - Progress in the panel is now a translucent wash behind each row instead of a bar along its bottom edge, so the row keeps its height and nothing competes with the file name (frontend).
+- The Transfers and Tasks tabs use up/down and left/right arrow file icons instead of a cloud and a synced folder (frontend).
+- A new transfer opens the panel on its own tab: an upload or download brings up Transfers, a background copy, move, delete or duplicate brings up Tasks (frontend).
+- Transfer and task rows keep their type icon — uploads and downloads now use a progress-upload / progress-download icon — and show running, paused, success or failure as a small corner badge instead of replacing the whole icon (frontend).
 - The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
 - The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
@@ -28,6 +31,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- Cancelling a background task — from its row or from the Replace or Skip Files dialog — now removes it from the list instead of leaving a "Cancelled" entry behind, and the dialog's Cancel no longer leaves the task waiting for a decision (frontend).
+- Retrying a failed or cancelled transfer now shows the retried row and its progress instead of leaving the old, cancelled row on screen (frontend).
+- Upload and download rows in the transfer panel now update while they run: the progress bar, percentage and speed used to stay at their first value because the virtualized rows never saw the field changes (frontend).
+- Cancelling a transfer now marks its row as cancelled instead of leaving it showing "Uploading" (frontend).
 - Several icons showed a question-mark file instead of the real one — the panel's tabs, the Development menu, and the conflict and failure dialogs — because icons named at runtime have to be registered (frontend).
 - Opening File Lite now shows the tasks that are already running instead of an empty task window (frontend).
 - New tasks appear in the task window immediately, so the progress bar, cancel button and failure list work for them (frontend, backend).

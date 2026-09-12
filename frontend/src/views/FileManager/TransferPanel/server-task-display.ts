@@ -65,8 +65,6 @@ export function taskMessage(task: TaskSnapshot) {
       return 'Waiting for your decision'
     case 'succeeded':
       return 'Done'
-    case 'cancelled':
-      return 'Cancelled'
     case 'failed':
       return task.error || 'Failed'
     case 'partial': {

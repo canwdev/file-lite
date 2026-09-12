@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ITransferItem } from './types'
 import { bytesToSize } from '@/utils'
+import { transferBadge } from './status-badge'
+import StatusIcon from './StatusIcon.vue'
 
 // 单条上传 / 下载行。纯展示：把数据画出来，动作原样抛给父组件。
 defineProps<{ item: ITransferItem }>()
@@ -22,23 +24,10 @@ defineEmits<{
     <div class="transfer-item__progress" :style="{ width: `${item.progress * 100}%` }" />
 
     <div class="item-main">
-      <div class="item-status-icon">
-        <template v-if="item.status === 'success'">
-          <i-mdi-check-circle class="status-success" />
-        </template>
-        <template v-else-if="item.status === 'failed'">
-          <i-mdi-alert-circle class="status-failed" />
-        </template>
-        <template v-else-if="item.status === 'transferring'">
-          <i-mdi-loading class="status-active icon-spin" />
-        </template>
-        <template v-else>
-          <MdiIcon
-            class="status-idle"
-            :name="item.type === 'download' ? 'download-outline' : 'upload-outline'"
-          />
-        </template>
-      </div>
+      <StatusIcon
+        :icon="item.type === 'download' ? 'progress-download' : 'progress-upload'"
+        :badge="transferBadge(item.status)"
+      />
 
       <div class="item-content">
         <div class="item-title" :title="item.path">

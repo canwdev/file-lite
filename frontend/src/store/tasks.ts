@@ -166,13 +166,40 @@ export function isDebugTask(taskId: string) {
   return Boolean(taskList.value.find(task => task.id === taskId)?.debug)
 }
 
+/**
+ * 已请求取消、但服务端还没真正停下的任务 id。
+ *
+ * 取消时行立刻消失（不显示「已取消」状态），而服务端要过一会儿才到终态；
+ * 这段窗口里它的进度 update 不能再把行加回来，否则既会闪回，又会因为
+ * `patchTask` 找不到任务而触发无谓的全量对账。
+ */
+const tasksPendingRemoval = new Set<string>()
+
+/** 把任务从列表里彻底拿掉（含它占着的冲突弹窗与失败清单）。 */
+function removeTaskLocally(taskId: string) {
+  taskList.value = taskList.value.filter(task => task.id !== taskId)
+  dropConflictRequestByTask(taskId)
+  if (failureDialogTaskId.value === taskId) {
+    closeFailureDialog()
+  }
+}
+
+/**
+ * 取消任务并直接移除：取消是唯一控制手段，所以不保留一条「已取消」的记录。
+ * 行先本地消失，等 done 到达后再请服务端 dismiss。
+ */
 export function cancelTask(taskId: string) {
   if (isDebugTask(taskId)) {
-    // 假任务没有对应的服务端任务，取消只改本地状态
-    patchTask(taskId, { state: 'cancelled', canCancel: false })
+    removeTaskLocally(taskId)
     return
   }
-  return sendCancelTask(taskId)
+  tasksPendingRemoval.add(taskId)
+  removeTaskLocally(taskId)
+  return sendCancelTask(taskId).catch((error) => {
+    // 没发出去（多半是连接断了）：放回来，交给重连后的全量快照对账
+    tasksPendingRemoval.delete(taskId)
+    console.error('[tasks] cancel failed', error)
+  })
 }
 
 export function dismissTask(taskId: string) {
@@ -219,7 +246,7 @@ export function requestLocalConflict(
   })
 }
 
-/** 提交冲突决策。resolution 为 null 表示取消。 */
+/** 提交冲突决策。resolution 为 null 表示取消这次操作。 */
 export function resolveConflict(id: string, resolution: ConflictResolution | null) {
   const request = conflictQueue.value.find(item => item.id === id)
   if (!request) {
@@ -230,7 +257,12 @@ export function resolveConflict(id: string, resolution: ConflictResolution | nul
     request.resolveLocal?.(resolution)
     return
   }
-  if (!resolution || !request.taskId) {
+  if (!request.taskId) {
+    return
+  }
+  if (!resolution) {
+    // Cancel 不是「先放着」：直接取消任务并移除，列表里不留等待决策的残局
+    void cancelTask(request.taskId)
     return
   }
   void sendResolveConflict({
@@ -286,6 +318,16 @@ function patchTask(taskId: string, patch: Partial<TaskEntry>) {
 }
 
 function handleDone(msg: TasksDoneMessage) {
+  // 取消的任务不保留：本地立刻移除，并请服务端也删掉，
+  // 任何窗口都不会看到一条「已取消」的行。
+  if (msg.state === 'cancelled' || tasksPendingRemoval.has(msg.taskId)) {
+    doneHandlers.delete(msg.taskId)
+    tasksPendingRemoval.add(msg.taskId)
+    removeTaskLocally(msg.taskId)
+    void dismissTask(msg.taskId)?.catch(() => {})
+    return
+  }
+
   patchTask(msg.taskId, {
     state: msg.state,
     stats: msg.stats,
@@ -327,7 +369,15 @@ function handleTasksMessage(msg: TasksServerMessage) {
       break
     }
     case 'snapshot': {
-      taskList.value = msg.tasks ?? []
+      const tasks = msg.tasks ?? []
+      // 已取消的任务不显示，并顺手请服务端把它删掉（其余窗口取消 / 重连时也会走到这里）
+      for (const task of tasks) {
+        if (task.state === 'cancelled' && !tasksPendingRemoval.has(task.id)) {
+          tasksPendingRemoval.add(task.id)
+          void dismissTask(task.id)?.catch(() => {})
+        }
+      }
+      taskList.value = tasks.filter(task => !tasksPendingRemoval.has(task.id))
       // 对账：已经不在等待决策的任务，把残留的冲突弹窗丢掉
       const awaiting = new Set(
         taskList.value.filter(task => task.state === 'awaiting-conflict').map(task => task.id),
@@ -341,10 +391,14 @@ function handleTasksMessage(msg: TasksServerMessage) {
       break
     }
     case 'created':
-      upsertTask(msg.task)
+      if (!tasksPendingRemoval.has(msg.task.id)) {
+        upsertTask(msg.task)
+      }
       break
     case 'update':
-      patchTask(msg.taskId, msg.patch)
+      if (!tasksPendingRemoval.has(msg.taskId)) {
+        patchTask(msg.taskId, msg.patch)
+      }
       break
     case 'conflict': {
       const request: ConflictRequest = {
@@ -362,15 +416,18 @@ function handleTasksMessage(msg: TasksServerMessage) {
       break
     }
     case 'done':
-      if (!taskList.value.some(task => task.id === msg.taskId)) {
+      if (
+        !tasksPendingRemoval.has(msg.taskId)
+        && !taskList.value.some(task => task.id === msg.taskId)
+      ) {
         // 连 done 都没有对应任务，重新拉一次全量快照
         void sendListTasks(newTaskRequestId()).catch(() => {})
       }
       handleDone(msg)
       break
     case 'removed':
-      taskList.value = taskList.value.filter(task => task.id !== msg.taskId)
-      dropConflictRequestByTask(msg.taskId)
+      tasksPendingRemoval.delete(msg.taskId)
+      removeTaskLocally(msg.taskId)
       break
     case 'error': {
       if (msg.requestId) {

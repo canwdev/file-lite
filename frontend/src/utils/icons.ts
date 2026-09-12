@@ -31,7 +31,6 @@ import MdiClipboardTextOutline from '~icons/mdi/clipboard-text-outline'
 import MdiClose from '~icons/mdi/close'
 import MdiCloudOutline from '~icons/mdi/cloud-outline'
 import MdiCloudSync from '~icons/mdi/cloud-sync'
-import MdiCloudUploadOutline from '~icons/mdi/cloud-upload-outline'
 import MdiCodeJson from '~icons/mdi/code-json'
 import MdiCog from '~icons/mdi/cog'
 import MdiCompareVertical from '~icons/mdi/compare-vertical'
@@ -50,6 +49,8 @@ import MdiEyeOffOutline from '~icons/mdi/eye-off-outline'
 import MdiEyeOutline from '~icons/mdi/eye-outline'
 import MdiFastForward5 from '~icons/mdi/fast-forward-5'
 import MdiFileAlertOutline from '~icons/mdi/file-alert-outline'
+import MdiFileArrowLeftRightOutline from '~icons/mdi/file-arrow-left-right-outline'
+import MdiFileArrowUpDownOutline from '~icons/mdi/file-arrow-up-down-outline'
 import MdiFileDocumentOutline from '~icons/mdi/file-document-outline'
 import MdiFileDocumentPlusOutline from '~icons/mdi/file-document-plus-outline'
 import MdiFileImage from '~icons/mdi/file-image'
@@ -71,7 +72,6 @@ import MdiFolderOpenOutline from '~icons/mdi/folder-open-outline'
 import MdiFolderOutline from '~icons/mdi/folder-outline'
 import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
 import MdiFolderPoundOutline from '~icons/mdi/folder-pound-outline'
-import MdiFolderSyncOutline from '~icons/mdi/folder-sync-outline'
 import MdiFolderUploadOutline from '~icons/mdi/folder-upload-outline'
 import MdiFormatTitle from '~icons/mdi/format-title'
 import MdiGithub from '~icons/mdi/github'
@@ -109,6 +109,8 @@ import MdiPlay from '~icons/mdi/play'
 import MdiPlayCircle from '~icons/mdi/play-circle'
 import MdiPlaylistMusic from '~icons/mdi/playlist-music'
 import MdiPlus from '~icons/mdi/plus'
+import MdiProgressDownload from '~icons/mdi/progress-download'
+import MdiProgressUpload from '~icons/mdi/progress-upload'
 import MdiRayEnd from '~icons/mdi/ray-end'
 import MdiRayStart from '~icons/mdi/ray-start'
 import MdiRefresh from '~icons/mdi/refresh'
@@ -167,7 +169,6 @@ export const mdiIconRegistry: Record<string, Component> = {
   'folder-pound-outline': MdiFolderPoundOutline,
   'folder-outline': MdiFolderOutline,
   'folder-move-outline': MdiFolderMoveOutline,
-  'folder-sync-outline': MdiFolderSyncOutline,
   'harddisk': MdiHarddisk,
   'star-off-outline': MdiStarOffOutline,
   'arrow-left': MdiArrowLeft,
@@ -210,7 +211,6 @@ export const mdiIconRegistry: Record<string, Component> = {
   'reload': MdiReload,
   'cloud-sync': MdiCloudSync,
   'cloud-outline': MdiCloudOutline,
-  'cloud-upload-outline': MdiCloudUploadOutline,
   'alert-circle': MdiAlertCircle,
   'alert-circle-outline': MdiAlertCircleOutline,
   'help-circle-outline': MdiHelpCircleOutline,
@@ -275,6 +275,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'arrow-down-bold-circle-outline': MdiArrowDownBoldCircleOutline,
   'arrow-up-bold-circle-outline': MdiArrowUpBoldCircleOutline,
   'file-alert-outline': MdiFileAlertOutline,
+  'file-arrow-left-right-outline': MdiFileArrowLeftRightOutline,
+  'file-arrow-up-down-outline': MdiFileArrowUpDownOutline,
   'link-variant': MdiLinkVariant,
   'delete-sweep': MdiDeleteSweep,
   'ip-network': MdiIpNetwork,
@@ -289,6 +291,9 @@ export const mdiIconRegistry: Record<string, Component> = {
   'upload': MdiUpload,
   'upload-outline': MdiUploadOutline,
   'download-outline': MdiDownloadOutline,
+  // 传输行的主图标：上传 / 下载的类型不随状态改变
+  'progress-upload': MdiProgressUpload,
+  'progress-download': MdiProgressDownload,
   // Development 菜单
   'test-tube': MdiTestTube,
   'bug-play-outline': MdiBugPlayOutline,

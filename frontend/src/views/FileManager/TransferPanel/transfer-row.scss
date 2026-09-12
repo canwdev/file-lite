@@ -1,11 +1,8 @@
 // 上传/下载行与后台任务行共用同一套排版，所以只写一份、两边 @use。
 // （放进 SCSS 局部文件而不是某个组件里，是为了让两个行组件都能独立复用。）
 
-.status-success { color: var(--vgo-success); }
+// 行内的状态色只剩这一处：失败清单按钮。图标本身的状态色在 StatusIcon.vue 里。
 .status-failed { color: var(--vgo-danger); }
-.status-active { color: var(--vgo-primary); }
-.status-idle { color: var(--vgo-text-secondary); }
-.status-warning { color: var(--vgo-warning); }
 
 .transfer-item {
   position: relative;
@@ -51,15 +48,6 @@
     align-items: center;
     gap: var(--vgo-space-2);
     padding: var(--vgo-space-2) var(--vgo-space-3);
-  }
-
-  // 状态图标固定占一列，各行内容才会左右对齐
-  .item-status-icon {
-    display: flex;
-    flex: 0 0 var(--vgo-icon-lg);
-    align-items: center;
-    justify-content: center;
-    font-size: var(--vgo-icon-md);
   }
 
   .item-content {

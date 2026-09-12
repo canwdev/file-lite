@@ -42,7 +42,10 @@ const props = withDefaults(
 const emit = defineEmits(['allDone', 'singleDone'])
 
 // ---- 客户端的上传 / 下载队列 ----
-const listData = shallowRef<ITransferItem[]>([])
+// 列表本身用深层 ref：push / splice 会触发数组的长度与下标依赖，虚拟列表才会重新切片。
+// 若用 shallowRef（长度变化不触发），行组件拿到的还是同一个对象引用，重试换上的新行
+// 永远不会出现。行内字段另由每个 item 自己的 reactive 负责，见 addTask。
+const listData = ref<ITransferItem[]>([])
 const transferIndex = ref(0)
 const taskQueueRef = ref()
 
@@ -158,16 +161,17 @@ function flushProgress() {
   if (pendingProgress.size) {
     for (const [item, info] of pendingProgress) {
       item.speedInfo = info
-      if (info.total > 0) {
-        item.progress = Math.min(info.loaded / info.total, 1)
+      // 上传的进度事件偶尔不带 total（lengthComputable 为假），退回已知的文件大小，
+      // 否则进度条会一直停在 0。
+      const total = info.total > 0 ? info.total : (item.size ?? item.file?.size ?? 0)
+      if (total > 0) {
+        item.progress = Math.min(info.loaded / total, 1)
       }
     }
     pendingProgress.clear()
   }
   recomputeTotals()
   updateTotalRate()
-  // 列表项是普通对象，字段改动不触发响应式；这里每帧统一通知一次
-  triggerRef(listData)
 }
 
 function reportProgress(item: ITransferItem, info: { loaded: number, total: number, rate: number, bytes: number }) {
@@ -309,7 +313,7 @@ function taskHandler(task: TaskItem) {
     catch (e: any) {
       // 先把未刷新的进度丢掉，避免失败/取消后又被补写
       dropPending(data)
-      if (e.name === 'AbortError') {
+      if (e.name === 'AbortError' || e.name === 'CanceledError' || e.code === 'ERR_CANCELED') {
         if (data.status !== 'failed') {
           setItemStatus(data, 'failed')
           data.message = 'Cancelled'
@@ -357,7 +361,10 @@ onBeforeUnmount(() => {
 })
 
 function addTask(data: IBatchFile, position: number = -1) {
-  data = {
+  // 每一行单独 reactive：虚拟列表只挂载可见行，字段改动能直接驱动对应行重渲染，
+  // 不必等一次「整表刷新」。重试换上的是新对象，所以列表的成员变化必须靠 listData 的
+  // 深层响应式触发一次重新切片。
+  const item = reactive({
     ...data,
     index: ++transferIndex.value,
     progress: 0,
@@ -365,16 +372,15 @@ function addTask(data: IBatchFile, position: number = -1) {
     message: 'Waiting',
     // 重试时清掉上一轮的进度，避免累计字节把总量算错
     speedInfo: undefined,
-  } as ITransferItem
+  } as ITransferItem)
   if (position !== -1) {
-    listData.value.splice(position, 0, data as ITransferItem)
+    listData.value.splice(position, 0, item)
   }
   else {
-    listData.value.push(data as ITransferItem)
+    listData.value.push(item)
   }
-  taskQueueRef.value.addTask(data)
+  taskQueueRef.value.addTask(item)
   isVisible.value = true
-  triggerRef(listData)
   scheduleFlush()
 }
 
@@ -384,13 +390,13 @@ function addTasks(data: IBatchFile[]) {
   }
 
   const items = data.map((item) => {
-    return {
+    return reactive({
       ...item,
       index: ++transferIndex.value,
       progress: 0,
       status: 'pending',
       message: 'Waiting',
-    } as ITransferItem
+    } as ITransferItem)
   })
   // 分块 push：上万条一次性展开会撞上参数个数上限
   const addChunkSize = 5000
@@ -399,7 +405,6 @@ function addTasks(data: IBatchFile[]) {
   }
   taskQueueRef.value.addTasks(items)
   isVisible.value = true
-  triggerRef(listData)
   scheduleFlush()
 }
 
@@ -470,22 +475,34 @@ const summary = computed(() => {
   return parts.join(' · ')
 })
 
-// 所有服务端任务都到终态后自动收起面板——资源管理器也是这样。
+// 服务端没有在跑的任务时自动收起面板——资源管理器也是这样。
+// 空列表也算「都结束」：取消会直接把任务移出列表，不该因为没有终态行就永远开着。
 const allServerTasksDone = computed(() => {
-  return realServerTasks.value.length > 0 && realServerTasks.value.every(task => isTerminalState(task.state))
+  return realServerTasks.value.every(task => isTerminalState(task.state))
 })
 
-// 新的后台任务一出现就弹出面板并切到任务页签——复制 / 移动 / 删除都可能要跑很久，
-// 没有窗口的话用户完全不知道发生了什么。已经在看传输页签时不抢页签。
+// 新的客户端传输一出现就弹出面板并切到 Transfers 页签：用户刚点了上传 / 下载，
+// 面板就该显示它，而不是停在刚才看的 Tasks 页签上。
+watch(
+  () => listData.value.length,
+  (count, previous) => {
+    if (debugMode.value || count <= (previous ?? 0)) {
+      return
+    }
+    activeTab.value = 'transfers'
+    isVisible.value = true
+  },
+)
+
+// 新的后台任务一出现就弹出面板并切到 Tasks 页签——复制 / 移动 / 删除都可能要跑很久，
+// 没有窗口的话用户完全不知道发生了什么。两类活动各自激活自己的页签。
 watch(
   () => realServerTasks.value.filter(task => !isTerminalState(task.state)).length,
   (active, previous) => {
     if (debugMode.value || active <= (previous ?? 0)) {
       return
     }
-    if (!isVisible.value) {
-      activeTab.value = 'tasks'
-    }
+    activeTab.value = 'tasks'
     isVisible.value = true
   },
 )
@@ -564,7 +581,7 @@ function retryAll() {
       return item
     }
     failedCount++
-    const retriedItem = {
+    const retriedItem = reactive({
       ...item,
       index: ++transferIndex.value,
       progress: 0,
@@ -572,7 +589,7 @@ function retryAll() {
       message: 'Waiting',
       speedInfo: undefined,
       abortObj: undefined,
-    } as ITransferItem
+    } as ITransferItem)
     retried.push(retriedItem)
     return retriedItem
   })
@@ -678,7 +695,7 @@ function loadMockTransferList() {
   const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
     index++
     const filename = overrides.filename || `mock_file_${index}.png`
-    return {
+    return reactive({
       index,
       path: `D:/TEST/${filename}`,
       filename,
@@ -688,7 +705,7 @@ function loadMockTransferList() {
       message: 'Waiting',
       type: 'upload',
       ...overrides,
-    }
+    })
   }
 
   listData.value = [
@@ -824,12 +841,6 @@ function loadMockTransferList() {
       stats: { succeeded: 0, skipped: 0, renamed: 0, failed: 1, conflict: 0 },
       results: [debugFailureResults[0]!],
     }),
-    debugServerTask('cancelled', {
-      state: 'cancelled',
-      canCancel: false,
-      progress: { itemsTotal: 120, itemsDone: 41, bytesTotal: 812_345_678, bytesDone: 240_123_456 },
-      stats: { succeeded: 40, skipped: 0, renamed: 1, failed: 0, conflict: 0 },
-    }),
     debugServerTask('duplicate', {
       kind: 'duplicate',
       state: 'succeeded',
@@ -845,7 +856,6 @@ function loadMockTransferList() {
     }),
   ])
   recomputeTotals()
-  triggerRef(listData)
 }
 
 function exitDebugMode() {

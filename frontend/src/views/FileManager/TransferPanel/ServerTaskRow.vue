@@ -2,6 +2,8 @@
 import type { TaskSnapshot } from '@/types/server'
 import { isTerminalState } from '@/store/tasks'
 import { taskKindIcon, taskMessage, taskProgress, taskTarget, taskTitle } from './server-task-display'
+import { taskBadge } from './status-badge'
+import StatusIcon from './StatusIcon.vue'
 
 // 单条后台任务行（复制 / 移动 / 删除 / 复制副本）。纯展示，动作抛给父组件。
 defineProps<{ task: TaskSnapshot }>()
@@ -24,23 +26,10 @@ defineEmits<{
     <div class="transfer-item__progress" :style="{ width: `${taskProgress(task) * 100}%` }" />
 
     <div class="item-main">
-      <div class="item-status-icon">
-        <template v-if="task.state === 'succeeded'">
-          <i-mdi-check-circle class="status-success" />
-        </template>
-        <template v-else-if="task.state === 'failed' || task.state === 'partial'">
-          <i-mdi-alert-circle class="status-failed" />
-        </template>
-        <template v-else-if="task.state === 'awaiting-conflict'">
-          <i-mdi-help-circle-outline class="status-warning" />
-        </template>
-        <template v-else-if="!isTerminalState(task.state)">
-          <i-mdi-loading class="status-active icon-spin" />
-        </template>
-        <template v-else>
-          <MdiIcon class="status-idle" :name="taskKindIcon(task.kind)" />
-        </template>
-      </div>
+      <StatusIcon
+        :icon="taskKindIcon(task.kind)"
+        :badge="taskBadge(task.state)"
+      />
 
       <div class="item-content">
         <div class="item-title" :title="taskTarget(task)">

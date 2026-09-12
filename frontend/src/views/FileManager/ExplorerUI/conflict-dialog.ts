@@ -108,17 +108,16 @@ export function useConflictDialog() {
   }
 
   /**
-   * 关闭弹窗。
-   * 服务端任务继续停在 awaiting-conflict，可从任务面板重新打开；
-   * 本地请求（上传）没有重来的机会，关闭等于放弃这次操作。
+   * 关闭弹窗 = 取消这次操作。
+   * 服务端任务会被取消并直接移出列表，本地上传则放弃入队，
+   * 两条路径都不留下等待决策的残局。
    */
   function close() {
     const req = request.value
-    if (req?.source === 'local') {
-      resolveConflict(req.id, null)
+    if (!req) {
       return
     }
-    conflictDialogVisible.value = false
+    resolveConflict(req.id, null)
   }
 
   return {

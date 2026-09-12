@@ -56,8 +56,9 @@ test.describe('任务进度与取消', () => {
 
     await task.locator('button[title="Cancel"]').click()
 
-    // 取消后任务到终态，窗口自动收起
+    // 取消 = 直接从列表移除：行消失，面板自动收起，入口也一起消失
     await expect(task).toBeHidden()
+    await expect(page.locator('.explorer-activity-toggle')).toHaveCount(0)
 
     // 完整性：目标目录里要么没有文件，要么每个都已写完（4KB），且没有临时文件残留
     const copied = fs.existsSync(path.join(targetDir, bulkName))
@@ -124,5 +125,6 @@ test.describe('任务进度与取消', () => {
 
     await lastServerTask(page).locator('button[title="Cancel"]').click()
     await expect(lastServerTask(page)).toBeHidden()
+    await expect(page.locator('.explorer-activity-toggle')).toHaveCount(0)
   })
 })

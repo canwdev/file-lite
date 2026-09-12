@@ -28,13 +28,13 @@ const tabs = computed(() => [
     key: 'transfers' as const,
     // 上传/下载永远是浏览器侧的传输，和服务端的文件操作不是一回事
     label: 'Transfers',
-    icon: 'cloud-upload-outline',
+    icon: 'file-arrow-up-down-outline',
     counts: props.transfers,
   },
   {
     key: 'tasks' as const,
     label: 'Tasks',
-    icon: 'folder-sync-outline',
+    icon: 'file-arrow-left-right-outline',
     counts: props.tasks,
   },
 ])

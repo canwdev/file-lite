@@ -26,7 +26,7 @@
 - **配置**：`taskConcurrency` / `copyFileConcurrency` / `copyFsync`（缺省 fsync 开启）。
 - **失败清单与重试**：任务结束时若存在失败 / 冲突项，本窗口会弹出 `N items failed` 清单（可滚动、带原因，超出 200 条时提示只展示前 200 条）；`retry` 命令由**服务端从内部完整结果**里取失败路径重建任务，因此不受 done 事件截断影响，重试的是全部失败项。任务行上也有入口可重新打开清单。
 - **上传同名冲突**：`upload-file` 新增 `onConflict`（`error` 缺省 / `overwrite` / `keep-both`），并新增 `POST /files/exists` 做上传前批量预检；上传改为复用 `fileops.PublishFile`，因此中断的上传也不会留下半个文件。前端在入队前预检并复用同一个冲突弹窗。
-- **进度面板生命周期**：新的服务端任务出现时自动弹出并切到 `Tasks` 页签，全部到终态后自动收起；状态栏保留入口按钮显示 / 隐藏面板（正在跑 / 有失败时带角标）；隐藏不取消任何在跑的任务；失败时另有自动弹出的失败清单。
+- **进度面板生命周期**：新的客户端传输出现时自动弹出并切到 `Transfers` 页签，新的服务端任务出现时自动弹出并切到 `Tasks` 页签，全部到终态后自动收起；状态栏保留入口按钮显示 / 隐藏面板（正在跑 / 有失败时带角标）；隐藏不取消任何在跑的任务；失败时另有自动弹出的失败清单。
 - **测试**：
   - 后端：`fileops` 单测（策略矩阵、取消后无残留、结果集上限、扫描、完整性不变式）+ `tasks` 单测（冲突暂停 / 决策 / 取消 / TTL / 重试 / created 广播）+ `routes` 上传单测（默认拒绝 / overwrite / keep-both / 保留前缀 / exists）+ 启动死锁回归，均通过 `-race`。
   - 前端：独立 Playwright 子项目 `e2e/`，17 个用例约 50 秒，覆盖冲突弹窗、上传冲突、进度条、运行中取消、失败清单与重试、跨窗口可见性；截图与测试方法见 `docs/frontend-ui-testing.md`。
@@ -400,7 +400,7 @@ type Task struct {
 - `kind` 决定措辞：`file-vs-file` → “Replace the file in the destination”；`file-vs-dir` / `dir-vs-file` → “Replace the folder/file in the destination”，并追加一行警示（Replace 会删除目标处的目录/文件）。
 - 复选框在 `totalCount > 1` 时出现，映射 `applyToAll`。
 - 「Compare info for both files」展开源/目标的大小与修改时间对照，允许逐项保留其一（Phase D）。
-- **取消/关闭对话框 ≠ 取消任务**：任务停在 `awaiting-conflict`，面板上给显式的 Cancel 入口（与同步方案语义不同，UI 要写清）。
+- **关闭对话框 = 取消任务**：Cancel（或 Esc 关闭弹窗）会取消任务并把它直接移出列表，不留等待决策的残局；目标文件保持原样。
 - 多任务同时停在冲突时，弹窗排队，逐个展示。
 
 ### 5.2 进度面板：右下角常驻的 `Transfers / Tasks` 双页签
@@ -429,10 +429,11 @@ type Task struct {
 - **顶部汇总与页脚按钮都是按页签隔离的**：`Transfers` 页脚是并发数 / `Retry All` / `Clear Failed` / `Clear Success` / `Cancel All`，`Tasks` 页脚是 `Clear finished` / `Cancel All`。切换页签时汇总文字与按钮一起换。
 - 布局：`right` 固定、`bottom` 让开桌面端的状态栏（显示 / 隐藏的入口按钮就在那里），宽 380px、`max-height` 60vh；移动端宽度 100% 且贴底（状态栏在窄屏会换行变高，留固定缝隙只会盖掉一半文字）。
 - 显示 / 隐藏由状态栏的按钮控制（沿用既有入口）。**隐藏 ≠ 取消**：正在跑的传输继续跑，失败的也留着；隐藏时只丢掉已经成功的传输行。
-- 新的服务端任务出现时自动弹出面板并切到 `Tasks` 页签（已经在看 `Transfers` 时不抢页签）；全部服务端任务到终态后自动收起，并顺手清掉「一次成功、没有任何问题」的记录，部分成功 / 失败 / 已取消的保留。
+- 新的客户端传输出现时自动弹出面板并切到 `Transfers` 页签，新的服务端任务出现时切到 `Tasks` 页签（两类活动各自激活自己的页签）；全部服务端任务到终态后自动收起，并顺手清掉「一次成功、没有任何问题」的记录，部分成功 / 失败的保留；取消的任务直接移除，不保留「已取消」状态。
 - 服务端进度按**字节**计算（无字节信息时退化为条目数）；客户端速度按「已传字节增量 / 时间」在前端算，不占用服务端字段。
 - 进度画在行自己身上：整行铺一层半透明的状态色（进行中 = primary，成功 = success，失败 / 部分成功 = danger），而不是在行底再塞一条进度条——行高与数据行完全一致，横向空间也不会被挤掉。
-- 不做暂停：§3.6 已确认取消是唯一控制手段。
+- 行图标分两层：主图标永远是任务类型（上传 = `progress-upload`，下载 = `progress-download`，后台任务 = 复制 / 移动 / 删除 / 复制副本），状态只画在右下角的小角标上（运行中 = 转圈，等冲突 = `pause-circle`，成功 = `check-circle`，失败 = `alert-circle`），所以任务跑起来时不会因为状态换掉类型图标。
+- 不做暂停：§3.6 已确认取消是唯一控制手段；角标里的 `pause-circle` 只表示任务停在冲突上等用户决定，不是暂停功能。
 
 组件的切分：`TransferPanel`（外壳 + 页签 + 插槽，不依赖任何数据来源）、`TransferList` / `ServerTaskList`（列表 + 虚拟滚动）、`TransferRow` / `ServerTaskRow`（纯展示行）、`TransferQueue`（编排层：客户端队列、进度聚合、面板显隐）。列表与行组件都不依赖面板，可以单独塞进别处。
 
@@ -485,7 +486,7 @@ type Task struct {
   │         → tasks.resolve(taskId, overwrite, applyToAll=true)
   ├─ 服务端：running；每 250ms 推送进度（每个文件 tmp → rename 原子发布）
   ├─ 用户点 Pause → 当前文件收尾后 paused；Resume → 继续
-  ├─ 用户点 Cancel → ctx 取消 → 删 tmp → cancelled（无半个文件）
+  ├─ 用户点 Cancel → ctx 取消 → 删 tmp → 任务直接移出列表（无半个文件）
   └─ 服务端：done{ state, results }
               + fs changed 广播 → 前端刷新命中目录、更新剪贴板、汇总提示
 ```
