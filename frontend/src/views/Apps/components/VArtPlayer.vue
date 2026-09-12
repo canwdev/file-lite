@@ -189,6 +189,8 @@ onMounted(() => {
     airplay: true,
     subtitleOffset: true,
     subtitle: {},
+    // Artplayer 会把 button 型设置的 onClick 返回值写进右侧 tooltip；
+    // 返回 undefined 会显示成 "undefined"，所以动作项统一 return ''。
     settings: [
       {
         name: 'custom-playback-rate',
@@ -209,6 +211,7 @@ onMounted(() => {
         // tooltip: 'Play a video file from this device',
         onClick() {
           videoFileInputRef.value?.click()
+          return ''
         },
       },
       {
@@ -216,6 +219,7 @@ onMounted(() => {
         html: 'Open server video…',
         onClick() {
           openServerFileSelector('video')
+          return ''
         },
       },
       {
@@ -224,6 +228,7 @@ onMounted(() => {
         // tooltip: 'VTT, SRT, or ASS',
         onClick() {
           subtitleFileInputRef.value?.click()
+          return ''
         },
       },
       {
@@ -231,6 +236,7 @@ onMounted(() => {
         html: 'Load server subtitle…',
         onClick() {
           openServerFileSelector('subtitle')
+          return ''
         },
       },
       ...(Array.isArray(extraSettings) ? extraSettings : []),

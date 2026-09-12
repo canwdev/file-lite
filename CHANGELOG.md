@@ -66,6 +66,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The Open File picker is selection-only now: no play-last-media button, no transfers panel or button, no keyboard shortcuts, a filter pattern you cannot clear, and a right-click menu that offers just Select instead of open, rename, delete and the rest (frontend).
 - Double-clicking a file in a multi-select Open File picker returns every selected file instead of only the one under the pointer (frontend).
 - Opening a file applies the same too-large warning to a custom default app as to the built-in viewers, and cancelling the share sheet no longer throws (frontend).
+- The video player's settings entries no longer show "undefined" on the right after they are clicked (frontend).
 
 ### Engineering
 
