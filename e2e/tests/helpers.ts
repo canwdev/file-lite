@@ -29,16 +29,26 @@ export async function screenshot(page: Page, name: string) {
  * 用例共用同一台服务器，不清的话任务窗口里会堆着历史任务，截图和断言都不干净。
  */
 export async function dismissFinishedTasks(page: Page) {
-  const toggle = page.locator('button[title^="Tasks ("]')
+  const toggle = page.locator('.explorer-activity-toggle')
   if (await toggle.count() === 0) {
     return
   }
-  await toggle.click()
-  // 页脚的 Close 会真正 dismiss 掉已结束的任务（窗口右上角的 X 只是隐藏）
-  const close = page.locator('#file_lite_upload_dialog .transfer-footer button', { hasText: 'Close' })
-  if (await close.isVisible().catch(() => false)) {
-    await close.click()
+  const panel = page.locator('#file_lite_transfer_panel')
+  if (!await panel.isVisible().catch(() => false)) {
+    await toggle.click()
+    await expect(panel).toBeVisible()
+  }
+  // 后台任务在 Tasks 页签，已结束的行用页脚的 Clear finished 清掉
+  await panel.getByRole('button', { name: 'Tasks' }).click()
+  const clear = panel.locator('.transfer-panel__footer button', { hasText: 'Clear finished' })
+  if (await clear.isVisible().catch(() => false)) {
+    await clear.click()
     await page.waitForTimeout(150)
+  }
+  // 收起面板，后续用例的截图与点击都不受它影响
+  if (await panel.isVisible().catch(() => false)) {
+    await toggle.click()
+    await expect(panel).toBeHidden()
   }
 }
 

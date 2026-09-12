@@ -100,7 +100,7 @@ test.describe('任务进度与取消', () => {
 
     await expect.poll(() => fs.existsSync(path.join(targetDir, 'nested', 'deep.txt'))).toBe(true)
     await expect(serverTaskRows(page)).toHaveCount(0)
-    await expect(page.locator('button[title^="Tasks ("]')).toHaveCount(0)
+    await expect(page.locator('.explorer-activity-toggle')).toHaveCount(0)
   })
 
   test('任务在另一个窗口里同样可见', async ({ page, context }) => {

@@ -11,7 +11,6 @@ import MdiMenuUp from '~icons/mdi/menu-up'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
-import { activeTaskCount, taskList } from '@/store/tasks'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
@@ -969,20 +968,22 @@ defineExpose({
       </div>
 
       <div class="vgo-u-flex-wrap-center">
-        <!-- 任务窗口会自动收起，这里留一个重新打开的入口 -->
+        <!-- 传输面板会自动收起，这里留一个显示 / 隐藏的入口 -->
         <button
-          v-if="taskList.length"
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :title="`Tasks (${activeTaskCount} running)`"
-          @click="transferQueueRef?.show()"
+          v-if="transferQueueRef?.totalCount || transferQueueRef?.isVisible"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-activity-toggle"
+          :class="{ 'is-active': transferQueueRef?.isVisible }"
+          :title="transferQueueRef?.isVisible ? 'Hide transfers & tasks' : 'Show transfers & tasks'"
+          @click="transferQueueRef?.toggle()"
         >
-          <template v-if="activeTaskCount">
+          <template v-if="transferQueueRef?.activeCount">
             <i-mdi-cloud-sync />
           </template>
           <template v-else>
             <i-mdi-cloud-check-outline />
           </template>
-          <span v-if="activeTaskCount" class="vgo-badge vgo-badge--primary">{{ activeTaskCount }}</span>
+          <span v-if="transferQueueRef?.failedCount" class="vgo-badge vgo-badge--danger">{{ transferQueueRef.failedCount }}</span>
+          <span v-else-if="transferQueueRef?.activeCount" class="vgo-badge vgo-badge--primary">{{ transferQueueRef.activeCount }}</span>
         </button>
         <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
         <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />

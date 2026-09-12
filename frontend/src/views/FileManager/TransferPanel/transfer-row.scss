@@ -1,0 +1,98 @@
+// 上传/下载行与后台任务行共用同一套排版，所以只写一份、两边 @use。
+// （放进 SCSS 局部文件而不是某个组件里，是为了让两个行组件都能独立复用。）
+
+.status-success { color: var(--vgo-success); }
+.status-failed { color: var(--vgo-danger); }
+.status-active { color: var(--vgo-primary); }
+.status-idle { color: var(--vgo-text-secondary); }
+.status-warning { color: var(--vgo-warning); }
+
+.transfer-item {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+  cursor: default;
+
+  // 这些行不是点击目标，去掉 .vgo-list-item 的悬停底色。
+  // 主题层是 body.vgo-theme-default .vgo-list-item:hover（0,3,1），
+  // 单个 .transfer-item:hover 赢不了，所以重复一次类名。
+  &.transfer-item:hover {
+    background-color: transparent;
+  }
+
+  .item-main {
+    display: flex;
+    align-items: center;
+    gap: var(--vgo-space-2);
+    padding: var(--vgo-space-2) var(--vgo-space-3);
+  }
+
+  // 状态图标固定占一列，各行内容才会左右对齐
+  .item-status-icon {
+    display: flex;
+    flex: 0 0 var(--vgo-icon-lg);
+    align-items: center;
+    justify-content: center;
+    font-size: var(--vgo-icon-md);
+  }
+
+  .item-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .item-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: var(--vgo-font-md);
+    font-weight: 500;
+    color: var(--vgo-text);
+
+    .vgo-u-text-overflow {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  .item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--vgo-space-2);
+    min-width: 0;
+    font-size: var(--vgo-font-sm);
+    color: var(--vgo-text-secondary);
+
+    .message {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .speed,
+    .size {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    // 百分比靠右成一列，数字等宽才不会随进度左右跳动
+    .percent {
+      flex-shrink: 0;
+      margin-left: auto;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // 右侧动作区固定留两个图标按钮的宽度，百分比才会对齐成一列；
+  // 行里最多只会同时出现两个（重试 / 手动下载，或处理冲突 / 取消）
+  .item-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: var(--vgo-space-1);
+    align-items: center;
+    justify-content: flex-end;
+    min-width: calc(var(--vgo-control-sm) * 2 + var(--vgo-space-1));
+  }
+}

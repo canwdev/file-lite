@@ -6,10 +6,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
-- The task window now lays out uploads, downloads and background copy / move / delete tasks as one clean row type, with a status icon, the name and progress details on aligned columns (frontend).
+- The floating task window became a panel docked to the bottom right that stays out of the file list, and it is full width on phones (frontend).
+- The panel has two tabs: Transfers for uploads and downloads, which always run in the browser, and Tasks for background copy, move, delete and duplicate work on the server. Each tab has its own summary and its own actions, so a progress percentage or a "Cancel All" never mixes the two (frontend).
+- Rows in both tabs share one layout — status icon, name, progress details on aligned columns — and the panel's footer only offers what applies to the tab you are looking at (frontend).
 - The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
-- The debug switch moved into a Development submenu, which also has an entry that fills the transfer window with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
-- The task window no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the window closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
+- The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
+- The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
 
 ### Features
 
@@ -20,7 +22,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A finished copy or move refreshes both the source and the destination listing, in every open window (frontend, backend).
 - Uploading a file whose name already exists now asks whether to replace it, skip it or keep both, instead of overwriting it without a word (frontend, backend).
 - A copy, move or delete that fails now lists exactly which items failed and why, and "Try Again" retries only those items (frontend, backend).
-- The progress window closes itself once every task has finished, and a "Tasks" button in the status bar brings it back (frontend).
+- The panel opens itself when a background task starts and closes once every task has finished, and a button in the status bar shows or hides it — hiding it never cancels work in progress (frontend).
 - Tasks started in one window are now visible in every other open window, including ones that were already open (frontend).
 
 ### Fixes

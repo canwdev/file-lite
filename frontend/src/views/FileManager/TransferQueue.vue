@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { UploadConflictPolicy } from '@/api/filesystem'
-import type { TaskItemResult, TaskKind, TaskSnapshot } from '@/types/server'
+import type { IBatchFile, ITransferItem, TransferTab, TransferTabCounts } from './TransferPanel/types'
+import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
-import { ViewPortWindow } from '@canwdev/vgo-ui'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { LsKeys } from '@/enum'
@@ -19,10 +18,19 @@ import {
 } from '@/store/tasks'
 import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
-import { useVirtualList } from './ExplorerUI/hooks/use-virtual-files'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
+import ServerTaskList from './TransferPanel/ServerTaskList.vue'
+import TransferList from './TransferPanel/TransferList.vue'
+import TransferPanel from './TransferPanel/TransferPanel.vue'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
+/**
+ * 传输面板的编排层。
+ *
+ * 它只管三件事：客户端的上传/下载队列、进度聚合、面板的显示状态。
+ * 「长什么样」全部交给 TransferPanel + 两个列表 + 行组件；
+ * 那几个组件都不依赖这里，可以单独复用。
+ */
 const props = withDefaults(
   defineProps<{
     autoClose?: boolean
@@ -33,260 +41,12 @@ const props = withDefaults(
 )
 const emit = defineEmits(['allDone', 'singleDone'])
 
-export interface IBatchFile {
-  file?: File
-  // 绝对路径
-  path: string
-  filename?: string
-  // 已知的文件大小（下载来自目录列表，上传来自 File.size）
-  size?: number
-  // 下载时使用的父级目录句柄
-  parentHandle?: FileSystemDirectoryHandle
-  type?: 'upload' | 'download'
-  // 上传同名冲突策略，由 useTransfer 在预检弹窗后决定
-  onConflict?: UploadConflictPolicy
-}
-
-export interface ITransferItem extends IBatchFile {
-  // 任务的序号
-  index: number
-  // 进度(0-1)
-  progress: number
-  // 状态
-  status: 'success' | 'failed' | 'pending' | 'transferring'
-  // 错误信息
-  message: string
-  // 过程中的abort对象
-  abortObj?: { abort: () => void }
-  // 成功后返回的结果
-  result?: any
-  speedInfo?: {
-    loaded: number
-    total: number
-    rate: number
-    bytes: number
-  }
-}
-
-// ---- 服务端异步任务（复制 / 移动 / 删除 / 复制副本）----
-// 进度由服务端通过 WS 推送，这里只负责渲染进度条和操作入口。
-const serverTasks = computed(() => taskList.value)
-// 调试视图注入的假任务不参与「还有任务在跑」的判断，否则窗口会被它们顶住关不掉
-const hasServerActive = computed(() => serverTasks.value.some(task => !task.debug && !isTerminalState(task.state)))
-/** 调试视图打开期间：不自动收起、不自动清理，随时可以关掉。 */
-const debugMode = ref(false)
-
-watch(
-  () => serverTasks.value.length,
-  (length, previous) => {
-    if (length > (previous ?? 0)) {
-      isVisible.value = true
-    }
-  },
-)
-
-function kindIcon(kind: TaskKind) {
-  switch (kind) {
-    case 'move':
-      return 'file-move-outline'
-    case 'delete':
-      return 'delete-outline'
-    case 'duplicate':
-      return 'content-duplicate'
-    default:
-      return 'content-copy'
-  }
-}
-
-function kindLabel(kind: TaskKind) {
-  switch (kind) {
-    case 'move':
-      return 'Moving'
-    case 'delete':
-      return 'Deleting'
-    case 'duplicate':
-      return 'Duplicating'
-    default:
-      return 'Copying'
-  }
-}
-
-function serverTaskProgress(task: TaskSnapshot) {
-  const { bytesTotal, bytesDone, itemsTotal, itemsDone } = task.progress
-  if (bytesTotal > 0) {
-    return Math.min(bytesDone / bytesTotal, 1)
-  }
-  if (itemsTotal > 0) {
-    return Math.min(itemsDone / itemsTotal, 1)
-  }
-  return isTerminalState(task.state) && task.state === 'succeeded' ? 1 : 0
-}
-
-function serverTaskTarget(task: TaskSnapshot) {
-  return task.toPath || task.fromPaths.join(', ')
-}
-
-function serverTaskTitle(task: TaskSnapshot) {
-  const count = task.progress.itemsTotal || task.fromPaths.length
-  return `${kindLabel(task.kind)} ${count} item(s)`
-}
-
-function serverTaskMessage(task: TaskSnapshot) {
-  switch (task.state) {
-    case 'queued':
-      return 'Waiting'
-    case 'scanning':
-      return 'Preparing...'
-    case 'awaiting-conflict':
-      return 'Waiting for your decision'
-    case 'succeeded':
-      return 'Done'
-    case 'cancelled':
-      return 'Cancelled'
-    case 'failed':
-      return task.error || 'Failed'
-    case 'partial': {
-      const parts = [`${task.stats.succeeded} done`]
-      if (task.stats.skipped)
-        parts.push(`${task.stats.skipped} skipped`)
-      if (task.stats.failed)
-        parts.push(`${task.stats.failed} failed`)
-      if (task.stats.conflict)
-        parts.push(`${task.stats.conflict} conflicted`)
-      return parts.join(', ')
-    }
-    default: {
-      const done = task.progress.itemsDone
-      const total = task.progress.itemsTotal
-      const bytes = task.progress.bytesTotal > 0
-        ? ` · ${bytesToSize(task.progress.bytesDone)} / ${bytesToSize(task.progress.bytesTotal)}`
-        : ''
-      return total > 0 ? `${done} / ${total}${bytes}` : kindLabel(task.kind)
-    }
-  }
-}
-
-// shallowRef：列表项是普通对象，字段改动本身不触发重渲染，统一由 rAF 里的 triggerRef
-// 每帧通知一次。否则下载大量小文件时每完成一个就整窗重渲染，UI 会被刷到点不动按钮。
+// ---- 客户端的上传 / 下载队列 ----
 const listData = shallowRef<ITransferItem[]>([])
-const isVisible = ref(false)
 const transferIndex = ref(0)
 const taskQueueRef = ref()
-const transferListRef = ref<HTMLElement | null>(null)
-const transferItemHeight = ref(54)
-const virtualTransferList = useVirtualList({
-  items: listData,
-  containerRef: transferListRef,
-  itemHeight: transferItemHeight,
-  overscan: 8,
-})
-watch(
-  () => virtualTransferList.visibleItems.value.length,
-  () => nextTick(measureTransferItemHeight),
-  { immediate: true },
-)
 
-function measureTransferItemHeight() {
-  const itemEl = transferListRef.value?.querySelector<HTMLElement>('.transfer-item')
-  if (!itemEl) {
-    return
-  }
-
-  const measuredHeight = itemEl.offsetHeight
-  if (measuredHeight > 0 && Math.abs(measuredHeight - transferItemHeight.value) > 1) {
-    transferItemHeight.value = measuredHeight
-    virtualTransferList.refresh()
-  }
-}
-
-watch(isVisible, (val) => {
-  if (val) {
-    return
-  }
-  transferIndex.value = 0
-  if (debugMode.value) {
-    // 调试数据：只回收自己注入的假任务，绝不能顺手取消用户真实的任务
-    exitDebugMode()
-  }
-  else {
-    cancelAll()
-  }
-  listData.value = []
-  scheduleFlush()
-})
-
-// 所有服务端任务都到终态后自动收起窗口——资源管理器也是这样，
-// 否则一个浮动窗口会一直盖在文件列表上挡住操作。
-const allServerTasksDone = computed(() => {
-  const real = serverTasks.value.filter(task => !task.debug)
-  return real.length > 0 && real.every(task => isTerminalState(task.state))
-})
-
-watch(allServerTasksDone, (done) => {
-  if (debugMode.value || !done || pendingNum.value > 0 || transferringNum.value > 0) {
-    return
-  }
-  isVisible.value = false
-
-  // 顺带把「没有任何问题」的任务从列表里清掉：一次普通复制不该在任务列表里留下
-  // 一条记录，否则会越积越多，状态栏的任务入口也永远亮着。
-  // 部分成功 / 失败 / 已取消的保留——用户可能还要看原因或点 Try Again。
-  const finishedCleanly = serverTasks.value.filter(task => !task.debug && task.state === 'succeeded')
-  for (const task of finishedCleanly) {
-    void dismissTask(task.id)
-  }
-})
-
-// 关闭面板：只清理已经结束的服务端任务，仍在运行的保留在 store 里继续跑
-function closePanel() {
-  if (debugMode.value) {
-    isVisible.value = false
-    return
-  }
-  for (const task of serverTasks.value) {
-    if (isTerminalState(task.state)) {
-      void dismissTask(task.id)
-    }
-  }
-  isVisible.value = false
-}
-
-function cancelAll() {
-  taskQueueRef.value.removeAllTask()
-  listData.value.forEach((i) => {
-    if (i.status === 'pending' || i.status === 'transferring' || i.abortObj) {
-      cancelItem(i)
-    }
-  })
-  // 服务端任务同样受 Cancel All 管辖
-  for (const task of serverTasks.value) {
-    if (!isTerminalState(task.state)) {
-      void cancelTask(task.id)
-    }
-  }
-}
-
-async function cancelItem(item: ITransferItem) {
-  dropPending(item)
-  item.abortObj?.abort()
-  item.abortObj = undefined
-  setItemStatus(item, 'failed')
-  item.message = 'Cancelled'
-}
-
-// ---- 传输进度聚合 ----
-// 进度事件（上传每个分片、下载每个 chunk）触发得非常频繁，逐个写入响应式数据会让整个
-// 组件反复重渲染。这里先把最新值记在非响应式的 Map 里，再用 requestAnimationFrame
-// 每帧统一刷入并重算总量，响应式更新频率收敛到屏幕刷新率。
-
-interface IProgressInfo {
-  loaded: number
-  total: number
-  rate: number
-  bytes: number
-}
-
-const pendingProgress = new Map<ITransferItem, IProgressInfo>()
+const pendingProgress = new Map<ITransferItem, { loaded: number, total: number, rate: number, bytes: number }>()
 const totalBytes = ref(0)
 const loadedBytes = ref(0)
 const totalRate = ref(0)
@@ -391,6 +151,8 @@ function scheduleFlush() {
   flushFrame = requestAnimationFrame(flushProgress)
 }
 
+// 进度事件（上传每个分片、下载每个 chunk）触发得非常频繁，逐个写入响应式数据会让整个
+// 组件反复重渲染。这里先把最新值记在非响应式的 Map 里，再用 rAF 每帧统一刷入并重算。
 function flushProgress() {
   flushFrame = 0
   if (pendingProgress.size) {
@@ -408,7 +170,7 @@ function flushProgress() {
   triggerRef(listData)
 }
 
-function reportProgress(item: ITransferItem, info: IProgressInfo) {
+function reportProgress(item: ITransferItem, info: { loaded: number, total: number, rate: number, bytes: number }) {
   pendingProgress.set(item, info)
   scheduleFlush()
 }
@@ -423,11 +185,7 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
     throw new Error('File is required for upload')
   }
   await fsWebApi.uploadFile(
-    {
-      path,
-      file,
-      onConflict,
-    },
+    { path, file, onConflict },
     {
       onUploadProgress(event: any) {
         reportProgress(data, {
@@ -484,12 +242,7 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
 
     const bytesDiff = loaded - lastLoaded
     const rate = timeDiff > 0 ? bytesDiff / timeDiff : 0
-    reportProgress(data, {
-      loaded,
-      total: totalSize,
-      rate,
-      bytes: bytesDiff,
-    })
+    reportProgress(data, { loaded, total: totalSize, rate, bytes: bytesDiff })
     lastTime = currentTime
     lastLoaded = loaded
   }
@@ -518,7 +271,6 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
 
 function taskHandler(task: TaskItem) {
   const { data } = task as { data: ITransferItem }
-  // console.log('--- taskHandler', task, data)
   // eslint-disable-next-line no-async-promise-executor
   return new Promise(async (resolve, reject) => {
     try {
@@ -578,6 +330,7 @@ function taskHandler(task: TaskItem) {
 const concurrentNum = useStorage(LsKeys.CONCURRENT_NUM, 1, localStorage, {
   listenToStorageChanges: false,
 })
+
 onMounted(() => {
   taskQueueRef.value = new TaskQueue({
     concurrent: concurrentNum.value,
@@ -585,11 +338,12 @@ onMounted(() => {
   })
   taskQueueRef.value.on('allDone', () => {
     emit('allDone', listData.value)
-    if (props.autoClose) {
+    if (props.autoClose && !listData.value.some(item => item.status === 'failed') && !hasServerActive.value) {
       // 直接看列表，避免依赖下一帧才刷新的计数
-      if (!listData.value.some(item => item.status === 'failed') && !hasServerActive.value) {
-        isVisible.value = false
-      }
+      isVisible.value = false
+    }
+    if (!isVisible.value) {
+      dropFinishedTransfers()
     }
   })
 })
@@ -623,6 +377,7 @@ function addTask(data: IBatchFile, position: number = -1) {
   triggerRef(listData)
   scheduleFlush()
 }
+
 function addTasks(data: IBatchFile[]) {
   if (!data.length) {
     return
@@ -648,7 +403,154 @@ function addTasks(data: IBatchFile[]) {
   scheduleFlush()
 }
 
-function handleRetry(item: ITransferItem, index: number) {
+function setItemStatus(item: ITransferItem, status: ITransferItem['status']) {
+  if (item.status === status) {
+    return
+  }
+  item.status = status
+  // 计数与重渲染都交给每帧一次的 flush
+  scheduleFlush()
+}
+
+// ---- 面板状态 ----
+const isVisible = ref(false)
+const activeTab = ref<TransferTab>('transfers')
+/** 调试视图打开期间：不自动收起、不自动清理，随时可以关掉。 */
+const debugMode = ref(false)
+
+const serverTasks = computed(() => taskList.value)
+// 调试视图注入的假任务不参与「还有任务在跑」的判断
+const realServerTasks = computed(() => serverTasks.value.filter(task => !task.debug))
+const hasServerActive = computed(() => realServerTasks.value.some(task => !isTerminalState(task.state)))
+
+const transferCounts = computed<TransferTabCounts>(() => ({
+  total: listData.value.length,
+  active: pendingNum.value + transferringNum.value,
+  failed: errorNum.value,
+}))
+const taskCounts = computed<TransferTabCounts>(() => ({
+  total: serverTasks.value.length,
+  active: realServerTasks.value.filter(task => !isTerminalState(task.state)).length,
+  failed: serverTasks.value.filter(task => task.stats.failed + task.stats.conflict > 0).length,
+}))
+const totalCount = computed(() => transferCounts.value.total + taskCounts.value.total)
+const activeCount = computed(() => transferCounts.value.active + taskCounts.value.active)
+const failedCount = computed(() => transferCounts.value.failed + taskCounts.value.failed)
+
+/** 面板顶部那句话：只统计当前页签，不把两种任务的数字混在一起。 */
+const summary = computed(() => {
+  if (activeTab.value === 'tasks') {
+    const { total, active, failed } = taskCounts.value
+    if (!total) {
+      return ''
+    }
+    const parts = [`${total} task(s)`]
+    if (active) {
+      parts.push(`${active} running`)
+    }
+    if (failed) {
+      parts.push(`${failed} with failures`)
+    }
+    return parts.join(' · ')
+  }
+
+  if (!listData.value.length) {
+    return ''
+  }
+  const parts = [`${successNum.value}/${listData.value.length}`]
+  if (totalBytes.value > 0) {
+    parts.push(`${bytesToSize(loadedBytes.value)}/${bytesToSize(totalBytes.value)}`)
+  }
+  if (totalRate.value > 0) {
+    parts.push(`${bytesToSize(totalRate.value)}/s`)
+  }
+  if (errorNum.value) {
+    parts.push(`${errorNum.value} failed`)
+  }
+  return parts.join(' · ')
+})
+
+// 所有服务端任务都到终态后自动收起面板——资源管理器也是这样。
+const allServerTasksDone = computed(() => {
+  return realServerTasks.value.length > 0 && realServerTasks.value.every(task => isTerminalState(task.state))
+})
+
+// 新的后台任务一出现就弹出面板并切到任务页签——复制 / 移动 / 删除都可能要跑很久，
+// 没有窗口的话用户完全不知道发生了什么。已经在看传输页签时不抢页签。
+watch(
+  () => realServerTasks.value.filter(task => !isTerminalState(task.state)).length,
+  (active, previous) => {
+    if (debugMode.value || active <= (previous ?? 0)) {
+      return
+    }
+    if (!isVisible.value) {
+      activeTab.value = 'tasks'
+    }
+    isVisible.value = true
+  },
+)
+
+watch(allServerTasksDone, (done) => {
+  if (debugMode.value || !done || pendingNum.value > 0 || transferringNum.value > 0) {
+    return
+  }
+  isVisible.value = false
+
+  // 顺带把「没有任何问题」的任务从列表里清掉：一次普通复制不该在任务列表里留下
+  // 一条记录，否则会越积越多，状态栏的入口也永远亮着。
+  // 部分成功 / 失败 / 已取消的保留——用户可能还要看原因或点 Try Again。
+  for (const task of realServerTasks.value.filter(item => item.state === 'succeeded')) {
+    void dismissTask(task.id)
+  }
+})
+
+watch(isVisible, (val) => {
+  if (val) {
+    return
+  }
+  if (debugMode.value) {
+    // 调试数据：只回收自己注入的假任务，绝不能顺手取消用户真实的任务
+    exitDebugMode()
+  }
+  dropFinishedTransfers()
+})
+
+/**
+ * 收起面板只是隐藏：正在跑的上传/下载继续跑，失败的也留着。
+ * 只有已经成功的行没有再看的意义，顺手清掉避免越积越多。
+ */
+function dropFinishedTransfers() {
+  if (!listData.value.some(item => item.status === 'success')) {
+    return
+  }
+  listData.value = listData.value.filter(item => item.status !== 'success')
+  scheduleFlush()
+}
+
+function toggle() {
+  isVisible.value = !isVisible.value
+}
+
+// ---- 行上的动作 ----
+async function cancelItem(item: ITransferItem) {
+  dropPending(item)
+  item.abortObj?.abort()
+  item.abortObj = undefined
+  setItemStatus(item, 'failed')
+  item.message = 'Cancelled'
+}
+
+/**
+ * 重试一行：把它从原位挪回队列。
+ *
+ * 位置在这里用对象自己找，不让数组下标穿过列表 / 行组件传上来——
+ * 行组件的 `item.index` 是「传输序号」，成功行被清掉之后它就不再等于数组下标了。
+ */
+function handleRetry(item: ITransferItem) {
+  const index = listData.value.indexOf(item)
+  if (index === -1) {
+    return
+  }
   listData.value.splice(index, 1)
   addTask(item, index)
 }
@@ -682,54 +584,43 @@ function retryAll() {
   scheduleFlush()
 }
 
-function handleManualDownload(item: ITransferItem) {
-  const url = fsWebApi.getDownloadUrl([item.path])
-  downloadUrl(url, item.filename)
-}
-
-const serverBytes = computed(() => {
-  let total = 0
-  let loaded = 0
-  for (const task of serverTasks.value) {
-    total += task.progress.bytesTotal
-    loaded += Math.min(task.progress.bytesDone, task.progress.bytesTotal || task.progress.bytesDone)
-  }
-  return { total, loaded }
-})
-
-const totalProgress = computed(() => {
-  // 有明确字节总量时按 已传输/总量 计算；下载尚未拿到 Content-Length 时退回按条数估算
-  const total = totalBytes.value + serverBytes.value.total
-  const loaded = loadedBytes.value + serverBytes.value.loaded
-  if (total > 0) {
-    return Math.min((loaded / total) * 100, 100)
-  }
-  return listData.value.length ? (successNum.value / listData.value.length) * 100 : 0
-})
-const totalProgressText = computed(() => `${Number.parseFloat(totalProgress.value.toFixed(2))}%`)
-// 队列里还有 pending/transferring 就算活跃，避免并发为 1 时按钮在 Cancel All / Close 之间闪烁
-const hasActiveTasks = computed(() => {
-  return pendingNum.value > 0 || transferringNum.value > 0 || hasServerActive.value
-})
-// 调试视图里的假任务永远不该把窗口顶住关不掉
-const canClose = computed(() => debugMode.value || !hasActiveTasks.value)
 function clearFailed() {
   listData.value = listData.value.filter(i => i.status !== 'failed')
   scheduleFlush()
 }
+
 function clearSuccess() {
   listData.value = listData.value.filter(i => i.status !== 'success')
   scheduleFlush()
 }
 
-function setItemStatus(item: ITransferItem, status: ITransferItem['status']) {
-  if (item.status === status) {
-    return
-  }
+function handleManualDownload(item: ITransferItem) {
+  downloadUrl(fsWebApi.getDownloadUrl([item.path]), item.filename)
+}
 
-  item.status = status
-  // 计数与重渲染都交给每帧一次的 flush
-  scheduleFlush()
+function cancelTransfers() {
+  taskQueueRef.value?.removeAllTask()
+  for (const item of listData.value) {
+    if (item.status === 'pending' || item.status === 'transferring' || item.abortObj) {
+      void cancelItem(item)
+    }
+  }
+}
+
+function cancelServerTasks() {
+  for (const task of realServerTasks.value) {
+    if (!isTerminalState(task.state)) {
+      void cancelTask(task.id)
+    }
+  }
+}
+
+function clearFinishedServerTasks() {
+  for (const task of serverTasks.value) {
+    if (isTerminalState(task.state)) {
+      void dismissTask(task.id)
+    }
+  }
 }
 
 async function setConcurrentNum() {
@@ -749,19 +640,16 @@ async function setConcurrentNum() {
   concurrentNum.value = intNum
   taskQueueRef.value.concurrent = intNum
 }
-/**
- * 调试视图：用一组覆盖各种边界情况的假数据填满传输窗口，方便手动检查排版。
- * 由 Development 菜单触发；假任务带 debug 标记，取消 / 移除都只在本地生效，
- * 真实的复制 / 上传任务不受影响。
- */
+
+// ---- 调试视图（Development 菜单） ----
 function debugServerTask(
   id: string,
   overrides: Partial<TaskSnapshot> & { results?: TaskItemResult[] },
 ) {
   return {
     id: `debug_${id}`,
-    kind: 'copy' as TaskKind,
-    state: 'running' as TaskSnapshot['state'],
+    kind: 'copy' as const,
+    state: 'running' as const,
     fromPaths: ['/mock/source'],
     toPath: '/mock/target/',
     isMove: false,
@@ -778,8 +666,13 @@ const debugFailureResults: TaskItemResult[] = [
   { fromPath: '/mock/source/locked.bin', status: 'conflict', message: 'A conflicting item appeared at the destination' },
 ]
 
+/**
+ * 调试视图：用一组覆盖各种边界情况的假数据填满面板，方便手动检查排版。
+ * 由 Development 菜单触发；假任务带 debug 标记，取消 / 移除都只在本地生效。
+ */
 function loadMockTransferList() {
   debugMode.value = true
+  activeTab.value = 'transfers'
   isVisible.value = true
   let index = 0
   const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
@@ -870,8 +763,6 @@ function loadMockTransferList() {
       progress: 0.62,
     }),
   ]
-  recomputeTotals()
-  triggerRef(listData)
 
   // ---- 后台任务（复制 / 移动 / 删除）的每一种状态 ----
   replaceDebugTasks([
@@ -953,6 +844,8 @@ function loadMockTransferList() {
       progress: { itemsTotal: 2_048, itemsDone: 1_536, bytesTotal: 8_589_934_592, bytesDone: 6_442_450_944 },
     }),
   ])
+  recomputeTotals()
+  triggerRef(listData)
 }
 
 function exitDebugMode() {
@@ -965,225 +858,59 @@ useExplorerBusOn(ExplorerEvents.DEBUG_TRANSFER, () => {
   loadMockTransferList()
 })
 
-function show() {
-  isVisible.value = true
-}
-
 defineExpose({
   addTask,
   addTasks,
-  show,
+  toggle,
+  isVisible,
+  totalCount,
+  activeCount,
+  failedCount,
 })
 </script>
 
 <template>
-  <ViewPortWindow
-    v-model:visible="isVisible"
-    :show-close="canClose"
-    :init-win-options="{
-      width: '360px',
-    }"
-    wid="file_lite_upload_dialog"
+  <TransferPanel
+    v-model:active-tab="activeTab"
+    :visible="isVisible"
+    :summary="summary"
+    :transfers="transferCounts"
+    :tasks="taskCounts"
+    @hide="isVisible = false"
   >
-    <template #titleBarLeft>
-      <i-mdi-cloud-sync />
-      <div class="vgo-u-flex-wrap-center transfer-header vgo-u-font-code">
-        <span v-if="listData.length">[{{ successNum }}/{{ listData.length }}]</span>
-        <span v-if="totalBytes > 0">[{{ bytesToSize(loadedBytes) }}/{{ bytesToSize(totalBytes) }}]</span>
-        <span v-if="listData.length">[{{ totalProgressText }}]</span>
-        <span v-if="totalRate > 0" title="Total speed" class="vgo-u-flex-wrap-center"> <i-mdi-speedometer /> {{ bytesToSize(totalRate) }}/s </span>
-
-        <span v-if="errorNum" title="Failed" class="vgo-u-flex-wrap-center"> <i-mdi-alert-circle class="status-failed" /> {{ errorNum }} </span>
-      </div>
+    <template #transfers>
+      <TransferList
+        v-show="activeTab === 'transfers'"
+        :items="listData"
+        @cancel="cancelItem"
+        @retry="handleRetry"
+        @manual-download="handleManualDownload"
+      />
     </template>
 
-    <div class="transfer-wrapper">
-      <div class="vgo-progress vgo-progress--success total-progress-bar">
-        <div :style="{ width: `${totalProgress}%` }" class="vgo-progress__value" />
-      </div>
+    <template #tasks>
+      <ServerTaskList
+        v-show="activeTab === 'tasks'"
+        :tasks="serverTasks"
+        @cancel="cancelTask"
+        @resolve="openConflictDialog"
+        @failures="openFailureDialog"
+        @dismiss="dismissTask"
+      />
+    </template>
 
-      <div v-if="serverTasks.length" class="server-task-list">
-        <div
-          v-for="task in serverTasks"
-          :key="task.id"
-          class="vgo-list-item transfer-item server-task-item"
-        >
-          <div class="item-main">
-            <div class="item-status-icon">
-              <template v-if="task.state === 'succeeded'">
-                <i-mdi-check-circle class="status-success" />
-              </template>
-              <template v-else-if="task.state === 'failed' || task.state === 'partial'">
-                <i-mdi-alert-circle class="status-failed" />
-              </template>
-              <template v-else-if="task.state === 'awaiting-conflict'">
-                <i-mdi-help-circle-outline class="status-warning" />
-              </template>
-              <template v-else-if="!isTerminalState(task.state)">
-                <i-mdi-loading class="status-active icon-spin" />
-              </template>
-              <template v-else>
-                <MdiIcon class="status-idle" :name="kindIcon(task.kind)" />
-              </template>
-            </div>
-
-            <div class="item-content">
-              <div class="item-title" :title="serverTaskTarget(task)">
-                <span class="vgo-u-text-overflow">{{ serverTaskTitle(task) }}</span>
-              </div>
-              <div class="item-meta">
-                <span class="message vgo-u-text-overflow" :title="serverTaskMessage(task)">{{ serverTaskMessage(task) }}</span>
-                <span class="percent">{{ (serverTaskProgress(task) * 100).toFixed(0) }}%</span>
-              </div>
-            </div>
-
-            <div class="item-actions">
-              <button
-                v-if="task.state === 'awaiting-conflict'"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Resolve conflict"
-                @click="openConflictDialog"
-              >
-                <i-mdi-help-circle-outline />
-              </button>
-              <button
-                v-if="task.canCancel"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Cancel"
-                @click="cancelTask(task.id)"
-              >
-                <i-mdi-close />
-              </button>
-              <button
-                v-if="isTerminalState(task.state) && (task.stats.failed + task.stats.conflict) > 0"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                :title="`${task.stats.failed + task.stats.conflict} item(s) failed — show details`"
-                @click="openFailureDialog(task.id)"
-              >
-                <i-mdi-alert-circle class="status-failed" />
-              </button>
-              <button
-                v-if="isTerminalState(task.state)"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Remove from list"
-                @click="dismissTask(task.id)"
-              >
-                <i-mdi-close />
-              </button>
-            </div>
-          </div>
-
-          <div
-            class="vgo-progress"
-            :class="{
-              'vgo-progress--success': task.state === 'succeeded',
-              'vgo-progress--danger': task.state === 'failed' || task.state === 'partial',
-            }"
-          >
-            <div :style="{ width: `${serverTaskProgress(task) * 100}%` }" class="vgo-progress__value" />
-          </div>
-        </div>
-      </div>
-
-      <div ref="transferListRef" class="transfer-list">
-        <div
-          v-if="virtualTransferList.beforeHeight.value"
-          class="transfer-virtual-spacer"
-          :style="{ height: `${virtualTransferList.beforeHeight.value}px` }"
-        />
-        <div
-          v-for="{ item, index } in virtualTransferList.visibleItems.value"
-          :key="item.index"
-          class="vgo-list-item transfer-item"
-        >
-          <div class="item-main">
-            <div class="item-status-icon">
-              <template v-if="item.status === 'success'">
-                <i-mdi-check-circle class="status-success" />
-              </template>
-              <template v-else-if="item.status === 'failed'">
-                <i-mdi-alert-circle class="status-failed" />
-              </template>
-              <template v-else-if="item.status === 'transferring'">
-                <i-mdi-loading class="status-active icon-spin" />
-              </template>
-              <template v-else>
-                <MdiIcon
-                  class="status-idle"
-                  :name="item.type === 'download' ? 'download-outline' : 'upload-outline'"
-                />
-              </template>
-            </div>
-
-            <div class="item-content">
-              <div class="item-title" :title="item.path">
-                <span class="vgo-u-text-overflow">{{ item.filename || item.path }}</span>
-              </div>
-              <div class="item-meta">
-                <template v-if="item.status === 'transferring' && item.speedInfo">
-                  <span class="speed">{{ bytesToSize(item.speedInfo.rate) }}/s</span>
-                  <span class="size">{{ bytesToSize(item.speedInfo.loaded) }} / {{ bytesToSize(item.speedInfo.total) }}</span>
-                </template>
-                <template v-else>
-                  <span class="message vgo-u-text-overflow" :title="item.message">{{ item.message }}</span>
-                </template>
-                <span class="percent">{{ (item.progress * 100).toFixed(0) }}%</span>
-              </div>
-            </div>
-
-            <div class="item-actions">
-              <button
-                v-if="item.abortObj"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Cancel"
-                @click="cancelItem(item)"
-              >
-                <i-mdi-close />
-              </button>
-              <button
-                v-if="item.status === 'failed'"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Retry"
-                @click="handleRetry(item, index)"
-              >
-                <i-mdi-refresh />
-              </button>
-              <button
-                v-if="item.status === 'failed' && item.type === 'download'"
-                class="vgo-button vgo-button--primary vgo-button--icon vgo-button--sm"
-                title="Manual Download"
-                @click="handleManualDownload(item)"
-              >
-                <i-mdi-download />
-              </button>
-            </div>
-          </div>
-
-          <div
-            class="vgo-progress"
-            :class="{
-              'vgo-progress--success': item.status === 'success',
-              'vgo-progress--danger': item.status === 'failed',
-            }"
-          >
-            <div :style="{ width: `${item.progress * 100}%` }" class="vgo-progress__value" />
-          </div>
-        </div>
-        <div
-          v-if="virtualTransferList.afterHeight.value"
-          class="transfer-virtual-spacer"
-          :style="{ height: `${virtualTransferList.afterHeight.value}px` }"
-        />
-      </div>
-      <div class="transfer-footer">
-        <div class="footer-group">
-          <span
+    <template #footer>
+      <!-- 两个页签的操作分开：上面那些按钮从来只管客户端传输，混在一起会让人以为它们也管后台任务 -->
+      <template v-if="activeTab === 'transfers'">
+        <div class="transfer-panel-actions">
+          <button
             v-if="listData.length"
-            class="cursor-pointer"
+            class="vgo-button vgo-button--text vgo-button--sm"
             :title="`Concurrent: ${concurrentNum}, Transferring: ${transferringNum}`"
             @click="setConcurrentNum"
-          > <i-mdi-compare-vertical /> {{ transferringNum }} </span>
-
+          >
+            <i-mdi-compare-vertical /> {{ transferringNum }}
+          </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--primary vgo-button--sm" @click="retryAll">
             Retry All
           </button>
@@ -1194,170 +921,43 @@ defineExpose({
             Clear Success
           </button>
         </div>
-        <div class="footer-group">
-          <button v-if="hasActiveTasks" class="vgo-button vgo-button--danger vgo-button--sm" @click="cancelAll">
-            Cancel All
-          </button>
-          <button v-if="canClose" class="vgo-button vgo-button--primary vgo-button--sm" @click="closePanel">
-            Close
+        <button
+          v-if="pendingNum > 0 || transferringNum > 0"
+          class="vgo-button vgo-button--danger vgo-button--sm"
+          @click="cancelTransfers"
+        >
+          Cancel All
+        </button>
+      </template>
+
+      <template v-else>
+        <div class="transfer-panel-actions">
+          <button
+            v-if="serverTasks.length"
+            class="vgo-button vgo-button--sm"
+            @click="clearFinishedServerTasks"
+          >
+            Clear finished
           </button>
         </div>
-      </div>
-    </div>
-  </ViewPortWindow>
+        <button
+          v-if="hasServerActive"
+          class="vgo-button vgo-button--danger vgo-button--sm"
+          @click="cancelServerTasks"
+        >
+          Cancel All
+        </button>
+      </template>
+    </template>
+  </TransferPanel>
 </template>
 
 <style scoped lang="scss">
-.status-success { color: var(--vgo-success); }
-.status-failed { color: var(--vgo-danger); }
-.status-active { color: var(--vgo-primary); }
-.status-idle { color: var(--vgo-text-secondary); }
-.status-warning { color: var(--vgo-warning); }
-
-.transfer-header {
-  gap: var(--vgo-space-1);
-  font-size: var(--vgo-font-sm);
-
-  .vgo-u-flex-wrap-center {
-    gap: var(--vgo-space-1);
-  }
-}
-.transfer-wrapper {
-  height: 100%;
+.transfer-panel-actions {
   display: flex;
-  flex-direction: column;
-  background-color: var(--vgo-surface);
-
-  .total-progress-bar {
-    --vgo-progress-height: 3px;
-
-    flex-shrink: 0;
-  }
-
-  .server-task-list {
-    flex-shrink: 0;
-    max-height: 220px;
-    overflow-y: auto;
-  }
-
-  // 上下行传输与服务端任务（复制 / 移动 / 删除）是同一种行，行样式只写一份。
-  // 不能嵌进 .transfer-list：服务端任务在另一个列表容器里，否则会漏掉全部行样式。
-  .transfer-item {
-    flex-direction: column;
-    align-items: stretch;
-    min-height: 0;
-    padding: 0;
-    cursor: default;
-
-    // 这些行不是点击目标，去掉 .vgo-list-item 的悬停底色（多一层 :hover 才压得住主题层）
-    &:hover {
-      background-color: transparent;
-    }
-
-    .item-main {
-      display: flex;
-      align-items: center;
-      gap: var(--vgo-space-2);
-      padding: var(--vgo-space-2) var(--vgo-space-3);
-    }
-
-    // 状态图标固定占一列，各行内容才会左右对齐
-    .item-status-icon {
-      display: flex;
-      flex: 0 0 var(--vgo-icon-lg);
-      align-items: center;
-      justify-content: center;
-      font-size: var(--vgo-icon-md);
-    }
-
-    .item-content {
-      display: flex;
-      flex: 1;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .item-title {
-      display: flex;
-      align-items: center;
-      min-width: 0;
-      font-size: var(--vgo-font-md);
-      font-weight: 500;
-      color: var(--vgo-text);
-
-      .vgo-u-text-overflow {
-        flex: 1;
-        min-width: 0;
-      }
-    }
-
-    .item-meta {
-      display: flex;
-      align-items: center;
-      gap: var(--vgo-space-2);
-      min-width: 0;
-      font-size: var(--vgo-font-sm);
-      color: var(--vgo-text-secondary);
-
-      .message {
-        flex: 1;
-        min-width: 0;
-      }
-
-      .speed,
-      .size {
-        flex-shrink: 0;
-        white-space: nowrap;
-      }
-
-      // 百分比靠右成一列，数字等宽才不会随进度左右跳动
-      .percent {
-        flex-shrink: 0;
-        margin-left: auto;
-        font-variant-numeric: tabular-nums;
-      }
-    }
-
-    // 右侧动作区固定留两个图标按钮的宽度，百分比才会对齐成一列；
-    // 行里最多只会同时出现两个（重试 / 手动下载，或处理冲突 / 取消）
-    .item-actions {
-      display: flex;
-      flex: 0 0 auto;
-      gap: var(--vgo-space-1);
-      align-items: center;
-      justify-content: flex-end;
-      min-width: calc(var(--vgo-control-sm) * 2 + var(--vgo-space-1));
-    }
-  }
-
-  .transfer-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: 400px;
-    overflow-y: auto;
-
-    .transfer-virtual-spacer {
-      pointer-events: none;
-    }
-  }
-
-  .transfer-footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--vgo-space-2);
-    align-items: center;
-    justify-content: space-between;
-    margin-top: auto;
-    padding: var(--vgo-space-2) var(--vgo-space-3);
-    border-top: 1px solid var(--vgo-border);
-    background-color: var(--vgo-surface-raised);
-
-    .footer-group {
-      display: flex;
-      align-items: center;
-      gap: var(--vgo-space-2);
-      font-size: var(--vgo-font-md);
-    }
-  }
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vgo-space-2);
+  font-size: var(--vgo-font-md);
 }
 </style>
