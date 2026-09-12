@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import {
   clearStars,
@@ -22,6 +23,12 @@ import {
   selectItem,
   serverTaskRows,
 } from './helpers'
+
+/** 侧边栏收藏项的当前顺序（名字拼成一串，便于 expect.poll 比较）。 */
+async function starOrder(page: Page) {
+  const names = await page.locator('.star-item .vgo-u-text-overflow').allInnerTexts()
+  return names.map(name => name.trim()).join(',')
+}
 
 /**
  * 拖拽：把选中的文件 / 文件夹拖到文件夹行、面包屑、收藏夹、磁盘根。
@@ -209,5 +216,33 @@ test.describe('拖拽', () => {
     await expect(conflictDialog(page)).toBeHidden()
     // 取消后目标保持原样
     expect(fs.readFileSync(path.join(dragSubDir, 'back.txt'), 'utf8')).toBe('back-content')
+  })
+
+  test('拖动收藏项可以调整收藏顺序，顺序会被记住', async ({ page }) => {
+    await login(page)
+    await clearStars(page)
+
+    // 先收藏 archive 再收藏 inbox，初始顺序为 archive, inbox
+    await openFolder(page, 'drag')
+    await openFolder(page, 'archive')
+    await page.locator('button[title^="Toggle Star"]').click()
+    await expect(page.locator('.star-item')).toHaveCount(1)
+    await goBack(page)
+    await openFolder(page, 'inbox')
+    await page.locator('button[title^="Toggle Star"]').click()
+    await expect(page.locator('.star-item')).toHaveCount(2)
+    await expect.poll(() => starOrder(page)).toBe('archive,inbox')
+
+    // 把第二条（inbox）拖到第一条上半 → 插到最前
+    await html5Drag(page, page.locator('.star-item').nth(1), page.locator('.star-item').nth(0), { dropAt: 'top' })
+    await expect.poll(() => starOrder(page)).toBe('inbox,archive')
+
+    // 顺序是存进服务端设置的：刷新后仍然是新顺序
+    await page.waitForTimeout(400)
+    await page.reload()
+    await page.locator('.explorer-wrap').waitFor()
+    await expect.poll(() => starOrder(page)).toBe('inbox,archive')
+
+    await clearStars(page)
   })
 })

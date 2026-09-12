@@ -53,6 +53,16 @@ export function isInternalDrag(event: DragEvent): boolean {
   return Array.from(event.dataTransfer?.types ?? []).includes(ENTRY_DRAG_MIME)
 }
 
+/**
+ * 收藏夹内部的排序拖拽（拖的是收藏项，不是文件）。
+ * 用单独的 MIME 区分：收藏项同时也是「文件落点」，两者必须走不同的分支。
+ */
+export const STAR_DRAG_MIME = 'application/x-file-lite-star'
+
+export function isStarDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes(STAR_DRAG_MIME)
+}
+
 export function isExternalFileDrag(event: DragEvent): boolean {
   const dataTransfer = event.dataTransfer
   if (!dataTransfer) {

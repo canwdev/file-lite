@@ -14,7 +14,7 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
-import { acceptDirDrag, dragEnabledKey, dropIntoDir } from './ExplorerUI/entry-drag'
+import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
@@ -204,13 +204,64 @@ function removeStarredPath(path: string) {
   starList.value = starList.value.filter(item => item !== path)
 }
 
-/* 收藏夹是拖拽落点：拖到收藏项 = 移动 / 复制（或上传系统文件）到该目录 */
+/* ------------------------------------------------------------------ *
+ * 收藏夹：既是文件落点（拖文件 / 系统文件上去 → 移动、复制或上传到该目录），
+ * 也是排序拖拽的源与落点（拖动收藏项本身 → 调整顺序）。
+ * 两者靠 DataTransfer 的 MIME 区分，见 entry-drag.ts 的 isStarDrag。
+ * ------------------------------------------------------------------ */
+const starListRef = ref<HTMLElement | null>(null)
 const starredDragOverPath = ref<string | null>(null)
+/** 正在被拖动的收藏项路径 */
+const starDragPath = ref<string | null>(null)
+/** 插入位置：0..length，按指针在收藏项上半 / 下半计算 */
+const starDropIndex = ref<number | null>(null)
 
-function onStarDragOver(path: string, event: DragEvent) {
+/** 拖到自己紧邻的前后位置是无意义的，不显示插入线也不执行 */
+const effectiveStarDropIndex = computed(() => {
+  const at = starDropIndex.value
+  if (at === null) {
+    return null
+  }
+  const from = starDragPath.value ? starredPathsList.value.indexOf(starDragPath.value) : -1
+  if (from === -1) {
+    return at
+  }
+  return at === from || at === from + 1 ? null : at
+})
+
+function resetStarDrag() {
+  starDragPath.value = null
+  starDropIndex.value = null
+}
+
+function onStarDragStart(path: string, event: DragEvent) {
+  if (!dragEnabled.value) {
+    event.preventDefault()
+    return
+  }
+  starDragPath.value = path
+  event.dataTransfer?.setData(STAR_DRAG_MIME, path)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function onStarDragOver(path: string, index: number, event: DragEvent) {
   if (!dragEnabled.value) {
     return
   }
+
+  if (isStarDrag(event)) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move'
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    starDropIndex.value = event.clientY > rect.top + rect.height / 2 ? index + 1 : index
+    return
+  }
+
   if (!acceptDirDrag(path, event)) {
     if (starredDragOverPath.value === path) {
       starredDragOverPath.value = null
@@ -220,27 +271,52 @@ function onStarDragOver(path: string, event: DragEvent) {
   starredDragOverPath.value = path
 }
 
-function onStarDragLeave(path: string, event: DragEvent) {
-  if (starredDragOverPath.value !== path) {
-    return
-  }
+function onStarDragLeave(event: DragEvent) {
   const next = event.relatedTarget as Node | null
-  if (next && (event.currentTarget as Node | null)?.contains(next)) {
+  if (next && starListRef.value?.contains(next)) {
     return
   }
   starredDragOverPath.value = null
+  starDropIndex.value = null
 }
 
 function onStarDrop(path: string, event: DragEvent) {
-  starredDragOverPath.value = null
   if (!dragEnabled.value) {
     return
   }
+
+  if (isStarDrag(event)) {
+    event.preventDefault()
+    event.stopPropagation()
+    const from = starDragPath.value
+    const insertAt = effectiveStarDropIndex.value
+    resetStarDrag()
+    if (from && insertAt !== null) {
+      reorderStar(from, insertAt)
+    }
+    return
+  }
+
+  starredDragOverPath.value = null
   dropIntoDir(path, event)
+}
+
+/** 把收藏项移到 insertAt（未删除前的下标语义），越界会被夹住 */
+function reorderStar(path: string, insertAt: number) {
+  const next = [...starList.value]
+  const from = next.indexOf(path)
+  if (from === -1) {
+    return
+  }
+  next.splice(from, 1)
+  const target = Math.max(0, Math.min(from < insertAt ? insertAt - 1 : insertAt, next.length))
+  next.splice(target, 0, path)
+  starList.value = next
 }
 
 useEventListener(window, 'dragend', () => {
   starredDragOverPath.value = null
+  resetStarDrag()
 })
 
 function openPathInNewTab(path: string) {
@@ -488,17 +564,24 @@ useShortcut({
             @open-drive="(i: IDrive) => handleOpenPath(i.path)"
             @open-path-in-new-tab="openPathInNewTab"
           >
-            <div v-if="starredPathsList.length" class="star-list">
+            <div v-if="starredPathsList.length" ref="starListRef" class="star-list">
               <button
-                v-for="path in starredPathsList"
+                v-for="(path, index) in starredPathsList"
                 :key="path"
                 class="vgo-u-button-reset vgo-list-item star-item"
-                :class="{ 'is-drop-target': starredDragOverPath === path }"
+                :class="{
+                  'is-drop-target': starredDragOverPath === path,
+                  'is-drag-source': starDragPath === path,
+                  'is-drop-before': effectiveStarDropIndex === index,
+                  'is-drop-after': effectiveStarDropIndex === index + 1 && index === starredPathsList.length - 1,
+                }"
+                :draggable="dragEnabled"
                 :title="path"
                 @click="handleOpenPath(path)"
                 @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
-                @dragover="onStarDragOver(path, $event)"
-                @dragleave="onStarDragLeave(path, $event)"
+                @dragstart="onStarDragStart(path, $event)"
+                @dragover="onStarDragOver(path, index, $event)"
+                @dragleave="onStarDragLeave($event)"
                 @drop="onStarDrop(path, $event)"
               >
                 <i-mdi-star class="vgo-u-icon-md" />
@@ -635,6 +718,7 @@ useShortcut({
 
   .star-list {
     .star-item {
+      position: relative;
       width: 100%;
       min-height: var(--vgo-control-sm);
       font-size: var(--vgo-font-sm);
@@ -644,6 +728,29 @@ useShortcut({
         background-color: var(--vgo-primary-opacity);
         outline: 2px dashed var(--vgo-primary);
         outline-offset: -2px;
+      }
+
+      // 拖动排序：被拖走的那条淡出，落点用一条 2px 的插入线表示
+      &.is-drag-source {
+        opacity: 0.5;
+      }
+
+      &.is-drop-before::before,
+      &.is-drop-after::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: var(--vgo-primary);
+      }
+
+      &.is-drop-before::before {
+        top: -1px;
+      }
+
+      &.is-drop-after::after {
+        bottom: -1px;
       }
     }
   }

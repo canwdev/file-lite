@@ -2,18 +2,6 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
-## Unreleased
-
-### UI
-
-- A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
-
-### Features
-
-- Files and folders can be dragged onto a folder row, a breadcrumb, a favourite or a drive to move or copy them: the same drive moves, another drive copies, Ctrl copies and Shift moves, and anything moved away is dropped from the clipboard (frontend).
-- Dragging files from the system onto a folder row, a breadcrumb, a favourite or a drive now uploads them into that folder (frontend).
-- Drag and drop is off while the file or folder picker is open (frontend).
-
 ## 1.5.0
 
 ### UI
@@ -30,6 +18,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
 - The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
+- A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
 
 ### Features
 
@@ -42,6 +31,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A copy, move or delete that fails now lists exactly which items failed and why, and "Try Again" retries only those items (frontend, backend).
 - The panel opens itself when a background task starts and closes once every task has finished, and a button in the status bar shows or hides it — hiding it never cancels work in progress (frontend).
 - Tasks started in one window are now visible in every other open window, including ones that were already open (frontend).
+- Files and folders can be dragged onto a folder row, a breadcrumb, a favourite or a drive to move or copy them: the same drive moves, another drive copies, Ctrl copies and Shift moves, and anything moved away is dropped from the clipboard (frontend).
+- Dragging files from the system onto a folder row, a breadcrumb, a favourite or a drive now uploads them into that folder (frontend).
+- Favourite folders can be dragged up and down in the sidebar to change their order, and that order is remembered (frontend).
+- Drag and drop is off while the file or folder picker is open (frontend).
 
 ### Fixes
 

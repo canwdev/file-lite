@@ -133,21 +133,35 @@ export function resetDragDirs() {
  * 用同一个 `DataTransfer` 依次派发 dragstart → dragenter → dragover → drop → dragend，
  * 走的是页面里真实的 dragstart/dragover/drop 处理器；不依赖 Playwright 的鼠标拖拽
  * 模拟（无头 Chromium 下原生拖拽的启动时机不稳定）。
+ *
+ * `dropAt` 给需要「落点在目标上半 / 下半」的用例（收藏夹排序）提供真实坐标。
  */
 export async function html5Drag(
   page: Page,
   source: Locator,
   target: Locator,
-  init: { ctrlKey?: boolean, shiftKey?: boolean } = {},
+  init: { ctrlKey?: boolean, shiftKey?: boolean, dropAt?: 'top' | 'bottom' } = {},
 ) {
+  const { dropAt, ...eventInit } = init
+  const point = dropAt ? await targetDropPoint(target, dropAt) : {}
+
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
   await source.dispatchEvent('dragstart', { dataTransfer })
-  await target.dispatchEvent('dragenter', { dataTransfer, ...init })
-  await target.dispatchEvent('dragover', { dataTransfer, ...init })
-  await target.dispatchEvent('drop', { dataTransfer, ...init })
+  await target.dispatchEvent('dragenter', { dataTransfer, ...eventInit, ...point })
+  await target.dispatchEvent('dragover', { dataTransfer, ...eventInit, ...point })
+  await target.dispatchEvent('drop', { dataTransfer, ...eventInit, ...point })
   // 移动会立刻把源行从列表里摘掉，不能再到它身上派发 dragend；dragend 冒泡到 window 即可
   await dispatchDragEnd(page)
   await dataTransfer.dispose()
+}
+
+/** 目标元素上 / 下边缘附近的视口坐标。 */
+async function targetDropPoint(target: Locator, where: 'top' | 'bottom') {
+  const box = await target.boundingBox()
+  if (!box) {
+    return {}
+  }
+  return { clientY: where === 'top' ? box.y + 2 : box.y + box.height - 2 }
 }
 
 /** 拖拽收尾：dragend 是派发在 window 上的全局收尾信号。 */
