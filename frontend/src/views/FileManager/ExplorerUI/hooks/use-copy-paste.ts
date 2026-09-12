@@ -133,3 +133,32 @@ export function useCopyPaste({
     currentCutNames,
   }
 }
+
+/**
+ * 拖拽移动完成后同步剪贴板：被搬走的路径要从剪切 / 复制两个列表里都摘掉。
+ *
+ * 复制列表也要清：用户可能先 Ctrl+C，随后又把它拖到别处；源已经不在原处了，
+ * 之后再粘贴只会得到一个「源不存在」的失败。
+ */
+export function reconcileClipboardAfterMove(results: TaskItemResult[], truncated: boolean): void {
+  if (truncated) {
+    // 结果被截断时无法逐项判断，保守地清空两个列表
+    explorerStore.value.cutPaths = []
+    explorerStore.value.copyPaths = []
+    explorerStore.value.cutBasePath = ''
+    return
+  }
+
+  const moved = new Set(
+    results.filter(item => MOVED_STATUSES.has(item.status)).map(item => item.fromPath),
+  )
+  if (!moved.size) {
+    return
+  }
+
+  explorerStore.value.cutPaths = explorerStore.value.cutPaths.filter(path => !moved.has(path))
+  explorerStore.value.copyPaths = explorerStore.value.copyPaths.filter(path => !moved.has(path))
+  if (!explorerStore.value.cutPaths.length) {
+    explorerStore.value.cutBasePath = ''
+  }
+}

@@ -10,10 +10,16 @@ const props = withDefaults(defineProps<{
   isCut?: boolean
   showCheckbox?: boolean
   iconSize?: number
+  /** 是否可拖拽（选择器模式下由 FileList 传 false） */
+  draggable?: boolean
+  /** 当前拖拽悬停在此项上（高亮落点用） */
+  isDropTarget?: boolean
 }
 >(), {
   isCut: false,
   iconSize: 48,
+  draggable: false,
+  isDropTarget: false,
 })
 
 defineEmits(['open', 'select'])
@@ -23,7 +29,8 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 <template>
   <button
     class="vgo-u-button-reset vgo-list-item file-grid-item"
-    :class="{ 'is-active': active, 'hidden': item.hidden, 'is-cut': isCut }"
+    :class="{ 'is-active': active, 'hidden': item.hidden, 'is-cut': isCut, 'is-drop-target': isDropTarget }"
+    :draggable="draggable"
     :title="titleDesc" :style="{ width: `${iconSize + 42}px`, height: `${iconSize + 62}px` }"
     @click.stop="$emit('select', { item, event: $event })"
     @dblclick.stop="$emit('open', { item })"
@@ -83,6 +90,12 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     .desktop-icon-image {
       opacity: 0.45;
     }
+  }
+
+  &.is-drop-target {
+    background-color: var(--vgo-primary-opacity);
+    outline: 2px dashed var(--vgo-primary);
+    outline-offset: -2px;
   }
 
   .file-checkbox {

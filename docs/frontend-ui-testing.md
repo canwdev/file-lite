@@ -1,6 +1,6 @@
 # 前端 UI 端到端测试方法与结果
 
-> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，17 个用例，约 50 秒）
+> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，27 个用例，约 45 秒）
 > 运行：`cd e2e && bun install && bun run install:browser && bun run test`
 
 本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。截图由测试自己产出，
@@ -36,12 +36,14 @@ scripts/start-app.mjs
 files/
 ├── source/           a.txt(alpha) b.txt(beta) note.md nested/deep.txt
 ├── target/           a.txt(existing-alpha) nested/     ← 预置同名文件，冲突用例靠它
-└── empty/            （空目录，用来制造「不可写」的失败场景）
+├── empty/            （空目录，用来制造「不可写」的失败场景）
+├── drag/             inbox/（move-me.txt、copy-me.txt、ctrl-me.txt、sub/back.txt）+ archive/
+└── （根目录还会临时出现拖拽用例落在磁盘根 / 面包屑上的文件，复位时清掉）
 upload/               a.txt（与服务端同名）、fresh.txt
 ```
 
 用例之间**共用同一台服务器和同一份磁盘**，所以每个用例开始前会
-`resetTargetDirs()` 复位 `target` / `empty`，并在登录后清掉历史任务，
+`resetTargetDirs()` / `resetDragDirs()` 复位 `target` / `empty` / `drag`，并在登录后清掉历史任务，
 避免上一个用例留下的文件把下一个用例变成「同名冲突」场景。
 
 ## 几个刻意的测试写法
@@ -64,7 +66,19 @@ upload/               a.txt（与服务端同名）、fresh.txt
 
 **4. 「不留半个文件」在 UI 层也要验一次。**
 取消一个大目录的复制后，遍历目标目录：既不能有 `.fl-part-*` 临时文件，
-每个已存在的文件也必须是完整大小（不能出现半个文件）。
+每个已存在的文件也必须是完整大小的（不能出现半个文件）。
+
+**5. 登录只在第一个用例里真做一次。**
+每个用例都是全新的浏览器上下文，本来要各登一次；但登录端点有「每 IP 每分钟 20 次」
+的限流（`middlewares/rate_limiter.go`），用例一多就会撞上 429、一直停在登录页。
+现在第一个用例走真实登录表单，之后 `helpers.ts` 的 `login()` 把拿到的 token cookie
+写进新上下文，鉴权链路照样完整。
+
+**6. 拖拽用页面内合成的 `DataTransfer` 派发。**
+无头 Chromium 下原生拖拽的启动时机不稳定，所以 `html5Drag()` 用同一个 `DataTransfer`
+依次派发 `dragstart → dragenter → dragover → drop → dragend`，驱动的是页面里真实的
+处理器；「从系统拖入文件」没有对应的输入通道，`dropExternalFiles()` 在页面里造一个带
+`File` 的 `DataTransfer` 再派发 `drop`（顺带覆盖「没有 Entry API 时退化成平面文件列表」的分支）。
 
 ## 测试发现的真实缺陷
 
@@ -109,6 +123,15 @@ upload/               a.txt（与服务端同名）、fresh.txt
 
 ![上传冲突弹窗](../e2e/screenshots/06-upload-conflict.png)
 
+### 拖拽
+
+把选中的文件 / 文件夹拖到文件夹行、面包屑、收藏夹或磁盘根：同卷移动、跨卷复制，
+`Ctrl` 强制复制、`Shift` 强制移动；系统拖入的文件落到同一个目标上就是「上传到该目录」。
+截图是拖动 `move-me.txt` 悬停在 `sub` 文件夹行上时的落点高亮（虚线框），
+用例随后 drop 并断言文件真的搬到了 `inbox/sub/`。
+
+![拖拽落点高亮](../e2e/screenshots/07-drag-drop.png)
+
 ### 主界面
 
 ![文件管理器](../e2e/screenshots/01-file-manager.png)
@@ -121,7 +144,7 @@ upload/               a.txt（与服务端同名）、fresh.txt
 | 任务状态机 | `backend-go/tasks/manager_test.go` | 冲突暂停 / 决策 / 取消 / TTL、重试只挑失败项、创建必须广播完整快照 |
 | HTTP 接口 | `backend-go/routes/upload_test.go` | 上传默认拒绝覆盖 / overwrite / keep-both、保留前缀、启动不死锁 |
 | 真实 WS 冒烟 | 手工脚本（本文未收录） | 冲突→决策→执行、运行中取消、中断上传、临时文件不可见 |
-| **浏览器 UI** | **`e2e/`（本文）** | **上面全部行为的用户可见路径**：弹窗、双页签面板与进度条、取消、失败清单、跨窗口可见、原地粘贴、下载文件名 |
+| **浏览器 UI** | **`e2e/`（本文）** | **上面全部行为的用户可见路径**：弹窗、双页签面板与进度条、取消、失败清单、跨窗口可见、原地粘贴、下载文件名、拖拽移动 / 复制与系统拖入上传 |
 
 上层不重复下层：E2E 不验证策略矩阵的每个组合（那是单测的事），只验证
 「用户点得到、看得见、结果对」。

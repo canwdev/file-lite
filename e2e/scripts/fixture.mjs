@@ -17,6 +17,23 @@ export const filesDir = path.join(workDir, 'files')
 export const uploadDir = path.join(workDir, 'upload')
 
 /**
+ * 拖拽用例的夹具树：`drag/inbox` 放被拖走的文件、`drag/archive` 当落点。
+ * 单独隔开是为了让拖拽用例反复搬文件也不影响其它用例依赖的 source / target。
+ * 与 `tests/helpers.ts` 的 `resetDragDirs()` 必须保持一致。
+ */
+export function createDragFixture() {
+  const drag = path.join(filesDir, 'drag')
+  fs.rmSync(drag, { recursive: true, force: true })
+  fs.mkdirSync(path.join(drag, 'inbox', 'sub'), { recursive: true })
+  fs.mkdirSync(path.join(drag, 'archive'), { recursive: true })
+  fs.writeFileSync(path.join(drag, 'inbox', 'move-me.txt'), 'move-content')
+  fs.writeFileSync(path.join(drag, 'inbox', 'copy-me.txt'), 'copy-content')
+  fs.writeFileSync(path.join(drag, 'inbox', 'ctrl-me.txt'), 'ctrl-content')
+  fs.writeFileSync(path.join(drag, 'inbox', 'sub', 'back.txt'), 'back-content')
+  return drag
+}
+
+/**
  * 夹具文件树。测试用例都基于这个固定结构，改动这里要同步 tests/helpers.ts。
  */
 export function resetFixture() {
@@ -44,6 +61,8 @@ export function resetFixture() {
   fs.mkdirSync(uploadDir, { recursive: true })
   fs.writeFileSync(path.join(uploadDir, 'a.txt'), 'uploaded-alpha')
   fs.writeFileSync(path.join(uploadDir, 'fresh.txt'), 'fresh-upload')
+
+  createDragFixture()
 
   fs.mkdirSync(dataDir, { recursive: true })
   fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({

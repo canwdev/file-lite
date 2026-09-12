@@ -2,6 +2,18 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## Unreleased
+
+### UI
+
+- A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
+
+### Features
+
+- Files and folders can be dragged onto a folder row, a breadcrumb, a favourite or a drive to move or copy them: the same drive moves, another drive copies, Ctrl copies and Shift moves, and anything moved away is dropped from the clipboard (frontend).
+- Dragging files from the system onto a folder row, a breadcrumb, a favourite or a drive now uploads them into that folder (frontend).
+- Drag and drop is off while the file or folder picker is open (frontend).
+
 ## 1.5.0
 
 ### UI

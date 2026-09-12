@@ -5,7 +5,7 @@ import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
-import { computed, h, inject, nextTick, ref, toRefs, watch } from 'vue'
+import { computed, h, inject, nextTick, onBeforeUnmount, ref, toRefs, watch } from 'vue'
 import MdiMenuDown from '~icons/mdi/menu-down'
 import MdiMenuUp from '~icons/mdi/menu-up'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
@@ -19,8 +19,9 @@ import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import TransferQueue from '../TransferQueue.vue'
-import { normalizePath } from '../utils'
+import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
+import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
 import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
@@ -391,17 +392,214 @@ const { handlePasteFromClipboard } = useSystemClipboardPaste({
   emit,
 })
 
+/* ------------------------------------------------------------------ *
+ * 拖拽
+ * 源：列表里的行 / 网格项（拖整个选择）。
+ * 落点：当前目录里的文件夹行；系统拖入的文件也落在这里（上传到该文件夹）。
+ * 面包屑 / 收藏夹 / 磁盘根不在这个组件里，见 entry-drag.ts。
+ * ------------------------------------------------------------------ */
+const dragEnabled = useDragEnabled()
+const dropTargetName = ref<string | null>(null)
+
+function findEntry(name: string | undefined) {
+  if (!name) {
+    return null
+  }
+  return filteredFiles.value.find(item => item.name === name) ?? null
+}
+
+/** 指针下的文件夹行（只有目录才是合法落点） */
+function hoveredDropRow(event: DragEvent) {
+  const el = (event.target as HTMLElement | null)?.closest<HTMLElement>('.selectable[data-name]')
+  const name = el?.dataset.name
+  if (!name) {
+    return null
+  }
+  const item = findEntry(name)
+  if (!item?.isDirectory) {
+    return null
+  }
+  return { name, dir: normalizePath(`${basePath.value}/${name}`) }
+}
+
+function onRowDragStart(event: DragEvent) {
+  if (!dragEnabled.value) {
+    event.preventDefault()
+    return
+  }
+  const target = event.target as HTMLElement | null
+  if (!target || target.closest('.checkbox-col, .checkbox')) {
+    event.preventDefault()
+    return
+  }
+  const item = findEntry(target.closest<HTMLElement>('.selectable[data-name]')?.dataset.name)
+  if (!item) {
+    return
+  }
+
+  // 资源管理器语义：拖动未选中的项 = 先把它变成唯一选择，再拖这个选择
+  if (!selectedItemsSet.value.has(item)) {
+    selectByNames([item.name])
+  }
+  beginEntryDrag(event, {
+    sourceBasePath: normalizeListingPath(basePath.value),
+    paths: [...selectedPaths.value],
+    items: selectedItems.value.map(selected => ({
+      name: selected.name,
+      isDirectory: selected.isDirectory,
+    })),
+  })
+}
+
+const DRAG_SCROLL_EDGE = 48
+const DRAG_SCROLL_MAX_STEP = 24
+let dragScrollFrame = 0
+let dragPointerY = 0
+let dragPointerInside = false
+
+function stopDragAutoScroll() {
+  dragPointerInside = false
+  if (dragScrollFrame) {
+    cancelAnimationFrame(dragScrollFrame)
+    dragScrollFrame = 0
+  }
+}
+
+function scheduleDragAutoScroll() {
+  if (!dragScrollFrame) {
+    dragScrollFrame = requestAnimationFrame(runDragAutoScroll)
+  }
+}
+
+/**
+ * 拖到列表上下边缘时自动滚动。
+ * 不滚动的话，滚出视口的文件夹行就永远够不着，只能中断拖拽先滚屏。
+ */
+function runDragAutoScroll() {
+  dragScrollFrame = 0
+  const el = explorerContentRef.value
+  if (!el || !dragPointerInside || !dragSession.value) {
+    return
+  }
+
+  const rect = el.getBoundingClientRect()
+  let delta = 0
+  if (dragPointerY < rect.top + DRAG_SCROLL_EDGE) {
+    delta = -Math.ceil((rect.top + DRAG_SCROLL_EDGE - dragPointerY) / 3)
+  }
+  else if (dragPointerY > rect.bottom - DRAG_SCROLL_EDGE) {
+    delta = Math.ceil((dragPointerY - (rect.bottom - DRAG_SCROLL_EDGE)) / 3)
+  }
+  delta = Math.max(-DRAG_SCROLL_MAX_STEP, Math.min(DRAG_SCROLL_MAX_STEP, delta))
+  if (!delta) {
+    return
+  }
+
+  const before = el.scrollTop
+  el.scrollTop = before + delta
+  if (el.scrollTop === before) {
+    // 已经到顶 / 到底，别空转 rAF
+    return
+  }
+  scheduleDragAutoScroll()
+}
+
+function updateDragAutoScroll(event: DragEvent) {
+  dragPointerY = event.clientY
+  dragPointerInside = true
+  scheduleDragAutoScroll()
+}
+
+function onContentDragOver(event: DragEvent) {
+  if (!dragEnabled.value) {
+    return
+  }
+  const internal = isInternalDrag(event)
+  if (!internal && !isExternalFileDrag(event)) {
+    return
+  }
+
+  const row = hoveredDropRow(event)
+  if (!row || !acceptDirDrag(row.dir, event, { delegateExternal: true })) {
+    dropTargetName.value = null
+    if (internal) {
+      updateDragAutoScroll(event)
+    }
+    return
+  }
+  dropTargetName.value = row.name
+  if (internal) {
+    updateDragAutoScroll(event)
+  }
+}
+
+function onContentDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null
+  if (next && explorerContentRef.value?.contains(next)) {
+    return
+  }
+  dropTargetName.value = null
+  stopDragAutoScroll()
+}
+
+function onContentDrop(event: DragEvent) {
+  dropTargetName.value = null
+  stopDragAutoScroll()
+
+  if (!dragEnabled.value || !isInternalDrag(event)) {
+    // 系统文件交给外层上传区：它按事件目标解析真正的落点目录
+    endEntryDrag()
+    return
+  }
+
+  const row = hoveredDropRow(event)
+  if (!row) {
+    endEntryDrag()
+    return
+  }
+  dropIntoDir(row.dir, event, { delegateExternal: true })
+}
+
+function resolveExternalDropDir(event: DragEvent) {
+  return hoveredDropRow(event)?.dir ?? basePath.value
+}
+
+function onRowDragEnd() {
+  endEntryDrag()
+  dropTargetName.value = null
+  stopDragAutoScroll()
+  resetDropZone()
+}
+
+useEventListener(window, 'dragend', onRowDragEnd)
+useEventListener(window, 'drop', () => {
+  dropTargetName.value = null
+  stopDragAutoScroll()
+})
+onBeforeUnmount(stopDragAutoScroll)
+
 // 上传下载功能
 const {
   transferQueueRef,
   dropZoneRef,
   isOverDropZone,
+  onDropZoneDragEnter,
+  onDropZoneDragOver,
+  onDropZoneDragLeave,
+  onDropZoneDrop,
+  resetDropZone,
   selectUploadFiles,
   selectUploadFolder,
   handleDownload,
   confirmDownload,
   downloadToFolder,
-} = useTransfer({ basePath, isLoading, selectedItems })
+} = useTransfer({
+  basePath,
+  isLoading,
+  selectedItems,
+  dragEnabled,
+  resolveDropDir: resolveExternalDropDir,
+})
 
 function entryExt(name: string) {
   const dot = name.lastIndexOf('.')
@@ -813,10 +1011,14 @@ defineExpose({
 <template>
   <div
     ref="dropZoneRef"
-    :class="{ isOverDropZone }"
+    :class="{ isOverDropZone: isOverDropZone && !dropTargetName }"
     class="explorer-list-wrap"
     tabindex="-1"
     @contextmenu.prevent
+    @dragenter="onDropZoneDragEnter"
+    @dragover="onDropZoneDragOver"
+    @dragleave="onDropZoneDragLeave"
+    @drop="onDropZoneDrop"
   >
     <transition name="fade">
       <div v-if="isLoading" class="os-loading-container _absolute">
@@ -968,6 +1170,10 @@ defineExpose({
       @click.capture="handleContentClickCapture"
       @click="handleContentClick"
       @mousedown="handleContentMouseDown"
+      @dragstart="onRowDragStart"
+      @dragover="onContentDragOver"
+      @dragleave="onContentDragLeave"
+      @drop="onContentDrop"
       @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
     >
       <div
@@ -1003,6 +1209,8 @@ defineExpose({
           :virtual-row-height="virtualList.itemHeight.value"
           :get-tooltip="(row) => getTooltip(row)"
           :cut-names="currentCutNames"
+          :draggable="dragEnabled"
+          :drop-target-name="dropTargetName"
           :custom-toggle="toggleSelect"
           :row-contextmenu="updateMenuOptions"
           @open="(row) => emit('open', { item: row })"
@@ -1019,6 +1227,8 @@ defineExpose({
             :data-name="item.name"
             :active="selectedItemsSet.has(item)"
             :is-cut="currentCutNames.has(item.name)"
+            :draggable="dragEnabled"
+            :is-drop-target="dropTargetName === item.name"
             :show-checkbox="allowMultipleSelection"
             :icon-size="iconSizeGrid"
             @open="(i) => emit('open', i)"

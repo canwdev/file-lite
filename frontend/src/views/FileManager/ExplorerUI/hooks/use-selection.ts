@@ -424,8 +424,10 @@ function canStartSelectionDrag(target: HTMLElement | null) {
     return true
   }
 
+  // `.selectable`（行 / 网格项）上按下是准备原生拖拽，不能同时发起框选：
+  // 原生拖拽期间浏览器不再派发 mousemove / mouseup，框选会永远停在半路。
   return !target.closest(
-    'a, input, textarea, select, .resizer, .checkbox-col, .file-checkbox, .checkbox',
+    'a, input, textarea, select, .resizer, .checkbox-col, .file-checkbox, .checkbox, .selectable',
   )
 }
 

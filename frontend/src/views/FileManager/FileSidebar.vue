@@ -2,11 +2,11 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { bytesToSize } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
-import { normalizePath } from '@/views/FileManager/utils'
+import { driveList, drivesLoading, loadDrives as refreshDrives } from './ExplorerUI/drives'
+import { acceptDirDrag, dropIntoDir, useDragEnabled } from './ExplorerUI/entry-drag'
 
 interface Props {
   currentPath?: string
@@ -19,36 +19,13 @@ const emit = defineEmits(['openDrive', 'openPathInNewTab'])
 
 const { currentPath } = toRefs(props)
 
-const isLoading = ref(false)
-const driveList = ref<IDrive[]>([])
+const isLoading = drivesLoading
 
-function getPathNormalized(path: string) {
-  path = normalizePath(path)
-  if (!/\/$/.test(path)) {
-    path += '/'
-  }
-  return path
-}
-
+/** 驱动器列表由 drives.ts 共享缓存：拖拽判定「是否同一个卷」也要用它 */
 async function loadDrives() {
-  try {
-    isLoading.value = true
-    const drives = (await fsWebApi.getDrives())
-    driveList.value = drives.map((i) => {
-      return {
-        ...i,
-        path: getPathNormalized(i.path),
-      }
-    })
-  }
-  catch (e) {
-    console.error(e)
-    driveList.value = []
-  }
-  finally {
-    isLoading.value = false
-  }
+  await refreshDrives(true)
 }
+
 // onMounted(() => {
 //   loadDrives()
 // })
@@ -77,6 +54,51 @@ function openDrive(item: IDrive) {
     emit('openDrive', item)
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* 磁盘根是拖拽落点：拖到磁盘上 = 移动 / 复制（跨卷自动变成复制）到该卷 */
+/* ------------------------------------------------------------------ */
+const dragEnabled = useDragEnabled()
+const dragOverPath = ref<string | null>(null)
+
+function onDriveDragOver(item: IDrive, event: DragEvent) {
+  if (!dragEnabled.value) {
+    return
+  }
+  if (!acceptDirDrag(item.path, event)) {
+    if (dragOverPath.value === item.path) {
+      dragOverPath.value = null
+    }
+    return
+  }
+  dragOverPath.value = item.path
+}
+
+function onDriveDragLeave(item: IDrive, event: DragEvent) {
+  if (dragOverPath.value !== item.path) {
+    return
+  }
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as Node | null)?.contains(next)) {
+    return
+  }
+  dragOverPath.value = null
+}
+
+function onDriveDrop(item: IDrive, event: DragEvent) {
+  dragOverPath.value = null
+  if (!dragEnabled.value) {
+    return
+  }
+  dropIntoDir(item.path, event)
+}
+
+function clearDragOver() {
+  dragOverPath.value = null
+}
+
+onMounted(() => window.addEventListener('dragend', clearDragOver))
+onBeforeUnmount(() => window.removeEventListener('dragend', clearDragOver))
 
 function showDriveMenu(item: IDrive, event: MouseEvent) {
   const items: MenuItem[] = [
@@ -140,9 +162,12 @@ defineExpose({
         :key="index"
         class="vgo-u-button-reset vgo-list-item drive-item"
         :title="getTitle(item)"
-        :class="{ 'is-active': item.path === currentPath }"
+        :class="{ 'is-active': item.path === currentPath, 'is-drop-target': dragOverPath === item.path }"
         @click="openDrive(item)"
         @contextmenu.prevent.stop="showDriveMenu(item, $event)"
+        @dragover="onDriveDragOver(item, $event)"
+        @dragleave="onDriveDragLeave(item, $event)"
+        @drop="onDriveDrop(item, $event)"
       >
         <span class="drive-icon">
           <MdiIcon :name="getIcon(item)" class="vgo-u-icon-md" />
@@ -189,6 +214,12 @@ defineExpose({
     min-height: var(--vgo-control-md);
     padding-inline: var(--vgo-space-2);
     font-size: var(--vgo-font-sm);
+
+    &.is-drop-target {
+      background-color: var(--vgo-primary-opacity);
+      outline: 2px dashed var(--vgo-primary);
+      outline-offset: -2px;
+    }
 
     .drive-icon {
       display: flex;

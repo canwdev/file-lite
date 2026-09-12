@@ -5,6 +5,7 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { resolveMenuIcons } from '@/utils/icons'
 import { normalizeListingPath, normalizePath } from '../utils'
+import { acceptDirDrag, dropIntoDir, useDragEnabled } from './entry-drag'
 import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFolderListingOk } from './folder-listing'
 
 export interface BreadcrumbSegment {
@@ -65,6 +66,49 @@ const editDraft = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 const breadcrumbScrollRef = ref<HTMLElement | null>(null)
 
+/* ---------------------------------------------------------------------------
+ * 面包屑是拖拽落点：拖到某一段 = 移动 / 复制（或上传系统文件）到该祖先目录。
+ * 只有 crumb 本身是落点；「▼」下拉和它的子目录菜单（Teleport 到 body）都不是。
+ * ------------------------------------------------------------------------- */
+const dragEnabled = useDragEnabled()
+const dragOverPath = ref<string | null>(null)
+
+function onCrumbDragOver(seg: BreadcrumbSegment, event: DragEvent) {
+  if (!dragEnabled.value) {
+    return
+  }
+  if (!acceptDirDrag(seg.path, event)) {
+    if (dragOverPath.value === seg.path) {
+      dragOverPath.value = null
+    }
+    return
+  }
+  dragOverPath.value = seg.path
+}
+
+function onCrumbDragLeave(seg: BreadcrumbSegment, event: DragEvent) {
+  if (dragOverPath.value !== seg.path) {
+    return
+  }
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as Node | null)?.contains(next)) {
+    return
+  }
+  dragOverPath.value = null
+}
+
+function onCrumbDrop(seg: BreadcrumbSegment, event: DragEvent) {
+  dragOverPath.value = null
+  if (!dragEnabled.value) {
+    return
+  }
+  dropIntoDir(seg.path, event)
+}
+
+function clearDragOver() {
+  dragOverPath.value = null
+}
+
 const segments = computed(() => getBreadcrumbSegments(props.modelValue))
 
 // 面包屑溢出折叠：内容放不下时不出现滚动条，自动只展示末尾最多 2 个 crumb
@@ -90,6 +134,7 @@ watch(
   () => props.modelValue,
   () => {
     closeCrumbMenu()
+    clearDragOver()
     recomputeBreadcrumbFit()
   },
   { flush: 'post' },
@@ -377,6 +422,7 @@ onMounted(() => {
   document.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowResize)
   document.addEventListener('keydown', onWindowKeydown)
+  window.addEventListener('dragend', clearDragOver)
 
   const el = breadcrumbScrollRef.value
   if (el) {
@@ -395,6 +441,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('scroll', onWindowScroll, true)
   window.removeEventListener('resize', onWindowResize)
   document.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('dragend', clearDragOver)
 })
 
 defineExpose({
@@ -438,9 +485,13 @@ defineExpose({
             <button
               type="button"
               class="addr-crumb vgo-u-button-reset"
+              :class="{ 'is-drop-target': dragOverPath === seg.path }"
               :title="seg.path"
               @click.stop="onCrumbClick(seg.path)"
               @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
+              @dragover="onCrumbDragOver(seg, $event)"
+              @dragleave="onCrumbDragLeave(seg, $event)"
+              @drop="onCrumbDrop(seg, $event)"
             >
               <span class="addr-crumb-text vgo-u-text-overflow">{{ seg.name }}</span>
             </button>
@@ -595,6 +646,12 @@ defineExpose({
   &:focus-visible {
     outline: 1px solid var(--vgo-primary);
     outline-offset: -1px;
+  }
+
+  &.is-drop-target {
+    background-color: var(--vgo-primary-opacity);
+    outline: 2px dashed var(--vgo-primary);
+    outline-offset: -2px;
   }
 }
 

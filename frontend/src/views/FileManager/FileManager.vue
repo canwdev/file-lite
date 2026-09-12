@@ -3,7 +3,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { FileSelectResult } from './types'
 import type { FsDirChange, IDrive, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { useDebounceFn } from '@vueuse/core'
+import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { provide } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
@@ -14,6 +14,7 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
+import { acceptDirDrag, dragEnabledKey, dropIntoDir } from './ExplorerUI/entry-drag'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
@@ -48,6 +49,9 @@ const emit = defineEmits<{
 }>()
 const { selectFileMode, multiple, shortcutScope } = toRefs(props)
 provide(shortcutScopeKey, shortcutScope.value)
+// 选择器模式（FileSelector）只用来挑文件 / 文件夹，整个窗口禁用拖拽
+const dragEnabled = computed(() => !selectFileMode.value)
+provide(dragEnabledKey, dragEnabled)
 const rootRef = ref()
 const route = useRoute()
 const router = useRouter()
@@ -199,6 +203,45 @@ const currentPathForSidebar = computed(() => basePath.value)
 function removeStarredPath(path: string) {
   starList.value = starList.value.filter(item => item !== path)
 }
+
+/* 收藏夹是拖拽落点：拖到收藏项 = 移动 / 复制（或上传系统文件）到该目录 */
+const starredDragOverPath = ref<string | null>(null)
+
+function onStarDragOver(path: string, event: DragEvent) {
+  if (!dragEnabled.value) {
+    return
+  }
+  if (!acceptDirDrag(path, event)) {
+    if (starredDragOverPath.value === path) {
+      starredDragOverPath.value = null
+    }
+    return
+  }
+  starredDragOverPath.value = path
+}
+
+function onStarDragLeave(path: string, event: DragEvent) {
+  if (starredDragOverPath.value !== path) {
+    return
+  }
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as Node | null)?.contains(next)) {
+    return
+  }
+  starredDragOverPath.value = null
+}
+
+function onStarDrop(path: string, event: DragEvent) {
+  starredDragOverPath.value = null
+  if (!dragEnabled.value) {
+    return
+  }
+  dropIntoDir(path, event)
+}
+
+useEventListener(window, 'dragend', () => {
+  starredDragOverPath.value = null
+})
 
 function openPathInNewTab(path: string) {
   const routeLocation = router.resolve({
@@ -450,9 +493,13 @@ useShortcut({
                 v-for="path in starredPathsList"
                 :key="path"
                 class="vgo-u-button-reset vgo-list-item star-item"
+                :class="{ 'is-drop-target': starredDragOverPath === path }"
                 :title="path"
                 @click="handleOpenPath(path)"
                 @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
+                @dragover="onStarDragOver(path, $event)"
+                @dragleave="onStarDragLeave(path, $event)"
+                @drop="onStarDrop(path, $event)"
               >
                 <i-mdi-star class="vgo-u-icon-md" />
                 <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
@@ -592,6 +639,12 @@ useShortcut({
       min-height: var(--vgo-control-sm);
       font-size: var(--vgo-font-sm);
       padding-inline: var(--vgo-space-2);
+
+      &.is-drop-target {
+        background-color: var(--vgo-primary-opacity);
+        outline: 2px dashed var(--vgo-primary);
+        outline-offset: -2px;
+      }
     }
   }
 

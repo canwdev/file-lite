@@ -457,9 +457,9 @@ done 的 200 条上限约束的顶层结果），前端据此 upsert / 删除列
 - **在同一目录内复制** → 不询问，直接按 `name - Copy` / `name - Copy (2)` 命名（Windows 的「复制副本」行为），即 `duplicate`。
 - 冲突策略 `keep-both` → `name (1).ext`（`UniquePath`）。
 - 删除：保留现有确认弹窗，文案对齐「permanently delete … can not be undone」（没有回收站，不做 Undo）。
-- 从系统拖入文件 / 文件夹上传已实现（`use-transfer.ts` 的 drop zone）。
+- 从系统拖入文件 / 文件夹上传已实现（`use-transfer.ts`）；拖到文件夹行 / 面包屑 / 收藏夹 / 磁盘根时上传到该目录。
 - 快捷键里的 `Ctrl+C/X/V`、`Delete`、`F2` 已实现。
-- **内部拖拽未实现**：同卷移动 / 跨卷复制、`Ctrl/Shift` 修饰、右键拖拽菜单、拖到文件夹、`F5` 复制到另一面板，方案见 `docs/todo/frontend-multi-panel-design.md`。
+- **内部拖拽已实现**：拖到文件夹行 / 面包屑 / 收藏夹 / 磁盘根，同卷移动、跨卷复制、`Ctrl` 复制 `Shift` 移动，落点统一由 `ExplorerUI/entry-drag.ts` 处理（执行仍走 `createTask`）。未做：右键拖拽菜单、弹簧夹文件夹、`F5` 复制到另一面板（后者属于多面板方案，见 `docs/todo/frontend-multi-panel-design.md`）。
 
 ### 5.5 与现有组件的映射
 

@@ -32,6 +32,10 @@ const props = withDefaults(
     getTooltip?: (row: any) => string
     cutNames?: Set<string>
     selectedRows: Set<any>
+    /** 行是否可拖拽（选择器模式下由 FileList 传 false） */
+    draggable?: boolean
+    /** 当前拖拽悬停的文件夹行名（高亮落点用） */
+    dropTargetName?: string | null
     customToggle?: (params: {
       item: IEntry
       event: MouseEvent
@@ -39,7 +43,10 @@ const props = withDefaults(
     }) => void
     rowContextmenu?: (row: any, event: MouseEvent) => void
   }>(),
-  {},
+  {
+    draggable: false,
+    dropTargetName: null,
+  },
 )
 
 const emit = defineEmits(['update:selectedRows', 'open'])
@@ -245,7 +252,12 @@ onBeforeUnmount(() => {
           v-for="{ item: row, index } in renderedRows"
           :key="row.id || row.name || index"
           class="vgo-list-item table-row selectable"
-          :class="{ 'is-active': mSelectedRows.has(row), 'is-cut': cutNames?.has(row.name) }"
+          :class="{
+            'is-active': mSelectedRows.has(row),
+            'is-cut': cutNames?.has(row.name),
+            'is-drop-target': dropTargetName === row.name,
+          }"
+          :draggable="draggable"
           :style="virtualRowHeight ? { height: `${virtualRowHeight}px` } : undefined"
           :title="getTooltip ? getTooltip(row) : ''"
           :data-name="row.name"
@@ -338,6 +350,12 @@ onBeforeUnmount(() => {
 
     &.is-cut :deep(.themed-icon) {
       opacity: 0.45;
+    }
+
+    &.is-drop-target {
+      background-color: var(--vgo-primary-opacity);
+      outline: 2px dashed var(--vgo-primary);
+      outline-offset: -2px;
     }
   }
 

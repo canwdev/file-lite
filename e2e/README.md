@@ -60,8 +60,9 @@ bun run report       # 打开上一次的 HTML 报告
 | `04-task-progress.spec.ts` | 进度条与计数、运行中取消且不留半个文件、完成后面板自动收起、成功任务不留记录、任务跨窗口可见 | `04-task-progress` |
 | `05-failure-retry.spec.ts` | 失败清单（哪一项、为什么、不泄露临时文件名）、Try Again 只重跑失败项 | `05-failure-dialog` |
 | `06-download.spec.ts` | 浏览器最终保存的文件名（含 `+` 与空格）、文件夹下载的 zip 名 | — |
+| `07-drag-drop.spec.ts` | 拖到文件夹行 / 面包屑 / 收藏夹 / 磁盘根 = 移动或复制（同卷移动、跨卷复制、Ctrl 复制）；文件夹不能拖进自己；系统拖入文件上传到这些目录 | `07-drag-drop` |
 
-合计 17 个用例，单次运行约 50 秒。
+合计 27 个用例，单次运行约 45 秒。
 
 ## 截图
 
@@ -83,6 +84,10 @@ pkill -x file-lite-go
 第一次构建是冷启动（`go build` 要编译全部依赖），约 30~60 秒；
 之后可以 `E2E_SKIP_BUILD=1 bun run test` 跳过构建。
 `webServer.timeout` 已设为 240 秒。
+
+**用例一多就卡在登录页**
+登录端点有「每 IP 每分钟 20 次」的限流。`helpers.ts` 的 `login()` 只在第一个用例走真实登录表单，
+之后把拿到的 token cookie 写进新上下文（每个用例都是新上下文），因此整轮只打一次登录接口。
 
 **断言偶发 ENOENT / 明明文件后来生成了却判失败**
 `expect.poll` 的回调一旦**抛错就立刻失败、不会重试**（实测：4ms、只调用 1 次）。

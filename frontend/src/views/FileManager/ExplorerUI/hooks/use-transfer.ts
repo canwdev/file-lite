@@ -1,10 +1,11 @@
 import type { UploadConflictPolicy } from '@/api/filesystem'
 import type { IEntry } from '@/types/server'
-import { useDropZone, useFileDialog } from '@vueuse/core'
+import { useFileDialog } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { requestLocalConflict } from '@/store/tasks'
 import { downloadUrl } from '@/utils'
 import { normalizePath } from '../../utils'
+import { isExternalFileDrag, registerExternalDropSink, unregisterExternalDropSink } from '../entry-drag'
 
 const DOWNLOAD_TASK_BATCH_SIZE = 200
 const DOWNLOAD_YIELD_INTERVAL = 1500
@@ -19,16 +20,22 @@ export function useTransfer({
   basePath,
   isLoading,
   selectedItems,
+  dragEnabled,
+  resolveDropDir,
 }: {
   basePath: Ref<string>
   isLoading: Ref<boolean>
   selectedItems: Ref<IEntry[]>
+  /** 选择器模式为 false：不接收系统拖入的文件 */
+  dragEnabled: Ref<boolean>
+  /** 系统文件落在文件列表里时，解析它真正的目标目录（文件夹行 / 当前目录） */
+  resolveDropDir?: (event: DragEvent) => string
 }) {
   const transferQueueRef = ref()
 
   /** 弹窗里展示用的相对路径 */
-  function relativeLabel(path: string) {
-    const prefix = normalizePath(`${basePath.value}/`)
+  function relativeLabel(path: string, targetDir: string) {
+    const prefix = normalizePath(`${targetDir}/`)
     return path.startsWith(prefix) ? path.slice(prefix.length) : path
   }
 
@@ -39,7 +46,7 @@ export function useTransfer({
    * 服务端 upload-file 也会独立校验，所以即使这里的预检因为竞态漏判，
    * 也只会得到一个明确的失败，不会静默覆盖。
    */
-  async function enqueueUploads(items: PendingUpload[]) {
+  async function enqueueUploads(items: PendingUpload[], targetDir = basePath.value) {
     if (!items.length) {
       return
     }
@@ -54,7 +61,7 @@ export function useTransfer({
         const conflictItems = items
           .filter(item => existingSet.has(item.path))
           .map(item => ({
-            relativePath: relativeLabel(item.path),
+            relativePath: relativeLabel(item.path, targetDir),
             kind: 'file-vs-file' as const,
             sourceIsDirectory: false,
             destIsDirectory: false,
@@ -62,7 +69,7 @@ export function useTransfer({
           }))
 
         const resolution = await requestLocalConflict({
-          destPath: basePath.value,
+          destPath: targetDir,
           isMove: false,
           totalCount: conflictItems.length,
           truncated: false,
@@ -136,24 +143,75 @@ export function useTransfer({
   })
 
   /** 从拖放进来的文件系统条目递归收集待上传文件（浏览器拖拽才有目录信息）。 */
-  async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUpload[]) {
+  async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUpload[], targetDir: string) {
     if (entry.isFile) {
       const file = await new Promise<File>((resolve, reject) => {
         (entry as FileSystemFileEntry).file(resolve, reject)
       })
-      out.push({ file, path: normalizePath(`${basePath.value}/${path}${file.name}`) })
+      out.push({ file, path: normalizePath(`${targetDir}/${path}${file.name}`) })
       return
     }
     if (entry.isDirectory) {
       const dir = entry as FileSystemDirectoryEntry
       await fsWebApi.createDir({
-        path: normalizePath(basePath.value + dir.fullPath),
+        path: normalizePath(targetDir + dir.fullPath),
         ignoreExisted: true,
       })
       const children = await readAllDirectoryEntries(dir.createReader())
       for (const child of children) {
-        await collectEntry(child, `${path}${dir.name}/`, out)
+        await collectEntry(child, `${path}${dir.name}/`, out, targetDir)
       }
+    }
+  }
+
+  /**
+   * 收集一次系统拖入的全部待上传文件。
+   *
+   * `dataTransfer` 只在事件派发期间可读，所以先同步拍快照再异步读取内容；
+   * 旧写法在循环里 await，多条目拖拽时后面的条目会读不到。
+   * 没有 Entry API 的场景（合成事件、部分浏览器）退化成平面文件列表。
+   */
+  async function collectDroppedItems(event: DragEvent, targetDir: string): Promise<PendingUpload[]> {
+    const dataTransfer = event.dataTransfer
+    if (!dataTransfer) {
+      return []
+    }
+
+    const entries: FileSystemEntry[] = []
+    for (let i = 0; i < dataTransfer.items.length; i++) {
+      const item = dataTransfer.items[i]
+      if (item.kind !== 'file') {
+        continue
+      }
+      const entry = item.webkitGetAsEntry?.()
+      if (entry) {
+        entries.push(entry)
+      }
+    }
+    const plainFiles = entries.length ? [] : Array.from(dataTransfer.files)
+
+    const collected: PendingUpload[] = []
+    for (const entry of entries) {
+      await collectEntry(entry, '', collected, targetDir)
+    }
+    for (const file of plainFiles) {
+      collected.push({
+        file,
+        path: normalizePath(`${targetDir}/${file.webkitRelativePath || file.name}`),
+      })
+    }
+    return collected
+  }
+
+  /** 系统文件的上传入口：目标目录由落点决定（当前目录 / 文件夹行 / 面包屑 / 收藏夹 / 磁盘）。 */
+  async function uploadDropPayload(targetDir: string, event: DragEvent) {
+    try {
+      const collected = await collectDroppedItems(event, targetDir)
+      await enqueueUploads(collected, targetDir)
+    }
+    catch (error) {
+      console.error('[upload] drop failed', error)
+      window.$message?.error('Failed to read the dropped files')
     }
   }
 
@@ -291,25 +349,64 @@ export function useTransfer({
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * 文件列表的拖放区：只处理「落在列表空白处」的系统文件（上传到当前目录）。
+   * 落在文件夹行上的由 FileList 自己解析目标目录；内部拖拽完全不进这里。
+   * ------------------------------------------------------------------ */
   const dropZoneRef = ref<HTMLDivElement>()
-  const { isOverDropZone } = useDropZone(() => dropZoneRef.value ?? null, {
-    onDrop: async (_files, event) => {
-      const dataTransferItems = event.dataTransfer?.items || []
-      const collected: PendingUpload[] = []
-      for (let i = 0; i < dataTransferItems.length; i++) {
-        const entry = dataTransferItems[i].webkitGetAsEntry()
-        if (entry) {
-          await collectEntry(entry, '', collected)
-        }
-      }
-      await enqueueUploads(collected)
-    },
-  })
+  const isOverDropZone = ref(false)
+
+  function onDropZoneDragEnter(event: DragEvent) {
+    if (!dragEnabled.value || !isExternalFileDrag(event)) {
+      return
+    }
+    isOverDropZone.value = true
+  }
+
+  function onDropZoneDragOver(event: DragEvent) {
+    if (!dragEnabled.value || !isExternalFileDrag(event)) {
+      return
+    }
+    event.preventDefault()
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy'
+    }
+  }
+
+  function onDropZoneDragLeave(event: DragEvent) {
+    const next = event.relatedTarget as Node | null
+    if (next && dropZoneRef.value?.contains(next)) {
+      return
+    }
+    isOverDropZone.value = false
+  }
+
+  async function onDropZoneDrop(event: DragEvent) {
+    isOverDropZone.value = false
+    if (!dragEnabled.value || !isExternalFileDrag(event)) {
+      return
+    }
+    event.preventDefault()
+    await uploadDropPayload(resolveDropDir?.(event) ?? basePath.value, event)
+  }
+
+  function resetDropZone() {
+    isOverDropZone.value = false
+  }
+
+  // 面包屑 / 收藏夹 / 磁盘不在文件列表里，它们通过这个注册口把系统文件交给上传队列
+  onMounted(() => registerExternalDropSink(uploadDropPayload))
+  onBeforeUnmount(() => unregisterExternalDropSink(uploadDropPayload))
 
   return {
     transferQueueRef,
     dropZoneRef,
     isOverDropZone,
+    onDropZoneDragEnter,
+    onDropZoneDragOver,
+    onDropZoneDragLeave,
+    onDropZoneDrop,
+    resetDropZone,
     selectUploadFiles,
     selectUploadFolder,
     handleDownload,
