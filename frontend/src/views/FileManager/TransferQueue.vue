@@ -204,14 +204,22 @@ watch(isVisible, (val) => {
 
 // 所有服务端任务都到终态后自动收起窗口——资源管理器也是这样，
 // 否则一个浮动窗口会一直盖在文件列表上挡住操作。
-// 注意：这里只隐藏、不 dismiss，任务行仍留在 store 里，可从状态栏重新打开。
 const allServerTasksDone = computed(() => {
   return serverTasks.value.length > 0 && serverTasks.value.every(task => isTerminalState(task.state))
 })
 
 watch(allServerTasksDone, (done) => {
-  if (done && pendingNum.value === 0 && transferringNum.value === 0) {
-    isVisible.value = false
+  if (!done || pendingNum.value > 0 || transferringNum.value > 0) {
+    return
+  }
+  isVisible.value = false
+
+  // 顺带把「没有任何问题」的任务从列表里清掉：一次普通复制不该在任务列表里留下
+  // 一条记录，否则会越积越多，状态栏的任务入口也永远亮着。
+  // 部分成功 / 失败 / 已取消的保留——用户可能还要看原因或点 Try Again。
+  const finishedCleanly = serverTasks.value.filter(task => task.state === 'succeeded')
+  for (const task of finishedCleanly) {
+    void dismissTask(task.id)
   }
 })
 
@@ -886,10 +894,10 @@ defineExpose({
               <button
                 v-if="isTerminalState(task.state)"
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-                title="Dismiss"
+                title="Remove from list"
                 @click="dismissTask(task.id)"
               >
-                <i-mdi-check />
+                <i-mdi-close />
               </button>
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
   resetTargetDirs,
   screenshot,
   selectItem,
+  serverTaskRows,
   targetDir,
 } from './helpers'
 
@@ -81,6 +82,25 @@ test.describe('任务进度与取消', () => {
 
     await expect.poll(() => fs.existsSync(path.join(targetDir, 'nested', 'deep.txt'))).toBe(true)
     await expect(lastServerTask(page)).toBeHidden()
+  })
+
+  // 一次普通复制成功后不该在任务列表里留下记录，否则会越积越多，
+  // 状态栏的任务入口也会一直亮着。
+  test('成功的任务不会留在任务列表里', async ({ page }) => {
+    await login(page)
+    await expect(serverTaskRows(page)).toHaveCount(0)
+
+    await openFolder(page, 'source')
+    await selectItem(page, 'nested')
+    await copy(page)
+    await expectClipboardReady(page)
+    await goBack(page)
+    await openFolder(page, 'target')
+    await paste(page)
+
+    await expect.poll(() => fs.existsSync(path.join(targetDir, 'nested', 'deep.txt'))).toBe(true)
+    await expect(serverTaskRows(page)).toHaveCount(0)
+    await expect(page.locator('button[title^="Tasks ("]')).toHaveCount(0)
   })
 
   test('任务在另一个窗口里同样可见', async ({ page, context }) => {
