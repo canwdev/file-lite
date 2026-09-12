@@ -46,8 +46,8 @@ func ExistsAt(p string) bool {
 	return err == nil
 }
 
-// BaseName 返回路径的最后一段。
-func BaseName(p string) string {
+// baseName 返回路径的最后一段。
+func baseName(p string) string {
 	return filepath.Base(filepath.Clean(p))
 }
 

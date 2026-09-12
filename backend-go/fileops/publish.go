@@ -28,7 +28,7 @@ type PublishOptions struct {
 // 用户看不见）。不做全局账本去扫它：那需要每复制一个文件多写一次账本，
 // 实测让小文件复制慢一倍，而收益只是清理一个看不见的文件。
 func PublishFile(dst string, opts PublishOptions, write func(w io.Writer) error) error {
-	tmp := TempPathFor(dst)
+	tmp := tempPathFor(dst)
 
 	// 底层错误会带上临时文件名。临时文件是实现细节，不该出现在用户看到的报错里，
 	// 所以统一把消息里的临时路径换回目标路径。

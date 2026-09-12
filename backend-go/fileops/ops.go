@@ -85,6 +85,11 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 	if len(opts.FromPaths) == 0 {
 		return nil, errors.New("No source path")
 	}
+	// 默认策略要在构造 runState 之前补上，否则 rs.opts.Policy 会一直是空串，
+	// 只能靠 resolvePolicy 的 default 兜底才碰巧等价于 ask。
+	if opts.Policy == "" {
+		opts.Policy = PolicyAsk
+	}
 
 	rs := &runState{
 		ctx:    ctx,
@@ -92,10 +97,6 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 		cb:     cb,
 		engine: e,
 		sem:    make(chan struct{}, opts.FileConcurrency),
-	}
-
-	if opts.Policy == "" {
-		opts.Policy = PolicyAsk
 	}
 
 	if opts.ToPath == "" {
@@ -130,10 +131,10 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: "Source path does not exist"})
 			continue
 		}
-		dst := filepath.Join(opts.ToPath, BaseName(src))
+		dst := filepath.Join(opts.ToPath, baseName(src))
 		if opts.Duplicate {
 			// 复制副本落在源旁边、用新名字，因此整棵树都不会有冲突
-			dst = DuplicatePath(src)
+			dst = duplicatePath(src)
 		} else if samePath(src, dst) {
 			// 原地粘贴：源与目标就是同一个路径。
 			// 移动是空操作；复制按资源管理器语义直接生成副本，
@@ -145,9 +146,9 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 				rs.record(ItemResult{FromPath: src, Status: StatusSkipped, Message: "Already in this folder"})
 				continue
 			}
-			dst = DuplicatePath(src)
+			dst = duplicatePath(src)
 		}
-		if err := rs.processEntry(src, dst, BaseName(src)); err != nil {
+		if err := rs.processEntry(src, dst, baseName(src)); err != nil {
 			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: err.Error()})
 		}
 	}
@@ -155,18 +156,23 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 	return rs.resultsSnapshot(), nil
 }
 
-// RemoveEntrySafely 删除路径。若路径是链接（符号链接 / Windows 目录链接 /
+// isLinkLike 判断条目是否只能删它自己、不能递归进它指向的内容：
+// 符号链接 / 目录链接，以及还有别的硬链接指向同一 inode 的普通文件。
+func isLinkLike(info os.FileInfo, path string) bool {
+	if info.Mode()&os.ModeSymlink != 0 {
+		return true
+	}
+	return !info.IsDir() && utils.HardLinkCount(info, path) > 1
+}
+
+// removeEntrySafely 删除路径。若路径是链接（符号链接 / Windows 目录链接 /
 // 硬链接），只删除链接本身，绝不递归删除其指向的内容。
-func RemoveEntrySafely(p string) error {
+func removeEntrySafely(p string) error {
 	li, err := os.Lstat(p)
 	if err != nil {
 		return err
 	}
-	isLink := li.Mode()&os.ModeSymlink != 0
-	if !isLink && !li.IsDir() && utils.HardLinkCount(li, p) > 1 {
-		isLink = true
-	}
-	if isLink {
+	if isLinkLike(li, p) {
 		return os.Remove(p)
 	}
 	return os.RemoveAll(p)
@@ -271,7 +277,7 @@ func (rs *runState) resolvePolicy(relPath, srcPath, dstPath string) (string, boo
 		// 文件 vs 文件不需要预先删除：临时文件 rename 会原子替换。
 		// 类型不同（文件 vs 目录）时 rename 顶不掉目录，必须先移除目标。
 		if bothKnown && srcInfo.IsDir() != dstInfo.IsDir() {
-			if err := RemoveEntrySafely(dstPath); err != nil {
+			if err := removeEntrySafely(dstPath); err != nil {
 				return dstPath, false, StatusFailed
 			}
 		}
@@ -290,6 +296,14 @@ func (rs *runState) defaultStatus(status ItemStatus) ItemStatus {
 		return StatusMoved
 	}
 	return StatusCopied
+}
+
+// handledMessage 给「没有继续处理」的条目补原因：替换失败要说明白，跳过 / 待决策不需要。
+func handledMessage(status ItemStatus) string {
+	if status == StatusFailed {
+		return "Failed to replace destination"
+	}
+	return ""
 }
 
 func (rs *runState) processEntry(srcPath, dstPath, relPath string) error {
@@ -311,14 +325,9 @@ func (rs *runState) processEntry(srcPath, dstPath, relPath string) error {
 func (rs *runState) processFile(srcPath, dstPath, relPath string, info os.FileInfo) error {
 	finalDst, proceed, status := rs.resolvePolicy(relPath, srcPath, dstPath)
 	if !proceed {
-		// 被跳过 / 待决策的条目也要计入进度，否则总进度永远到不了 100%
+		// 被跳过 / 待决策 / 替换失败的条目也要计入进度，否则总进度永远到不了 100%
 		rs.addItem(1, srcPath)
-		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: status})
-		return nil
-	}
-	if status == StatusFailed {
-		rs.addItem(1, srcPath)
-		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusFailed, Message: "Failed to replace destination"})
+		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: status, Message: handledMessage(status)})
 		return nil
 	}
 	status = rs.defaultStatus(status)
@@ -355,13 +364,13 @@ func (rs *runState) scheduleCopy(srcPath, dstPath string, status ItemStatus, inf
 		defer rs.wg.Done()
 		defer func() { <-rs.sem }()
 
-		if err := rs.engineCopy(srcPath, dstPath); err != nil {
+		if err := rs.copyFileAtomic(srcPath, dstPath); err != nil {
 			rs.addItem(1, srcPath)
 			rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusFailed, Message: err.Error()})
 			return
 		}
 		if rs.opts.IsMove {
-			if err := RemoveEntrySafely(srcPath); err != nil {
+			if err := removeEntrySafely(srcPath); err != nil {
 				rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusFailed, Message: "Copied but failed to remove source: " + err.Error()})
 				return
 			}
@@ -393,13 +402,7 @@ func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
 	if !proceed {
 		items, bytes := countFiles(rs.ctx, srcPath)
 		rs.addItemsAndBytes(items, bytes, srcPath)
-		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: status})
-		return nil
-	}
-	if status == StatusFailed {
-		items, bytes := countFiles(rs.ctx, srcPath)
-		rs.addItemsAndBytes(items, bytes, srcPath)
-		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusFailed, Message: "Failed to replace destination"})
+		rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: status, Message: handledMessage(status)})
 		return nil
 	}
 	status = rs.defaultStatus(status)
@@ -450,10 +453,6 @@ func (rs *runState) addItemsAndBytes(items int, bytes int64, current string) {
 	}
 }
 
-func (rs *runState) engineCopy(srcPath, dstPath string) error {
-	return copyFileAtomic(rs.ctx, srcPath, dstPath, rs)
-}
-
 func movedStatus(status ItemStatus) ItemStatus {
 	if status == StatusReplaced || status == StatusRenamed {
 		return status
@@ -488,7 +487,7 @@ func countFiles(ctx context.Context, p string) (int, int64) {
 }
 
 // copyFileAtomic 通过 PublishFile 发布目标文件，保证磁盘上永远不存在半个文件。
-func copyFileAtomic(ctx context.Context, srcPath, dstPath string, rs *runState) error {
+func (rs *runState) copyFileAtomic(srcPath, dstPath string) error {
 	info, err := os.Lstat(srcPath)
 	if err != nil {
 		return err
@@ -503,21 +502,12 @@ func copyFileAtomic(ctx context.Context, srcPath, dstPath string, rs *runState) 
 	}
 	defer in.Close()
 
-	fsync := false
-	if rs != nil && rs.engine != nil {
-		fsync = rs.engine.fsync
-	}
-
 	return PublishFile(dstPath, PublishOptions{
 		Mode:  info.Mode(),
 		Mtime: info.ModTime(),
-		Fsync: fsync,
+		Fsync: rs.engine.fsync,
 	}, func(w io.Writer) error {
-		var dst io.Writer = w
-		if rs != nil {
-			dst = &progressWriter{dst: w, rs: rs, current: srcPath}
-		}
-		_, err := io.Copy(dst, ctxReader{ctx: ctx, r: in})
+		_, err := io.Copy(&progressWriter{dst: w, rs: rs, current: srcPath}, ctxReader{ctx: rs.ctx, r: in})
 		return err
 	})
 }
@@ -528,7 +518,7 @@ func copyLinkSafely(srcPath, dstPath string) error {
 		return err
 	}
 	if ExistsAt(dstPath) {
-		if err := RemoveEntrySafely(dstPath); err != nil {
+		if err := removeEntrySafely(dstPath); err != nil {
 			return err
 		}
 	}
@@ -573,11 +563,7 @@ func removeAllCtx(ctx context.Context, p string, count func()) error {
 		}
 		return err
 	}
-	isLink := info.Mode()&os.ModeSymlink != 0
-	if !isLink && !info.IsDir() && utils.HardLinkCount(info, p) > 1 {
-		isLink = true
-	}
-	if isLink || !info.IsDir() {
+	if isLinkLike(info, p) || !info.IsDir() {
 		if err := os.Remove(p); err != nil {
 			return err
 		}

@@ -149,8 +149,8 @@ export async function createTask(payload: TaskCreatePayload): Promise<string> {
 }
 
 /**
- * 用失败 / 冲突的条目重试：路径由服务端从完整结果里取，
- * 因此即使 done 事件里的结果被截断到 200 条，重试依然是完整的。
+ * 用失败 / 冲突的条目重试：路径由服务端保存的结果里取（失败项上限 500），
+ * 因此比 done 事件的 200 条上限更全，但并非无限。
  */
 export async function retryTask(taskId: string): Promise<string> {
   if (isDebugTask(taskId)) {
@@ -284,12 +284,6 @@ function dropConflictRequestByTask(taskId: string) {
   conflictQueue.value = conflictQueue.value.filter(item => item.taskId !== taskId)
   if (!conflictQueue.value.length) {
     conflictDialogVisible.value = false
-  }
-}
-
-export function openConflictDialog() {
-  if (conflictQueue.value.length) {
-    conflictDialogVisible.value = true
   }
 }
 

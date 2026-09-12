@@ -6,7 +6,6 @@ import ServerTaskRow from './ServerTaskRow.vue'
 defineProps<{ tasks: TaskSnapshot[] }>()
 defineEmits<{
   cancel: [taskId: string]
-  resolve: []
   failures: [taskId: string]
   dismiss: [taskId: string]
 }>()
@@ -29,7 +28,6 @@ defineEmits<{
       :key="task.id"
       :task="task"
       @cancel="$emit('cancel', $event)"
-      @resolve="$emit('resolve')"
       @failures="$emit('failures', $event)"
       @dismiss="$emit('dismiss', $event)"
     />

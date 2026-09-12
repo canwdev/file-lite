@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 )
 
-// MaxConflicts 是一次冲突事件里携带的冲突条目上限。
+// maxConflicts 是一次冲突事件里携带的冲突条目上限。
 // 超出部分只计数不传输，避免「把一万个文件粘贴到同名目录树」时把 WS 消息撑爆。
-const MaxConflicts = 200
+const maxConflicts = 200
 
 // ScanResult 是复制 / 移动前的预扫描结果。
 // 扫描阶段不修改磁盘，因此冲突弹窗出现时是零副作用的。
@@ -18,7 +18,7 @@ type ScanResult struct {
 	ItemsTotal int
 	// BytesTotal 是常规文件的字节总和。
 	BytesTotal int64
-	// Conflicts 是前 MaxConflicts 条冲突；ConflictTotal 是真实总数。
+	// Conflicts 是前 maxConflicts 条冲突；ConflictTotal 是真实总数。
 	Conflicts     []Conflict
 	ConflictTotal int
 	Truncated     bool
@@ -40,7 +40,7 @@ func Scan(ctx context.Context, fromPaths []string, toDir string) (ScanResult, er
 		if !IsPathSafe(src) || !IsPathSafe(toDir) {
 			return res, errors.New("Path is not safe")
 		}
-		dst := filepath.Join(toDir, BaseName(src))
+		dst := filepath.Join(toDir, baseName(src))
 		if samePath(src, dst) {
 			// 原地粘贴：执行阶段会自动改名（复制）或跳过（移动），不是冲突，
 			// 因此不该让任务停下来等用户决策。
@@ -49,7 +49,7 @@ func Scan(ctx context.Context, fromPaths []string, toDir string) (ScanResult, er
 			}
 			continue
 		}
-		if err := scanEntry(ctx, src, dst, BaseName(src), &res); err != nil {
+		if err := scanEntry(ctx, src, dst, baseName(src), &res); err != nil {
 			return res, err
 		}
 	}
@@ -122,31 +122,16 @@ func scanEntry(ctx context.Context, srcPath, dstPath, relPath string, res *ScanR
 	return nil
 }
 
+// countSubtree 把子树的条目数与字节数累加进扫描结果。
+// 遍历规则与执行期的 countFiles 完全一致，直接复用，避免两份几乎相同的递归。
 func countSubtree(ctx context.Context, srcPath string, res *ScanResult) error {
-	info, err := lstat(srcPath)
-	if err != nil {
-		return nil
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		res.ItemsTotal++
-		if !info.IsDir() {
-			res.BytesTotal += info.Size()
-		}
-		return nil
-	}
-	entries, err := os.ReadDir(srcPath)
-	if err != nil {
-		return nil
-	}
-	for _, e := range entries {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := countSubtree(ctx, filepath.Join(srcPath, e.Name()), res); err != nil {
-			return err
-		}
-	}
-	return nil
+	items, bytes := countFiles(ctx, srcPath)
+	res.ItemsTotal += items
+	res.BytesTotal += bytes
+	return ctx.Err()
 }
 
 func countEntries(ctx context.Context, p string) (int, error) {
@@ -176,13 +161,13 @@ func countEntries(ctx context.Context, p string) (int, error) {
 }
 
 func addConflict(srcPath, dstPath, relPath string, res *ScanResult) {
-	c, ok := ClassifyConflict(srcPath, dstPath)
+	c, ok := classifyConflict(srcPath, dstPath)
 	if !ok {
 		return
 	}
 	c.RelativePath = relPath
 	res.ConflictTotal++
-	if len(res.Conflicts) >= MaxConflicts {
+	if len(res.Conflicts) >= maxConflicts {
 		res.Truncated = true
 		return
 	}

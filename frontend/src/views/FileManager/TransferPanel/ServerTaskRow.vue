@@ -9,7 +9,6 @@ import StatusIcon from './StatusIcon.vue'
 defineProps<{ task: TaskSnapshot }>()
 defineEmits<{
   cancel: [taskId: string]
-  resolve: []
   failures: [taskId: string]
   dismiss: [taskId: string]
 }>()
@@ -42,14 +41,6 @@ defineEmits<{
       </div>
 
       <div class="item-actions">
-        <button
-          v-if="task.state === 'awaiting-conflict'"
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Resolve conflict"
-          @click="$emit('resolve')"
-        >
-          <i-mdi-help-circle-outline />
-        </button>
         <button
           v-if="task.canCancel"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"

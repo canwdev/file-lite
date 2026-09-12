@@ -285,9 +285,9 @@ func (m *Manager) Resolve(id string, req ResolveRequest) error {
 
 // Retry 用失败 / 冲突的条目重新创建一个任务。
 //
-// 从服务端内部保存的完整结果里取路径，因此不受 done 事件 200 条截断的影响；
-// 已经不存在（或已被别处处理）的条目会被跳过。冲突项用 PolicyAsk 重试，
-// 这样运行期间才冒出来的冲突这次会正常弹窗让用户决策。
+// 路径取自服务端保存的结果（失败项上限见 fileops.maxStoredFailures = 500），
+// 因此比 done 事件的 200 条上限更全，但并非无限；已经不存在（或已被别处处理）
+// 的条目会被跳过。冲突项用 PolicyAsk 重试，这样运行期间才冒出来的冲突这次会正常弹窗让用户决策。
 func (m *Manager) Retry(id string) (Snapshot, error) {
 	t := m.get(id)
 	if t == nil {
@@ -470,7 +470,7 @@ func (m *Manager) run(t *task) {
 		return
 	}
 
-	m.finishWithResults(t, results)
+	m.finishFromContextOrResults(t, results)
 }
 
 // awaitConflict 暂停任务并等待用户决策。
@@ -542,14 +542,7 @@ func (m *Manager) finish(t *task, state State, msg string) {
 		t.errMsg = msg
 	}
 	t.mu.Unlock()
-	t.setState(state)
-	snap := t.snapshot()
-	m.emit(Event{Type: EventDone, Task: snap, Results: nil})
-	m.pruneCompleted()
-}
-
-func (m *Manager) finishWithResults(t *task, results []fileops.ItemResult) {
-	m.finishFromContextOrResults(t, results)
+	m.emitDone(t, state, nil, false)
 }
 
 func (m *Manager) finishFromContextOrResults(t *task, results []fileops.ItemResult) {
@@ -575,9 +568,13 @@ func (m *Manager) finishFromContextOrResults(t *task, results []fileops.ItemResu
 	payload, capped := prioritizeResults(results, maxDoneResults)
 	truncated := capped || t.resultTotals() > len(results)
 
+	m.emitDone(t, state, payload, truncated)
+}
+
+// emitDone 是所有结束路径共用的收尾：落终态、广播一次 done、按上限清理历史。
+func (m *Manager) emitDone(t *task, state State, results []fileops.ItemResult, truncated bool) {
 	t.setState(state)
-	snap := t.snapshot()
-	m.emit(Event{Type: EventDone, Task: snap, Results: payload, ResultsTruncated: truncated})
+	m.emit(Event{Type: EventDone, Task: t.snapshot(), Results: results, ResultsTruncated: truncated})
 	m.pruneCompleted()
 }
 

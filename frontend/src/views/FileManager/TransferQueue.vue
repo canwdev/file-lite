@@ -10,7 +10,6 @@ import {
   cancelTask,
   dismissTask,
   isTerminalState,
-  openConflictDialog,
   openFailureDialog,
   removeDebugTasks,
   replaceDebugTasks,
@@ -903,7 +902,6 @@ defineExpose({
         v-show="activeTab === 'tasks'"
         :tasks="serverTasks"
         @cancel="cancelTask"
-        @resolve="openConflictDialog"
         @failures="openFailureDialog"
         @dismiss="dismissTask"
       />

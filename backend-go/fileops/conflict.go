@@ -55,9 +55,9 @@ type Conflict struct {
 	DestMtime         int64        `json:"destMtime,omitempty"`
 }
 
-// ClassifyConflict 判断源与目标是否构成需要用户决策的冲突。
+// classifyConflict 判断源与目标是否构成需要用户决策的冲突。
 // 返回 ok=false 表示不是冲突：目标不存在，或者双方都是目录（静默合并）。
-func ClassifyConflict(srcPath, dstPath string) (Conflict, bool) {
+func classifyConflict(srcPath, dstPath string) (Conflict, bool) {
 	srcInfo, err := lstat(srcPath)
 	if err != nil {
 		return Conflict{}, false
@@ -107,9 +107,9 @@ func UniquePath(p string) string {
 	return filepath.Join(dir, fmt.Sprintf("%s (%d)%s", stem, time.Now().UnixMilli(), ext))
 }
 
-// DuplicatePath 返回「复制副本」风格的新路径：name - Copy、name - Copy (2) ……
+// duplicatePath 返回「复制副本」风格的新路径：name - Copy、name - Copy (2) ……
 // 对齐 Windows 在同一目录内复制时的命名习惯。
-func DuplicatePath(p string) string {
+func duplicatePath(p string) string {
 	dir := filepath.Dir(p)
 	base := filepath.Base(p)
 	ext := filepath.Ext(base)
