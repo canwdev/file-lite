@@ -24,7 +24,7 @@
 - **WebSocket**：`tasks` 与 `fs` 两个 scope；每客户端出站队列（进度可丢、终态不可丢）+ 写超时 + ping/pong 心跳；连上即全量快照 + 未决冲突补发。
 - **前端**：任务 store（快照 / patch / done / 冲突队列、重连对账）、`api/tasks-ws.ts`、element 冲突弹窗（Replace / Skip / Keep both + 逐项或「应用于全部」+ 前后信息对照）、复制 / 移动 / 删除 / 复制副本全部切到任务模型、`fs changed` 驱动目录刷新（取代 `moveRefresh`）、右下角常驻的 `Transfers / Tasks` 双页签面板（见 §5.2）。
 - **配置**：`taskConcurrency` / `copyFileConcurrency` / `copyFsync`（缺省 fsync 开启）。
-- **失败清单与重试**：任务结束时若存在失败 / 冲突项，本窗口会弹出 `N items failed` 清单（可滚动、带原因，超出 200 条时提示只展示前 200 条）；`retry` 命令由**服务端从内部完整结果**里取失败路径重建任务，因此不受 done 事件截断影响，重试的是全部失败项。任务行上也有入口可重新打开清单。
+- **失败清单与重试**：任务结束时若存在失败 / 冲突项，本窗口会弹出 `N items failed` 清单（可滚动、带原因，超出 200 条时提示只展示前 200 条）；`retry` 命令由服务端从内部保存的结果里取失败路径重建任务（失败项上限 500，比 done 的 200 条更全，但并非无限）。任务行上也有入口可重新打开清单。
 - **上传同名冲突**：`upload-file` 新增 `onConflict`（`error` 缺省 / `overwrite` / `keep-both`），并新增 `POST /files/exists` 做上传前批量预检；上传改为复用 `fileops.PublishFile`，因此中断的上传也不会留下半个文件。前端在入队前预检并复用同一个冲突弹窗。
 - **进度面板生命周期**：新的客户端传输出现时自动弹出并切到 `Transfers` 页签，新的服务端任务出现时自动弹出并切到 `Tasks` 页签，全部到终态后自动收起；状态栏保留入口按钮显示 / 隐藏面板（正在跑 / 有失败时带角标）；隐藏不取消任何在跑的任务；失败时另有自动弹出的失败清单。
 - **测试**：
@@ -77,7 +77,7 @@
 
 ## 1. 目标
 
-1. 复制/移动/删除/复制副本 → 服务端异步任务：提交即返回、后台执行、推送进度、可暂停、可取消。
+1. 复制/移动/删除/复制副本 → 服务端异步任务：提交即返回、后台执行、推送进度、可取消。
 2. WebSocket（复用现有 `/api/ws`）作为唯一的操作通道，新增 `tasks` 与 `fs` 两个 scope。
 3. 冲突在异步模型里被正确解决：任务**先扫描、再暂停等待用户决策**，磁盘零副作用。
 4. 目录变化主动通知前端刷新，取代现有 `moveRefresh` 补丁。
@@ -93,7 +93,7 @@
 
 - 端点 `/api/ws`，鉴权支持 `?token=` / `Authorization` / cookie。
 - **按 `scope` 分发**：`switch scope { case "text-sync": ...; case "settings": ... }`（:110-127），新增 scope 只需加 case。
-- 每 IP 连接上限 20、Origin 校验、`sendSharedWSJSON` 带 `writeMu`。
+- 每 IP 连接上限 20、Origin 校验、每客户端出站队列 + 单写协程（`sendSharedWSJSON` 只入队，慢客户端不阻塞广播）。
 - `settings` scope 已跑通「`requestId` 请求/响应 + 全客户端广播」范式（`shared_ws_settings.go`）。
 
 前端 `api/shared-ws.ts` 已具备自动重连、pending 请求 + 超时、`subscribeSharedWsMessage` 订阅。新增 scope 是增量工作。
@@ -120,21 +120,20 @@
 
 ```
 backend-go/
-├── fileops/               新包：与传输无关、可取消的文件操作原语
-│   ├── copy.go            Copy / Move（ctx 感知、进度回调、结果收集）
-│   ├── delete.go          Remove（ctx 感知）
-│   ├── conflict.go        冲突探测、Windows 合并语义、uniquePath
+├── fileops/               与传输无关、可取消的文件操作原语
+│   ├── ops.go             Engine.Run（复制 / 移动 / 删除）、策略判定、并发闸门、ctx 感知读取
 │   ├── scan.go            预扫描：条目数 / 字节数 / 冲突清单
+│   ├── conflict.go        冲突分类、Windows 合并语义、uniquePath / duplicatePath
+│   ├── publish.go         PublishFile：同目录临时文件 + fsync + 原子改名
 │   ├── tempfile.go        临时文件命名（同目录、随机后缀）
-│   └── path.go            isPathSafe / existsAt（从 routes 迁入）
-├── tasks/                 新包：任务管理器（异步执行 + 状态机 + 事件）
-│   ├── manager.go         注册表、并发闸门、订阅广播、取消、暂停
-│   ├── task.go            任务结构、状态机、快照、结果聚合
-│   └── emit.go            节流上报
+│   └── path.go            IsPathSafe / ExistsAt（从 routes 迁入）
+├── tasks/                 任务管理器（异步执行 + 状态机 + 事件）
+│   ├── manager.go         注册表、并发闸门、事件广播、取消、冲突 TTL、结果上限
+│   └── task.go            任务结构、状态机、快照、结果聚合
 └── routes/
     ├── tasks_ws.go        新：scope "tasks" 消息解析与分发
     ├── fs_ws.go           新：scope "fs" 目录变化广播
-    ├── shared_ws.go       改：switch 增加两个 case
+    ├── shared_ws.go       改：switch 增加两个 case，每客户端出站队列
     └── files.go           改：删除 copyPastePath / deletePath；列表排除临时文件
 ```
 
@@ -149,47 +148,37 @@ const (
     StateScanning         State = "scanning"
     StateAwaitingConflict State = "awaiting-conflict"
     StateRunning          State = "running"
-    StatePaused           State = "paused"
-    StateCancelling       State = "cancelling"
     StateSucceeded        State = "succeeded"
     StatePartial          State = "partial"    // 有失败项但整体跑完
     StateFailed           State = "failed"
-    StateCancelled        State = "cancelled"
+    StateCancelled        State = "cancelled"  // 取消即从列表移除，只短暂存在于服务端内部
 )
 
-type Task struct {
+// Snapshot 是任务的对外快照（tasks/task.go）。
+type Snapshot struct {
     ID        string
     Kind      Kind
+    State     State
     FromPaths []string
     ToPath    string
     IsMove    bool
 
-    OnConflict  string // "ask"(默认) | "overwrite" | "skip" | "keep-both"(可选)
-    StopOnError bool
-
-    State    State
-    Progress Progress        // itemsTotal/Done, bytesTotal/Done, currentPath
-    Results  []ItemResult
+    Progress Progress // itemsTotal/Done, bytesTotal/Done, currentPath
+    Stats    Stats    // succeeded / skipped / renamed / failed / conflict
     Error    string
-    CreatedAt, StartedAt, FinishedAt int64
+    CanCancel bool
 
-    ctx     context.Context
-    cancel  context.CancelFunc
-    pauseMu sync.Mutex
-    paused  bool
-    resume  chan struct{}   // 暂停闸门，文件边界检查
-    mu      sync.Mutex
+    CreatedAt, StartedAt, FinishedAt int64
 }
 ```
 
-`Progress` 由原子计数 + 节流上报维护，不放在高频锁里。
+`Progress` 由任务自己的互斥锁维护；`Manager.Start` 每 200ms 把活动任务的快照广播一次，单文件写入进度经 `Callbacks.OnProgress` 汇总。
 
 ### 3.3 管理器
 
-- **全局注册表** + 有序列表；完成任务保留最近 100 条 / 24h，之后清理。
+- **全局注册表** + 有序列表；已完成任务按条数保留最近 100 条（`MaxCompleted`），之后按创建顺序清理。
 - **并发闸门**：全局最多 2 个任务 `running`（其余 `queued`）；单任务内文件并行度默认 4。两者都进 `config.json`。
-- **创建限额**：队列上限 32。
-- **广播**：所有已鉴权客户端收到所有任务事件（决策 4）；任务带 `origin` 仅用于展示。
+- **广播**：所有已鉴权客户端收到所有任务事件（决策 4）。
 - **生命周期**：创建者断开不取消任务；`fs changed` 照常广播。
 
 ### 3.4 状态机
@@ -203,11 +192,8 @@ type Task struct {
    ▼                                                  │
  scanning ──有冲突且策略=ask──▶ awaiting-conflict ──resolve──▶ running
    │  │                              ▲   │                      │
-   │  └──无冲突──────────────────────┘   │ cancel               │ pause
-   │                                    ▼                      ▼
-   │                                cancelling              paused
-   │                                    │                      │ resume
-   │                                    ▼                      │
+   │  └──无冲突──────────────────────┘   │ cancel
+   │                                    ▼
    │                                cancelled ◀────────────────┘
    └──▶ running ──▶ succeeded / partial / failed
                        ▲
@@ -217,6 +203,7 @@ type Task struct {
 - **`scanning` 是真正的预扫描**：walk 源路径统计条目/字节，并按 §4.2 的合并语义检测冲突。这一步之后**磁盘零改动**，所以冲突弹窗是零副作用的。
 - **`awaiting-conflict` 是正常状态**：可以有多个任务同时停在这里，前端排队弹窗。
 - **运行中再次撞到冲突**（预扫描后被别处创建）：切回 `awaiting-conflict` 并推送事件，绝不静默覆盖。
+- **取消**：`cancel` 唤醒运行 / 等待决策中的任务，当前文件收尾后清理 tmp 并落到 `cancelled`；前端随即把它移出列表、请服务端 `dismiss`，所以 `cancelled` 只是一个转瞬即逝的中间态。不做 rollback（决策 3），已完成的部分保留并计入结果。
 - **断线期间停在 `awaiting-conflict`**：TTL 10 分钟后置 `failed`（"conflict unresolved"），**绝不猜测策略**。
 
 ### 3.5 文件完整性保证（对应决策 3）
@@ -225,7 +212,7 @@ type Task struct {
 
 ```
 复制一个文件：
-  src/a.txt  →  dst/.fl-part-<taskid8>-<rand>   （写入 + 计数进度）
+  src/a.txt  →  dst/.fl-part-<12 hex>   （写入 + 计数进度）
                     │  写完
                     ├─ chmod / chtimes 对齐源文件
                     ├─ fsync（默认开，可配置）
@@ -239,7 +226,7 @@ type Task struct {
 - **文件 ↔ 目录的类型冲突**（Replace 选中时）：`Rename` 无法顶替目录，必须 `removeEntrySafely(目标)` 再发布；这是唯一有短暂空窗的情况，弹窗文案需要说明。
 - **目录本身不做原子发布**：目录直接创建、逐个文件填充，取消时可能留下一个"内容不完整但每个文件都完整"的目录——这符合决策 3 的边界（不允许半个文件，允许半个目录）。结果里如实报告已复制项数。
 - **符号链接/硬链接**：沿用现有语义，只复制链接本身，不跟随、不递归。
-- `duplicate` 与 `keep-both` 的自动改名走 `uniquePath`。
+- `keep-both` 的自动改名走 `UniquePath`（`name (1).ext`），`duplicate` 走 `duplicatePath`（`name - Copy`）。
 
 **崩溃残留（已改为不处理）**：进程被强杀 / 断电时可能留下孤儿临时文件。
 早期版本用一个 journal 账本在启动时清理它，实测让每个文件的复制开销翻倍（见 0.3），
@@ -253,11 +240,11 @@ type Task struct {
 
 **关于 fsync**：默认在改名之前 `fsync` 临时文件，使"改名即完整"在断电场景也成立；代价是大量小文件时更慢，用配置项 `copyFsync` 提供关闭开关。
 
-### 3.6 取消与暂停
+### 3.6 取消
 
-- `context.Context` 贯穿：`copyDir` 每个条目、`io.Copy` 每次 `Read`（`ctxReader` 包装）、递归删除每次迭代。
-- **取消**：`cancelling` → 当前文件中断 → 删除 tmp → `cancelled`。不做 rollback（决策 3），已完成的部分保留并计入结果。
-- **暂停**：闸门只在**文件边界**检查，当前文件一定写完并原子发布后才进入 `paused`。这是"暂停也不会产生半个文件"的原因，也是暂停响应有延迟（等待当前文件）的原因，UI 需要如实显示「正在暂停…」。
+- `context.Context` 贯穿：`Engine.Run` 的每个条目、`io.Copy` 每次 `Read`（`ctxReader` 包装）、递归删除每次迭代。
+- **取消**：`cancel` → 当前文件中断 → 删除 tmp → `cancelled`（随后被前端移除）。不做 rollback（决策 3），已完成的部分保留并计入结果。
+- **不做暂停 / 恢复**：取消是唯一控制手段（见 §0「未实现」）。
 - `cancel` 幂等；对终态任务返回 `error`。
 - 对 `move`：同分区 `Rename` 原子且瞬时，通常来不及取消；跨分区回退到复制+删除，可取消，取消后源文件保留。
 
@@ -268,11 +255,10 @@ type Task struct {
 ```jsonc
 { "scope": "tasks", "type": "create", "requestId": "req_1",
   "task": { "kind": "copy", "fromPaths": ["/data/a"], "toPath": "/data/target/",
-            "onConflict": "ask", "stopOnError": false } }
+            "onConflict": "ask" } }
 
-{ "scope": "tasks", "type": "cancel",  "taskId": "t_1" }
-{ "scope": "tasks", "type": "pause",   "taskId": "t_1" }
-{ "scope": "tasks", "type": "resume",  "taskId": "t_1" }
+{ "scope": "tasks", "type": "cancel",  "taskId": "t_1" }           // 取消并唤醒
+{ "scope": "tasks", "type": "retry",   "requestId": "req_3", "taskId": "t_1" }
 { "scope": "tasks", "type": "resolve", "taskId": "t_1",
   "policy": "overwrite", "applyToAll": true,
   "items": [{ "relativePath": "sub/a.txt", "policy": "skip" }] }   // items 非空则优先
@@ -284,7 +270,9 @@ type Task struct {
 
 ```jsonc
 { "scope": "tasks", "type": "response", "requestId": "req_1", "taskId": "t_1" }
+{ "scope": "tasks", "type": "created", "task": { /* TaskSnapshot */ } }   // 新任务立刻可见
 { "scope": "tasks", "type": "snapshot", "tasks": [ /* TaskSnapshot */ ] }
+{ "scope": "tasks", "type": "removed", "taskId": "t_1" }                  // dismiss 后广播
 
 { "scope": "tasks", "type": "update", "taskId": "t_1",
   "patch": { "state": "running",
@@ -322,14 +310,14 @@ type Task struct {
 
 任务到达终态时广播；前端只要 `basePath` 命中就刷新。这一条取代 `use-copy-paste.ts:105-113` 的 `moveRefresh`。
 
-### 3.8 传输层健壮性（异步化后必须补）
+### 3.8 传输层健壮性
 
-现在 `sendSharedWSJSON` 是「持锁同步写」，一个慢客户端会拖住整个广播。低频 settings 无所谓，高频任务进度下会变成故障。必须补：
+高频任务进度下，「持锁同步写」会被一个慢客户端拖住整个广播，因此 `shared_ws.go` 已经做了四件事：
 
-1. **每客户端出站队列 + 单写协程**：广播只入队；队列满时合并/丢弃进度类 `update`，`done`/`conflict`/`error` 不可丢。
-2. **心跳**：`SetReadDeadline` + ping/pong，及时释放死连接。
+1. **每客户端出站队列 + 单写协程**：`sendSharedWSJSON` 只入队；队列满时丢弃进度类 `update`（`sendSharedWSJSONDroppable`），`done`/`conflict`/`created` 不可丢。
+2. **心跳**：`SetReadDeadline` + pong 续期，及时释放死连接。
 3. **写超时**：`SetWriteDeadline`，避免写协程永久卡住。
-4. **消息体积**：冲突列表截断；`results` 超大时截断 + 汇总计数。
+4. **消息体积**：冲突列表截断到 200；`done` 的 `results` 压到 200 并用 `resultsTruncated` + `stats` 汇总。
 
 ### 3.9 安全与限制
 
@@ -453,15 +441,14 @@ type Task struct {
 
 映射：`Try Again` = 用勾选的失败项重新 `create` 一个任务；`Skip` = 从列表移除；`Cancel` = 关闭。
 
-### 5.4 拖拽与命名语义
+### 5.4 命名与删除语义
 
-- 拖拽默认效果：**同卷移动、跨卷复制**；`Ctrl` 强制复制，`Shift` 强制移动（与资源管理器一致）。跨卷判定由服务端在 `scanning` 阶段比对设备号，前端先按 `Ctrl/Shift` 传递意图，服务端可覆盖。
-- 右键拖拽 → 上下文菜单（`Copy here` / `Move here`）。
-- 拖到文件夹上：高亮目标文件夹，落下即进入。
-- 拖到已存在的同名项 → 上面的冲突对话框。
 - **在同一目录内复制** → 不询问，直接按 `name - Copy` / `name - Copy (2)` 命名（Windows 的「复制副本」行为），即 `duplicate`。
+- 冲突策略 `keep-both` → `name (1).ext`（`UniquePath`）。
 - 删除：保留现有确认弹窗，文案对齐「permanently delete … can not be undone」（没有回收站，不做 Undo）。
-- 快捷键沿用资源管理器肌肉记忆：`Ctrl+C/X/V`、`Delete`、`F2`、`F5`（本项目里 F5 已规划为「复制到另一面板」，需要单独确认，见 §11 问题 5）。
+- 从系统拖入文件 / 文件夹上传已实现（`use-transfer.ts` 的 drop zone）。
+- 快捷键里的 `Ctrl+C/X/V`、`Delete`、`F2` 已实现。
+- **内部拖拽未实现**：同卷移动 / 跨卷复制、`Ctrl/Shift` 修饰、右键拖拽菜单、拖到文件夹、`F5` 复制到另一面板，方案见 `docs/todo/frontend-multi-panel-design.md`。
 
 ### 5.5 与现有组件的映射
 
@@ -485,7 +472,6 @@ type Task struct {
   ├─ 前端：Replace or Skip Files 弹窗；用户选 Replace + Do this for all
   │         → tasks.resolve(taskId, overwrite, applyToAll=true)
   ├─ 服务端：running；每 250ms 推送进度（每个文件 tmp → rename 原子发布）
-  ├─ 用户点 Pause → 当前文件收尾后 paused；Resume → 继续
   ├─ 用户点 Cancel → ctx 取消 → 删 tmp → 任务直接移出列表（无半个文件）
   └─ 服务端：done{ state, results }
               + fs changed 广播 → 前端刷新命中目录、更新剪贴板、汇总提示
@@ -498,12 +484,11 @@ type Task struct {
 | 位置 | 改动 |
 | --- | --- |
 | `api/filesystem.ts` | 删除 `copyPaste`、`deleteEntry` |
-| `api/tasks-ws.ts`（新） | 任务命令封装（create/cancel/pause/resume/resolve/list/dismiss） |
-| `store/tasks.ts`（新） | 任务 store：`snapshot` 全量替换、`update` 合并 patch、`done` 终态、`conflict` 入队 |
-| `store/fs-events.ts`（新） | `fs changed` 订阅与面板刷新分发 |
+| `api/tasks-ws.ts`（新） | 任务命令封装（create/cancel/retry/resolve/list/dismiss） |
+| `store/tasks.ts`（新） | 任务 store：`snapshot` 全量替换、`update` 合并 patch、`done` 终态、`conflict` 入队、`fs changed` 订阅 |
 | `hooks/use-copy-paste.ts` | `handlePaste` → `create` 任务；删除前端预检与 `moveRefresh`；剪贴板清理改由 `done` 驱动 |
 | `hooks/use-file-actions.ts` | `doDeleteSelected` → delete 任务；`handleDuplicate` → duplicate 任务（删掉临时目录三段式） |
-| `use-transfer.ts` / `TransferQueue.vue` | 演进为 `TaskCenter.vue`，上传/下载行并入同一 store（`source: 'client'`） |
+| `use-transfer.ts` / `TransferQueue.vue` | 客户端上传 / 下载仍由 `TransferQueue` 编排；服务端任务在 `store/tasks.ts`。两者共用一个 `TransferPanel` 的两个页签，不合并成一个 store |
 | `ExplorerUI/conflict-dialog.ts` / `ConflictDialog.vue` | 改为 `conflict` 事件驱动 + 弹窗队列 |
 | `use-navigation.ts` | 订阅 `fs changed` |
 | `types/server.ts` | 扩展 `WsScope`，新增 tasks / fs 消息类型 |
@@ -523,7 +508,6 @@ type Task struct {
 | tmp 残留 | 崩溃/断电 | 列表与 zip 前缀过滤（不自动清理，见 0.3） |
 | 合并语义下冲突量巨大 | 同名目录树 | `totalCount` + 截断 + 默认「应用于全部」 |
 | 预扫描双倍遍历 | 源 + 目标合并子树 | 已接受；大目录首次等待需在 UI 上显示为 `Preparing…` |
-| 暂停延迟 | 只在文件边界生效 | UI 显示「正在暂停…」，不假装瞬时 |
 | 服务重启丢任务 | 纯内存注册表 | UI 提示；需要恢复能力时再上持久化日志 |
 | 任务无主 | 所有客户端可取消 | 单用户自托管可接受；多用户需 owner 校验 |
 | 文件↔目录 Replace 有空窗 | 必须先删再发布 | 弹窗文案说明；仅此一处无法原子 |
@@ -540,19 +524,19 @@ type Task struct {
 5. 单测：策略矩阵、ctx 取消后无 tmp 残留、结果集上限、move 的 EXDEV 回退、链接语义。
 
 **Phase B —— 任务管理器 + WS scope**
-6. `tasks` 包：注册表、状态机、并发闸门、节流上报、取消、暂停、TTL。
+6. `tasks` 包：注册表、状态机、并发闸门、节流上报、取消、TTL。
 7. `routes/tasks_ws.go` + `shared_ws.go` 增加 `tasks` / `fs` case。
 8. 传输层加固：出站队列、心跳、写超时。
 
 **Phase C —— 前端接入**
-9. `store/tasks.ts` + `store/fs-events.ts` + `api/tasks-ws.ts`。
+9. `store/tasks.ts` + `api/tasks-ws.ts`。
 10. `use-copy-paste` / `use-file-actions` 切任务模型；删前端预检与 `moveRefresh`。
 11. `ConflictDialog` 改为事件驱动 + 弹窗队列 + Explorer 文案。
-12. `TaskCenter.vue`：进度窗口 + More details + Pause/Resume + Cancel + 错误对话框。
+12. `TransferPanel.vue`：进度面板 + 两个页签 + Cancel + 错误对话框。
 13. 删除后端 `copy-paste` / `delete` 路由与前端 API。
 
 **Phase D —— 打磨**
-14. `Compare info for both files`；重试/暂停细节；任务历史；header 角标。
+14. `Compare info for both files`；重试细节；任务历史；header 角标。
 15. 拖拽语义（跨卷判定、右键拖拽菜单）与多面板方案合流。
 16. CHANGELOG 与版本号同步。
 
@@ -562,21 +546,17 @@ type Task struct {
 
 1. 取消发生在写大文件中途 → 目标目录里**没有**该文件的任何残留（既没有半个文件，也没有 tmp）。
 2. 进程被 `kill -9` → 残留的 `.fl-part-*` 在列表和 zip 里都看不到（不自动清理）。
-3. 暂停时当前文件仍然完整落盘，恢复后继续。
-4. 目录合并：把 `docs/` 复制到已有 `docs/`，不询问目录本身，只询问内部同名文件。
-5. 「Do this for all current items」后不再重复弹窗。
-6. 断线 5 分钟再连上 → `list` 对账，进度正确、暂停态正确；停在冲突上的任务仍可决策。
-7. 第二个浏览器窗口能看到并取消第一个窗口发起的任务。
-8. 全部成功时进度窗口自动关闭；有失败时弹出失败清单且 Try Again 只重跑失败项。
+3. 目录合并：把 `docs/` 复制到已有 `docs/`，不询问目录本身，只询问内部同名文件。
+4. 「Do this for all current items」后不再重复弹窗。
+5. 断线 5 分钟再连上 → `list` 对账，进度正确；停在冲突上的任务仍可决策。
+6. 第二个浏览器窗口能看到并取消第一个窗口发起的任务。
+7. 全部成功时进度面板自动收起；取消的任务直接移出列表；有失败时弹出失败清单且 Try Again 只重跑失败项。
 
 ---
 
-## 11. 待拍板项
+## 11. 仍未拍板
 
-1. **Keep both（保留两者）**：Windows 资源管理器没有这个选项。是否作为附加按钮保留？（`duplicate` 仍会用它做自动命名。）
-2. **Compare info for both files**：本期做还是留到 Phase D？（需要读两侧 size/mtime，已经有数据，成本主要在 UI。）
-3. **进度窗口形态**：单任务时用资源管理器式的模态/浮动进度对话框（本方案），还是所有任务统一在 `TaskCenter` 面板里列表化？
-4. **fsync 默认值**：默认开（更强完整性，小文件更慢）还是默认关（更快，断电可能留下已改名但内容未落盘的文件）？
-5. **`F5` 冲突**：多面板方案里把 `F5` 规划为「复制到另一面板」，而资源管理器的 `F5` 是刷新。哪个优先？
-6. **暂停深度**：只在文件边界暂停（实现简单、保证完整性），还是支持文件内暂停（响应更快，但要处理部分写入）？本方案选前者。
-7. **多用户**：是否现在就加任务 owner 校验，还是维持「所有人可见可取消」？
+以下两项既没实现也没决定：
+
+1. **Compare info for both files**：需要读两侧 size/mtime（数据已有），成本主要在 UI。
+2. **`F5` 冲突**：多面板方案里把 `F5` 规划为「复制到另一面板」，而资源管理器的 `F5` 是刷新，哪个优先？
