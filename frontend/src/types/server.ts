@@ -35,7 +35,7 @@ export enum SortType {
 export const TEXT_SYNC_CHANNELS = ['CH1', 'CH2', 'CH3'] as const
 export type TextSyncChannel = (typeof TEXT_SYNC_CHANNELS)[number]
 
-export type WsScope = 'settings' | 'text-sync' | 'tasks' | 'fs' | 'ws'
+export type WsScope = 'settings' | 'text-sync' | 'tasks' | 'fs' | 'properties' | 'ws'
 
 export interface TextSyncJoinMessage {
   scope: 'text-sync'
@@ -335,9 +335,57 @@ export interface FsChangedMessage {
 
 export type FsServerMessage = FsChangedMessage | WsErrorMessage
 
-export type SharedWsClientMessage = TextSyncClientMessage | SettingsClientMessage | TasksClientMessage
+/**
+ * 属性窗口（scope: "properties"）。
+ * `meta` 是目录的即时信息（名字 / 时间），`result` 是最终结果：
+ * 文件立即返回，目录由服务端后台递归统计完再推。
+ */
+export interface PropertiesGetMessage {
+  scope: 'properties'
+  type: 'get'
+  requestId: string
+  path: string
+}
+
+export interface PropertiesCancelMessage {
+  scope: 'properties'
+  type: 'cancel'
+  requestId: string
+}
+
+export type PropertiesClientMessage = PropertiesGetMessage | PropertiesCancelMessage
+
+export interface PropertiesMetaMessage {
+  scope: 'properties'
+  type: 'meta'
+  requestId: string
+  name: string
+  path: string
+  ext: string
+  isDirectory: boolean
+  isLink: boolean
+  size: number
+  fileCount: number | null
+  folderCount: number | null
+  lastModified: number
+  birthtime: number
+  complete: boolean
+}
+
+export interface PropertiesResultMessage extends Omit<PropertiesMetaMessage, 'type'> {
+  type: 'result'
+}
+
+export type PropertiesServerMessage = PropertiesMetaMessage | PropertiesResultMessage | WsErrorMessage
+
+export type SharedWsClientMessage
+  = | TextSyncClientMessage
+    | SettingsClientMessage
+    | TasksClientMessage
+    | PropertiesClientMessage
 export type SharedWsServerMessage
   = | TextSyncServerMessage
     | SettingsServerMessage
     | TasksServerMessage
     | FsServerMessage
+    | PropertiesServerMessage

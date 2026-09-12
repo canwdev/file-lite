@@ -87,8 +87,14 @@ function inferSubtitleType(filename: string): 'vtt' | 'srt' | 'ass' {
 const artRef = ref<HTMLDivElement | null>(null)
 const videoFileInputRef = ref<HTMLInputElement | null>(null)
 const subtitleFileInputRef = ref<HTMLInputElement | null>(null)
-const isShowFileSelector = ref<boolean>(false)
+const fileSelectorRef = ref<InstanceType<typeof FileSelector> | null>(null)
 const fileSelectorType = ref<'subtitle' | 'video'>('video')
+
+/** 打开选择器：组件常驻（首次打开才挂载内部 FileManager），这里只切可见性。 */
+function openServerFileSelector(type: 'video' | 'subtitle') {
+  fileSelectorType.value = type
+  fileSelectorRef.value?.show()
+}
 // 使用 shallowRef 避免 Vue 深度代理复杂的第三方类实例，提升性能
 const artInstance = shallowRef<Artplayer | null>(null)
 const videoObjectUrl = ref<string | null>(null)
@@ -209,8 +215,7 @@ onMounted(() => {
         name: 'custom-open-server-video',
         html: 'Open server video…',
         onClick() {
-          fileSelectorType.value = 'video'
-          isShowFileSelector.value = true
+          openServerFileSelector('video')
         },
       },
       {
@@ -225,8 +230,7 @@ onMounted(() => {
         name: 'custom-load-subtitle',
         html: 'Load server subtitle…',
         onClick() {
-          fileSelectorType.value = 'subtitle'
-          isShowFileSelector.value = true
+          openServerFileSelector('subtitle')
         },
       },
       ...(Array.isArray(extraSettings) ? extraSettings : []),
@@ -363,12 +367,14 @@ defineExpose({
     >
     <div ref="artRef" class="v-artplayer-container" />
     <FileSelector
-      v-if="isShowFileSelector"
+      ref="fileSelectorRef"
       select-file-mode="file"
-      auto-show
+      width="min(760px, 92vw)"
+      height="min(560px, 85vh)"
+      wid="server-file-selector"
+      :title="fileSelectorType === 'video' ? 'Open Server Video' : 'Open Server Subtitle'"
       :file-filter-pattern="fileSelectorType === 'video' ? '\\.(mp4|webm|mkv|ogg|m4v)$' : '\\.(vtt|srt|ass|ssa)$'"
       @handle-select="handleFileSelect"
-      @close="isShowFileSelector = false"
     />
   </div>
 </template>

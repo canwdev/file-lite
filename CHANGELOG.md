@@ -19,6 +19,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
 - A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
+- The music cover card no longer tilts or lights up on phones, where there is no hover and the 3D effect only costs performance (frontend).
 
 ### Features
 
@@ -36,6 +37,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Favourite folders can be dragged up and down in the sidebar to change their order, and that order is remembered (frontend).
 - Drag and drop is off while the file or folder picker is open (frontend).
 - The `enableLog` config option is replaced by `logLevel` (`verbose`, `warn` (default), `error`, `none`): HTTP request logs print only at `verbose`, a failed login is recorded as a warning, and server errors print down to `error`, while startup output always prints (backend).
+- Right-clicking a file or folder — or the empty area of a folder — opens a Windows-style Properties window with its icon, name, type, full path, size, contained files and folders, and modified and created dates; a folder's recursive size is counted in the background and fills in without holding the window back (frontend, backend).
+- The Open File picker now opens with Esc, remembers the folder you were in and the window's size and position, and shows a plain title instead of the raw filter pattern (frontend).
 
 ### Fixes
 
@@ -59,6 +62,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Copying a file and pasting it back into the same folder no longer asks whether to replace it with itself — an answer that rewrote the file in place and silently broke its hard links — and instead makes a copy beside it, the way Explorer does; moving an item into the folder it already lives in is a no-op (frontend, backend).
 - Downloads keep their real name. A space in the name came out as `+`, and every file was saved as `download.<ext>` because the `download` attribute overrode the filename the server sent (frontend, backend).
 - Closing the failed-items dialog now also drops that finished task from the Tasks list, so a failure you have read (or retried) no longer stays behind as a row (frontend).
+- "Created" now shows the file's real creation time instead of a copy of the modified time, on Windows, macOS and Linux; where the file system does not record one it still falls back to the modified time (backend).
+- The Open File picker is selection-only now: no play-last-media button, no transfers panel or button, no keyboard shortcuts, a filter pattern you cannot clear, and a right-click menu that offers just Select instead of open, rename, delete and the rest (frontend).
+- Double-clicking a file in a multi-select Open File picker returns every selected file instead of only the one under the pointer (frontend).
+- Opening a file applies the same too-large warning to a custom default app as to the built-in viewers, and cancelling the share sheet no longer throws (frontend).
 
 ### Engineering
 

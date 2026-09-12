@@ -5,6 +5,8 @@ import { createDefaultFileFilter } from './file-filter'
 
 const props = defineProps<{
   modelValue: FileFilterState
+  /** 锁定过滤条件：选择器用它固定 fileFilterPattern，用户不能清空或改动 */
+  locked?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +52,13 @@ function clearFilter(): void {
   emit('clear')
 }
 
+function handleEscape(): void {
+  if (props.locked) {
+    return
+  }
+  clearFilter()
+}
+
 watch(
   () => props.modelValue,
   value => syncLocal(value),
@@ -80,11 +89,12 @@ defineExpose({
       placeholder="Filter name"
       class="input-filter vgo-input"
       title="Filter bar (alt+f)"
-      @keyup.esc="clearFilter"
+      :readonly="locked"
+      @keyup.esc="handleEscape"
     >
     <div class="filter-actions">
       <button
-        v-if="hasText"
+        v-if="hasText && !locked"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
         title="Clear filter"
         @click="clearFilter"
@@ -95,6 +105,7 @@ defineExpose({
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
         :class="{ 'is-active': localFilter.regex }"
         title="Use regular expression"
+        :disabled="locked"
         @click="localFilter.regex = !localFilter.regex"
       >
         .*
@@ -103,6 +114,7 @@ defineExpose({
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
         :class="{ 'is-active': localFilter.caseSensitive }"
         title="Case sensitive"
+        :disabled="locked"
         @click="localFilter.caseSensitive = !localFilter.caseSensitive"
       >
         Aa

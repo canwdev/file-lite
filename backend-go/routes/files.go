@@ -86,7 +86,12 @@ func entryFromStat(name string, st os.FileInfo, path string, isSymbolicLink bool
 	}
 
 	modTime := st.ModTime().UnixMilli()
-	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, IsLink: isLink, Hidden: strings.HasPrefix(name, "."), LastModified: modTime, Birthtime: modTime, Size: size, Error: nil}
+	// 创建时间在部分平台 / 文件系统上拿不到，此时与修改时间保持一致（旧行为）。
+	birthtime, ok := utils.BirthTime(path, st)
+	if !ok {
+		birthtime = modTime
+	}
+	return types.Entry{Name: name, Ext: ext, IsDirectory: isDir, IsLink: isLink, Hidden: strings.HasPrefix(name, "."), LastModified: modTime, Birthtime: birthtime, Size: size, Error: nil}
 }
 
 func entryFromStatError(e os.DirEntry, err error) types.Entry {

@@ -83,6 +83,7 @@ import MdiImage from '~icons/mdi/image'
 import MdiImageMultipleOutline from '~icons/mdi/image-multiple-outline'
 import MdiImageOffOutline from '~icons/mdi/image-off-outline'
 import MdiImageSearch from '~icons/mdi/image-search'
+import MdiInformationOutline from '~icons/mdi/information-outline'
 import MdiIpNetwork from '~icons/mdi/ip-network'
 import MdiKeyOutline from '~icons/mdi/key-outline'
 import MdiLanguageCss3 from '~icons/mdi/language-css3'
@@ -228,6 +229,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'theme-light-dark': MdiThemeLightDark,
   'cog': MdiCog,
   'image-search': MdiImageSearch,
+  'information-outline': MdiInformationOutline,
   'filter-check-outline': MdiFilterCheckOutline,
   'filter-off-outline': MdiFilterOffOutline,
   'format-title': MdiFormatTitle,

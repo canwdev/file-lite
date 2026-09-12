@@ -5,6 +5,11 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      // 本地用 `bun link` 链接 vgo-ui 调试时，强制链接包也使用本项目的 vue，
+      // 否则会出现两份 @vue/runtime-core 类型导致 vue-tsc 报错。
+      "vue": [
+        "./node_modules/vue"
       ]
     },
     "noImplicitAny": true,

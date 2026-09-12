@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 
 defineProps<{
   src: string
 }>()
 
 const cardRef = ref<HTMLElement | null>(null)
+
+/**
+ * 手机端关闭 3D 悬浮动效：断点与全局一致（< 720px 视为手机端）。
+ * 触屏没有悬停语义，而透视 / 眩光 / 模糊阴影在手机上开销明显。
+ */
+const effectsEnabled = useMediaQuery('(min-width: 720px)')
+
 const state = reactive({
   rotateX: 0,
   rotateY: 0,
@@ -20,7 +28,7 @@ const state = reactive({
 let rafId: number | null = null
 
 function handleMouseMove(e: MouseEvent) {
-  if (!cardRef.value)
+  if (!effectsEnabled.value || !cardRef.value)
     return
 
   if (rafId)
@@ -54,38 +62,66 @@ function handleMouseLeave() {
   state.shadowY = 0
 }
 
-const wrapperStyle = computed(() => ({
-  transform: `perspective(1000px) rotateX(${state.rotateX}deg) rotateY(${state.rotateY}deg) scale3d(${state.isHover ? 1.05 : 1}, ${state.isHover ? 1.05 : 1}, 1)`,
-  transition: state.isHover ? 'transform 0.1s ease-out' : 'all 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
-}))
+// 断点变化（旋转屏幕 / 缩放窗口）时把残留的悬浮状态清掉
+watch(effectsEnabled, (enabled) => {
+  if (!enabled) {
+    handleMouseLeave()
+  }
+})
 
-const glareStyle = computed(() => ({
-  background: `radial-gradient(circle at ${state.glareX}% ${state.glareY}%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%)`,
-  opacity: state.glareOpacity,
-}))
+const wrapperStyle = computed(() => {
+  if (!effectsEnabled.value) {
+    return { transform: 'none', transition: 'none' }
+  }
+  return {
+    transform: `perspective(1000px) rotateX(${state.rotateX}deg) rotateY(${state.rotateY}deg) scale3d(${state.isHover ? 1.05 : 1}, ${state.isHover ? 1.05 : 1}, 1)`,
+    transition: state.isHover ? 'transform 0.1s ease-out' : 'all 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+  }
+})
 
-const shadowStyle = computed(() => ({
-  transform: `translate3d(${state.shadowX}px, ${state.shadowY}px, 0) scale(${state.isHover ? 0.95 : 0.9})`,
-  opacity: state.isHover ? 0.6 : 0.3,
-  transition: state.isHover ? 'transform 0.1s ease-out, opacity 0.2s' : 'all 0.5s ease',
-}))
+const glareStyle = computed(() => {
+  if (!effectsEnabled.value) {
+    return { opacity: 0 }
+  }
+  return {
+    background: `radial-gradient(circle at ${state.glareX}% ${state.glareY}%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%)`,
+    opacity: state.glareOpacity,
+  }
+})
+
+const shadowStyle = computed(() => {
+  if (!effectsEnabled.value) {
+    // 保留静止时的投影观感，只去掉跟随指针的位移与过渡
+    return { transform: 'scale(0.9)', opacity: 0.3, transition: 'none' }
+  }
+  return {
+    transform: `translate3d(${state.shadowX}px, ${state.shadowY}px, 0) scale(${state.isHover ? 0.95 : 0.9})`,
+    opacity: state.isHover ? 0.6 : 0.3,
+    transition: state.isHover ? 'transform 0.1s ease-out, opacity 0.2s' : 'all 0.5s ease',
+  }
+})
 
 onUnmounted(() => {
   if (rafId)
     cancelAnimationFrame(rafId)
 })
 
-const borderStyle = computed(() => ({
-  // 使用 radial-gradient 模拟手电筒照在边框上的效果
-  background: `radial-gradient(
+const borderStyle = computed(() => {
+  if (!effectsEnabled.value) {
+    return { opacity: 0 }
+  }
+  return {
+    // 使用 radial-gradient 模拟手电筒照在边框上的效果
+    background: `radial-gradient(
     circle at ${state.glareX}% ${state.glareY}%, 
     rgba(255, 255, 255, 0.8) 0%, 
     rgba(255, 255, 255, 0.1) 25%, 
     transparent 50%
   )`,
-  opacity: state.isHover ? 1 : 0,
-  transition: 'opacity 0.3s ease',
-}))
+    opacity: state.isHover ? 1 : 0,
+    transition: 'opacity 0.3s ease',
+  }
+})
 </script>
 
 <template>
@@ -206,5 +242,25 @@ const borderStyle = computed(() => ({
   z-index: 1; /* 永远在图片下方 */
   pointer-events: none;
   will-change: transform, opacity;
+}
+
+/* 手机端：触屏没有悬停，去掉图片悬停滤镜与多余的合成层提升 */
+@media (max-width: 719px) {
+  .card-image {
+    transition: none;
+
+    &:hover {
+      filter: none;
+    }
+  }
+
+  .card-border,
+  .card-glare {
+    display: none;
+  }
+
+  .card-shadow {
+    will-change: auto;
+  }
 }
 </style>

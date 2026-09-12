@@ -1,6 +1,7 @@
 <script lang="ts" setup="">
 import type { FileSelectResult } from '@/views/FileManager/types'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
+import { onKeyStroke } from '@vueuse/core'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
 const props = withDefaults(
@@ -13,12 +14,22 @@ const props = withDefaults(
     autoShow?: boolean
     // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"，仅对 selectFileMode='file' 有效
     fileFilterPattern?: string
+    // 窗口标题；缺省用动作名（Open File... / Open Folder...）
+    title?: string
+    // 窗口初始尺寸
+    width?: string
+    height?: string
+    // 传入后记忆窗口位置与大小
+    wid?: string
   }>(),
   {
     selectFileMode: 'file',
     showButton: false,
     multiple: false,
     autoShow: false,
+    title: '',
+    width: '500px',
+    height: '500px',
   },
 )
 const emit = defineEmits<{
@@ -26,9 +37,11 @@ const emit = defineEmits<{
   close: []
   open: []
 }>()
-const { selectFileMode, multiple, autoShow, fileFilterPattern } = toRefs(props)
+const { selectFileMode, multiple, autoShow, fileFilterPattern, title, width, height, wid } = toRefs(props)
 
 const isShowFileSelectWindow = ref(false)
+// 第一次打开后才挂载 FileManager，之后保持挂载：窗口再开关不会重建列表 / 重拉驱动器
+const hasMounted = ref(false)
 
 function handleSelect(item: FileSelectResult) {
   isShowFileSelectWindow.value = false
@@ -43,6 +56,8 @@ const actionLabel = computed(() => {
     : 'Open Folder...'
 })
 
+const windowTitle = computed(() => title.value || actionLabel.value)
+
 onMounted(() => {
   if (autoShow.value) {
     isShowFileSelectWindow.value = true
@@ -50,12 +65,21 @@ onMounted(() => {
 })
 
 watch(isShowFileSelectWindow, (newVal) => {
-  if (!newVal) {
-    emit('close')
-  }
-  else {
+  if (newVal) {
+    hasMounted.value = true
     emit('open')
   }
+  else {
+    emit('close')
+  }
+})
+
+// Esc 关闭窗口（焦点在窗口内任意位置都生效）
+onKeyStroke('Escape', (event) => {
+  if (!isShowFileSelectWindow.value || event.defaultPrevented) {
+    return
+  }
+  isShowFileSelectWindow.value = false
 })
 
 defineExpose({
@@ -76,16 +100,16 @@ defineExpose({
     </button>
 
     <ViewPortWindow
-      v-model:visible="isShowFileSelectWindow" init-center :init-win-options="{
-        width: '500px',
-        height: '500px',
-      }"
+      v-model:visible="isShowFileSelectWindow"
+      :wid="wid"
+      init-center
+      :init-win-options="{ width, height }"
     >
       <template #titleBarLeft>
-        {{ actionLabel }}: {{ fileFilterPattern }}
+        {{ windowTitle }}
       </template>
       <FileManager
-        v-if="isShowFileSelectWindow" :select-file-mode="selectFileMode" :multiple="multiple"
+        v-if="hasMounted" :select-file-mode="selectFileMode" :multiple="multiple"
         :file-filter-pattern="fileFilterPattern"
         shortcut-scope="fileSelector"
         @cancel-select="isShowFileSelectWindow = false" @handle-select="handleSelect"

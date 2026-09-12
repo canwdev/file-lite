@@ -11,7 +11,8 @@ import { copyWithToast } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
-import { generateTextFile, normalizePath } from '../../utils'
+import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
+import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
 function getEntryExt(name: string) {
@@ -264,7 +265,18 @@ export function useFileActions({
           onClick: () => handlePasteFromClipboard(),
         },
         { label: 'Download Current Folder', icon: 'mdi mdi-download', onClick: handleDownload },
-        { label: 'Download Current Folder to...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder },
+        { label: 'Download Current Folder to...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+        {
+          label: 'Properties',
+          icon: 'mdi mdi-information-outline',
+          onClick: () => {
+            openProperties({
+              absPath: basePath.value,
+              name: getLastDirName(basePath.value) || basePath.value,
+              isDirectory: true,
+            })
+          },
+        },
       ]
     }
     const isSingle = selectedItems.value.length === 1
@@ -376,6 +388,21 @@ export function useFileActions({
         label: 'Delete',
         icon: 'mdi mdi-delete-forever-outline',
         onClick: confirmDelete,
+        divided: true,
+      },
+      isSingle && {
+        label: 'Properties',
+        icon: 'mdi mdi-information-outline',
+        onClick: () => {
+          openProperties({
+            absPath: normalizePath(`${basePath.value}/${selectedItem.name}`),
+            name: selectedItem.name,
+            isDirectory: selectedItem.isDirectory,
+            ext: selectedItem.ext,
+            isLink: selectedItem.isLink,
+            item: selectedItem,
+          })
+        },
       },
     ].filter(Boolean) as MenuItem[]
   })
@@ -398,11 +425,16 @@ export function useFileActions({
     const x = event instanceof MouseEvent ? event.clientX : window.innerWidth / 2
     const y = event instanceof MouseEvent ? event.clientY : window.innerHeight / 2
 
+    const items = resolveMenuIcons(getMenuOptions())
+    if (!items.length) {
+      return
+    }
+
     ContextMenu.showContextMenu({
       x,
       y,
       ...menuThemeOptions,
-      items: resolveMenuIcons(getMenuOptions()),
+      items,
     })
   }
 

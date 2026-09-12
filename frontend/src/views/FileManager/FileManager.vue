@@ -17,6 +17,7 @@ import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
+import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
@@ -48,6 +49,10 @@ const emit = defineEmits<{
   cancelSelect: []
 }>()
 const { selectFileMode, multiple, shortcutScope } = toRefs(props)
+// 选择器模式下禁用全部文件管理器快捷键
+const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
+// 选择器固定了 fileFilterPattern 时锁住过滤条，用户不能清除或改动
+const filterLocked = computed(() => Boolean(selectFileMode.value && props.fileFilterPattern))
 provide(shortcutScopeKey, shortcutScope.value)
 // 选择器模式（FileSelector）只用来挑文件 / 文件夹，整个窗口禁用拖拽
 const dragEnabled = computed(() => !selectFileMode.value)
@@ -143,6 +148,10 @@ function clearCurrentLastOpenedMedia() {
 }
 
 function clearFilter() {
+  // 选择器的过滤条件由 fileFilterPattern 决定，用户不能清除
+  if (filterLocked.value) {
+    return
+  }
   filterState.value = {
     ...filterState.value,
     text: '',
@@ -398,7 +407,10 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
 // 启动App
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
-    emit('handleSelect', { items: [item], item, basePath: fileListRef.value.basePath })
+    // 多选时双击其中一项应返回全部已选文件，而不是只返回被双击的那个
+    const picked = multiple.value ? selectedFilesForPick() : []
+    const items = picked.length > 1 ? picked : [item]
+    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
     return
   }
   return handleOpen({
@@ -408,6 +420,36 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenW
       ? fileListRef.value.filteredFiles
       : fileListRef.value.sortedFiles,
   })
+}
+
+function selectedFilesForPick(): IEntry[] {
+  return (fileListRef.value?.selectedItems ?? []).filter((i: IEntry) => !i.isDirectory)
+}
+
+/**
+ * 选择器右键菜单的 Select：文件模式返回已选文件，文件夹模式返回选中的文件夹
+ * （没有选中条目时就是当前目录，与底部 Select Folder 一致）。
+ */
+function handleSelectFromMenu() {
+  if (!fileListRef.value) {
+    return
+  }
+  const basePath = fileListRef.value.basePath
+  if (selectFileMode.value === 'folder') {
+    const folder = (fileListRef.value.selectedItems ?? []).find((i: IEntry) => i.isDirectory)
+    if (folder) {
+      emit('handleSelect', { items: [folder], item: folder, basePath })
+    }
+    else {
+      emit('handleSelect', { basePath })
+    }
+    return
+  }
+  const files = selectedFilesForPick()
+  if (!files.length) {
+    return
+  }
+  emit('handleSelect', { items: files, item: files[0], basePath })
 }
 
 // 是否选中了一个文件夹
@@ -444,42 +486,49 @@ function handleSelect() {
 const addressBarRef = ref<InstanceType<typeof AddressBar> | null>(null)
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+a',
   handler: () => addressBarRef.value?.focus(),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+f',
   handler: () => filterBarRef.value?.focus(),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+d',
   handler: toggleStar,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowup',
   handler: goUp,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowleft',
   handler: goBack,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowright',
   handler: goForward,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'backspace',
   handler: goUp,
@@ -546,6 +595,7 @@ useShortcut({
             <FilterBar
               ref="filterBarRef"
               v-model="filterState"
+              :locked="filterLocked"
               @clear="clearFilter"
             />
 
@@ -603,13 +653,14 @@ useShortcut({
               :multiple="multiple"
               :content-only="contentOnly"
               @open="handleFileListOpen"
+              @select="handleSelectFromMenu"
               @open-path-in-new-tab="openPathInNewTab"
               @clear-filter="clearFilter"
               @refresh="debounceHandleRefresh"
               @patch="handleEntryChange"
             />
             <Transition name="last-media-fab">
-              <div v-if="lastOpenedMediaItem" class="last-media-fab-wrapper">
+              <div v-if="lastOpenedMediaItem && !selectFileMode" class="last-media-fab-wrapper">
                 <button
                   class="vgo-button vgo-button--primary vgo-button--round vgo-button--lg"
                   :title="`Play ${lastOpenedMediaItem.name}`"
@@ -633,6 +684,7 @@ useShortcut({
 
     <ConflictDialog />
     <TaskFailureDialog />
+    <FilePropertiesWindow />
 
     <!-- 文件选择器 -->
     <div v-if="selectFileMode && fileListRef" class="vgo-u-surface explorer-bottom-wrap">

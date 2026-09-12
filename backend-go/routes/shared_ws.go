@@ -207,6 +207,13 @@ func handleSharedWebSocket(c echo.Context) error {
 				continue
 			}
 			handleSharedWSTasksMessage(client, msg)
+		case "properties":
+			msg, err := parseSharedWSPropertiesMessage(raw)
+			if err != nil {
+				sendSharedWSError(client, "properties", "", err.Error())
+				continue
+			}
+			handleSharedWSPropertiesMessage(client, msg)
 		default:
 			sendSharedWSError(client, "ws", "", "Invalid payload")
 		}
@@ -287,6 +294,8 @@ func sharedWSUnregisterClient(client *sharedWSClient) {
 
 	delete(sharedWSState.clients, client)
 	sharedWSUnregisterTextSyncClientLocked(client)
+	// 连接断开后，它仍在跑的目录大小统计没有接收方了，立即终止
+	cancelSharedWSPropertiesScanForClient(client)
 }
 
 func snapshotSharedWSClients() []*sharedWSClient {

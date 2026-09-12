@@ -57,10 +57,12 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter', 'patch'])
+const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter', 'patch'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
+// 选择器模式下禁用全部文件管理器快捷键（Esc 关闭选择器由 FileSelector 负责）
+const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
@@ -739,6 +741,27 @@ async function handleRename() {
 }
 
 function getMenuOptions() {
+  // 选择器只负责挑条目：菜单里只有 Select，不提供打开 / 传输 / 删除等操作
+  if (selectFileMode.value) {
+    const selected = selectedItems.value
+    if (!selected.length) {
+      return []
+    }
+    const files = selected.filter(item => !item.isDirectory)
+    if (selectFileMode.value === 'file' && !files.length) {
+      return []
+    }
+    const label = selectFileMode.value === 'file' && multiple.value && files.length > 1
+      ? `Select ${files.length} items`
+      : 'Select'
+    return [
+      {
+        label,
+        onClick: () => emit('select'),
+      },
+    ]
+  }
+
   let contextMenuOptions: MenuItem[] = []
   if (selectedItems.value.length) {
     contextMenuOptions = ctxMenuOptions.value
@@ -791,13 +814,17 @@ function updateMenuOptions(item: IEntry | null, event: MouseEvent | KeyboardEven
   handleShowCtxMenu(item, event, getMenuOptions)
 }
 function updateMenuOptions2(event: MouseEvent) {
+  const items = resolveMenuIcons(getMenuOptions())
+  if (!items.length) {
+    return
+  }
   const button = (event.target as HTMLElement)?.closest('button') as HTMLElement
   const rect = button?.getBoundingClientRect()
   ContextMenu.showContextMenu({
     x: rect?.right || event.x,
     y: rect?.top || event.y,
     ...menuThemeOptions,
-    items: resolveMenuIcons(getMenuOptions()),
+    items,
   })
 }
 
@@ -832,36 +859,42 @@ function moveKeyboardSelection(offset: number) {
 }
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+r', 'meta+r'],
   handler: () => emit('refresh'),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+a', 'meta+a'],
   handler: toggleSelectAll,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+x', 'meta+x'],
   handler: handleCut,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+c', 'meta+c'],
   handler: handleCopy,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+v', 'meta+v'],
   handler: handlePaste,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+h', 'meta+h'],
   handler: () => {
@@ -870,60 +903,70 @@ useShortcut({
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+m', 'meta+m'],
   handler: event => updateMenuOptions(null, event),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'delete',
   handler: confirmDelete,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f2',
   handler: handleRename,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f3',
   handler: handleOpen,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'enter',
   handler: handleOpen,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f7',
   handler: handleCreateFolder,
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'arrowup',
   handler: () => moveKeyboardSelection(-1),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'arrowdown',
   handler: () => moveKeyboardSelection(1),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'home',
   handler: () => selectKeyboardItem(0),
 })
 
 useShortcut({
+  disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'end',
   handler: () => selectKeyboardItem(filteredFiles.value.length - 1),
@@ -1190,7 +1233,7 @@ defineExpose({
           {{ emptyState.description }}
         </div>
         <button
-          v-if="emptyState.showClear"
+          v-if="emptyState.showClear && !selectFileMode"
           class="vgo-button"
           @click.stop="emit('clearFilter')"
         >
@@ -1250,7 +1293,7 @@ defineExpose({
       <div class="vgo-u-flex-wrap-center">
         <!-- 传输面板会自动收起，这里留一个显示 / 隐藏的入口 -->
         <button
-          v-if="transferQueueRef?.totalCount || transferQueueRef?.isVisible"
+          v-if="!selectFileMode && (transferQueueRef?.totalCount || transferQueueRef?.isVisible)"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-activity-toggle"
           :class="{ 'is-active': transferQueueRef?.isVisible }"
           :title="transferQueueRef?.isVisible ? 'Hide transfers & tasks' : 'Show transfers & tasks'"
@@ -1282,7 +1325,7 @@ defineExpose({
       </div>
     </div>
 
-    <TransferQueue ref="transferQueueRef" auto-close @all-done="handleTransferAllDone" />
+    <TransferQueue v-if="!selectFileMode" ref="transferQueueRef" auto-close @all-done="handleTransferAllDone" />
   </div>
 </template>
 
