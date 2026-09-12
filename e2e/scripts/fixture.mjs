@@ -70,7 +70,6 @@ export function resetFixture() {
     port: String(PORT),
     password: PASSWORD,
     safeBaseDir: filesDir,
-    enableLog: false,
     // 保持默认值（开启），让「中断不留半个文件」的保证在测试里也生效
     copyFsync: true,
   }, null, 2))

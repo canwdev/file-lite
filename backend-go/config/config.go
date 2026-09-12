@@ -23,13 +23,23 @@ const authTicketTTL = 2 * time.Minute
 const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const authTicketLength = 8
 
+// 日志等级（logLevel 字段取值）。等级是打印阈值：
+// verbose 输出全部事件日志，warn 只输出警告与错误，error 只输出错误，
+// none 关闭全部事件日志。启动提示不属于任何等级，始终打印。
+const (
+	LogLevelVerbose = "verbose"
+	LogLevelWarn    = "warn"
+	LogLevelError   = "error"
+	LogLevelNone    = "none"
+)
+
 type Cfg struct {
 	Host         string   `json:"host"`
 	Port         string   `json:"port"`
 	Password     string   `json:"password"`
 	JWTToken     string   `json:"jwtToken"`
 	SafeBaseDir  string   `json:"safeBaseDir"`
-	EnableLog    bool     `json:"enableLog"`
+	LogLevel     string   `json:"logLevel"`
 	SSLKey       string   `json:"sslKey"`
 	SSLCert      string   `json:"sslCert"`
 	AllowedCIDRs []string `json:"allowedCIDRs"`
@@ -52,7 +62,6 @@ const Version = "1.5.0"
 var cfg Cfg
 var dataBaseDir string
 var safeBaseDir string
-var authToken string
 var jwtToken string
 var configInitialized bool
 var configFilePath string
@@ -75,9 +84,25 @@ func normalizePath(p string) string {
 	return s
 }
 
+// normalizeLogLevel 把配置里的等级归一化为四个合法值之一。空串或未知值回落到
+// warn，避免一个笔误把日志（尤其是安全告警）全部关掉。
+func normalizeLogLevel(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case LogLevelVerbose:
+		return LogLevelVerbose
+	case LogLevelWarn:
+		return LogLevelWarn
+	case LogLevelError:
+		return LogLevelError
+	case LogLevelNone:
+		return LogLevelNone
+	default:
+		return LogLevelWarn
+	}
+}
+
 func DataBaseDir() string     { return dataBaseDir }
 func SafeBaseDir() string     { return safeBaseDir }
-func AuthToken() string       { return authToken }
 func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
@@ -109,7 +134,7 @@ func LoadConfig(allowCreate bool) error {
 		Password:    "",
 		JWTToken:    "",
 		SafeBaseDir: "./",
-		EnableLog:   true,
+		LogLevel:    LogLevelWarn,
 		SSLKey:      "",
 		SSLCert:     "",
 		FFmpegPath:  "",
@@ -146,6 +171,13 @@ func LoadConfig(allowCreate bool) error {
 			return err
 		}
 		cfg.JWTToken = secret
+		dirty = true
+	}
+	if normalizedLevel := normalizeLogLevel(cfg.LogLevel); normalizedLevel != cfg.LogLevel {
+		if cfg.LogLevel != "" {
+			fmt.Printf("unknown logLevel %q, falling back to %s\n", cfg.LogLevel, normalizedLevel)
+		}
+		cfg.LogLevel = normalizedLevel
 		dirty = true
 	}
 
@@ -186,11 +218,6 @@ func LoadConfig(allowCreate bool) error {
 	}
 
 	jwtToken = cfg.JWTToken
-	signedToken, err := NewAuthToken()
-	if err != nil {
-		return err
-	}
-	authToken = signedToken
 	if configInitialized {
 		fmt.Println("password: please check config file")
 	} else {

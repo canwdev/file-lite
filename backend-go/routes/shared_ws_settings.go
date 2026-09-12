@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -145,18 +144,18 @@ func startSharedWSFrontendStorageWatcher() {
 	dir := filepath.Dir(filePath)
 	if _, err := os.Stat(dir); err != nil {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Println("Error creating frontend settings store dir:", err)
+			utils.LogErrorf("creating frontend settings store dir failed: %v", err)
 			return
 		}
 	}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		fmt.Println("Error creating frontend settings store watcher:", err)
+		utils.LogErrorf("creating frontend settings store watcher failed: %v", err)
 		return
 	}
 	if err := watcher.Add(dir); err != nil {
-		fmt.Println("Error watching frontend settings store dir:", err)
+		utils.LogErrorf("watching frontend settings store dir failed: %v", err)
 		_ = watcher.Close()
 		return
 	}
@@ -210,12 +209,12 @@ func watchSharedWSFrontendStorage(watcher *fsnotify.Watcher, filename string) {
 			if !ok {
 				return
 			}
-			fmt.Println("Error watching frontend settings store:", err)
+			utils.LogErrorf("watching frontend settings store failed: %v", err)
 		case <-timerC:
 			timerC = nil
 			timer = nil
 			if err := ReloadSharedWSSettings(); err != nil {
-				fmt.Println("Error reloading frontend settings:", err)
+				utils.LogErrorf("reloading frontend settings failed: %v", err)
 			}
 		}
 	}

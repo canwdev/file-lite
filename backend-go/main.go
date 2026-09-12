@@ -144,13 +144,15 @@ func startServer() (*cli.ServerResult, error) {
 
 	e := echo.New()
 	e.HideBanner = true
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: `[${time_rfc3339}] ${status} ${method} ${host}${uri} ${latency_human}` + "\n",
-		Skipper: func(c echo.Context) bool {
-			return c.Response().Status < 400 && !config.Config().EnableLog
+	e.Use(utils.AccessLog())
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			utils.LogErrorf("panic recovered: %v", err)
+			utils.LogVerbosef("panic stack:\n%s", strings.TrimRight(string(stack), "\n"))
+			// 返回错误，交给集中式 HTTPErrorHandler 回复 500（与默认 Recover 一致）。
+			return err
 		},
 	}))
-	e.Use(middleware.Recover())
 
 	// IP 白名单：在静态资源与 API 之前生效，覆盖整站（含 WebSocket）。
 	allowlist, err := middlewares.NewIPAllowlist(config.Config().AllowedCIDRs)

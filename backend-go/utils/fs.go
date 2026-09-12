@@ -16,11 +16,6 @@ func DirExists(p string) bool {
 	return err == nil && st.IsDir()
 }
 
-func FileExists(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && !st.IsDir()
-}
-
 // IsPathInsideOrEqual reports whether target is parent itself or nested under parent.
 func IsPathInsideOrEqual(targetPath, parentPath string) bool {
 	parent, err := filepath.Abs(parentPath)

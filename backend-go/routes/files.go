@@ -480,5 +480,3 @@ func existsPaths(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"existing": existing})
 }
 func ptrI64(v int64) *int64 { return &v }
-
-func fmtError(f string, a ...any) error { return fmt.Errorf(f, a...) }

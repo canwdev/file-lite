@@ -10,7 +10,7 @@ import type {
   TasksServerMessage,
   TaskState,
 } from '@/types/server'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { ensureSharedWsConnected, sharedWsStatus, subscribeSharedWsMessage } from '@/api/shared-ws'
 import {
   newTaskRequestId,
@@ -36,10 +36,6 @@ export interface TaskEntry extends TaskSnapshot {
 }
 
 export const taskList = ref<TaskEntry[]>([])
-export const activeTaskCount = computed(() => taskList.value.filter(task => !isTerminalState(task.state)).length)
-export const failedTaskCount = computed(() =>
-  taskList.value.filter(task => task.state === 'failed' || task.state === 'partial').length,
-)
 
 /** 用户对一次冲突的决策结果。 */
 export interface ConflictResolution {
@@ -82,8 +78,19 @@ export function openFailureDialog(taskId: string) {
   failureDialogTaskId.value = taskId
 }
 
+/**
+ * 关闭失败清单，并丢弃这条失败记录。
+ *
+ * 失败清单是这条记录最后的用途：看过了（或重试了）就不该在任务列表里继续
+ * 留一条失败行，否则只会越积越多。取消 / 服务端移除走的 removeTaskLocally
+ * 不经过这里，因此不会多送一次 dismiss。
+ */
 export function closeFailureDialog() {
+  const taskId = failureDialogTaskId.value
   failureDialogTaskId.value = null
+  if (taskId) {
+    void dismissTask(taskId)?.catch(() => {})
+  }
 }
 
 /** 某个任务里失败 / 冲突的条目（受服务端 200 条上限约束，Try Again 不受约束）。 */
@@ -181,7 +188,8 @@ function removeTaskLocally(taskId: string) {
   taskList.value = taskList.value.filter(task => task.id !== taskId)
   dropConflictRequestByTask(taskId)
   if (failureDialogTaskId.value === taskId) {
-    closeFailureDialog()
+    // 任务已经没了，这里只收起弹窗，不再 dismiss 一次
+    failureDialogTaskId.value = null
   }
 }
 

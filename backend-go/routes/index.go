@@ -7,6 +7,7 @@ import (
 
 	"file-lite-go/config"
 	"file-lite-go/middlewares"
+	"file-lite-go/utils"
 )
 
 func Register(api *echo.Group) {
@@ -41,6 +42,7 @@ func authWithPassword(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"token": token})
 	}
 	if body.Password != config.Config().Password {
+		utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
 		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
 	}
 	token, err := config.NewAuthToken()

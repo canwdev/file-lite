@@ -124,10 +124,9 @@ func clientIP(c echo.Context) string {
 	return strings.TrimPrefix(addr, "::ffff:")
 }
 
-func isLocalRequest(c echo.Context) bool {
-	ip := net.ParseIP(clientIP(c))
-	return ip != nil && ip.IsLoopback()
-}
+// ClientIP 暴露给路由层用于记录登录失败来源，语义与内部 clientIP 完全相同：
+// 只看直连 TCP peer，不信任任何转发头。
+func ClientIP(c echo.Context) string { return clientIP(c) }
 
 func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {

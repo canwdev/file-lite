@@ -35,6 +35,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Dragging files from the system onto a folder row, a breadcrumb, a favourite or a drive now uploads them into that folder (frontend).
 - Favourite folders can be dragged up and down in the sidebar to change their order, and that order is remembered (frontend).
 - Drag and drop is off while the file or folder picker is open (frontend).
+- The `enableLog` config option is replaced by `logLevel` (`verbose`, `warn` (default), `error`, `none`): HTTP request logs print only at `verbose`, a failed login is recorded as a warning, and server errors print down to `error`, while startup output always prints (backend).
 
 ### Fixes
 
@@ -57,6 +58,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Downloading a file whose name contains a `+` no longer fails: the download path was decoded twice, and the second pass turned `+` into a space, so the file was reported as not found and the browser saved the error as `download.json` (backend).
 - Copying a file and pasting it back into the same folder no longer asks whether to replace it with itself — an answer that rewrote the file in place and silently broke its hard links — and instead makes a copy beside it, the way Explorer does; moving an item into the folder it already lives in is a no-op (frontend, backend).
 - Downloads keep their real name. A space in the name came out as `+`, and every file was saved as `download.<ext>` because the `download` attribute overrode the filename the server sent (frontend, backend).
+- Closing the failed-items dialog now also drops that finished task from the Tasks list, so a failure you have read (or retried) no longer stays behind as a row (frontend).
 
 ### Engineering
 
