@@ -134,6 +134,18 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 		if opts.Duplicate {
 			// 复制副本落在源旁边、用新名字，因此整棵树都不会有冲突
 			dst = DuplicatePath(src)
+		} else if samePath(src, dst) {
+			// 原地粘贴：源与目标就是同一个路径。
+			// 移动是空操作；复制按资源管理器语义直接生成副本，
+			// 而不是问一次「是否用自己替换自己」——那个操作只会把文件静默重写一遍
+			// （inode 变化、硬链接被拆开、扩展属性丢失）。
+			if opts.IsMove {
+				items, bytes := countFiles(rs.ctx, src)
+				rs.addItemsAndBytes(items, bytes, src)
+				rs.record(ItemResult{FromPath: src, Status: StatusSkipped, Message: "Already in this folder"})
+				continue
+			}
+			dst = DuplicatePath(src)
 		}
 		if err := rs.processEntry(src, dst, BaseName(src)); err != nil {
 			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: err.Error()})

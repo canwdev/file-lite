@@ -40,6 +40,17 @@ Banned: literal colors, literal `border-radius`, custom `box-shadow`, `backdrop-
 
 Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specificity 0,2,1), which a flat single scoped class cannot beat. To override a themed property (typically `--flat`'s `border: 0`), nest one more parent selector.
 
+### E2E tests
+
+`e2e/` is a separate Playwright sub-project that drives the built app in a real browser (see `e2e/README.md`).
+
+- **A change to what the file manager does on screen must come with an end-to-end case**: dialogs, toolbar actions, keyboard shortcuts, task progress and cancel, upload/download flows, context menus. Backend unit tests do not cover these — three real bugs (tasks never reaching the client list, the initial snapshot never being requested, the task window blocking the file list) were only visible in a browser.
+- Run it with `cd e2e && bun run test`. It builds the frontend, embeds it into the Go binary and runs the real thing, so it also catches "the frontend changed but the binary still serves the old page".
+- Screenshots come from the tests (`e2e/screenshots/`) and are what the docs embed; after a UI change, re-run the suite so the screenshots follow.
+- Test the user-visible contract, not the implementation: assert on the clipboard, the files on disk, and the dialogs the user sees.
+- `expect.poll` fails immediately when its callback throws instead of retrying, so waiting for an asynchronous result must read through a non-throwing helper (`readTextIfExists` in `e2e/tests/helpers.ts`).
+- Things that cannot be driven from a browser (file-operations primitives, task state machine, HTTP handlers) belong in Go tests next to the code.
+
 ## Changelog
 
 `CHANGELOG.md` lives at the repository root and is **minimal**: only record changes users can perceive, one item per thing.

@@ -461,3 +461,101 @@ func TestResultSetIsBounded(t *testing.T) {
 		t.Fatalf("failures must not be crowded out by successes: got %d, want %d", failures, maxStoredFailures)
 	}
 }
+
+// TestCopyIntoItsOwnFolderDuplicates 覆盖「原地粘贴」：
+// 把 X 粘贴回它自己所在的目录时，不应问「是否用自己替换自己」
+// （那个操作只会把文件静默重写一遍，实测 inode 变化、硬链接被拆开），
+// 而应按资源管理器语义直接生成 "X - Copy"。
+func TestCopyIntoItsOwnFolderDuplicates(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	writeFile(t, src, []byte("alpha"))
+	link := filepath.Join(dir, "hardlink.txt")
+	if err := os.Link(src, link); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Lstat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewEngine(false)
+	// 即使策略是 overwrite，也不该动原文件
+	results, err := e.Run(context.Background(), Options{
+		FromPaths: []string{src},
+		ToPath:    dir,
+		Policy:    PolicyOverwrite,
+	}, Callbacks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := statuses(results)["copied"]; got != 1 {
+		t.Fatalf("expected the copy to be renamed, got %v", statuses(results))
+	}
+	if got := readFile(t, filepath.Join(dir, "a - Copy.txt")); got != "alpha" {
+		t.Fatalf("unexpected duplicate content %q", got)
+	}
+	if got := readFile(t, src); got != "alpha" {
+		t.Fatalf("original must be untouched, got %q", got)
+	}
+
+	after, err := os.Lstat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 原文件不能被重写：inode 相同、硬链接计数不变
+	if !os.SameFile(before, after) {
+		t.Fatal("the original file was rewritten in place (inode changed)")
+	}
+	if utils.HardLinkCount(after, src) != 2 {
+		t.Fatalf("the hard link was broken: nlink=%d, want 2", utils.HardLinkCount(after, src))
+	}
+}
+
+// TestMoveIntoItsOwnFolderIsSkipped 原地移动是空操作，如实上报跳过。
+func TestMoveIntoItsOwnFolderIsSkipped(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	writeFile(t, src, []byte("alpha"))
+
+	e := NewEngine(false)
+	results, err := e.Run(context.Background(), Options{
+		FromPaths: []string{src},
+		ToPath:    dir,
+		IsMove:    true,
+		Policy:    PolicyAsk,
+	}, Callbacks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := statuses(results)["skipped"]; got != 1 {
+		t.Fatalf("expected a skipped result, got %v", statuses(results))
+	}
+	if !ExistsAt(src) {
+		t.Fatal("the file must stay where it is")
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Fatalf("nothing should have been created, got %d entries", len(entries))
+	}
+}
+
+// TestScanDoesNotReportInPlacePasteAsConflict 原地粘贴不该让任务停下来等决策。
+func TestScanDoesNotReportInPlacePasteAsConflict(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	writeFile(t, src, []byte("alpha"))
+
+	res, err := Scan(context.Background(), []string{src}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ConflictTotal != 0 {
+		t.Fatalf("in-place paste must not be a conflict, got %d", res.ConflictTotal)
+	}
+	if res.ItemsTotal != 1 {
+		t.Fatalf("expected 1 item, got %d", res.ItemsTotal)
+	}
+}

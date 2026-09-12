@@ -60,6 +60,14 @@ export async function login(page: Page) {
  * 否则前一个用例落下的文件会把后一个用例变成「同名冲突」场景。
  */
 export function resetTargetDirs() {
+  // 原地粘贴用例会在 source 里生成 "xxx - Copy"，复位时一并清掉
+  if (fs.existsSync(sourceDir)) {
+    for (const name of fs.readdirSync(sourceDir)) {
+      if (name.includes(' - Copy')) {
+        fs.rmSync(path.join(sourceDir, name), { recursive: true, force: true })
+      }
+    }
+  }
   fs.chmodSync(emptyDir, 0o755)
   fs.rmSync(targetDir, { recursive: true, force: true })
   fs.mkdirSync(path.join(targetDir, 'nested'), { recursive: true })
@@ -115,6 +123,21 @@ export async function copy(page: Page) {
 
 export async function paste(page: Page) {
   await page.locator('button[title^="Paste (ctrl+v)"]').click()
+}
+
+/**
+ * 读文件内容；文件还不存在时返回 null。
+ *
+ * 给 `expect.poll` 用：poll 的回调一旦抛错就**立刻**失败、不会重试，
+ * 所以「异步操作还没落地」不能靠 readFileSync 抛 ENOENT 来表达。
+ */
+export function readTextIfExists(p: string): string | null {
+  try {
+    return fs.readFileSync(p, 'utf8')
+  }
+  catch {
+    return null
+  }
 }
 
 /** 断言剪贴板里确实有内容，避免「复制没生效」被误判成复制逻辑的错误。 */

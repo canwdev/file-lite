@@ -5,6 +5,7 @@ import {
   conflictDialog,
   login,
   openFolder,
+  readTextIfExists,
   resetTargetDirs,
   screenshot,
   targetDir,
@@ -44,7 +45,7 @@ test.describe('上传同名冲突', () => {
 
     // 上传是客户端任务：全部成功时窗口会像资源管理器那样自动关闭，
     // 所以这里以磁盘结果为准（而不是去找已经消失的任务行）。
-    await expect.poll(() => fs.readFileSync(path.join(targetDir, 'a.txt'), 'utf8')).toBe('uploaded-alpha')
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'a.txt'))).toBe('uploaded-alpha')
   })
 
   test('上传同名文件选择 Skip 时目标保持原样', async ({ page }) => {
@@ -72,6 +73,6 @@ test.describe('上传同名冲突', () => {
     await chooser.setFiles(path.join(uploadDir, 'fresh.txt'))
 
     await expect(conflictDialog(page)).toBeHidden()
-    await expect.poll(() => fs.readFileSync(path.join(targetDir, 'fresh.txt'), 'utf8')).toBe('fresh-upload')
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'fresh.txt'))).toBe('fresh-upload')
   })
 })

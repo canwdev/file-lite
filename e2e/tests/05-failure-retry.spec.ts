@@ -11,6 +11,7 @@ import {
   login,
   openFolder,
   paste,
+  readTextIfExists,
   resetTargetDirs,
   screenshot,
   selectItem,
@@ -53,7 +54,7 @@ test.describe('失败清单与重试', () => {
     await failureDialog(page).getByRole('button', { name: 'Try Again' }).click()
     await expect(failureDialog(page)).toBeHidden()
 
-    await expect.poll(() => fs.readFileSync(path.join(emptyDir, 'b.txt'), 'utf8')).toBe('beta')
+    await expect.poll(() => readTextIfExists(path.join(emptyDir, 'b.txt'))).toBe('beta')
     // 重试任务同样会在结束后自动收起
     await expect(lastServerTask(page)).toBeHidden()
   })

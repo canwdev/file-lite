@@ -84,6 +84,11 @@ pkill -x file-lite-go
 之后可以 `E2E_SKIP_BUILD=1 bun run test` 跳过构建。
 `webServer.timeout` 已设为 240 秒。
 
+**断言偶发 ENOENT / 明明文件后来生成了却判失败**
+`expect.poll` 的回调一旦**抛错就立刻失败、不会重试**（实测：4ms、只调用 1 次）。
+所以「等异步操作落地」不能用 `fs.readFileSync` 直接抛 ENOENT，
+要用 `helpers.ts` 里不抛错的 `readTextIfExists` / `fs.existsSync`。
+
 **改了前端却没生效**
 先确认 `bun run test`（而不是 `E2E_SKIP_BUILD=1`）——只有完整构建才会更新
 `backend-go/frontend-assets.tar.gz`。

@@ -341,3 +341,33 @@ func TestCreateBroadcastsFullSnapshot(t *testing.T) {
 		t.Fatalf("expected the snapshot to be queued, got %s", created.Task.State)
 	}
 }
+
+// TestInPlaceCopyDoesNotAskForConflict 原地粘贴不该让任务停在等待决策上。
+// 如果扫描阶段把它当成冲突，任务会暂停到 TTL 超时，这里的 done 就等不到。
+func TestInPlaceCopyDoesNotAskForConflict(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	write(t, src, "alpha")
+
+	m, events := newTestManager(t, time.Minute)
+	snap, err := m.Create(CreateParams{
+		Kind:       KindCopy,
+		FromPaths:  []string{src},
+		ToPath:     dir,
+		OnConflict: fileops.PolicyAsk,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := waitFor(t, events, EventDone, snap.ID)
+	if done.Task.State != StateSucceeded {
+		t.Fatalf("expected succeeded, got %s (%s)", done.Task.State, done.Task.Error)
+	}
+	if !fileops.ExistsAt(filepath.Join(dir, "a - Copy.txt")) {
+		t.Fatal("expected an in-place copy to produce \"a - Copy.txt\"")
+	}
+	if read(t, src) != "alpha" {
+		t.Fatal("the original must be untouched")
+	}
+}

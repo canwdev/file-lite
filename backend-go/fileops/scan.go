@@ -41,6 +41,14 @@ func Scan(ctx context.Context, fromPaths []string, toDir string) (ScanResult, er
 			return res, errors.New("Path is not safe")
 		}
 		dst := filepath.Join(toDir, BaseName(src))
+		if samePath(src, dst) {
+			// 原地粘贴：执行阶段会自动改名（复制）或跳过（移动），不是冲突，
+			// 因此不该让任务停下来等用户决策。
+			if err := countSubtree(ctx, src, &res); err != nil {
+				return res, err
+			}
+			continue
+		}
 		if err := scanEntry(ctx, src, dst, BaseName(src), &res); err != nil {
 			return res, err
 		}

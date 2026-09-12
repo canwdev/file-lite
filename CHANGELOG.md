@@ -7,6 +7,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### UI
 
 - The task window now lays out uploads, downloads and background copy / move / delete tasks as one clean row type, with a status icon, the name and progress details on aligned columns (frontend).
+- The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
 
 ### Features
 
@@ -33,11 +34,13 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - When a copy or move fails, the failed items are now always included in the report even if there are more results than fit in one message (backend).
 - Error messages for a failed copy, move or upload no longer mention the internal temporary file name (backend).
 - Downloading a file whose name contains a `+` no longer fails: the download path was decoded twice, and the second pass turned `+` into a space, so the file was reported as not found and the browser saved the error as `download.json` (backend).
+- Copying a file and pasting it back into the same folder no longer asks whether to replace it with itself — an answer that rewrote the file in place and silently broke its hard links — and instead makes a copy beside it, the way Explorer does; moving an item into the folder it already lives in is a no-op (frontend, backend).
 - Downloads keep their real name. A space in the name came out as `+`, and every file was saved as `download.<ext>` because the `download` attribute overrode the filename the server sent (frontend, backend).
 
 ### Engineering
 
 - A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
+- Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
 
 ## 1.4.5
 

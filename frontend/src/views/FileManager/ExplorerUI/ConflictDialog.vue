@@ -86,6 +86,10 @@ function formatTime(ms?: number) {
         Replacing will delete it (folders are deleted with their contents).
       </div>
 
+      <div class="conflict-question">
+        What do you want to do?
+      </div>
+
       <el-radio-group v-model="policy" class="conflict-options">
         <el-radio value="overwrite">
           {{ replaceLabel }}
@@ -196,9 +200,16 @@ function formatTime(ms?: number) {
     font-size: var(--vgo-font-sm);
   }
 
+  .conflict-question {
+    font-weight: 500;
+  }
+
   .conflict-options {
     display: flex;
     flex-direction: column;
+    // Element Plus 的 .el-radio-group 自带 align-items: center，
+    // 纵向排列时会把每个选项横向居中；这里连同下面几项一起靠左对齐。
+    align-items: flex-start;
     gap: var(--vgo-space-1);
   }
 

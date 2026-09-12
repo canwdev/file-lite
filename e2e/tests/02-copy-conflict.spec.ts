@@ -10,9 +10,11 @@ import {
   login,
   openFolder,
   paste,
+  readTextIfExists,
   resetTargetDirs,
   screenshot,
   selectItem,
+  sourceDir,
   targetDir,
 } from './helpers'
 
@@ -75,7 +77,7 @@ test.describe('复制同名冲突', () => {
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 
-    await expect.poll(() => fs.readFileSync(path.join(targetDir, 'a.txt'), 'utf8')).toBe('alpha')
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'a.txt'))).toBe('alpha')
     await expect(lastServerTask(page)).toBeHidden()
   })
 
@@ -86,8 +88,25 @@ test.describe('复制同名冲突', () => {
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 
-    await expect.poll(() => fs.readFileSync(path.join(targetDir, 'a (1).txt'), 'utf8')).toBe('alpha')
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'a (1).txt'))).toBe('alpha')
     expect(fs.readFileSync(path.join(targetDir, 'a.txt'), 'utf8')).toBe('existing-alpha')
+  })
+
+  // 原地粘贴：源与目标是同一个路径。不该问「是否用自己替换自己」——
+  // 那个操作只会把文件静默重写一遍（inode 变化、硬链接被拆开），
+  // 正确行为是按资源管理器语义直接生成 "a - Copy"。
+  test('原地粘贴不弹窗，直接生成副本', async ({ page }) => {
+    await openFolder(page, 'source')
+    await selectItem(page, 'a.txt')
+    await copy(page)
+    await expectClipboardReady(page)
+
+    // 不离开当前目录，直接粘贴
+    await paste(page)
+
+    await expect.poll(() => fs.existsSync(path.join(sourceDir, 'a - Copy.txt'))).toBe(true)
+    await expect(conflictDialog(page)).toBeHidden()
+    expect(fs.readFileSync(path.join(sourceDir, 'a.txt'), 'utf8')).toBe('alpha')
   })
 
   test('目录同名时静默合并，只对内部同名文件提问', async ({ page }) => {
@@ -101,6 +120,6 @@ test.describe('复制同名冲突', () => {
 
     // target/nested 已存在，但里面没有同名文件，因此不该弹窗
     await expect(conflictDialog(page)).toBeHidden()
-    await expect.poll(() => fs.readFileSync(path.join(targetDir, 'nested', 'deep.txt'), 'utf8')).toBe('deep')
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'nested', 'deep.txt'))).toBe('deep')
   })
 })

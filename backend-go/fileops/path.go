@@ -56,6 +56,19 @@ func Clean(p string) string {
 	return filepath.Clean(p)
 }
 
+// samePath 判断两个路径是否指向同一个位置。
+//
+// 用来识别「原地粘贴」：把 X 粘贴回 X 自己所在的目录时，目标路径就是源路径。
+// 这种情况不能按普通冲突处理——「用自己替换自己」没有意义。
+func samePath(a, b string) bool {
+	ca, errA := filepath.Abs(a)
+	cb, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	return ca == cb
+}
+
 // lstat 是 os.Lstat 的薄封装，统一本包内的存在性 / 类型判断入口。
 func lstat(p string) (os.FileInfo, error) {
 	return os.Lstat(p)
