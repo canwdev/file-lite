@@ -5,7 +5,7 @@ import type { TaskItem } from '@/utils/task-queue'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import { useStorage } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
-import { isDev, LsKeys } from '@/enum'
+import { LsKeys } from '@/enum'
 import { authToken } from '@/store/auth'
 import {
   cancelTask,
@@ -19,6 +19,7 @@ import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
 import { useVirtualList } from './ExplorerUI/hooks/use-virtual-files'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
+import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
   defineProps<{
@@ -669,71 +670,6 @@ function handleManualDownload(item: ITransferItem) {
   downloadUrl(url, item.filename)
 }
 
-onMounted(() => {
-  // 仅在开发环境下加载 mock 数据
-  const enableMock = false
-  if (!(isDev && enableMock))
-    return
-
-  const mockList = () => {
-    isVisible.value = true
-    let index = 0
-    const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
-      index++
-      const filename = overrides.filename || `mock_file_${index}.png`
-      return {
-        index,
-        path: `D:/TEST/${filename}`,
-        filename,
-        file: new File([], 'mock.png'),
-        progress: 0,
-        status: 'pending',
-        message: 'Waiting',
-        type: 'upload',
-        ...overrides,
-      }
-    }
-
-    listData.value = [
-      // 上传状态覆盖
-      createItem({ status: 'pending', message: 'Waiting' }),
-      createItem({
-        status: 'transferring',
-        message: 'Uploading',
-        progress: 0.45,
-        speedInfo: { loaded: 450000, total: 1000000, rate: 102400, bytes: 102400 },
-        abortObj: { abort: () => console.log('Abort Upload') },
-      }),
-      createItem({ status: 'success', message: 'Success', progress: 1 }),
-      createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
-
-      // 下载状态覆盖
-      createItem({ status: 'pending', type: 'download' }),
-      createItem({
-        status: 'transferring',
-        message: 'Downloading',
-        type: 'download',
-        progress: 0.75,
-        speedInfo: { loaded: 750000, total: 1000000, rate: 204800, bytes: 204800 },
-        abortObj: { abort: () => console.log('Abort Download') },
-      }),
-      createItem({ status: 'success', type: 'download', progress: 1 }),
-      // Windows 可能对 .url,.dll 等文件名进行限制
-      createItem({ status: 'failed', type: 'download', message: `TypeError: Failed to execute 'getFileHandle' on 'FileSystemDirectoryHandle': Name is not allowed.`, progress: 0.8 }),
-
-      // 特殊情况：长文件名
-      createItem({
-        filename: 'very_long_filename_to_test_ui_truncation_behavior_in_transfer_queue_list_item.png',
-        status: 'transferring',
-        progress: 0.15,
-      }),
-    ]
-    recomputeTotals()
-    triggerRef(listData)
-  }
-  mockList()
-})
-
 const serverBytes = computed(() => {
   let total = 0
   let loaded = 0
@@ -794,6 +730,72 @@ async function setConcurrentNum() {
   concurrentNum.value = intNum
   taskQueueRef.value.concurrent = intNum
 }
+/**
+ * 用一组覆盖各种状态的假数据填满用户队列，用来检查传输窗口的排版。
+ * 由 Development 菜单触发；真实的复制 / 上传任务不受影响。
+ */
+function loadMockTransferList() {
+  isVisible.value = true
+  let index = 0
+  const createItem = (overrides: Partial<ITransferItem>): ITransferItem => {
+    index++
+    const filename = overrides.filename || `mock_file_${index}.png`
+    return {
+      index,
+      path: `D:/TEST/${filename}`,
+      filename,
+      file: new File([], 'mock.png'),
+      progress: 0,
+      status: 'pending',
+      message: 'Waiting',
+      type: 'upload',
+      ...overrides,
+    }
+  }
+
+  listData.value = [
+    // 上传状态覆盖
+    createItem({ status: 'pending', message: 'Waiting' }),
+    createItem({
+      status: 'transferring',
+      message: 'Uploading',
+      progress: 0.45,
+      speedInfo: { loaded: 450000, total: 1000000, rate: 102400, bytes: 102400 },
+      abortObj: { abort: () => console.log('Abort Upload') },
+    }),
+    createItem({ status: 'success', message: 'Success', progress: 1 }),
+    createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
+
+    // 下载状态覆盖
+    createItem({ status: 'pending', type: 'download' }),
+    createItem({
+      status: 'transferring',
+      message: 'Downloading',
+      type: 'download',
+      progress: 0.75,
+      speedInfo: { loaded: 750000, total: 1000000, rate: 204800, bytes: 204800 },
+      abortObj: { abort: () => console.log('Abort Download') },
+    }),
+    createItem({ status: 'success', type: 'download', progress: 1 }),
+    // Windows 可能对 .url,.dll 等文件名进行限制
+    createItem({ status: 'failed', type: 'download', message: `TypeError: Failed to execute 'getFileHandle' on 'FileSystemDirectoryHandle': Name is not allowed.`, progress: 0.8 }),
+
+    // 特殊情况：长文件名
+    createItem({
+      filename: 'very_long_filename_to_test_ui_truncation_behavior_in_transfer_queue_list_item.png',
+      status: 'transferring',
+      progress: 0.15,
+    }),
+  ]
+  recomputeTotals()
+  triggerRef(listData)
+}
+
+// 菜单里的「Debug Transfer Window」
+useExplorerBusOn(ExplorerEvents.DEBUG_TRANSFER, () => {
+  loadMockTransferList()
+})
+
 function show() {
   isVisible.value = true
 }

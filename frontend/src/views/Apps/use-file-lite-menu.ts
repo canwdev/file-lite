@@ -12,6 +12,7 @@ import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
+import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import { useCollection } from './EndlessGallery/use-collection'
 
 async function handleSetTitle() {
@@ -261,11 +262,25 @@ export function useFileLiteMenu() {
               },
             },
             {
-              label: 'Enable Debug',
-              icon: enableDebug.value ? 'mdi mdi-check' : '',
-              onClick: () => {
-                enableDebug.value = !enableDebug.value
-              },
+              label: 'Development',
+              icon: 'mdi mdi-test-tube',
+              children: [
+                {
+                  label: 'Enable Debug',
+                  icon: enableDebug.value ? 'mdi mdi-check' : '',
+                  onClick: () => {
+                    enableDebug.value = !enableDebug.value
+                  },
+                },
+                {
+                  label: 'Debug Transfer Window',
+                  icon: 'mdi mdi-bug-play-outline',
+                  onClick: () => {
+                    explorerBus.emit(ExplorerEvents.DEBUG_TRANSFER)
+                  },
+                },
+              ],
+              divided: true,
             },
             {
               label: imageCacheLabel,

@@ -1,6 +1,6 @@
 # 前端 UI 端到端测试方法与结果
 
-> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，17 个用例，约 50 秒）
+> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，18 个用例，约 50 秒）
 > 运行：`cd e2e && bun install && bun run install:browser && bun run test`
 
 本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。截图由测试自己产出，
@@ -110,6 +110,13 @@ Cancel 之后从任务行重新打开（`03-conflict-reopen.png`）：
 文件夹上传的嵌套路径也能覆盖到。
 
 ![上传冲突弹窗](../e2e/screenshots/06-upload-conflict.png)
+
+### 传输窗口的调试数据
+
+Development 菜单里的「Debug Transfer Window」用一组覆盖各状态的假数据填满用户队列，
+用来检查排版（超长文件名、失败原因、上传/下载各自的进度）而不必真的传文件：
+
+![调试传输窗口](../e2e/screenshots/07-debug-transfer-window.png)
 
 ### 主界面
 
