@@ -4,6 +4,7 @@ import { h } from 'vue'
 import MdiAlertCircle from '~icons/mdi/alert-circle'
 import MdiAlertCircleOutline from '~icons/mdi/alert-circle-outline'
 import MdiApplicationSettingsOutline from '~icons/mdi/application-settings-outline'
+import MdiArrowCollapseLeft from '~icons/mdi/arrow-collapse-left'
 import MdiArrowCollapseRight from '~icons/mdi/arrow-collapse-right'
 import MdiArrowDownBoldCircleOutline from '~icons/mdi/arrow-down-bold-circle-outline'
 import MdiArrowDownThinCircleOutline from '~icons/mdi/arrow-down-thin-circle-outline'
@@ -185,6 +186,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'play': MdiPlay,
   'close': MdiClose,
   'close-box-multiple-outline': MdiCloseBoxMultipleOutline,
+  'arrow-collapse-left': MdiArrowCollapseLeft,
   'arrow-collapse-right': MdiArrowCollapseRight,
   'checkbox-marked': MdiCheckboxMarked,
   'checkbox-blank-outline': MdiCheckboxBlankOutline,

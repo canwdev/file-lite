@@ -18,7 +18,7 @@ import { getLastDirName } from './utils'
  *   只做 1s「弹簧加载」——悬停够久就切过去，用户再在内容区放下。
  */
 const TAB_DRAG_MIME = 'application/x-file-lite-tab'
-const SPRING_LOAD_MS = 1000
+const SPRING_LOAD_MS = 500
 
 const {
   tabs,
@@ -228,10 +228,10 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     >
       <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(tab) }}</span>
       <button
+        v-if="canCloseTabs"
         type="button"
-        class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm explorer-tabs__close"
-        :disabled="!canCloseTabs"
-        :title="canCloseTabs ? 'Close tab' : 'At least one tab is kept open'"
+        class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__close"
+        title="Close tab"
         @click.stop="closeTab(tab.id)"
       >
         <i-mdi-close />
@@ -240,7 +240,7 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
 
     <button
       type="button"
-      class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-tabs__add"
+      class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__add"
       title="New tab"
       @click="addTab()"
     >
@@ -306,7 +306,7 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
       position: absolute;
       top: 0;
       bottom: 0;
-      width: 2px;
+      width: 3px;
       background-color: var(--vgo-primary);
     }
 
@@ -344,10 +344,25 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
 
   &__close {
     flex-shrink: 0;
+    font-size: var(--vgo-icon-sm);
   }
 
   &__add {
+    position: relative;
     flex-shrink: 0;
+    font-size: var(--vgo-icon-sm);
+  }
+
+  // + 左边也要有分隔线，规则与标签之间的一致（紧邻的活动标签旁边不画）
+  .explorer-tabs__item:not(.is-active) + .explorer-tabs__add::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 1px;
+    height: var(--vgo-font-lg);
+    transform: translateY(-50%);
+    background-color: var(--vgo-border);
   }
 }
 </style>

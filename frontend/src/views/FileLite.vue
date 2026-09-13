@@ -38,7 +38,7 @@ function toggleTransferPanel() {
             :title="sidebarVisible ? 'Hide navigation' : 'Show navigation'"
             @click="toggleSidebar"
           >
-            <i-mdi-menu-close v-if="sidebarVisible" />
+            <i-mdi-menu-close v-if="!sidebarVisible" />
             <i-mdi-menu-open v-else />
           </button>
           <ExplorerTabBar />

@@ -37,6 +37,10 @@ test.describe('多标签页', () => {
     })
     expect(item.radius).not.toBe('0px')
     expect(item.outline).toBe('none')
+
+    // 新建 / 关闭按钮是圆形
+    const addRadius = await page.locator('.explorer-tabs__add').evaluate(el => getComputedStyle(el).borderTopLeftRadius)
+    expect(addRadius).not.toBe('0px')
   })
 
   test('新建标签永远追加在最后并激活', async ({ page }) => {
@@ -120,10 +124,10 @@ test.describe('多标签页', () => {
     await expect(row(page, 'a.txt')).toBeVisible()
     await expect(row(page, 'b.txt')).toHaveCount(0)
 
-    // 至少保留 1 个标签：关掉第二个后，最后一个的关闭按钮不可用
+    // 至少保留 1 个标签：只剩一个时不再渲染关闭按钮
     await tabs.nth(1).locator('.explorer-tabs__close').click()
     await expect(tabs).toHaveCount(1)
-    await expect(tabs.nth(0).locator('.explorer-tabs__close')).toBeDisabled()
+    await expect(tabs.nth(0).locator('.explorer-tabs__close')).toHaveCount(0)
 
     // 持久化：刷新后标签与路径保持
     await page.reload()
@@ -203,7 +207,7 @@ test.describe('多标签页', () => {
     await expect(tabs).toHaveCount(1)
   })
 
-  test('拖文件悬停标签 1s 自动切换，标签本身不接受文件', async ({ page }) => {
+  test('拖文件悬停标签 500ms 自动切换，标签本身不接受文件', async ({ page }) => {
     await login(page)
     const tabs = await twoTabs(page)
 
