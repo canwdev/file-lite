@@ -46,10 +46,17 @@ const props = withDefaults(
     filterDirectories?: boolean
     contentOnly?: boolean
     gridView?: boolean
+    /**
+     * 本列表所在面板是不是当前聚焦的面板。
+     * 拆分视图下两个面板都在加载，只有聚焦的那个可以在加载完成后把 DOM 焦点抢进列表，
+     * 否则后台面板一加载完就会把活动面板抢走。
+     */
+    focused?: boolean
     // 设置 selectables 防止跨层级选择
     selectables?: string[]
   }>(),
   {
+    focused: true,
     selectables: () => ['.explorer-list-wrap .selectable'],
     filter: () => createDefaultFileFilter(),
     filterDirectories: false,
@@ -691,7 +698,8 @@ function handleTransferAllDone(items: Array<Parameters<typeof uploadEntries>[0][
 useExplorerBusOn(ExplorerEvents.TRANSFER_DONE, items => handleTransferAllDone(items))
 
 watch(isLoading, (val) => {
-  if (!val) {
+  // 聚焦的面板才抢焦点：拆分视图里另一个面板加载完不该把活动面板抢过去
+  if (!val && props.focused) {
     focusFileList()
   }
 })

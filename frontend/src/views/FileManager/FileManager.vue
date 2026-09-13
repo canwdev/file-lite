@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
 import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
@@ -64,20 +65,30 @@ const selectorPath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
 const SELECTOR_PANE_ID = 'selector'
 
 const {
-  tabs,
+  items,
   activeTabId,
+  activeItemId,
   activePath: tabsActivePath,
   addTab,
   openTab,
   closeTab,
+  activateItem,
   activateTab,
   setTabPath,
   setActivePath,
 } = useExplorerTabs()
 
-/** 标签模式下每个标签一个面板；选择器模式固定一个本地面板 */
+/** 标签模式下每个面板（拆分项里的两个各自）一个 ExplorerPane；选择器模式固定一个本地面板 */
 const activePaneId = computed(() => props.tabsMode ? activeTabId.value : SELECTOR_PANE_ID)
 const activePath = computed(() => props.tabsMode ? tabsActivePath.value : selectorPath.value)
+
+/**
+ * 我们的 `split` 存的是**分隔线方向**（vertical = 左右并排），而 el-splitter 的 `layout`
+ * 是**排列方向**（horizontal = 左右并排），两者恰好相反，只在这里做一次映射。
+ */
+function splitterLayout(item: ExplorerTabItem) {
+  return item.split === 'horizontal' ? 'vertical' : 'horizontal'
+}
 
 /** 选择器只有一个面板，底部按钮需要它的选中状态；标签模式外壳不需要引用面板实例 */
 const selectorPaneRef = ref<InstanceType<typeof ExplorerPane> | null>(null)
@@ -169,14 +180,14 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
   }
   if (key === 'w') {
     event.preventDefault()
-    closeTab(activeTabId.value)
+    closeTab(activeItemId.value)
     return
   }
   if (/^[1-9]$/.test(key)) {
-    const tab = tabs.value[Number(key) - 1]
-    if (tab) {
+    const item = items.value[Number(key) - 1]
+    if (item) {
       event.preventDefault()
-      activateTab(tab.id)
+      activateItem(item.id)
     }
   }
 })
@@ -316,7 +327,7 @@ useEventListener(window, 'dragend', () => {
 })
 
 function showStarredPathMenu(path: string, event: MouseEvent) {
-  const items: MenuItem[] = [
+  const menuItems: MenuItem[] = [
     {
       label: 'Open',
       icon: 'mdi mdi-folder-open-outline',
@@ -338,7 +349,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items: resolveMenuIcons(items),
+    items: resolveMenuIcons(menuItems),
   })
 }
 </script>
@@ -382,24 +393,39 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
         </div>
       </FileSidebar>
 
-      <!-- 标签模式：一个标签一个面板，v-show 保活（隐藏的标签不加载预览，见 ThemedIcon） -->
+      <!-- 标签模式：一项一个容器，v-show 保活（隐藏的标签不加载预览，见 ThemedIcon）；
+           拆分项内部用 el-splitter 排两个面板，单标签项只有一个面板，不画分隔线 -->
       <template v-if="tabsMode">
-        <ExplorerPane
-          v-for="pane in tabs"
-          v-show="pane.id === activePaneId"
-          :key="pane.id"
-          :path="pane.path"
-          :active="pane.id === activePaneId"
-          :shortcut-scope="paneScope(pane.id)"
-          :select-file-mode="selectFileMode"
-          :multiple="multiple"
-          :content-only="contentOnly"
-          :file-filter-pattern="fileFilterPattern"
-          @update:path="(path: string) => onPanePathUpdate(pane.id, path)"
-          @handle-select="emit('handleSelect', $event)"
-          @cancel-select="emit('cancelSelect')"
-          @open-path-in-new-tab="openPathInNewTab"
-        />
+        <div
+          v-for="item in items"
+          v-show="item.id === activeItemId"
+          :key="item.id"
+          class="explorer-tab-panel"
+        >
+          <el-splitter :layout="splitterLayout(item)">
+            <el-splitter-panel
+              v-for="pane in item.tabs"
+              :key="pane.id"
+              @mousedown="activateTab(pane.id)"
+              @focusin="activateTab(pane.id)"
+            >
+              <ExplorerPane
+                :path="pane.path"
+                :active="item.id === activeItemId"
+                :focused="pane.id === activeTabId"
+                :shortcut-scope="paneScope(pane.id)"
+                :select-file-mode="selectFileMode"
+                :multiple="multiple"
+                :content-only="contentOnly"
+                :file-filter-pattern="fileFilterPattern"
+                @update:path="(path: string) => onPanePathUpdate(pane.id, path)"
+                @handle-select="emit('handleSelect', $event)"
+                @cancel-select="emit('cancelSelect')"
+                @open-path-in-new-tab="openPathInNewTab"
+              />
+            </el-splitter-panel>
+          </el-splitter>
+        </div>
       </template>
       <!-- 选择器：固定单面板，路径沿用 NAV_PATH -->
       <ExplorerPane
@@ -455,6 +481,28 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  // 标签项容器：v-show 保活，撑满侧边栏右侧的区域
+  .explorer-tab-panel {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+  }
+
+  // el-splitter 是单根子组件，根节点会带上本组件的 scope id；el-splitter-panel 是多根
+  // （面板 + 分隔线两个根节点），Vue 不会把父组件的 scope id 贴上去，只能用 :deep()
+  .explorer-tab-panel > .el-splitter {
+    flex: 1;
+    min-width: 0;
+  }
+
+  // 面板自带 overflow: auto，会和面板内部的滚动容器叠成两条滚动条
+  .explorer-tab-panel :deep(.el-splitter-panel) {
+    display: flex;
+    overflow: hidden;
+    min-width: 0;
   }
 
   // 侧边栏根元素归布局管：固定宽度 + 右侧分隔线（以前由分栏组件提供）

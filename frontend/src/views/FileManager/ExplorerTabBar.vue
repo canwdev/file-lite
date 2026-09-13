@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { ExplorerTab } from './ExplorerUI/explorer-tabs-store'
+import type { ExplorerTab, ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useEventListener } from '@vueuse/core'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { resolveMenuIcons } from '@/utils/icons'
 import { isExternalFileDrag, isInternalDrag } from './ExplorerUI/entry-drag'
-import { useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
+import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import { getLastDirName } from './utils'
 
 /**
  * 内置标签栏。只负责「标签长什么样 + 怎么操作」，路径与激活状态都在 store 里。
+ *
+ * 一项 = 一个标签条格子：单标签项含 1 个面板，拆分项含 2 个面板（左右并排或上下堆叠），
+ * 两个面板在标签条上合并展示，共享一个关闭按钮。
  *
  * 两种拖拽必须分开：
  * - 标签自己的排序拖拽（TAB_DRAG_MIME）：preventDefault，标签是合法落点；
@@ -21,8 +24,8 @@ const TAB_DRAG_MIME = 'application/x-file-lite-tab'
 const SPRING_LOAD_MS = 500
 
 const {
-  tabs,
-  activeTabId,
+  items,
+  activeItemId,
   canCloseTabs,
   addTab,
   closeTab,
@@ -30,14 +33,19 @@ const {
   closeToLeft,
   closeToRight,
   activateTab,
+  activateItem,
   moveTab,
+  splitTab,
+  unsplit,
+  toggleSplitDirection,
+  swapSplitPanes,
 } = useExplorerTabs()
 
 const tabBarRef = ref<HTMLElement | null>(null)
 
 /* ---------------- 排序拖拽 ---------------- */
 const dragTabId = ref<string | null>(null)
-/** 插入位置：0..tabs.length，按指针在标签左 / 右半边计算 */
+/** 插入位置：0..items.length，按指针在标签左 / 右半边计算 */
 const tabDropIndex = ref<number | null>(null)
 
 function isTabDrag(event: DragEvent) {
@@ -49,15 +57,15 @@ function resetTabDrag() {
   tabDropIndex.value = null
 }
 
-function onTabDragStart(tab: ExplorerTab, event: DragEvent) {
-  dragTabId.value = tab.id
-  event.dataTransfer?.setData(TAB_DRAG_MIME, tab.id)
+function onTabDragStart(item: ExplorerTabItem, event: DragEvent) {
+  dragTabId.value = item.id
+  event.dataTransfer?.setData(TAB_DRAG_MIME, item.id)
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
   }
 }
 
-function onTabDragOver(tab: ExplorerTab, index: number, event: DragEvent) {
+function onTabDragOver(item: ExplorerTabItem, index: number, event: DragEvent) {
   if (isTabDrag(event)) {
     event.preventDefault()
     event.stopPropagation()
@@ -74,7 +82,7 @@ function onTabDragOver(tab: ExplorerTab, index: number, event: DragEvent) {
     return
   }
   // 标签不接受文件：这里刻意不 preventDefault，只计时
-  scheduleSpringLoad(tab.id)
+  scheduleSpringLoad(item.id)
 }
 
 function onTabDrop(event: DragEvent) {
@@ -83,7 +91,7 @@ function onTabDrop(event: DragEvent) {
   }
   event.preventDefault()
   event.stopPropagation()
-  const from = tabs.value.findIndex(tab => tab.id === dragTabId.value)
+  const from = items.value.findIndex(item => item.id === dragTabId.value)
   const to = tabDropIndex.value
   resetTabDrag()
   if (from !== -1 && to !== null) {
@@ -112,16 +120,16 @@ function cancelSpringLoad() {
   springTabId.value = null
 }
 
-function scheduleSpringLoad(tabId: string) {
-  if (activeTabId.value === tabId || springTabId.value === tabId) {
+function scheduleSpringLoad(itemId: string) {
+  if (activeItemId.value === itemId || springTabId.value === itemId) {
     return
   }
   cancelSpringLoad()
-  springTabId.value = tabId
+  springTabId.value = itemId
   springTimer = setTimeout(() => {
     springTimer = null
     springTabId.value = null
-    activateTab(tabId)
+    activateItem(itemId)
   }, SPRING_LOAD_MS)
 }
 
@@ -140,56 +148,103 @@ function tabLabel(tab: ExplorerTab) {
   return getLastDirName(tab.path) || tab.path || '/'
 }
 
-function onTabAuxClick(tab: ExplorerTab, event: MouseEvent) {
-  // 中键关闭，与浏览器一致
+function onTabAuxClick(item: ExplorerTabItem, event: MouseEvent) {
+  // 中键关闭整个标签项，与浏览器一致
   if (event.button === 1) {
     event.preventDefault()
-    closeTab(tab.id)
+    closeTab(item.id)
   }
 }
 
-function onTabKeydown(tab: ExplorerTab, event: KeyboardEvent) {
+function onTabKeydown(item: ExplorerTabItem, event: KeyboardEvent) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
-    activateTab(tab.id)
+    activateItem(item.id)
   }
 }
 
-/** 标签右键菜单：关闭相关的操作都天然满足「至少保留 1 个」 */
-function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
-  const index = tabs.value.findIndex(item => item.id === tab.id)
-  const items: MenuItem[] = [
+/** 拆分项的子菜单：取消拆分 / 切换方向（文案与图标都描述**目标**方向） / 交换视图 */
+function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
+  const vertical = item.split !== 'horizontal'
+  return [
+    {
+      label: 'Unsplit',
+      icon: 'mdi mdi-view-sequential',
+      onClick: () => unsplit(item.id),
+    },
+    vertical
+      ? {
+          label: 'Split horizontally',
+          icon: 'mdi mdi-view-split-horizontal',
+          onClick: () => toggleSplitDirection(item.id),
+        }
+      : {
+          label: 'Split vertically',
+          icon: 'mdi mdi-view-split-vertical',
+          onClick: () => toggleSplitDirection(item.id),
+        },
+    {
+      label: 'Swap views',
+      icon: vertical ? 'mdi mdi-swap-horizontal' : 'mdi mdi-swap-vertical',
+      onClick: () => swapSplitPanes(item.id),
+    },
+  ]
+}
+
+/** 关闭相关的操作都天然满足「至少保留 1 项」 */
+function closeSubmenu(item: ExplorerTabItem, index: number): MenuItem[] {
+  return [
     {
       label: 'Close',
       icon: 'mdi mdi-close',
       disabled: !canCloseTabs.value,
-      onClick: () => closeTab(tab.id),
+      onClick: () => closeTab(item.id),
     },
     {
       label: 'Close others',
       icon: 'mdi mdi-close-box-multiple-outline',
-      disabled: tabs.value.length < 2,
-      onClick: () => closeOthers(tab.id),
+      disabled: items.value.length < 2,
+      onClick: () => closeOthers(item.id),
     },
     {
       label: 'Close to the left',
       icon: 'mdi mdi-arrow-collapse-left',
       disabled: index <= 0,
-      onClick: () => closeToLeft(tab.id),
+      onClick: () => closeToLeft(item.id),
     },
     {
       label: 'Close to the right',
       icon: 'mdi mdi-arrow-collapse-right',
-      disabled: index === -1 || index === tabs.value.length - 1,
-      onClick: () => closeToRight(tab.id),
+      disabled: index === -1 || index === items.value.length - 1,
+      onClick: () => closeToRight(item.id),
     },
   ]
+}
+
+/** 标签右键菜单：新增的「拆分视图」放最上面并压一条分隔线，原有的关闭项保持在最下面 */
+function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
+  const index = items.value.findIndex(entry => entry.id === item.id)
+  const splitView: MenuItem = isSplitItem(item)
+    ? {
+        label: 'Split view',
+        icon: item.split === 'horizontal' ? 'mdi mdi-view-split-horizontal' : 'mdi mdi-view-split-vertical',
+        divided: true,
+        children: splitSubmenu(item),
+      }
+    : {
+        label: 'Split view',
+        icon: 'mdi mdi-view-split-vertical',
+        divided: true,
+        onClick: () => splitTab(item.id),
+      }
+
+  const menuItems: MenuItem[] = [splitView, ...closeSubmenu(item, index)]
 
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
     ...menuThemeOptions,
-    items: resolveMenuIcons(items),
+    items: resolveMenuIcons(menuItems),
   })
 }
 </script>
@@ -203,36 +258,46 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     @dragleave="onTabDragLeave"
   >
     <div
-      v-for="(tab, index) in tabs"
-      :key="tab.id"
+      v-for="(item, index) in items"
+      :key="item.id"
       class="vgo-list-item explorer-tabs__item"
       :class="{
-        'is-active': tab.id === activeTabId,
-        'is-drag-source': tab.id === dragTabId,
+        'is-active': item.id === activeItemId,
+        'is-split': isSplitItem(item),
+        'is-drag-source': item.id === dragTabId,
         'is-drop-before': tabDropIndex === index,
-        'is-drop-after': tabDropIndex === index + 1 && index === tabs.length - 1,
-        'is-drop-pending': tab.id === springTabId,
+        'is-drop-after': tabDropIndex === index + 1 && index === items.length - 1,
+        'is-drop-pending': item.id === springTabId,
       }"
       role="tab"
-      :aria-selected="tab.id === activeTabId"
+      :aria-selected="item.id === activeItemId"
       tabindex="0"
-      :title="tab.path"
+      :title="isSplitItem(item) ? undefined : item.tabs[0].path"
       :draggable="true"
-      @click="activateTab(tab.id)"
-      @keydown="onTabKeydown(tab, $event)"
-      @auxclick="onTabAuxClick(tab, $event)"
-      @contextmenu.prevent.stop="showTabMenu(tab, $event)"
-      @dragstart="onTabDragStart(tab, $event)"
-      @dragover="onTabDragOver(tab, index, $event)"
+      @click="activateItem(item.id)"
+      @keydown="onTabKeydown(item, $event)"
+      @auxclick="onTabAuxClick(item, $event)"
+      @contextmenu.prevent.stop="showTabMenu(item, $event)"
+      @dragstart="onTabDragStart(item, $event)"
+      @dragover="onTabDragOver(item, index, $event)"
       @drop="onTabDrop"
     >
-      <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(tab) }}</span>
+      <span
+        v-for="pane in item.tabs"
+        :key="pane.id"
+        class="explorer-tabs__half"
+        :class="{ 'is-focused': pane.id === item.activeTabId }"
+        :title="pane.path"
+        @click="activateTab(pane.id)"
+      >
+        <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(pane) }}</span>
+      </span>
       <button
         v-if="canCloseTabs"
         type="button"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__close"
         title="Close tab"
-        @click.stop="closeTab(tab.id)"
+        @click.stop="closeTab(item.id)"
       >
         <i-mdi-close />
       </button>
@@ -275,6 +340,11 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     overflow: hidden;
     outline: none;
     cursor: pointer;
+
+    // 拆分项里有两个标题，放宽一点，标题仍各自省略号
+    &.is-split {
+      max-width: 16rem;
+    }
 
     // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
     &.is-active {
@@ -319,6 +389,33 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     // 弹簧加载等待中：只是提示，不会有动画
     &.is-drop-pending {
       background-color: var(--vgo-primary-opacity);
+    }
+  }
+
+  /** 一个面板在一项里占的那半边：单标签项就是一整块标题 */
+  &__half {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+
+    // 拆分项里两个标题之间的分隔线
+    & + &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 1px;
+      height: var(--vgo-font-lg);
+      transform: translateY(-50%);
+      background-color: var(--vgo-border);
+    }
+
+    // 拆分项里没聚焦的那半压暗，一眼能看出当前面板是哪个
+    &:not(.is-focused) {
+      color: var(--vgo-text-secondary);
     }
   }
 

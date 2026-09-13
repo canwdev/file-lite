@@ -139,6 +139,8 @@ import MdiSpeedometer from '~icons/mdi/speedometer'
 import MdiStar from '~icons/mdi/star'
 import MdiStarOffOutline from '~icons/mdi/star-off-outline'
 import MdiStarOutline from '~icons/mdi/star-outline'
+import MdiSwapHorizontal from '~icons/mdi/swap-horizontal'
+import MdiSwapVertical from '~icons/mdi/swap-vertical'
 import MdiTestTube from '~icons/mdi/test-tube'
 import MdiTextBoxEdit from '~icons/mdi/text-box-edit'
 import MdiTextBoxOutline from '~icons/mdi/text-box-outline'
@@ -149,6 +151,9 @@ import MdiVideoOutline from '~icons/mdi/video-outline'
 import MdiViewCarouselOutline from '~icons/mdi/view-carousel-outline'
 import MdiViewGridOutline from '~icons/mdi/view-grid-outline'
 import MdiViewListOutline from '~icons/mdi/view-list-outline'
+import MdiViewSequential from '~icons/mdi/view-sequential'
+import MdiViewSplitHorizontal from '~icons/mdi/view-split-horizontal'
+import MdiViewSplitVertical from '~icons/mdi/view-split-vertical'
 import MdiVolumeHigh from '~icons/mdi/volume-high'
 import MdiVolumeVariantOff from '~icons/mdi/volume-variant-off'
 import MdiVuejs from '~icons/mdi/vuejs'
@@ -311,6 +316,12 @@ export const mdiIconRegistry: Record<string, Component> = {
   'test-tube': MdiTestTube,
   'bug-play-outline': MdiBugPlayOutline,
   'server': MdiServer,
+  // 标签拆分视图菜单
+  'view-split-vertical': MdiViewSplitVertical,
+  'view-split-horizontal': MdiViewSplitHorizontal,
+  'view-sequential': MdiViewSequential,
+  'swap-horizontal': MdiSwapHorizontal,
+  'swap-vertical': MdiSwapVertical,
 }
 /**
  * 把任意图标字符串归一化为注册表 key（去掉 'mdi ' 基类、'mdi-' 前缀及无关修饰类）。

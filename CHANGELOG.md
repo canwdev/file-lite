@@ -38,6 +38,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - The explorer has built-in tabs: open several folders at once and switch between them, and each tab keeps its own folder, selection, filter and scroll position (frontend).
 - Tabs can be added, closed and reordered by dragging, are remembered across reloads, and at least one tab always stays open; a new tab is appended at the end, the active one is highlighted in the theme colour, and tabs squeeze instead of wrapping when there are many (frontend).
+- A tab's context menu can split it into two panes, side by side by default or stacked, merging with the tab next to it when there is one; the pair shows as a single tab with one close button, and the menu also unsplits it, switches the direction and swaps the two views (frontend).
+- The two panes resize by dragging the divider, files can be dropped from one pane straight into a folder of the other, and which pane has focus follows the one you click; the split is remembered across reloads while the divider position is not (frontend).
 - The tab strip sits in the top bar at the toolbar's height, with rounded tabs separated by short dividers; the only tab hides its close button, and the new-tab / close buttons are small and round (frontend).
 - Dragging files over another tab for half a second switches to that tab, but the drop itself still has to happen in the file list — a tab never accepts files (frontend).
 - Every "Open in new Tab" entry now opens a built-in tab instead of a browser tab; `Alt+T` / `Alt+W` / `Alt+1..9` add, close and jump between tabs, and a tab's right-click menu closes it, the others, or everything to its left or right (frontend).

@@ -34,13 +34,16 @@ const props = withDefaults(
     fileFilterPattern?: string
     // 快捷键作用域，供主文件管理器和文件选择器隔离
     shortcutScope: string
-    // 预留：多标签下只有活动标签响应，暂时只接收不使用
+    // 所在标签项是否活动（拆分项里的两个面板会同时为 true）：决定是否首次加载与恢复滚动
     active?: boolean
+    // 本面板是不是当前聚焦的面板：拆分项里两个面板只有一个是
+    focused?: boolean
   }>(),
   {
     multiple: false,
     contentOnly: false,
     active: true,
+    focused: true,
   },
 )
 const emit = defineEmits<{
@@ -487,6 +490,7 @@ defineExpose({
           :select-file-mode="selectFileMode"
           :multiple="multiple"
           :content-only="contentOnly"
+          :focused="focused"
           @open="handleFileListOpen"
           @select="handleSelectFromMenu"
           @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
