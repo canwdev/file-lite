@@ -101,6 +101,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Engineering
 
 - A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
+- The README's feature screenshots are generated from a demonstration library by `cd e2e && bun run docs:screenshots`, so they follow the UI instead of being retaken by hand; the sample media is downloaded once into a gitignored cache.
 - Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
 
 ## 1.4.5

@@ -5,3 +5,5 @@ playwright-report
 .bun-cache
 .browsers
 .file-lite-e2e
+# README 截图素材的下载缓存（可复用，不提交）
+.samples

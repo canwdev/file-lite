@@ -73,6 +73,29 @@ bun run report       # 打开上一次的 HTML 报告
 [`../docs/design/frontend-ui-testing.md`](../docs/design/frontend-ui-testing.md) 引用）。
 截图前会等待弹窗动画落定，并清掉历史任务，保证画面只反映当前用例。
 
+## README 截图
+
+README 功能表格里的截图由另一个脚本产出，输出到 `../docs/screenshots/`：
+
+```sh
+cd e2e
+bun run docs:screenshots              # 内部会先构建应用；首次还要下载演示素材
+E2E_SKIP_BUILD=1 bun run docs:screenshots   # 复用上一次构建的二进制
+bun run docs:screenshots --only=01,04 # 只重截某几张
+bun run docs:screenshots --refresh    # 重新下载演示素材
+```
+
+- 演示内容不碰测试夹具：`scripts/docs-fixture.mjs` 会在 `/tmp/file-lite-demo/` 下
+  单独建一份「Pictures / Videos / Music / Media / Documents」演示库（可用 `E2E_DOCS_DIR` 改位置）。
+  放 `/tmp` 而不是仓库里，是因为地址栏显示绝对路径，放仓库会把仓库路径印进截图。
+- 素材（图片、视频、音频）来自 picsum.photos、download.samplelib.com 与
+  test-videos.co.uk，下载后缓存在 `.samples/`（已 gitignore，可复用、不提交）；
+  带封面和歌词的 mp3 由本机 ffmpeg 合成，歌词用脚本手工写入 USLT 帧
+  （ffmpeg 只会写 `TXXX:USLT`，播放器读不到）。
+- 服务端口默认 `4174`（测试是 `4173`），可用 `E2E_DOCS_PORT` 覆盖。
+- `00-main.webp` 是手工精修的主图，脚本不会覆盖它。
+- 每个功能点用独立的浏览器上下文截图，所以标签页、视图、滚动位置互不干扰。
+
 ## 排查
 
 **`port 4173 is already in use`**
@@ -111,11 +134,15 @@ e2e/
 │   ├── fixture.mjs           # 夹具常量与重建（无副作用，测试代码也会 import）
 │   ├── start-app.mjs         # webServer 入口：建夹具 + 起服务
 │   ├── run-tests.mjs         # 跨平台入口，固定浏览器目录
-│   └── install-browser.mjs   # 把 Chromium 装进 .browsers
+│   ├── install-browser.mjs   # 把 Chromium 装进 .browsers
+│   ├── docs-assets.mjs       # README 截图的免费素材下载与 mp3 合成
+│   ├── docs-fixture.mjs      # README 截图的演示库
+│   └── capture-docs.mjs      # README 截图入口，输出到 ../docs/screenshots
 ├── tests/
 │   ├── helpers.ts            # 登录、导航、复制/粘贴、截图等
 │   └── *.spec.ts
-└── screenshots/              # 文档用截图（提交）
+├── .samples/                 # 素材下载缓存（gitignore，可复用）
+└── screenshots/              # 测试文档用截图（提交）
 ```
 
 > `scripts/fixture.mjs` 与 `scripts/start-app.mjs` 是分开的：测试代码要 import 夹具常量，

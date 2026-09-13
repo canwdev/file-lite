@@ -8,7 +8,9 @@
     "test": "node scripts/run-tests.mjs",
     "test:headed": "node scripts/run-tests.mjs --headed",
     "report": "playwright show-report",
-    "install:browser": "node scripts/install-browser.mjs"
+    "install:browser": "node scripts/install-browser.mjs",
+    "docs:assets": "node scripts/docs-assets.mjs",
+    "docs:screenshots": "node scripts/capture-docs.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"

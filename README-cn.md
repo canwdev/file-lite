@@ -10,18 +10,34 @@
 
 ---
 
-![screenshot](docs/screenshot.webp)
+![File Lite](docs/screenshots/00-main.webp)
+
+|  |  |
+| :-: | :-- |
+| ![标签页与拆分视图](docs/screenshots/01-tabs-split.webp) | **标签页与拆分视图**：同时打开多个目录，把一个标签拆成左右或上下两个面板，文件可以直接从一个面板拖进另一个面板的文件夹。 |
+| ![传输与后台任务](docs/screenshots/02-transfers-tasks.webp) | **传输与后台任务**：上传下载在浏览器里跑，复制 / 移动 / 删除在服务端跑，都是可取消的任务，进度集中显示在右下角面板里。 |
+| ![Endless Gallery](docs/screenshots/03-gallery.webp) | **Endless Gallery**：像刷短视频一样纵向浏览当前目录里的图片、视频和音频，支持滑动、滚轮和键盘操作。 |
+| ![音乐播放器](docs/screenshots/04-music-player.webp) | **音乐播放器**：播放列表、文件内嵌封面与同步歌词，只读取文件自身的标签，不整包下载。 |
+| ![视频播放器](docs/screenshots/05-video-player.webp) | **视频播放器**：ArtPlayer 与原生 `<video>` 可在菜单中一键切换，偏好按浏览器记住。 |
+| ![缩略图与预览](docs/screenshots/06-thumbnails.webp) | **缩略图与预览**：图片预览、视频首帧（ffmpeg）与音频封面都由服务端生成，并在浏览器中缓存。 |
+| ![文本编辑器](docs/screenshots/07-text-editor.webp) | **文本编辑器**：在网页里直接编辑并保存文本文件，有未保存提醒，保存前会检查文件是否已被改动。 |
+| ![属性窗口](docs/screenshots/08-properties.webp) | **Windows 风格属性窗口**：图标、类型、完整路径、大小与日期，文件夹的递归体积在后台计算并回填。 |
 
 - **后端**：单一 Go (Echo) 服务，编译为内嵌前端资源的单文件可执行程序
 - **打包体积**：单包不超过约 20MB
 - **功能**
-  - 文件与目录：创建、删除、重命名、移动、复制
-  - 传输：批量上传、上传文件夹、下载、将文件夹打包为 ZIP 下载
-  - 文本编辑器
-  - 预览：图片、视频、音频；**音乐播放器**（播放列表、封面、歌词展示）
-  - 视频：**ArtPlayer.js** 与**原生 `<video>`** 在菜单中一键切换（偏好持久化）
-  - **Endless Gallery**：类短视频流的纵向滑动浏览，聚合当前目录下支持的图片 / 视频 / 音频，触屏与键鼠操作
-  - 资源管理器：路径级布局与排序状态持久化、按扩展名设置默认打开方式等
+  - 资源管理器：标签页与拆分视图、列表 / 网格、面包屑、收藏夹、磁盘、隐藏文件、过滤、按路径记住排序与布局
+  - 文件与目录：创建、重命名、移动、复制、重制副本、删除、属性、按扩展名设置默认打开方式
+  - 传输：拖拽上传（文件或文件夹）、下载、将文件夹打包为 ZIP 下载；复制 / 移动 / 删除是可取消的后台任务，有进度和失败重试
+  - 同名冲突：替换、跳过或保留两者，可按单项或整批处理；目录按 Windows 资源管理器的方式合并
+  - 预览：服务端生成缩略图 —— 图片预览、视频首帧（ffmpeg）、音频封面 —— 并在浏览器缓存
+  - 媒体：图片查看器（缩放、旋转）、视频播放器、音乐播放器（播放列表、内嵌封面、同步歌词）
+  - Endless Gallery：类短视频流的纵向浏览，支持收藏与缩略图条
+  - 编辑器与查看器：文本编辑器、HTML 查看器
+  - 外部集成：通过短时 `ticket` 链接把 File Lite 当作"打开文件"选择器嵌入其它应用，无需密码
+  - 实用工具：测速、实时文本同步
+  - 界面：浅色 / 深色 / 跟随系统，多套配色，减少动效，全屏，屏幕常亮，触屏友好
+  - 运维：在 Development 菜单中更新后端二进制、重启或退出服务
 - **安全**
   - 密码登录后签发 JWT 会话令牌
   - 控制台链接使用短时 `ticket` 登录参数，有效期 2 分钟；重新打印链接会生成新的 `ticket`
@@ -69,6 +85,7 @@ bun run build
 
 - **Go 后端**：编译与 `bun run build:all` 说明见 [backend-go/README.md](backend-go/README.md)
 - **E2E UI 测试**：独立的 Playwright 子项目 [e2e/README.md](e2e/README.md)，测试方法与截图见 [docs/design/frontend-ui-testing.md](docs/design/frontend-ui-testing.md)
+- **README 截图**：`cd e2e && bun run docs:screenshots` 会用演示素材重新生成上面的表格，输出到 [docs/screenshots](docs/screenshots)
 - **文件操作**：复制 / 移动 / 删除是走 WebSocket 的可取消后台任务，设计与实现说明见 [docs/design/async-file-operations-ws-design.md](docs/design/async-file-operations-ws-design.md)
 
 ## 配置文件
