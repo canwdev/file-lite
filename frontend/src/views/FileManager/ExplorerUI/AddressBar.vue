@@ -115,6 +115,14 @@ const segments = computed(() => getBreadcrumbSegments(props.modelValue))
 const hiddenPrefixCount = ref(0)
 /** 测量阶段临时显示全部 crumb（同一帧内完成，不会闪烁） */
 const measuring = ref(false)
+/** 被折叠隐藏的祖先段，作为最左侧「…」的提示文案 */
+const hiddenPrefixNames = computed(() =>
+  segments.value
+    .slice(0, hiddenPrefixCount.value)
+    .map(seg => seg.name)
+    .filter(name => name !== '/')
+    .join(' / '),
+)
 let breadcrumbResizeObserver: ResizeObserver | null = null
 
 async function recomputeBreadcrumbFit() {
@@ -220,7 +228,7 @@ function onBreadcrumbBarClick(event: MouseEvent) {
     return
   }
   const target = event.target as HTMLElement | null
-  if (target?.closest('.addr-crumb, .addr-crumb-caret')) {
+  if (target?.closest('.address-bar__crumb, .address-bar__crumb-caret')) {
     return
   }
   startEdit()
@@ -386,13 +394,13 @@ function onMenuKeydown(e: KeyboardEvent) {
   e.preventDefault()
   menuActiveIndex.value = next
   const panel = crumbMenuRef.value
-  const button = panel?.querySelectorAll<HTMLElement>('.crumb-menu-row')[next]
+  const button = panel?.querySelectorAll<HTMLElement>('.address-bar__menu-row')[next]
   button?.scrollIntoView({ block: 'nearest' })
 }
 
 function onWindowPointerDown(e: PointerEvent) {
   const target = e.target as HTMLElement | null
-  if (target?.closest('.addr-crumb-caret, .addr-crumb-menu')) {
+  if (target?.closest('.address-bar__crumb-caret, .address-bar__crumb-menu')) {
     return
   }
   closeCrumbMenu()
@@ -401,7 +409,7 @@ function onWindowPointerDown(e: PointerEvent) {
 function onWindowScroll(e: Event) {
   // 菜单内部滚动（如键盘高亮 scrollIntoView）不关闭
   const target = e.target as Element | null
-  if (target?.closest?.('.addr-crumb-menu')) {
+  if (target?.closest?.('.address-bar__crumb-menu')) {
     return
   }
   closeCrumbMenu()
@@ -462,7 +470,7 @@ defineExpose({
       ref="inputRef"
       v-model="editDraft"
       type="text"
-      class="address-bar-input vgo-input"
+      class="address-bar__input vgo-input"
       placeholder="Path"
       @keydown="onInputKeydown"
       @blur="onInputBlur"
@@ -470,21 +478,27 @@ defineExpose({
     <div
       v-show="!editing"
       ref="breadcrumbScrollRef"
-      class="address-bar-breadcrumb"
+      class="address-bar__breadcrumb"
       :class="{ 'has-overflow': hiddenPrefixCount > 0 && !measuring }"
       role="navigation"
       aria-label="Path"
       @click="onBreadcrumbBarClick"
     >
       <template v-if="segments.length">
+        <span
+          v-if="hiddenPrefixCount > 0 && !measuring"
+          class="address-bar__ellipsis"
+          :title="hiddenPrefixNames"
+          aria-hidden="true"
+        >…</span>
         <template v-for="(seg, index) in segments" :key="seg.path">
           <span
             v-show="index >= hiddenPrefixCount || measuring"
-            class="addr-crumb-wrap"
+            class="address-bar__crumb-wrap"
           >
             <button
               type="button"
-              class="addr-crumb vgo-u-button-reset"
+              class="address-bar__crumb vgo-u-button-reset"
               :class="{ 'is-drop-target': dragOverPath === seg.path }"
               :title="seg.path"
               @click.stop="onCrumbClick(seg.path)"
@@ -493,12 +507,12 @@ defineExpose({
               @dragleave="onCrumbDragLeave(seg, $event)"
               @drop="onCrumbDrop(seg, $event)"
             >
-              <span class="addr-crumb-text vgo-u-text-overflow">{{ seg.name }}</span>
+              <span class="address-bar__crumb-text vgo-u-text-overflow">{{ seg.name }}</span>
             </button>
             <button
               v-if="index < segments.length - 1"
               type="button"
-              class="addr-crumb-caret vgo-u-button-reset"
+              class="address-bar__crumb-caret vgo-u-button-reset"
               :class="{ 'is-open': crumbMenu?.path === seg.path }"
               :title="`${seg.name} subfolders`"
               :aria-label="`${seg.name} subfolders`"
@@ -515,7 +529,7 @@ defineExpose({
       <button
         v-else
         type="button"
-        class="addr-crumb addr-crumb-placeholder vgo-u-button-reset"
+        class="address-bar__crumb address-bar__crumb--placeholder vgo-u-button-reset"
         @click.stop="startEdit"
       >
         Path
@@ -526,14 +540,14 @@ defineExpose({
       <div
         v-if="crumbMenu"
         ref="crumbMenuRef"
-        class="addr-crumb-menu vgo-panel vgo-u-scrollbar"
+        class="address-bar__crumb-menu vgo-panel vgo-u-scrollbar"
         :style="crumbMenuPanelStyle"
         role="menu"
         :aria-label="`${crumbMenu.name} subfolders`"
         tabindex="-1"
         @keydown="onMenuKeydown"
       >
-        <div v-if="crumbMenuLoading" class="crumb-menu-status">
+        <div v-if="crumbMenuLoading" class="address-bar__menu-status">
           Loading…
         </div>
         <template v-else>
@@ -542,16 +556,16 @@ defineExpose({
             :key="dir.name"
             type="button"
             role="menuitem"
-            class="vgo-u-button-reset vgo-list-item crumb-menu-row"
+            class="vgo-u-button-reset vgo-list-item address-bar__menu-row"
             :class="{ 'is-active': menuActiveIndex === index }"
             :title="dir.name"
             @mouseenter="menuActiveIndex = index"
             @click="onMenuPick(dir)"
           >
-            <i-mdi-folder class="crumb-menu-row-icon" />
-            <span class="crumb-menu-row-name vgo-u-text-overflow">{{ dir.name }}</span>
+            <i-mdi-folder class="address-bar__menu-row-icon" />
+            <span class="address-bar__menu-row-name vgo-u-text-overflow">{{ dir.name }}</span>
           </button>
-          <div v-if="!crumbMenuSubDirs.length" class="crumb-menu-status">
+          <div v-if="!crumbMenuSubDirs.length" class="address-bar__menu-status">
             {{ crumbMenuError ? 'Failed to load subfolders.' : 'No subfolders.' }}
           </div>
         </template>
@@ -577,7 +591,7 @@ defineExpose({
   }
 }
 
-.address-bar-input {
+.address-bar__input {
   flex: 1;
   width: 100%;
   min-width: 0;
@@ -592,7 +606,7 @@ defineExpose({
   box-shadow: none !important;
 }
 
-.address-bar-breadcrumb {
+.address-bar__breadcrumb {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -610,25 +624,33 @@ defineExpose({
 
   // 溢出折叠时允许保留的末尾 crumb 收缩省略，而不是被裁掉
   &.has-overflow {
-    .addr-crumb-wrap {
+    .address-bar__crumb-wrap {
       flex-shrink: 1;
       min-width: 0;
     }
 
-    .addr-crumb {
+    .address-bar__crumb {
       flex-shrink: 1;
       min-width: 0;
     }
   }
 }
 
-.addr-crumb-wrap {
+// 折叠到只剩末尾 2 段时，最左侧提示「左边还有内容」
+.address-bar__ellipsis {
+  flex-shrink: 0;
+  padding: 0 var(--vgo-space-1);
+  color: var(--vgo-text-secondary);
+  user-select: none;
+}
+
+.address-bar__crumb-wrap {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-.addr-crumb {
+.address-bar__crumb {
   flex-shrink: 0;
   max-width: 200px;
   padding: var(--vgo-space-1);
@@ -655,7 +677,17 @@ defineExpose({
   }
 }
 
-.addr-crumb-caret {
+.address-bar__crumb--placeholder {
+  max-width: none;
+  color: var(--vgo-text-placeholder);
+}
+
+.address-bar__crumb-text {
+  display: block;
+  line-height: 1.3;
+}
+
+.address-bar__crumb-caret {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -690,17 +722,7 @@ defineExpose({
   }
 }
 
-.addr-crumb-text {
-  display: block;
-  line-height: 1.3;
-}
-
-.addr-crumb-placeholder {
-  max-width: none;
-  color: var(--vgo-text-placeholder);
-}
-
-.addr-crumb-menu {
+.address-bar__crumb-menu {
   position: fixed;
   z-index: var(--vgo-z-overlay);
   display: flex;
@@ -710,27 +732,27 @@ defineExpose({
   padding: var(--vgo-space-1);
   outline: none;
 
-  .crumb-menu-row {
+  .address-bar__menu-row {
     width: 100%;
     min-height: var(--vgo-control-md);
     padding-inline: var(--vgo-space-2);
     text-align: left;
 
-    .crumb-menu-row-icon {
+    .address-bar__menu-row-icon {
       flex-shrink: 0;
       color: var(--vgo-primary);
       font-size: var(--vgo-icon-md);
       line-height: 1;
     }
 
-    .crumb-menu-row-name {
+    .address-bar__menu-row-name {
       flex: 1;
       min-width: 0;
       line-height: 1.4;
     }
   }
 
-  .crumb-menu-status {
+  .address-bar__menu-status {
     padding: var(--vgo-space-3) var(--vgo-space-3);
     font-size: var(--vgo-font-sm);
     line-height: 1.6;

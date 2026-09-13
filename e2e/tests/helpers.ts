@@ -176,7 +176,7 @@ export async function dispatchDragEnd(page: Page) {
  * 收藏是服务端设置，会跨用例存活；用例自己先清干净，就不依赖上一个用例的清理是否跑到。
  */
 export async function clearStars(page: Page) {
-  const stars = page.locator('.star-item')
+  const stars = page.locator('.star-list__item')
   while (await stars.count() > 0) {
     const before = await stars.count()
     await stars.first().click({ button: 'right' })
@@ -216,7 +216,7 @@ export function row(page: Page, name: string) {
 
 /** 地址栏最后一段面包屑 = 当前目录。用它判断导航是否真的完成。 */
 function currentCrumb(page: Page) {
-  return page.locator('.addr-crumb-text').last()
+  return page.locator('.address-bar__crumb-text').last()
 }
 
 /**

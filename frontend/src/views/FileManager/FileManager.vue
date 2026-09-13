@@ -33,6 +33,8 @@ const props = withDefaults(
     multiple?: boolean
     // 只展示内容
     contentOnly?: boolean
+    // 左侧导航是否可见
+    sidebarVisible?: boolean
     // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"
     fileFilterPattern?: string
     // 快捷键作用域，供主文件管理器和文件选择器隔离
@@ -41,6 +43,7 @@ const props = withDefaults(
   {
     multiple: false,
     contentOnly: false,
+    sidebarVisible: true,
     shortcutScope: 'fileManager',
   },
 )
@@ -537,110 +540,108 @@ useShortcut({
 
 <template>
   <div ref="rootRef" class="explorer-wrap" tabindex="0" :data-shortcut-scope="shortcutScope">
-    <div v-if="!contentOnly" class="explorer-header vgo-panel vgo-panel--flat">
-      <div class="explorer-toolbar">
-        <div class="explorer-toolbar-stack">
-          <div class="explorer-toolbar-path">
-            <div class="explorer-toolbar-nav">
-              <button
-                :disabled="!navigationHistory?.canBack"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Back (alt+left)"
-                @click="goBack"
-                @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
-              >
-                <i-mdi-arrow-left />
-              </button>
-              <button
-                :disabled="!navigationHistory?.canForward"
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Forward (alt+right)"
-                @click="goForward"
-                @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
-              >
-                <i-mdi-arrow-right />
-              </button>
-              <button
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                :disabled="!allowUp"
-                title="Up (alt+up)"
-                @click="goUp"
-              >
-                <i-mdi-arrow-up />
-              </button>
-              <button
-                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Refresh (ctrl+r)"
-                @click="debounceHandleRefresh"
-              >
-                <i-mdi-refresh />
-              </button>
+    <slot name="topBar" />
+    <div class="explorer-body">
+      <FileSidebar
+        v-if="!contentOnly"
+        v-show="sidebarVisible"
+        ref="fileSidebarRef"
+        :current-path="currentPathForSidebar"
+        @open-drive="(i: IDrive) => handleOpenPath(i.path)"
+        @open-path-in-new-tab="openPathInNewTab"
+      >
+        <div v-if="starredPathsList.length" ref="starListRef" class="star-list">
+          <button
+            v-for="(path, index) in starredPathsList"
+            :key="path"
+            class="vgo-u-button-reset vgo-list-item star-list__item"
+            :class="{
+              'is-drop-target': starredDragOverPath === path,
+              'is-drag-source': starDragPath === path,
+              'is-drop-before': effectiveStarDropIndex === index,
+              'is-drop-after': effectiveStarDropIndex === index + 1 && index === starredPathsList.length - 1,
+            }"
+            :draggable="dragEnabled"
+            :title="path"
+            @click="handleOpenPath(path)"
+            @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
+            @dragstart="onStarDragStart(path, $event)"
+            @dragover="onStarDragOver(path, index, $event)"
+            @dragleave="onStarDragLeave($event)"
+            @drop="onStarDrop(path, $event)"
+          >
+            <i-mdi-star class="vgo-u-icon-md" />
+            <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
+          </button>
+        </div>
+      </FileSidebar>
+      <div class="explorer-main">
+        <div v-if="!contentOnly" class="explorer-header vgo-panel vgo-panel--flat">
+          <div class="explorer-toolbar">
+            <div class="explorer-toolbar-stack">
+              <div class="explorer-toolbar-path">
+                <div class="explorer-toolbar-nav">
+                  <button
+                    :disabled="!navigationHistory?.canBack"
+                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                    title="Back (alt+left)"
+                    @click="goBack"
+                    @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
+                  >
+                    <i-mdi-arrow-left />
+                  </button>
+                  <button
+                    :disabled="!navigationHistory?.canForward"
+                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                    title="Forward (alt+right)"
+                    @click="goForward"
+                    @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
+                  >
+                    <i-mdi-arrow-right />
+                  </button>
+                  <button
+                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                    :disabled="!allowUp"
+                    title="Up (alt+up)"
+                    @click="goUp"
+                  >
+                    <i-mdi-arrow-up />
+                  </button>
+                  <button
+                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                    title="Refresh (ctrl+r)"
+                    @click="debounceHandleRefresh"
+                  >
+                    <i-mdi-refresh />
+                  </button>
+                </div>
+                <AddressBar
+                  ref="addressBarRef"
+                  v-model="addressBarPath"
+                  @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
+                  @open-path-in-new-tab="openPathInNewTab"
+                  @refresh="debounceHandleRefresh"
+                />
+                <button
+                  class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                  title="Toggle Star (alt+s)"
+                  @click="toggleStar"
+                >
+                  <MdiIcon :name="isStared ? 'star' : 'star-outline'" />
+                </button>
+              </div>
+              <div class="explorer-toolbar-filters">
+                <FilterBar
+                  ref="filterBarRef"
+                  v-model="filterState"
+                  :locked="filterLocked"
+                  @clear="clearFilter"
+                />
+              </div>
             </div>
-            <AddressBar
-              ref="addressBarRef"
-              v-model="addressBarPath"
-              @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
-              @open-path-in-new-tab="openPathInNewTab"
-              @refresh="debounceHandleRefresh"
-            />
-            <button
-              class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-              title="Toggle Star (alt+s)"
-              @click="toggleStar"
-            >
-              <MdiIcon :name="isStared ? 'star' : 'star-outline'" />
-            </button>
-          </div>
-          <div class="explorer-toolbar-filters">
-            <FilterBar
-              ref="filterBarRef"
-              v-model="filterState"
-              :locked="filterLocked"
-              @clear="clearFilter"
-            />
-
-            <slot name="headerRight" />
           </div>
         </div>
-      </div>
-    </div>
-    <div class="explorer-content-wrap vgo-u-scrollbar">
-      <el-splitter lazy>
-        <el-splitter-panel size="130px" collapsible>
-          <FileSidebar
-            v-if="!contentOnly"
-            ref="fileSidebarRef"
-            :current-path="currentPathForSidebar"
-            @open-drive="(i: IDrive) => handleOpenPath(i.path)"
-            @open-path-in-new-tab="openPathInNewTab"
-          >
-            <div v-if="starredPathsList.length" ref="starListRef" class="star-list">
-              <button
-                v-for="(path, index) in starredPathsList"
-                :key="path"
-                class="vgo-u-button-reset vgo-list-item star-item"
-                :class="{
-                  'is-drop-target': starredDragOverPath === path,
-                  'is-drag-source': starDragPath === path,
-                  'is-drop-before': effectiveStarDropIndex === index,
-                  'is-drop-after': effectiveStarDropIndex === index + 1 && index === starredPathsList.length - 1,
-                }"
-                :draggable="dragEnabled"
-                :title="path"
-                @click="handleOpenPath(path)"
-                @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
-                @dragstart="onStarDragStart(path, $event)"
-                @dragover="onStarDragOver(path, index, $event)"
-                @dragleave="onStarDragLeave($event)"
-                @drop="onStarDrop(path, $event)"
-              >
-                <i-mdi-star class="vgo-u-icon-md" />
-                <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
-              </button>
-            </div>
-          </FileSidebar>
-        </el-splitter-panel>
-        <el-splitter-panel>
+        <div class="explorer-content-wrap vgo-u-scrollbar">
           <div class="explorer-file-panel">
             <FileList
               ref="fileListRef"
@@ -678,8 +679,8 @@ useShortcut({
               </div>
             </Transition>
           </div>
-        </el-splitter-panel>
-      </el-splitter>
+        </div>
+      </div>
     </div>
 
     <ConflictDialog />
@@ -706,6 +707,28 @@ useShortcut({
   flex-direction: column;
   position: relative;
   outline: none;
+
+  .explorer-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+
+  .explorer-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  // 侧边栏根元素归布局管：固定宽度 + 右侧分隔线（曾经由 el-splitter 提供）
+  .explorer-body > .explorer-sidebar {
+    flex-shrink: 0;
+    width: 130px;
+    overflow: auto;
+    border-right: 1px solid var(--vgo-border);
+  }
 
   .explorer-header {
     padding: var(--vgo-space-1) var(--vgo-space-1);
@@ -769,7 +792,7 @@ useShortcut({
   }
 
   .star-list {
-    .star-item {
+    &__item {
       position: relative;
       width: 100%;
       min-height: var(--vgo-control-sm);
@@ -815,7 +838,9 @@ useShortcut({
 
   .explorer-file-panel {
     position: relative;
+    flex: 1;
     height: 100%;
+    min-width: 0;
     min-height: 0;
   }
 

@@ -6,7 +6,7 @@ test.describe('登录与基本界面', () => {
     await login(page)
 
     // 侧边栏应当显示 safeBaseDir 对应的驱动器
-    await expect(page.locator('.explorer-file-sidebar')).toBeVisible()
+    await expect(page.locator('.explorer-sidebar')).toBeVisible()
     // 根目录里能看到夹具目录
     await expect(row(page, 'source')).toBeVisible()
     await expect(row(page, 'target')).toBeVisible()

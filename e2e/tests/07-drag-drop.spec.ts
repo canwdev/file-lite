@@ -26,7 +26,7 @@ import {
 
 /** 侧边栏收藏项的当前顺序（名字拼成一串，便于 expect.poll 比较）。 */
 async function starOrder(page: Page) {
-  const names = await page.locator('.star-item .vgo-u-text-overflow').allInnerTexts()
+  const names = await page.locator('.star-list__item .vgo-u-text-overflow').allInnerTexts()
   return names.map(name => name.trim()).join(',')
 }
 
@@ -87,7 +87,7 @@ test.describe('拖拽', () => {
     await openFolder(page, 'sub')
     await selectItem(page, 'back.txt')
 
-    await html5Drag(page, row(page, 'back.txt'), page.locator('.addr-crumb', { hasText: 'inbox' }))
+    await html5Drag(page, row(page, 'back.txt'), page.locator('.address-bar__crumb', { hasText: 'inbox' }))
 
     await expect.poll(() => readTextIfExists(path.join(dragInboxDir, 'back.txt'))).toBe('back-content')
     await expect.poll(() => fs.existsSync(path.join(dragSubDir, 'back.txt'))).toBe(false)
@@ -100,19 +100,19 @@ test.describe('拖拽', () => {
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
     await page.locator('button[title^="Toggle Star"]').click()
-    await expect(page.locator('.star-item')).toHaveCount(1)
+    await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
     await selectItem(page, 'move-me.txt')
 
-    await html5Drag(page, row(page, 'move-me.txt'), page.locator('.star-item'))
+    await html5Drag(page, row(page, 'move-me.txt'), page.locator('.star-list__item'))
 
     await expect.poll(() => readTextIfExists(path.join(dragArchiveDir, 'move-me.txt'))).toBe('move-content')
 
     // 收藏是服务端设置，清理掉免得影响其它用例
-    await page.locator('.star-item').click({ button: 'right' })
+    await page.locator('.star-list__item').click({ button: 'right' })
     await page.locator('.mx-context-menu-item', { hasText: 'UnStar' }).click()
-    await expect(page.locator('.star-item')).toHaveCount(0)
+    await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 
   test('拖到磁盘根 = 移动到该卷根目录', async ({ page }) => {
@@ -121,7 +121,7 @@ test.describe('拖拽', () => {
     await openFolder(page, 'inbox')
     await selectItem(page, 'move-me.txt')
 
-    await html5Drag(page, row(page, 'move-me.txt'), page.locator('.drive-item').first())
+    await html5Drag(page, row(page, 'move-me.txt'), page.locator('.drive-list__item').first())
 
     await expect.poll(() => readTextIfExists(path.join(filesDir, 'move-me.txt'))).toBe('move-content')
     await expect.poll(() => fs.existsSync(path.join(dragInboxDir, 'move-me.txt'))).toBe(false)
@@ -142,7 +142,7 @@ test.describe('拖拽', () => {
       ],
     }))
     await page.locator('button[title="Reload drives"]').click()
-    const archiveDrive = page.locator('.drive-item', { hasText: 'Archive' })
+    const archiveDrive = page.locator('.drive-list__item', { hasText: 'Archive' })
     await expect(archiveDrive).toBeVisible()
 
     await html5Drag(page, row(page, 'move-me.txt'), archiveDrive)
@@ -178,7 +178,7 @@ test.describe('拖拽', () => {
     await dropExternalFiles(page, row(page, 'sub'), [{ name: 'os-row.txt', content: 'from-os' }])
     await expect.poll(() => readTextIfExists(path.join(dragSubDir, 'os-row.txt'))).toBe('from-os')
 
-    await dropExternalFiles(page, page.locator('.addr-crumb', { hasText: 'drag' }), [{ name: 'os-crumb.txt', content: 'from-crumb' }])
+    await dropExternalFiles(page, page.locator('.address-bar__crumb', { hasText: 'drag' }), [{ name: 'os-crumb.txt', content: 'from-crumb' }])
     await expect.poll(() => readTextIfExists(path.join(dragDir, 'os-crumb.txt'))).toBe('from-crumb')
   })
 
@@ -188,19 +188,19 @@ test.describe('拖拽', () => {
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
     await page.locator('button[title^="Toggle Star"]').click()
-    await expect(page.locator('.star-item')).toHaveCount(1)
+    await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
 
-    await dropExternalFiles(page, page.locator('.star-item'), [{ name: 'os-star.txt', content: 'from-star' }])
+    await dropExternalFiles(page, page.locator('.star-list__item'), [{ name: 'os-star.txt', content: 'from-star' }])
     await expect.poll(() => readTextIfExists(path.join(dragArchiveDir, 'os-star.txt'))).toBe('from-star')
 
-    await dropExternalFiles(page, page.locator('.drive-item').first(), [{ name: 'os-drive.txt', content: 'from-drive' }])
+    await dropExternalFiles(page, page.locator('.drive-list__item').first(), [{ name: 'os-drive.txt', content: 'from-drive' }])
     await expect.poll(() => readTextIfExists(path.join(filesDir, 'os-drive.txt'))).toBe('from-drive')
 
-    await page.locator('.star-item').click({ button: 'right' })
+    await page.locator('.star-list__item').click({ button: 'right' })
     await page.locator('.mx-context-menu-item', { hasText: 'UnStar' }).click()
-    await expect(page.locator('.star-item')).toHaveCount(0)
+    await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 
   test('系统文件拖到文件夹行时，同名冲突沿用上传弹窗', async ({ page }) => {
@@ -226,15 +226,15 @@ test.describe('拖拽', () => {
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
     await page.locator('button[title^="Toggle Star"]').click()
-    await expect(page.locator('.star-item')).toHaveCount(1)
+    await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
     await page.locator('button[title^="Toggle Star"]').click()
-    await expect(page.locator('.star-item')).toHaveCount(2)
+    await expect(page.locator('.star-list__item')).toHaveCount(2)
     await expect.poll(() => starOrder(page)).toBe('archive,inbox')
 
     // 把第二条（inbox）拖到第一条上半 → 插到最前
-    await html5Drag(page, page.locator('.star-item').nth(1), page.locator('.star-item').nth(0), { dropAt: 'top' })
+    await html5Drag(page, page.locator('.star-list__item').nth(1), page.locator('.star-list__item').nth(0), { dropAt: 'top' })
     await expect.poll(() => starOrder(page)).toBe('inbox,archive')
 
     // 顺序是存进服务端设置的：刷新后仍然是新顺序

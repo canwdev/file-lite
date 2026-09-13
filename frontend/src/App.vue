@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
-import { settingsStore } from '@/store'
 import { authToken } from '@/store/auth'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 
@@ -12,8 +11,6 @@ const router = useRouter()
 
 useGlobalTheme()
 
-const pageTitle = computed(() => settingsStore.value.pageTitle.trim())
-
 window.$logout = (clearToken = true) => {
   if (clearToken) {
     authToken.value = ''
@@ -23,10 +20,7 @@ window.$logout = (clearToken = true) => {
 </script>
 
 <template>
-  <div class="page-root" :class="{ 'has-page-title': pageTitle }">
-    <div v-if="pageTitle" class="page-title-banner">
-      {{ pageTitle }}
-    </div>
+  <div class="page-root">
     <RouterView />
     <WsStatusDisplay />
   </div>
@@ -39,31 +33,5 @@ window.$logout = (clearToken = true) => {
   width: 100%;
   color: var(--vgo-text);
   background-color: var(--vgo-surface);
-
-  &.has-page-title {
-    // 为顶部横幅预留空间；高度与 .page-title-banner 保持一致
-    padding-top: var(--vgo-control-md);
-  }
-
-  .page-title-banner {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: var(--vgo-z-sticky);
-    height: var(--vgo-control-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-inline: var(--vgo-space-3);
-    background-color: var(--vgo-primary);
-    color: var(--vgo-on-primary);
-    font-size: var(--vgo-font-md);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    // vgo-allow: 半透明黑 text-shadow 仅为白字在彩色条上的可读性微调，非主题色
-    text-shadow: 0 1px 2px #0000007d;
-  }
 }
 </style>

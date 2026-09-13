@@ -142,11 +142,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="explorer-file-sidebar">
+  <div class="explorer-sidebar">
     <slot />
 
-    <div class="file-sidebar-content">
-      <div class="file-sidebar-content-top">
+    <div class="drive-list">
+      <div class="drive-list__header">
         <span>Storage</span>
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
@@ -160,7 +160,7 @@ defineExpose({
       <button
         v-for="(item, index) in driveList"
         :key="index"
-        class="vgo-u-button-reset vgo-list-item drive-item"
+        class="vgo-u-button-reset vgo-list-item drive-list__item"
         :title="getTitle(item)"
         :class="{ 'is-active': item.path === currentPath, 'is-drop-target': dragOverPath === item.path }"
         @click="openDrive(item)"
@@ -169,11 +169,11 @@ defineExpose({
         @dragleave="onDriveDragLeave(item, $event)"
         @drop="onDriveDrop(item, $event)"
       >
-        <span class="drive-icon">
+        <span class="drive-list__icon">
           <MdiIcon :name="getIcon(item)" class="vgo-u-icon-md" />
         </span>
-        <span class="drive-content">
-          <span class="drive-title vgo-u-text-overflow">{{ item.label }}</span>
+        <span class="drive-list__content">
+          <span class="drive-list__title vgo-u-text-overflow">{{ item.label }}</span>
           <span v-if="item.total && item.free" class="vgo-progress">
             <span
               :style="{ width: `${((item.total - item.free) / item.total) * 100}%` }"
@@ -187,18 +187,22 @@ defineExpose({
 </template>
 
 <style lang="scss" scoped>
-.explorer-file-sidebar {
+.explorer-sidebar {
   height: 100%;
   position: relative;
   display: flex;
   gap: var(--vgo-space-2);
   flex-direction: column;
+  background-color: var(--vgo-surface-raised);
 
-  .file-sidebar-content {
+  .drive-list {
     flex: 1;
     overflow: auto;
 
-    .file-sidebar-content-top {
+    &__header {
+      position: sticky;
+      top: 0;
+      z-index: var(--vgo-z-sticky);
       display: flex;
       gap: var(--vgo-space-2);
       align-items: center;
@@ -206,22 +210,24 @@ defineExpose({
       padding-left: var(--vgo-space-2);
       font-size: var(--vgo-font-sm);
       color: var(--vgo-text-secondary);
-    }
-  }
-
-  .drive-item {
-    width: 100%;
-    min-height: var(--vgo-control-md);
-    padding-inline: var(--vgo-space-2);
-    font-size: var(--vgo-font-sm);
-
-    &.is-drop-target {
-      background-color: var(--vgo-primary-opacity);
-      outline: 2px dashed var(--vgo-primary);
-      outline-offset: -2px;
+      // 吸顶时要盖住下面滚过去的磁盘项
+      background-color: var(--vgo-surface-raised);
     }
 
-    .drive-icon {
+    &__item {
+      width: 100%;
+      min-height: var(--vgo-control-md);
+      padding-inline: var(--vgo-space-2);
+      font-size: var(--vgo-font-sm);
+
+      &.is-drop-target {
+        background-color: var(--vgo-primary-opacity);
+        outline: 2px dashed var(--vgo-primary);
+        outline-offset: -2px;
+      }
+    }
+
+    &__icon {
       display: flex;
       flex-shrink: 0;
       align-items: center;
@@ -235,12 +241,12 @@ defineExpose({
       }
     }
 
-    .drive-content {
+    &__content {
       flex: 1;
       overflow: hidden;
     }
 
-    .drive-title {
+    &__title {
       display: block;
       line-height: 1.4;
       text-align: initial;

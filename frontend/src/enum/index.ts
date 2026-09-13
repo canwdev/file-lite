@@ -2,7 +2,6 @@ export const isDev = Boolean(import.meta.env.MODE === 'development')
 
 export const LsKeys = {
   STARED_PATH: 'file_lite_stared_path',
-  EXPLORER_SHOW_SIDEBAR: 'file_lite_show_sidebar',
   NAV_PATH: 'file_lite_nav_path',
   CONCURRENT_NUM: 'file_lite_concurrent_num',
   SETTINGS_STORE: 'file_lite_settings_store',

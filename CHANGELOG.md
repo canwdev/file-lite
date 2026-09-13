@@ -25,6 +25,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The Config menu labels are title-cased, so they read Image Cache, Disable Preview and Reduce Motion (frontend).
 - Disable Preview moved to the bottom of the Config menu beside Clear Local Data, and the Image Cache entry is hidden while previews are off (frontend).
 - The context menu draws a border, and a shadow in dark mode, so it no longer blends into the list behind it (frontend).
+- The page title and the global menu moved into a top bar above the explorer, whose left side is an empty strip reserved for the upcoming tabs (frontend).
+- A button at the top bar's left shows or hides the navigation sidebar, the choice is remembered in the browser, and the sidebar is no longer resized by dragging (frontend).
+- The navigation sidebar uses the raised surface colour, and its "Storage" heading stays pinned while the drive list scrolls (frontend).
+- When the address bar's breadcrumb collapses to the last two folders, a leading … shows that earlier folders are hidden (frontend).
 
 ### Features
 

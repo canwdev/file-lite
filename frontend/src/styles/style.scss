@@ -122,41 +122,6 @@ html.is-debug {
 }
 
 // element 样式覆盖
-// lazy 模式会同时渲染 ::before/::after（默认各 2px 且叠在一起），视觉上偏粗；
-// Firefox 不稳定渲染 0.5px。改为 1px，并在非拖拽时隐藏 ::after。
-[class*='el-splitter-bar__dragger-'] {
-  &::before,
-  &::after {
-    background-color: var(--vgo-border) !important;
-  }
-
-  &::after {
-    display: none !important;
-  }
-
-  &.el-splitter-bar__dragger-horizontal::before,
-  &.el-splitter-bar__dragger-horizontal::after {
-    width: 1px !important;
-  }
-
-  &.el-splitter-bar__dragger-vertical::before,
-  &.el-splitter-bar__dragger-vertical::after {
-    height: 1px !important;
-  }
-}
-
-.el-splitter-bar__dragger-active {
-  &::before,
-  &::after {
-    background-color: var(--vgo-primary) !important;
-  }
-
-  &::after {
-    display: block !important;
-    opacity: 1 !important;
-  }
-}
-
 .el-image-viewer__prev {
   left: var(--vgo-space-3) !important;
 }

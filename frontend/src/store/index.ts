@@ -51,6 +51,8 @@ function createDefaultLocalSettingsStore() {
     openAppWithFilteredList: false,
     /** 减少动画和过渡效果 */
     reduceMotion: false,
+    /** 左侧导航（explorer-sidebar）是否显示 */
+    sidebarVisible: true,
     showHidden: false,
     isGridView: false,
     iconSizeList: 16,
