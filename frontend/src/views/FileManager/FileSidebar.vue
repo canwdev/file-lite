@@ -220,6 +220,12 @@ defineExpose({
       padding-inline: var(--vgo-space-2);
       font-size: var(--vgo-font-sm);
 
+      // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline，和收藏项保持一致；
+      // 写在 is-drop-target 之前，拖拽落点的虚线仍能盖过它
+      &.is-active {
+        outline: none;
+      }
+
       &.is-drop-target {
         background-color: var(--vgo-primary-opacity);
         outline: 2px dashed var(--vgo-primary);

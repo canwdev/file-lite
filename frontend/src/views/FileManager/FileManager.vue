@@ -212,6 +212,11 @@ useExplorerBusOn(ExplorerEvents.REVEAL_ITEM, async ({ basePath: targetBasePath, 
 const starredPathsList = computed(() => [...starList.value])
 const currentPathForSidebar = computed(() => basePath.value)
 
+/** 收藏项按当前路径高亮，和磁盘项一样；两边路径形态不一定一致，比较前先归一化 */
+function isActiveStarredPath(path: string) {
+  return normalizeListingPath(path) === normalizeListingPath(currentPathForSidebar.value)
+}
+
 function removeStarredPath(path: string) {
   starList.value = starList.value.filter(item => item !== path)
 }
@@ -556,6 +561,7 @@ useShortcut({
             :key="path"
             class="vgo-u-button-reset vgo-list-item star-list__item"
             :class="{
+              'is-active': isActiveStarredPath(path),
               'is-drop-target': starredDragOverPath === path,
               'is-drag-source': starDragPath === path,
               'is-drop-before': effectiveStarDropIndex === index,
@@ -798,6 +804,12 @@ useShortcut({
       min-height: var(--vgo-control-sm);
       font-size: var(--vgo-font-sm);
       padding-inline: var(--vgo-space-2);
+
+      // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline，和磁盘项保持一致；
+      // 写在 is-drop-target 之前，拖拽落点的虚线仍能盖过它
+      &.is-active {
+        outline: none;
+      }
 
       &.is-drop-target {
         background-color: var(--vgo-primary-opacity);

@@ -29,6 +29,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A button at the top bar's left shows or hides the navigation sidebar, the choice is remembered in the browser, and the sidebar is no longer resized by dragging (frontend).
 - The navigation sidebar uses the raised surface colour, and its "Storage" heading stays pinned while the drive list scrolls (frontend).
 - When the address bar's breadcrumb collapses to the last two folders, a leading … shows that earlier folders are hidden (frontend).
+- A favourite folder in the sidebar is highlighted while you are inside it, and the drive / favourite highlight is a background wash without an outline (frontend).
 
 ### Features
 
