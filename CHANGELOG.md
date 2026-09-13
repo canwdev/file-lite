@@ -38,7 +38,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The explorer has built-in tabs: open several folders at once and switch between them, and each tab keeps its own folder, selection, filter and scroll position (frontend).
 - Tabs can be added, closed and reordered by dragging, are remembered across reloads, and at least one tab always stays open; the active tab is highlighted in the theme colour, and tabs squeeze instead of wrapping when there are many (frontend).
 - Dragging files over another tab for one second switches to that tab, but the drop itself still has to happen in the file list — a tab never accepts files (frontend).
-- Every "Open in new Tab" entry now opens a built-in tab instead of a browser tab, and `Alt+T` / `Alt+W` / `Alt+1..9` add, close and jump between tabs (frontend).
+- Every "Open in new Tab" entry now opens a built-in tab instead of a browser tab; `Alt+T` / `Alt+W` / `Alt+1..9` add, close and jump between tabs, and a tab's right-click menu closes it, the others, or everything to its right (frontend).
 - Copying, moving, deleting and duplicating are now background tasks: they show a progress bar, can be cancelled, and every open window sees and can cancel them (frontend, backend).
 - When a copy or move lands on a name that already exists, a "Replace or Skip Files" dialog asks whether to replace, skip or keep both, with a "do this for all" option, instead of failing the whole batch (frontend, backend).
 - Folders are merged the way Windows Explorer does it when the destination already has a folder of the same name, so only the conflicting files inside are asked about (backend).

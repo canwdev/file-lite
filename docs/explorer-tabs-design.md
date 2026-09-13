@@ -49,6 +49,7 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   max-width: 12rem`，标题省略号。
 - 无动画：不写 transition。
 - 操作：单击切换、中键关闭、关闭按钮、`+` 新建（新标签沿用当前标签的路径）。
+- 右键菜单：Close / Close others / Close to the right，三者都天然满足「至少保留 1 个」。
 - 排序拖拽用自己的 MIME（`application/x-file-lite-tab`），插入下标按指针在标签左 / 右半边计算，
   插入线用 `::before` / `::after` 画（与收藏夹排序同一套写法）。
 - **标签不是文件落点**：拖文件经过标签时只启动 1s 计时器，不调用 `preventDefault`，
@@ -99,6 +100,7 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 2. 拖拽排序并持久化。
 3. 拖文件悬停标签 1s 自动切换，且直接落在标签上不产生任何文件操作。
 4. `Alt+T` / `Alt+数字` / `Alt+W` 快捷键。
+5. 右键菜单的 Close to the right / Close others。
 
 `helpers.ts` 的 `row()`、`currentCrumb()`、返回 / 复制 / 粘贴按钮定位都限定在 `.explorer-main:visible` 内，
 否则保活标签里隐藏面板的同名元素会撞上 Playwright 的 strict mode。

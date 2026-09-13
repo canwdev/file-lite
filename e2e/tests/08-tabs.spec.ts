@@ -89,6 +89,27 @@ test.describe('多标签页', () => {
     await expect(tabLabel(page, 1)).toHaveText('source')
   })
 
+  test('右键菜单：Close to the right / Close others', async ({ page }) => {
+    await login(page)
+    const tabs = page.locator('.explorer-tabs__item')
+    await page.locator('.explorer-tabs__add').click()
+    await page.locator('.explorer-tabs__add').click()
+    await expect(tabs).toHaveCount(3)
+
+    // 在最左的标签上右键：关掉它右边所有标签
+    await tabs.nth(0).click({ button: 'right' })
+    await page.locator('.mx-context-menu-item', { hasText: 'Close to the right' }).click()
+    await expect(tabs).toHaveCount(1)
+
+    // 再开两个，Close others 只保留被右键的那个
+    await page.locator('.explorer-tabs__add').click()
+    await page.locator('.explorer-tabs__add').click()
+    await expect(tabs).toHaveCount(3)
+    await tabs.nth(1).click({ button: 'right' })
+    await page.locator('.mx-context-menu-item', { hasText: 'Close others' }).click()
+    await expect(tabs).toHaveCount(1)
+  })
+
   test('快捷键 Alt+T / Alt+数字 / Alt+W', async ({ page }) => {
     await login(page)
     await openFolder(page, 'source')

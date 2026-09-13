@@ -140,6 +140,28 @@ export function useExplorerTabs() {
     activateTab(list[next].id)
   }
 
+  /** 只留这一个标签（天然满足「至少保留 1 个」） */
+  function closeOthers(id: string) {
+    const index = findTabIndex(id)
+    if (index === -1 || state.value.tabs.length < 2) {
+      return
+    }
+    state.value = { tabs: [state.value.tabs[index]], activeTabId: id }
+  }
+
+  /** 关掉它右边的所有标签；活动标签被关掉时接到最后一个留下的 */
+  function closeToRight(id: string) {
+    const index = findTabIndex(id)
+    if (index === -1 || index === state.value.tabs.length - 1) {
+      return
+    }
+    const next = state.value.tabs.slice(0, index + 1)
+    const activeTabId = next.some(tab => tab.id === state.value.activeTabId)
+      ? state.value.activeTabId
+      : next[next.length - 1].id
+    state.value = { tabs: next, activeTabId }
+  }
+
   function moveTab(from: number, to: number) {
     const list = [...state.value.tabs]
     if (from < 0 || from >= list.length || to < 0 || to > list.length || from === to) {
@@ -175,6 +197,8 @@ export function useExplorerTabs() {
     addTab,
     openTab,
     closeTab,
+    closeOthers,
+    closeToRight,
     activateTab,
     activateRelative,
     moveTab,

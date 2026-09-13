@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { ExplorerTab } from './ExplorerUI/explorer-tabs-store'
+import ContextMenu from '@imengyu/vue3-context-menu'
 import { useEventListener } from '@vueuse/core'
+import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { resolveMenuIcons } from '@/utils/icons'
 import { isExternalFileDrag, isInternalDrag } from './ExplorerUI/entry-drag'
 import { useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import { getLastDirName } from './utils'
@@ -22,6 +26,8 @@ const {
   canCloseTabs,
   addTab,
   closeTab,
+  closeOthers,
+  closeToRight,
   activateTab,
   moveTab,
 } = useExplorerTabs()
@@ -147,6 +153,38 @@ function onTabKeydown(tab: ExplorerTab, event: KeyboardEvent) {
     activateTab(tab.id)
   }
 }
+
+/** 标签右键菜单：关闭相关的操作都天然满足「至少保留 1 个」 */
+function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
+  const index = tabs.value.findIndex(item => item.id === tab.id)
+  const items: MenuItem[] = [
+    {
+      label: 'Close',
+      icon: 'mdi mdi-close',
+      disabled: !canCloseTabs.value,
+      onClick: () => closeTab(tab.id),
+    },
+    {
+      label: 'Close others',
+      icon: 'mdi mdi-close-box-multiple-outline',
+      disabled: tabs.value.length < 2,
+      onClick: () => closeOthers(tab.id),
+    },
+    {
+      label: 'Close to the right',
+      icon: 'mdi mdi-arrow-collapse-right',
+      disabled: index === -1 || index === tabs.value.length - 1,
+      onClick: () => closeToRight(tab.id),
+    },
+  ]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    ...menuThemeOptions,
+    items: resolveMenuIcons(items),
+  })
+}
 </script>
 
 <template>
@@ -176,6 +214,7 @@ function onTabKeydown(tab: ExplorerTab, event: KeyboardEvent) {
       @click="activateTab(tab.id)"
       @keydown="onTabKeydown(tab, $event)"
       @auxclick="onTabAuxClick(tab, $event)"
+      @contextmenu.prevent.stop="showTabMenu(tab, $event)"
       @dragstart="onTabDragStart(tab, $event)"
       @dragover="onTabDragOver(tab, index, $event)"
       @drop="onTabDrop"

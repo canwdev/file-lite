@@ -4,6 +4,7 @@ import { h } from 'vue'
 import MdiAlertCircle from '~icons/mdi/alert-circle'
 import MdiAlertCircleOutline from '~icons/mdi/alert-circle-outline'
 import MdiApplicationSettingsOutline from '~icons/mdi/application-settings-outline'
+import MdiArrowCollapseRight from '~icons/mdi/arrow-collapse-right'
 import MdiArrowDownBoldCircleOutline from '~icons/mdi/arrow-down-bold-circle-outline'
 import MdiArrowDownThinCircleOutline from '~icons/mdi/arrow-down-thin-circle-outline'
 import MdiArrowLeft from '~icons/mdi/arrow-left'
@@ -29,6 +30,7 @@ import MdiClipboard from '~icons/mdi/clipboard'
 import MdiClipboardArrowDownOutline from '~icons/mdi/clipboard-arrow-down-outline'
 import MdiClipboardTextOutline from '~icons/mdi/clipboard-text-outline'
 import MdiClose from '~icons/mdi/close'
+import MdiCloseBoxMultipleOutline from '~icons/mdi/close-box-multiple-outline'
 import MdiCloudOutline from '~icons/mdi/cloud-outline'
 import MdiCloudSync from '~icons/mdi/cloud-sync'
 import MdiCodeJson from '~icons/mdi/code-json'
@@ -182,6 +184,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'star-outline': MdiStarOutline,
   'play': MdiPlay,
   'close': MdiClose,
+  'close-box-multiple-outline': MdiCloseBoxMultipleOutline,
+  'arrow-collapse-right': MdiArrowCollapseRight,
   'checkbox-marked': MdiCheckboxMarked,
   'checkbox-blank-outline': MdiCheckboxBlankOutline,
   'open-in-app': MdiOpenInApp,
