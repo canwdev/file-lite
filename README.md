@@ -66,7 +66,7 @@ Listening on: 0.0.0.0:3111
 http://192.168.1.10:3111?ticket=a1b2c3d4
 ```
 
-Settings live in `<cwd>/file-lite/config.json` (override the directory with `FILE_LITE_DATA_BASE_DIR`): the login password is the `password` field, which is generated and written back when empty, and `jwtToken` works the same way. Every field and its default is in the [configuration reference](./docs/config.md); the console never prints either secret.
+Settings live in `<cwd>/file-lite/config.json` (override the directory with `FILE_LITE_DATA_BASE_DIR`): the login password is the `password` field, which is generated and written back when empty, and `jwtToken` works the same way. Every field and its default is in the [config.json configuration reference](./docs/config.md); the console never prints either secret.
 
 ## Development
 

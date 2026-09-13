@@ -128,7 +128,6 @@ import MdiRepeat from '~icons/mdi/repeat'
 import MdiRepeatOnce from '~icons/mdi/repeat-once'
 import MdiRepeatVariant from '~icons/mdi/repeat-variant'
 import MdiRewind5 from '~icons/mdi/rewind-5'
-import MdiServer from '~icons/mdi/server'
 import MdiShareVariant from '~icons/mdi/share-variant'
 import MdiShuffle from '~icons/mdi/shuffle'
 import MdiShuffleDisabled from '~icons/mdi/shuffle-disabled'
@@ -316,7 +315,6 @@ export const mdiIconRegistry: Record<string, Component> = {
   // Development 菜单
   'test-tube': MdiTestTube,
   'bug-play-outline': MdiBugPlayOutline,
-  'server': MdiServer,
   // 标签拆分视图菜单
   'swap-horizontal': MdiSwapHorizontal,
   'swap-vertical': MdiSwapVertical,

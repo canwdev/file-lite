@@ -66,7 +66,7 @@ Listening on: 0.0.0.0:3111
 http://192.168.1.10:3111?ticket=a1b2c3d4
 ```
 
-配置存放在 `<cwd>/file-lite/config.json`（可用 `FILE_LITE_DATA_BASE_DIR` 覆盖所在目录）：登录密码是 `password` 字段，为空时会自动生成随机密码并写回，`jwtToken` 签名密钥同理。每个字段的含义与缺省值见[配置项说明](./docs/config.md)；控制台不会打印密码与签名密钥。
+配置存放在 `<cwd>/file-lite/config.json`（可用 `FILE_LITE_DATA_BASE_DIR` 覆盖所在目录）：登录密码是 `password` 字段，为空时会自动生成随机密码并写回，`jwtToken` 签名密钥同理。每个字段的含义与缺省值见[config.json 配置说明](./docs/config.md)；控制台不会打印密码与签名密钥。
 
 ## 开发
 

@@ -358,21 +358,21 @@ export function useFileLiteMenu() {
               icon: 'mdi mdi-test-tube',
               children: [
                 {
-                  label: 'Enable Debug',
+                  label: 'Enable Debug Console',
                   icon: enableDebug.value ? 'mdi mdi-check' : '',
                   onClick: () => {
                     enableDebug.value = !enableDebug.value
                   },
                 },
                 {
-                  label: 'Debug Transfer Window',
+                  label: 'Demo Transfer Window',
                   icon: 'mdi mdi-bug-play-outline',
                   onClick: () => {
                     explorerBus.emit(ExplorerEvents.DEBUG_TRANSFER)
                   },
                 },
                 serverCapabilities.value.selfUpdate && {
-                  icon: 'mdi mdi-server',
+                  icon: 'mdi file-upload-outline',
                   label: 'Update Backend Binary…',
                   onClick: handleUpdateBackend,
 
