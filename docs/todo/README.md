@@ -11,4 +11,4 @@
 
 | 文档 | 状态 |
 | --- | --- |
-| [frontend-multi-panel-design.md](./frontend-multi-panel-design.md) | 多面板 / 多标签页 / 多选拖拽，方案搁置，未实现 |
+| [frontend-multi-panel-design.md](./frontend-multi-panel-design.md) | 只剩多面板，方案搁置未实现；多选拖拽见 `ExplorerUI/entry-drag.ts`，多标签页已实现并拆到 [`docs/explorer-tabs-design.md`](../explorer-tabs-design.md) |

@@ -1,11 +1,13 @@
 # 前端：多面板 / 多标签页 设计方案
 
-> 状态：**方案搁置（暂不实现）**。产品侧已决定不做多面板模式，因此本文只作为设计参考保留，
-> 第 8 节的分阶段计划**没有执行**；`ExplorerTabBar` / `ExplorerLayout` / pane 注册表等新文件都不存在。
+> 状态：**多面板方案搁置（暂不实现）**。产品侧已决定不做多面板模式，因此本文只作为设计参考保留，
+> 第 8 节的多面板分阶段计划**没有执行**；`ExplorerLayout` / pane 注册表等新文件都不存在。
 >
-> 「多选拖拽」已经从本文拆出去并**单独实现**了：见 `ExplorerUI/entry-drag.ts` 与
-> `ExplorerUI/hooks/use-transfer.ts`（拖到文件夹行 / 面包屑 / 收藏夹 / 磁盘根，同卷移动、
-> 跨卷复制，系统拖入即上传到该目录）。本文只保留多面板与多标签页两部分。
+> 本文已经拆出两块并**单独实现**：
+> - **多选拖拽**：见 `ExplorerUI/entry-drag.ts` 与 `ExplorerUI/hooks/use-transfer.ts`（拖到文件夹行 /
+>   面包屑 / 收藏夹 / 磁盘根，同卷移动、跨卷复制，Ctrl 拖回原目录即 duplicate，系统拖入即上传到该目录）。
+> - **多标签页**：见 [`docs/explorer-tabs-design.md`](../explorer-tabs-design.md)。实际做成了**全局一条标签栏、
+>   只切换 `explorer-main`**，与本文原先「每个面板一条标签栏」的假设不同，所以本文的标签相关章节已删除。
 >
 > 目标形态参考 Total Commander（双面板 + F5/F6 快捷键）与 Q-Dir（2~4 宫格）。
 
@@ -30,8 +32,8 @@
 
 1. **`basePath` 是全局单例**：`use-navigation.ts:14` 的 `useStorage(LsKeys.NAV_PATH)` 让所有 `useNavigation()` 实例共享同一个路径，第二个面板会跟着第一个面板跑。
 2. **快捷键无法区分面板**：`use-shortcut.ts:149-183` 解析出唯一 scope，然后在 `registrationsByScope` 里取**第一个命中**的注册。两个面板都 `provide('fileManager')` 时，按键只会落到注册顺序靠前的那个面板。
-3. **没有可复用的"单个列表"状态单元**：`FileManager.vue` 把外壳与列表揉在一起，`FileList.vue` 既渲染又持有全部状态，面板/标签页缺少可挂载/保活的边界。
-4. **"New Tab" 名不副实**：`FileManager.vue:195 openPathInNewTab()` 是 `window.open` 浏览器标签页，不是应用内标签页。
+3. ~~**没有可复用的"单个列表"状态单元**~~：多标签阶段已经把 `FileManager.vue` 拆成外壳 + `ExplorerPane.vue`（工具栏 + 列表），面板可以直接复用这个边界。
+4. ~~**"New Tab" 名不副实**：`openPathInNewTab()` 曾经是 `window.open` 浏览器标签页~~ —— 已修复：现在是应用内标签页。
 5. **视图偏好在全局**：`isGridView` / `iconSizeList` / `iconSizeGrid` / `showHidden` 存在 `localSettingsStore`（`store/index.ts:47-64`），多面板会联动。
 6. **`TransferQueue` 每个 FileList 一个**：多面板会产生 N 个传输窗口/队列。
 7. **选择以 name 为键**：`use-selection.ts` 的 `Set<IEntry>` + `Set<string>` 只在本目录内成立；跨面板操作需要绝对路径（`selectedPaths` 目前只在 `FileList` 内部用，没有通过 `defineExpose` 暴露）。
@@ -50,7 +52,6 @@
 ### 2.1 目标
 
 - **多面板**：单面板 / 左右双面板 / 上下双面板 / 四宫格，可拖动分隔条调整比例；任意时刻只有一个"活动面板"。
-- **多标签页**：每个面板独立标签栏，支持新建/关闭/拖拽排序/快捷切换；标签页各自的路径、历史、选择、滚动位置互相独立。
 - **选择器模式不受影响**：`FileSelector` 仍是单面板、单标签，`handleSelect` 契约不变。
 
 ### 2.2 非目标（本期不做）
@@ -144,7 +145,7 @@ export interface PaneApi {
 
 | 旧实现 | 改法 |
 | --- | --- |
-| `use-navigation.ts` 里 `useStorage(LsKeys.NAV_PATH)` | 去掉全局 key。`useNavigation` 接收 `basePath` 的 `get/set`（由面板绑定到 layout store 的当前标签），并保留 `NAV_PATH` 仅为「上次活动面板路径」用于 `?navPath=` 深链与旧数据迁移 |
+| `use-navigation.ts` 里 `useStorage(LsKeys.NAV_PATH)` | **已实现**：`useNavigation` 改为接收外部 `basePath` 绑定，多标签下由外壳绑定到当前标签；`NAV_PATH` 只作为「上次路径」用于 `?navPath=` 深链与旧数据迁移 |
 | `NavigationHistory` | 每个面板一个实例（现状已是实例级），可选把 `{history, currentIndex}` 写进 layout store 以便重启恢复；不持久化也可接受 |
 | `explorerStateMap`（按 path 存 position/sortMode） | 保持按 path。同一路径开在多个标签时，滚动/排序共享（后写覆盖）。若要严格隔离可加 `tabId` 维度，但会丢失「同一目录的首选项」语义，建议本期不做 |
 | `localSettingsStore` 的 `isGridView/iconSize*/showHidden` | 保持全局默认；在 `ExplorerPanelState` 增加可选覆盖字段，面板右键菜单提供「本面板独立视图设置」。**本期可先不做**，只要明确不做就不会有回归 |
@@ -208,50 +209,11 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 
 ---
 
-## 6. 多标签页方案
+## 6. 多标签页
 
-### 6.1 标签栏组件
-
-- 结构：`.vgo-panel.vgo-panel--flat` 容器 + 每个标签一个 `.vgo-list-item`（激活加 `.is-active`），关闭按钮 `.vgo-button.vgo-button--text.vgo-button--icon.vgo-button--sm`。vgo-ui 没有 tabs 原语（已确认 dist 中无 `.vgo-tab*`），所以按 AGENTS 的 Style Overview 用 list-item 组合，**不要新建 tab 类名**。
-- 标签标题：`getLastDirName(path)`（`utils/index.ts:46`），过长 `vgo-u-text-overflow`；`title` 显示完整路径。
-- 交互：单击切换、中键关闭、双击/右键菜单（关闭、关闭其他、关闭右侧、复制标签、在浏览器新标签打开）、`+` 新建。
-- 拖拽排序：HTML5 DnD（与文件拖拽共用一套 drop 高亮样式）；本期可先只做「拖拽排序」，不做「跨面板移动标签」。
-
-### 6.2 快捷键
-
-| 快捷键 | 动作 |
-| --- | --- |
-| `Ctrl+T` / `Alt+T` | 新标签（当前路径） |
-| `Ctrl+W` | 关闭当前标签（最后一个标签则关闭面板或保留空面板，需拍板） |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | 面板内下一个/上一个标签 |
-| `Alt+1..9` | 跳到第 N 个标签（避开浏览器 `Ctrl+1..9`） |
-| `Tab` / `Shift+Tab` | 切换活动面板 |
-| `F5` / `F6` | 复制 / 移动到另一面板（单面板时禁用或降级为提示） |
-| `F8` | 删除（与现有 `Delete` 并存） |
-| `Alt+\` | 切换单/双面板 |
-
-注意 `F5` 会触发浏览器刷新、`F6` 会聚焦地址栏，`useShortcut` 的 `preventDefault` 默认 `true`（`use-shortcut.ts:238`），可以拦下；但在 `F5` 被浏览器优先处理的环境需要验证（Chrome 下 `keydown` 的 `preventDefault` 能阻止 F5 刷新）。建议同时保留 `Alt+C` / `Alt+M` 备选。
-
-### 6.3 保活与资源控制
-
-- 方案：每个标签渲染一个 `ExplorerPane`，首次激活才挂载（`mountedTabs` 集合），之后用 `v-show` 保活。
-- 隐藏标签因为 `display:none`，`ThemedIcon` 的 IntersectionObserver 不会触发，**不会加载预览**；虚拟列表在重新显示时由 ResizeObserver 触发 `refresh()`。
-- 需要在「重新显示」时主动做一次：`virtualList.refresh()` / `virtualGrid.refresh()` + `getSetScrollPosition('set', position)`（现有 `FileList.vue:707-731` 的逻辑抽成 `restoreViewport()` 供显示时调用），否则隐藏期间尺寸为 0 会导致可视区为空。
-- 标签数量不设硬上限；若担心内存，可在后续加「超过 N 个非活动标签则卸载最久未用」的 LRU，卸载前把状态快照进 store。本期不做。
-
-### 6.4 「New Tab」语义调整
-
-- `FileManager.vue:195 openPathInNewTab()` 从 `window.open(...)` 改为「在应用内当前面板新建标签」。
-- 同时把原来的浏览器新标签能力留在右键菜单里，文案区分：`Open in new Tab`（应用内）/ `Open in new browser tab`（浏览器）。名称变化需要同步 `CHANGELOG.md`。
-
-### 6.5 选择器模式
-
-- `FileSelector` 传入 `mode="selector"`（或沿用 `selectFileMode` 判断）：
-  - 强制单面板 + 单标签；
-  - 隐藏布局切换与标签栏的关闭/新建；
-  - `handleSelect` 仍返回**当前面板**的结果，语义不变。
-
----
+已单独实现并拆出，见 [`docs/explorer-tabs-design.md`](../explorer-tabs-design.md)。
+实现形态与本节原方案不同（全局一条标签栏、只切换 `explorer-main`，没有 pane 注册表），
+不再在本文保留设计。
 
 ## 7. 快捷键作用域改造（多面板的关键）
 
@@ -260,7 +222,7 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 1. **每个面板实例一个唯一 scope**：`fileManager:<panelId>`（选择器为 `fileSelector:<panelId>`）。`provide(shortcutScopeKey, ...)` 在面板层提供，`FileList` 继续 `inject`，注册代码零改动。
 2. **扩展 `getFallbackScope()`**（`use-shortcut.ts:115-124`）：事件目标不在任何 `[data-shortcut-scope]` 内时，先返回**布局 store 的活动面板 scope**，再回退到 apps 窗口。这样点击全局工具栏后按方向键仍作用于活动面板。
 3. **面板激活**：面板根元素上加 `@mousedown.capture` / `@focusin` → `setActivePanel(id)`。点击面板 B 时，`event.target.closest` 命中的是 B 的 scope，天然路由到 B；两者一致。
-4. **标签页**：只有活动标签在 scope 上可见（隐藏标签用 `v-show`，其注册仍在，但 scope 属于面板而非标签）。因此**需要把 scope 细化到标签**：`fileManager:<panelId>:<tabId>`，并把活动面板 scope 定义为「活动面板的活动标签 scope」。这样隐藏标签的注册永远不会被命中，无需给每个 `useShortcut` 传 `disabled`。
+4. **标签页**：**已实现**（多标签阶段）——每个面板的 scope 是 `fileManager:<tabId>`，外壳根节点的 `data-shortcut-scope` 动态指向活动标签的 scope，隐藏标签的注册永远不会被命中，无需给每个 `useShortcut` 传 `disabled`。多面板落地时再在前面加上 `panelId` 维度。
    - 备选（改动更小但更啰嗦）：所有面板共用一个 scope，每个 `useShortcut` 传 `disabled: () => !isActivePane || !isActiveTab`。i.e. 依赖 `use-shortcut.ts:165` 的 disabled 提前跳过。不推荐，因为要在 20+ 处注册里重复这个条件。
 5. `FileSelector` 的 `shortcutScope` prop 保留，作为 scope 前缀。
 
@@ -288,15 +250,6 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 9. 面板右键菜单：关闭面板、在本面板/新面板打开。
 10. `TransferQueue` 收敛为窗口级单例（若时间紧可后移）。
 
-### Phase 2 —— 多标签页
-
-11. `ExplorerTabBar.vue` + 标签 CRUD + 懒挂载/`v-show` 保活 + 重新显示时 `restoreViewport()`。
-12. 标签快捷键与右键菜单；`openPathInNewTab` 改为应用内标签，另留「在浏览器新标签打开」。
-13. 标签拖拽排序；会话恢复（重启后还原面板/标签/路径/活动项）。
-14. 选择器模式锁定为单面板单标签。
-
----
-
 ## 9. 风险、取舍与待拍板项
 
 ### 9.1 风险
@@ -312,7 +265,7 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 ### 9.2 需要你拍板的问题
 
 1. **面板数量上限**：只做双面板（TC 风格）还是 4 宫格（Q-Dir 风格）？四宫格会放大 9.1 的所有资源问题。
-2. **`Ctrl+W` 关闭最后一个标签**：关闭整个面板，还是保留一个空面板（显示驱动器列表）？
+2. ~~**`Ctrl+W` 关闭最后一个标签**~~：已定——至少保留 1 个标签，不允许关闭（快捷键用的是 `Alt+W`，`Ctrl+W` 被浏览器占用）。
 3. **视图偏好是否分面板**：网格/列表、图标大小、隐藏文件是全局联动，还是每个面板独立记忆？
 4. **`TransferQueue` 收敛**：接受「全窗口一个传输窗口」，还是保留每面板一个？
 5. **移动端**：是否接受移动端强制单面板 + 只保留标签页？
@@ -321,14 +274,12 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 
 ## 10. 受影响文件清单
 
-**新增**
+**新增**（多面板相关；`ExplorerPane.vue` / `ExplorerTabBar.vue` 已在多标签阶段落地，见 `docs/explorer-tabs-design.md`）
 
 - `frontend/src/views/FileManager/ExplorerUI/explorer-layout-store.ts`
 - `frontend/src/views/FileManager/ExplorerUI/pane-registry.ts`
 - `frontend/src/views/FileManager/ExplorerLayout.vue`
 - `frontend/src/views/FileManager/ExplorerPanel.vue`
-- `frontend/src/views/FileManager/ExplorerTabBar.vue`
-- `frontend/src/views/FileManager/ExplorerPane.vue`
 
 **改动**
 
