@@ -20,6 +20,34 @@ func newUpdateServer() *echo.Echo {
 	return e
 }
 
+// 默认（config 里没打开 allowSelfUpdate）时两条高危端点根本不注册。
+func TestUpdateRoutesAreOffByDefault(t *testing.T) {
+	e := echo.New()
+	registerUpdateRoutes(e.Group("/api"), false)
+
+	for _, target := range []string{"/api/update", "/api/update/exit"} {
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("POST %s = %d, want 404", target, rec.Code)
+		}
+	}
+}
+
+// 打开之后两条端点存在：没有 token 时由鉴权中间件挡下，不会是 404。
+func TestUpdateRoutesAreRegisteredWhenEnabled(t *testing.T) {
+	e := echo.New()
+	registerUpdateRoutes(e.Group("/api"), true)
+
+	for _, target := range []string{"/api/update", "/api/update/exit"} {
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("POST %s is not registered", target)
+		}
+	}
+}
+
 func updateUploadRequest(t *testing.T, e *echo.Echo, filename string, content []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	var buf bytes.Buffer

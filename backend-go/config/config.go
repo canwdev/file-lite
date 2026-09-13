@@ -47,6 +47,11 @@ type Cfg struct {
 	// 留空表示在 PATH 中自动查找；两者都没有时视频封面功能关闭（不报错）。
 	FFmpegPath string `json:"ffmpegPath"`
 
+	// AllowSelfUpdate 允许通过 API 替换自己的二进制并重启（POST /api/update），
+	// 以及直接结束进程（POST /api/update/exit）。两者都是高危操作，默认关闭：
+	// 关闭时这两条路由根本不注册，请求得到的是 404。
+	AllowSelfUpdate bool `json:"allowSelfUpdate"`
+
 	// TaskConcurrency 是同时执行的文件操作任务数上限（缺省 2）。
 	TaskConcurrency int `json:"taskConcurrency,omitempty"`
 	// CopyFileConcurrency 是单个任务内并行复制的文件数（缺省 4）。

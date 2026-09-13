@@ -24,9 +24,8 @@ func Register(api *echo.Group) {
 	speedTest := api.Group("/speed-test")
 	speedTest.Use(middlewares.AuthMiddleware)
 	registerSpeedTest(speedTest)
-	update := api.Group("/update")
-	update.Use(middlewares.AuthMiddleware)
-	registerUpdate(update)
+	// 替换自身二进制 / 退出进程是高危操作：只有 config 里显式打开才注册。
+	registerUpdateRoutes(api, config.Config().AllowSelfUpdate)
 }
 
 func authWithPassword(c echo.Context) error {

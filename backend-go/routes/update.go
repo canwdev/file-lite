@@ -17,7 +17,14 @@ import (
 // 否则用户看到的是连接被重置，而不是「更新成功，正在重启」。
 const restartDelay = 500 * time.Millisecond
 
-func registerUpdate(g *echo.Group) {
+// registerUpdateRoutes 注册自更新与退出这两条高危端点。
+// enabled 为 false 时一条都不注册：调用方拿到 404，而不是 401/403 —— 端点不存在本身就是答案。
+func registerUpdateRoutes(api *echo.Group, enabled bool) {
+	if !enabled {
+		return
+	}
+	g := api.Group("/update")
+	g.Use(middlewares.AuthMiddleware)
 	g.POST("", applyUpdate)
 	g.POST("/exit", exitBackend)
 }
