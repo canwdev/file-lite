@@ -1,0 +1,63 @@
+# config.json 配置说明
+
+File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文列出文件位置、写入时机和每个字段的含义；类型定义见 [`Cfg`](../backend-go/config/config.go)。
+
+## 文件位置
+
+- 默认：`<进程工作目录>/file-lite/config.json`。
+- 用 `--data-dir <path>` 或环境变量 `FILE_LITE_DATA_BASE_DIR` 换数据目录（`--data-dir` 就是设置这个环境变量）。
+- `sslKey` / `sslCert` 写的是**相对数据目录**的路径。
+
+## 生成与写入时机
+
+| 情况 | 行为 |
+| --- | --- |
+| `--create-config` | 写出一份默认配置（含随机生成的 `password`、`jwtToken`）后退出；加 `--with-tls` 会同时生成自签证书，见 [ssl.md](./ssl.md) |
+| 已有 config.json | 直接读取；`password` 或 `jwtToken` 为空时随机生成并**写回**该文件 |
+| 没有 config.json，也没加 `--create-config` | **ephemeral 模式**：密码和签名密钥只在内存里生成，不写任何文件，用控制台打印的 Ticket 登录，进程一退全部失效 |
+
+## 示例
+
+```json
+{
+  "host": "",
+  "port": "3100",
+  "password": "2f8c1a9d0b3e4f56",
+  "jwtToken": "9Xk...",
+  "safeBaseDir": "./",
+  "logLevel": "warn",
+  "sslKey": "",
+  "sslCert": "",
+  "allowedCIDRs": [],
+  "ffmpegPath": "",
+  "allowSelfUpdate": false,
+  "taskConcurrency": 2,
+  "copyFileConcurrency": 4,
+  "copyFsync": true
+}
+```
+
+## 字段
+
+| 字段 | 类型 | 缺省 | 说明 |
+| --- | --- | --- | --- |
+| `host` | string | `""` | 监听地址，空表示 `0.0.0.0`（所有网卡）。优先级：`--host` / `-H` > 配置文件 > 环境变量 `HOST` |
+| `port` | string | `"3100"` | 监听端口。优先级：`--port` / `-p` > 配置文件 > 环境变量 `PORT` |
+| `password` | string | 随机 | 登录密码。为空时随机生成并写回；ephemeral 模式下只存在于内存。控制台不打印它，请查配置文件 |
+| `jwtToken` | string | 随机 | JWT 签名密钥。改它会让所有已登录会话立刻失效 |
+| `safeBaseDir` | string | `"./"` | 文件管理器的根目录，相对路径按启动时的工作目录解析；留空表示不限制 |
+| `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
+| `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
+| `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
+| `ffmpegPath` | string | `""` | ffmpeg 可执行文件路径，用于生成视频封面；留空则在 `PATH` 中查找，两者都没有时该功能关闭（不报错） |
+| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/update`（校验并替换自身二进制、重启）和 `POST /api/update/exit`（退出进程）。关闭时这两条路由**根本不注册**，请求得到 404 |
+| `taskConcurrency` | int | `2` | 同时执行的复制 / 移动 / 删除任务数上限 |
+| `copyFileConcurrency` | int | `4` | 单个任务内并行复制的文件数 |
+| `copyFsync` | bool | `true` | 原子改名之前是否 fsync 临时文件。省略即为 true；机械盘上大量小文件时可以关掉换速度，代价是断电可能留下「已改名但内容未落盘」的文件 |
+
+## 注意
+
+- `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
+- `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或直接停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
+- 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。
+- 环境变量只在配置文件没有写该字段时生效：命令行 > 配置文件 > 环境变量。

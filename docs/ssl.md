@@ -61,10 +61,6 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pe
 
 运行命令后，OpenSSL 会要求你提供一些信息，例如国家代码、州、城市、组织名称、组织单位名称、通用名称（域名）和电子邮件地址。这些信息可以根据你的需要填写。`Common Name (例如，服务器 FQDN 或您的名称) []:` 这一项很重要，通常情况下，你需要输入你的服务器的域名或 `localhost` 用于本地开发。
 
-**方式三：使用 mkcert**（更便于在系统和浏览器中建立信任）
-
-见 [使用 mkcert 生成并信任自签名证书](./mkcert.md)。
-
 ### 2. 在配置中启用
 
 编辑 `file-lite/config.json`，新增或修改 `sslKey` 和 `sslCert`（相对数据目录的路径）：

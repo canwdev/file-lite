@@ -69,7 +69,7 @@ bun run report       # 打开上一次的 HTML 报告
 ## 截图
 
 `bun run test` 会顺便把截图写进 `screenshots/`（提交进仓库，供
-[`../docs/frontend-ui-testing.md`](../docs/frontend-ui-testing.md) 引用）。
+[`../docs/design/frontend-ui-testing.md`](../docs/design/frontend-ui-testing.md) 引用）。
 截图前会等待弹窗动画落定，并清掉历史任务，保证画面只反映当前用例。
 
 ## 排查

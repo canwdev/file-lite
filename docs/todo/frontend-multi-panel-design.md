@@ -6,7 +6,7 @@
 > 本文已经拆出两块并**单独实现**：
 > - **多选拖拽**：见 `ExplorerUI/entry-drag.ts` 与 `ExplorerUI/hooks/use-transfer.ts`（拖到文件夹行 /
 >   面包屑 / 收藏夹 / 磁盘根，同卷移动、跨卷复制，Ctrl 拖回原目录即 duplicate，系统拖入即上传到该目录）。
-> - **多标签页**：见 [`docs/explorer-tabs-design.md`](../explorer-tabs-design.md)。实际做成了**全局一条标签栏、
+> - **多标签页**：见 [`docs/design/explorer-tabs-design.md`](../design/explorer-tabs-design.md)。实际做成了**全局一条标签栏、
 >   只切换 `explorer-main`**，与本文原先「每个面板一条标签栏」的假设不同，所以本文的标签相关章节已删除。
 >
 > 目标形态参考 Total Commander（双面板 + F5/F6 快捷键）与 Q-Dir（2~4 宫格）。
@@ -211,7 +211,7 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 
 ## 6. 多标签页
 
-已单独实现并拆出，见 [`docs/explorer-tabs-design.md`](../explorer-tabs-design.md)。
+已单独实现并拆出，见 [`docs/design/explorer-tabs-design.md`](../design/explorer-tabs-design.md)。
 实现形态与本节原方案不同（全局一条标签栏、只切换 `explorer-main`，没有 pane 注册表），
 不再在本文保留设计。
 
@@ -274,7 +274,7 @@ FileManager.vue                     外壳：base scope、全局 header、FileSi
 
 ## 10. 受影响文件清单
 
-**新增**（多面板相关；`ExplorerPane.vue` / `ExplorerTabBar.vue` 已在多标签阶段落地，见 `docs/explorer-tabs-design.md`）
+**新增**（多面板相关；`ExplorerPane.vue` / `ExplorerTabBar.vue` 已在多标签阶段落地，见 `docs/design/explorer-tabs-design.md`）
 
 - `frontend/src/views/FileManager/ExplorerUI/explorer-layout-store.ts`
 - `frontend/src/views/FileManager/ExplorerUI/pane-registry.ts`
