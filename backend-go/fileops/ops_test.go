@@ -62,7 +62,7 @@ func TestCopyBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, err := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -94,7 +94,7 @@ func TestCopyProgressCountsEachByteOnce(t *testing.T) {
 
 	var lastItems int
 	var lastBytes int64
-	results, err := NewEngine(false).Run(context.Background(), Options{
+	results, err := NewEngine().Run(context.Background(), Options{
 		FromPaths: []string{src},
 		ToPath:    dst,
 		Policy:    PolicyOverwrite,
@@ -125,7 +125,7 @@ func TestCopyDoesNotClobberSourceWhenDestinationIsInside(t *testing.T) {
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("new-content"))
 	writeFile(t, filepath.Join(dst, "a.txt"), []byte("old-content"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -148,7 +148,7 @@ func TestConflictSkip(t *testing.T) {
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("new"))
 	writeFile(t, filepath.Join(dst, "a.txt"), []byte("old"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -170,7 +170,7 @@ func TestConflictKeepBoth(t *testing.T) {
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("new"))
 	writeFile(t, filepath.Join(dst, "a.txt"), []byte("old"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -196,7 +196,7 @@ func TestConflictAskIsSafe(t *testing.T) {
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("new"))
 	writeFile(t, filepath.Join(dst, "a.txt"), []byte("old"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -220,7 +220,7 @@ func TestDirectoryMergeWindowsSemantics(t *testing.T) {
 	writeFile(t, filepath.Join(dst, "docs", "same.txt"), []byte("from-dst"))
 	writeFile(t, filepath.Join(dst, "docs", "keep.txt"), []byte("keep"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{src},
 		ToPath:    dst,
@@ -251,7 +251,7 @@ func TestMoveSameVolumeRemovesSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -274,7 +274,7 @@ func TestDuplicateNaming(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "a.txt"), []byte("1"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(dir, "a.txt")},
 		ToPath:    dir,
@@ -295,7 +295,7 @@ func TestDeleteRecursive(t *testing.T) {
 	writeFile(t, filepath.Join(nested, "x.txt"), []byte("x"))
 	writeFile(t, filepath.Join(dir, "tree", "y.txt"), []byte("y"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, _ := e.Run(context.Background(), Options{
 		FromPaths: []string{filepath.Join(dir, "tree")},
 	}, Callbacks{})
@@ -331,7 +331,7 @@ func TestCancelNeverLeavesPartialFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewEngine(false)
+	e := NewEngine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(2 * time.Millisecond)
@@ -369,7 +369,7 @@ func TestCancelBeforeStartDoesNothing(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	e := NewEngine(false)
+	e := NewEngine()
 	_, _ = e.Run(ctx, Options{
 		FromPaths: []string{filepath.Join(src, "a.txt")},
 		ToPath:    dst,
@@ -450,7 +450,7 @@ func TestFailureMessageHidesTempFile(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dst, 0755) })
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, err := e.Run(context.Background(), Options{
 		FromPaths: []string{src},
 		ToPath:    dst,
@@ -517,7 +517,7 @@ func TestCopyIntoItsOwnFolderDuplicates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewEngine(false)
+	e := NewEngine()
 	// 即使策略是 overwrite，也不该动原文件
 	results, err := e.Run(context.Background(), Options{
 		FromPaths: []string{src},
@@ -557,7 +557,7 @@ func TestMoveIntoItsOwnFolderIsSkipped(t *testing.T) {
 	src := filepath.Join(dir, "a.txt")
 	writeFile(t, src, []byte("alpha"))
 
-	e := NewEngine(false)
+	e := NewEngine()
 	results, err := e.Run(context.Background(), Options{
 		FromPaths: []string{src},
 		ToPath:    dir,

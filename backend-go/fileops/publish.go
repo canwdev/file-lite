@@ -14,15 +14,15 @@ type PublishOptions struct {
 	Mode os.FileMode
 	// Mtime 非零时在发布前对齐修改时间。
 	Mtime time.Time
-	// Fsync 为 true 时在改名之前 fsync 临时文件，保证断电也不会出现
-	// 「已改名但内容还没落盘」的文件。
-	Fsync bool
 }
 
 // PublishFile 是「目标同目录临时文件 + 原子改名」的唯一实现。
 //
 // 复制和上传都必须走这里，保证磁盘上永远不存在半个文件：写入过程中进程被杀、
 // write 返回错误、或请求被中断，目标路径都不会出现半成品。
+//
+// 改名之前一定 fsync 临时文件：否则断电后可能出现「已经叫最终名字、内容却没落盘」的文件，
+// 那比慢一点糟得多。这个开关曾经可配，现在固定打开。
 //
 // 进程被强杀时可能留下一个孤儿临时文件（前缀 .fl-part-，列表与 zip 都会过滤掉，
 // 用户看不见）。不做全局账本去扫它：那需要每复制一个文件多写一次账本，
@@ -59,11 +59,9 @@ func PublishFile(dst string, opts PublishOptions, write func(w io.Writer) error)
 		_ = out.Close()
 		return hideTemp(err)
 	}
-	if opts.Fsync {
-		if err := out.Sync(); err != nil {
-			_ = out.Close()
-			return hideTemp(err)
-		}
+	if err := out.Sync(); err != nil {
+		_ = out.Close()
+		return hideTemp(err)
 	}
 	if err := out.Close(); err != nil {
 		return hideTemp(err)

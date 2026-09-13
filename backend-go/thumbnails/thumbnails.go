@@ -23,8 +23,6 @@ import (
 	// x/image/webp 只提供解码器；注册进 image.Decode / image.DecodeConfig。
 	// jpeg/png/gif 由 image 包自带，bmp/tiff 由 imaging 内部引入。
 	_ "golang.org/x/image/webp"
-
-	"file-lite-go/config"
 )
 
 const (
@@ -104,8 +102,8 @@ type Options struct {
 	// MaxSourceBytes 是允许参与**图片**生成的源文件体积上限，超过直接返回 ErrTooLarge。
 	// 视频不适用这条：几 GB 的影片是常态，视频靠 VideoTimeout 兜底。
 	MaxSourceBytes int64
-	// FFmpegPath 返回 ffmpeg 可执行文件路径；返回空串表示在 PATH 中查找。
-	// 做成函数是因为 Default 在 config 加载之前就构造了，路径要延迟到请求时再读。
+	// FFmpegPath 返回 ffmpeg 可执行文件路径；返回空串（或留空整个选项）表示在 PATH 中查找。
+	// 只有测试会注入它，用来指向一个假的 ffmpeg。
 	FFmpegPath func() string
 	// VideoConcurrency 是同时运行的 ffmpeg 进程数上限。零值取默认。
 	VideoConcurrency int
@@ -130,10 +128,10 @@ type Service struct {
 }
 
 // Default 是路由使用的进程级实例。
+// 不设置 FFmpegPath：ffmpeg 只在 PATH 里查找。
 var Default = New(Options{
 	CacheBytes:  defaultCacheBytes,
 	Concurrency: decodeConcurrency,
-	FFmpegPath:  func() string { return config.Config().FFmpegPath },
 })
 
 func New(opts Options) *Service {

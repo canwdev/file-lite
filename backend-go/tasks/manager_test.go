@@ -30,7 +30,7 @@ func read(t *testing.T, path string) string {
 
 func newTestManager(t *testing.T, ttl time.Duration) (*Manager, chan Event) {
 	t.Helper()
-	engine := fileops.NewEngine(false)
+	engine := fileops.NewEngine()
 	m := NewManager(engine, Options{Concurrency: 1, FileConcurrency: 1, ConflictTTL: ttl})
 	events := make(chan Event, 256)
 	m.SetEmitter(func(ev Event) { events <- ev })

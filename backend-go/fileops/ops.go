@@ -69,14 +69,11 @@ const (
 )
 
 // Engine 执行文件操作。
-type Engine struct {
-	// fsync 决定原子改名之前是否 fsync 临时文件。
-	fsync bool
-}
+type Engine struct{}
 
 // NewEngine 创建执行器。
-func NewEngine(fsync bool) *Engine {
-	return &Engine{fsync: fsync}
+func NewEngine() *Engine {
+	return &Engine{}
 }
 
 // Run 执行一次复制 / 移动 / 删除，返回逐条结果。
@@ -534,7 +531,6 @@ func (rs *runState) copyFileAtomic(srcPath, dstPath string) error {
 	return PublishFile(dstPath, PublishOptions{
 		Mode:  info.Mode(),
 		Mtime: info.ModTime(),
-		Fsync: rs.engine.fsync,
 	}, func(w io.Writer) error {
 		_, err := io.Copy(&progressWriter{dst: w, rs: rs, current: srcPath}, ctxReader{ctx: rs.ctx, r: in})
 		return err

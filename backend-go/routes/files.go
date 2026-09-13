@@ -448,8 +448,7 @@ func uploadFile(c echo.Context) error {
 	}
 
 	if err := fileops.PublishFile(destPath, fileops.PublishOptions{
-		Mode:  0644,
-		Fsync: config.CopyFsyncEnabled(),
+		Mode: 0644,
 	}, func(w io.Writer) error {
 		_, err := io.Copy(w, src)
 		return err

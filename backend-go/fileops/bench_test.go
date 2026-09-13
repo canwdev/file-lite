@@ -34,7 +34,7 @@ func BenchmarkCopySmallFiles(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-		engine := NewEngine(true)
+		engine := NewEngine()
 
 		b.StartTimer()
 		if _, err := engine.Run(context.Background(), Options{

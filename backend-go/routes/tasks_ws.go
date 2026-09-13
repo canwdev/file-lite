@@ -8,7 +8,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"file-lite-go/config"
 	"file-lite-go/fileops"
 	"file-lite-go/tasks"
 )
@@ -26,11 +25,8 @@ func startTaskManager() {
 	if taskManager != nil {
 		return
 	}
-	engine := fileops.NewEngine(config.CopyFsyncEnabled())
-	m := tasks.NewManager(engine, tasks.Options{
-		Concurrency:     config.TaskConcurrency(),
-		FileConcurrency: config.CopyFileConcurrency(),
-	})
+	engine := fileops.NewEngine()
+	m := tasks.NewManager(engine, tasks.DefaultOptions())
 	m.SetEmitter(broadcastTaskEvent)
 	m.Start()
 	taskManager = m
