@@ -97,12 +97,15 @@ export function endEntryDrag(): void {
  * 该目录能不能作为这次内部拖拽的落点。
  *
  * 与资源管理器一致：不能放进自己或自己的子孙（后端也会拒绝，这里提前给出反馈），
- * 已在目标目录里的项不算有效落点（原地移动没有意义，粘贴另有入口）。
+ * 已在目标目录里的项不算有效落点（原地移动没有意义）。
+ *
+ * 例外：按住 Ctrl（复制）拖回源目录时，资源管理器的语义是「原地复制」，
+ * 也就是 duplicate —— 由 `allowSameDir` 放行，最终生成 `name - Copy`。
  */
-export function canDropEntries(destDir: string, session: EntryDragSession): boolean {
+export function canDropEntries(destDir: string, session: EntryDragSession, options: { allowSameDir?: boolean } = {}): boolean {
   const target = normalizeListingPath(destDir)
   if (target === session.sourceBasePath) {
-    return false
+    return Boolean(options.allowSameDir)
   }
   return session.items.every((item, index) => {
     if (!item.isDirectory) {
@@ -153,8 +156,23 @@ async function resolveDropMode(destDir: string, session: EntryDragSession, event
 
 async function performEntryDrop(destDir: string, event: DragEvent, session: EntryDragSession): Promise<void> {
   const target = normalizeListingPath(destDir)
-  const fromPaths = session.paths.filter(path => normalizeListingPath(getParentPath(path)) !== target)
+  // 拖回源目录只有一个合法含义：Ctrl 复制（duplicate）。此时不做「父目录已是目标」过滤，
+  // 否则所有项都会被滤掉，什么也不会发生。
+  const sameDir = target === session.sourceBasePath
+  const fromPaths = sameDir
+    ? [...session.paths]
+    : session.paths.filter(path => normalizeListingPath(getParentPath(path)) !== target)
   if (!fromPaths.length) {
+    return
+  }
+
+  if (sameDir) {
+    try {
+      await createTask({ kind: 'duplicate', fromPaths, toPath: target })
+    }
+    catch (error: any) {
+      window.$message?.error(error?.message || 'Failed to start the task')
+    }
     return
   }
 
@@ -220,7 +238,8 @@ export interface DirDropOptions {
 export function acceptDirDrag(destDir: string, event: DragEvent, options: DirDropOptions = {}): 'internal' | 'external' | null {
   if (isInternalDrag(event)) {
     const session = dragSession.value
-    if (!session || !canDropEntries(destDir, session)) {
+    // Ctrl 拖回源目录 = 原地复制（duplicate），其它修饰键组合沿用移动 / 复制语义
+    if (!session || !canDropEntries(destDir, session, { allowSameDir: isCopyModifier(event) })) {
       return null
     }
     event.preventDefault()
@@ -261,7 +280,7 @@ export function dropIntoDir(destDir: string, event: DragEvent, options: DirDropO
     endEntryDrag()
     event.preventDefault()
     event.stopPropagation()
-    if (!session || !canDropEntries(destDir, session)) {
+    if (!session || !canDropEntries(destDir, session, { allowSameDir: isCopyModifier(event) })) {
       return false
     }
     void performEntryDrop(destDir, event, session)

@@ -21,7 +21,7 @@ import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import TransferQueue from '../TransferQueue.vue'
 import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
-import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
+import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isCopyModifier, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
 import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
@@ -522,14 +522,20 @@ function onContentDragOver(event: DragEvent) {
   }
 
   const row = hoveredDropRow(event)
-  if (!row || !acceptDirDrag(row.dir, event, { delegateExternal: true })) {
-    dropTargetName.value = null
+  if (row && acceptDirDrag(row.dir, event, { delegateExternal: true })) {
+    dropTargetName.value = row.name
     if (internal) {
       updateDragAutoScroll(event)
     }
     return
   }
-  dropTargetName.value = row.name
+
+  dropTargetName.value = null
+  // Ctrl 拖到列表空白处 = 复制到当前目录；若源目录就是当前目录，entry-drag 会把它变成 duplicate。
+  // 没有行可以高亮，落点反馈交给拖拽光标。
+  if (internal && isCopyModifier(event)) {
+    acceptDirDrag(basePath.value, event, { delegateExternal: true })
+  }
   if (internal) {
     updateDragAutoScroll(event)
   }
@@ -555,11 +561,15 @@ function onContentDrop(event: DragEvent) {
   }
 
   const row = hoveredDropRow(event)
-  if (!row) {
-    endEntryDrag()
+  if (row) {
+    dropIntoDir(row.dir, event, { delegateExternal: true })
     return
   }
-  dropIntoDir(row.dir, event, { delegateExternal: true })
+  // 落在空白处：只有按住 Ctrl（复制）才有意义——同目录即 duplicate，其它目录即复制过来
+  if (isCopyModifier(event) && dropIntoDir(basePath.value, event, { delegateExternal: true })) {
+    return
+  }
+  endEntryDrag()
 }
 
 function resolveExternalDropDir(event: DragEvent) {
