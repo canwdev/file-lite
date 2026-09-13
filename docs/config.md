@@ -45,13 +45,13 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 | `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
 | `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
 | `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
-| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/update`（校验并替换自身二进制、重启）和 `POST /api/update/exit`（退出进程）。关闭时这两条路由**根本不注册**，请求得到 404 |
+| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/update`（校验并替换自身二进制、重启）、`POST /api/update/restart`（原地重启进程）和 `POST /api/update/exit`（退出进程）。关闭时这三条路由**根本不注册**，请求得到 404 |
 
 超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，临时文件在改名之前一定 fsync。
 
 ## 注意
 
 - `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
-- `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或直接停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
+- `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
 - 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。
 - 环境变量只在配置文件没有写该字段时生效：命令行 > 配置文件 > 环境变量。

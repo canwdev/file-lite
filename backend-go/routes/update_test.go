@@ -20,12 +20,12 @@ func newUpdateServer() *echo.Echo {
 	return e
 }
 
-// 默认（config 里没打开 allowSelfUpdate）时两条高危端点根本不注册。
+// 默认（config 里没打开 allowSelfUpdate）时三条高危端点根本不注册。
 func TestUpdateRoutesAreOffByDefault(t *testing.T) {
 	e := echo.New()
 	registerUpdateRoutes(e.Group("/api"), false)
 
-	for _, target := range []string{"/api/update", "/api/update/exit"} {
+	for _, target := range []string{"/api/update", "/api/update/restart", "/api/update/exit"} {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
 		if rec.Code != http.StatusNotFound {
@@ -34,12 +34,13 @@ func TestUpdateRoutesAreOffByDefault(t *testing.T) {
 	}
 }
 
-// 打开之后两条端点存在：没有 token 时由鉴权中间件挡下，不会是 404。
+// 打开之后三条端点存在：没有 token 时由鉴权中间件挡下，不会是 404。
+// 这里也顺带保证它们的 handler 不会被执行 —— 否则测试进程会真的重启或退出。
 func TestUpdateRoutesAreRegisteredWhenEnabled(t *testing.T) {
 	e := echo.New()
 	registerUpdateRoutes(e.Group("/api"), true)
 
-	for _, target := range []string{"/api/update", "/api/update/exit"} {
+	for _, target := range []string{"/api/update", "/api/update/restart", "/api/update/exit"} {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
 		if rec.Code == http.StatusNotFound {

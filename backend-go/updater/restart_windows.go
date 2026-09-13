@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
-
-	"file-lite-go/config"
 )
 
 const (
@@ -34,33 +31,10 @@ func restartProcess() error {
 		CreationFlags: detachedProcess | createNewProcessGroup,
 		HideWindow:    true,
 	}
-	// 父进程一退出，继承来的控制台 / 管道就没了。新进程的输出写进日志文件，
-	// 出问题时还能看；打不开就退化成丢弃，至少让服务先起来。
-	logFile, err := openUpdateLog()
-	if err != nil {
-		logFile, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-		if err != nil {
-			return err
-		}
-	}
-	defer logFile.Close()
-	cmd.Stdout, cmd.Stderr = logFile, logFile
-	cmd.Stdin = nil
-
+	// 三个标准流都不设置：父进程一退出，继承来的控制台就没了，Go 会把它们接到空设备。
+	// 这是开发功能，起不来时开发者自己上机器看，不留日志文件。
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", exePath, err)
 	}
 	return nil
-}
-
-// openUpdateLog 把新进程的输出落到数据目录，方便排查「更新之后没起来」。
-func openUpdateLog() (*os.File, error) {
-	dir := config.DataBaseDir()
-	if dir == "" {
-		return nil, fmt.Errorf("data directory is unknown")
-	}
-	if abs, err := filepath.Abs(dir); err == nil {
-		dir = abs
-	}
-	return os.OpenFile(filepath.Join(dir, "update.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 }

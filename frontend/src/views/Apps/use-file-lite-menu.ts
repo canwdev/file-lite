@@ -1,7 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { applyUpdate, exitBackend } from '@/api/update'
+import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
@@ -77,6 +77,39 @@ function handleUpdateBackend() {
       })
   }
   input.click()
+}
+
+/**
+ * 重启后端进程（Development → Enable Debug），用来重载配置。
+ * 确认后发请求，等 1s（服务重启完）刷新页面；进行中的传输会被切断，所以先问一次。
+ */
+async function handleRestartBackend() {
+  try {
+    await window.$dialog.confirm(
+      'Restart the backend process?',
+      'Restart Backend',
+      {
+        type: 'warning',
+        confirmButtonText: 'Restart',
+        cancelButtonText: 'Cancel',
+      },
+    )
+  }
+  catch {
+    // 取消
+    return
+  }
+
+  try {
+    await restartBackend()
+  }
+  catch {
+    // 失败原因已经由 service 拦截器 toast
+    return
+  }
+
+  window.$message?.success('Restarting…')
+  setTimeout(() => window.location.reload(), 1000)
 }
 
 /**
@@ -344,6 +377,13 @@ export function useFileLiteMenu() {
                   label: 'Update Backend Binary…',
                   onClick: handleUpdateBackend,
 
+                },
+                serverCapabilities.value.selfUpdate && {
+                  icon: 'mdi mdi-refresh',
+                  label: 'Restart Backend',
+                  onClick: () => {
+                    void handleRestartBackend()
+                  },
                 },
                 serverCapabilities.value.selfUpdate && {
                   icon: 'mdi mdi-logout',

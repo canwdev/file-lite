@@ -60,7 +60,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The Open File picker now opens with Esc, remembers the folder you were in and the window's size and position, and shows a plain title instead of the raw filter pattern (frontend).
 - When the config file sets `allowSelfUpdate`, the Development menu can install a new backend binary: the server checks that the uploaded file really runs on this machine, replaces its own executable and restarts, and the page reloads a second later (frontend, backend).
 - The same menu can stop the backend process, after a confirmation that warns it may have to be started again manually (frontend, backend).
-- With the default config both entries stay hidden and the endpoints are not registered at all, so the requests are 404 (frontend, backend).
+- The same menu can also restart the backend process, which interrupts any transfer in progress (frontend, backend).
+- With the default config all three entries stay hidden and the endpoints are not registered at all, so the requests are 404 (frontend, backend).
 - ffmpeg is looked up in `PATH` only, and the `ffmpegPath` config option is gone (backend).
 - Background tasks run two at a time with four files in parallel, and the `taskConcurrency` and `copyFileConcurrency` config options are gone (backend).
 - The `copyFsync` config option is gone: the temporary file is always fsynced before the rename, so a power cut can no longer leave a renamed file whose contents were never written (backend).

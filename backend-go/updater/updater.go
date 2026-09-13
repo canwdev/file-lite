@@ -111,8 +111,9 @@ func SetShutdown(fn func()) {
 	}
 }
 
-// Restart 先停服，再用原来的 argv / 环境变量 / 工作目录把进程交给新二进制。
-// 必须在 Install 成功、且 HTTP 响应已经发出去之后调用。
+// Restart 先停服，再用原来的 argv / 环境变量 / 工作目录把进程交给当前的可执行文件。
+// 两个调用方：换完文件之后（Install 成功），以及只想重载配置的原地重启。
+// 无论哪种，都必须在 HTTP 响应已经发出去之后调用。
 func Restart() error {
 	if exePath == "" {
 		return fmt.Errorf("executable path is unknown")

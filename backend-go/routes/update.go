@@ -17,7 +17,7 @@ import (
 // 否则用户看到的是连接被重置，而不是「更新成功，正在重启」。
 const restartDelay = 500 * time.Millisecond
 
-// registerUpdateRoutes 注册自更新与退出这两条高危端点。
+// registerUpdateRoutes 注册自更新、重启与退出这三条高危端点。
 // enabled 为 false 时一条都不注册：调用方拿到 404，而不是 401/403 —— 端点不存在本身就是答案。
 func registerUpdateRoutes(api *echo.Group, enabled bool) {
 	if !enabled {
@@ -26,7 +26,27 @@ func registerUpdateRoutes(api *echo.Group, enabled bool) {
 	g := api.Group("/update")
 	g.Use(middlewares.AuthMiddleware)
 	g.POST("", applyUpdate)
+	g.POST("/restart", restartBackend)
 	g.POST("/exit", exitBackend)
+}
+
+// restartBackend 用原来的 argv / 环境变量把进程重新拉起来，用来重载配置。
+// 和自更新走同一条交接路径，区别只是不换文件。
+func restartBackend(c echo.Context) error {
+	utils.LogWarnf("restart requested from %s", middlewares.ClientIP(c))
+
+	go func() {
+		time.Sleep(restartDelay)
+		if err := updater.Restart(); err != nil {
+			utils.LogErrorf("restart failed: %v", err)
+			os.Exit(1)
+		}
+		// Unix 上 Restart 是 syscall.Exec，不会走到这里；Windows 上它起了分离子进程，
+		// 父进程必须退出，否则端口被占着。
+		os.Exit(0)
+	}()
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Restarting"})
 }
 
 // exitBackend 直接结束后端进程（Development → Enable Debug 里的开发功能）。

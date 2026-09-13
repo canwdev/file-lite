@@ -24,3 +24,13 @@ export function applyUpdate(file: File) {
 export function exitBackend() {
   return service.post(`${baseURL}/exit`) as unknown as Promise<{ message: string }>
 }
+
+/**
+ * 重启后端进程（开发用），用来重载配置。
+ *
+ * 后端会在响应发出之后才重启，所以成功响应只代表请求已经受理：接下来一小段时间
+ * 服务是连不上的，等它回来再刷新页面。
+ */
+export function restartBackend() {
+  return service.post(`${baseURL}/restart`) as unknown as Promise<{ message: string }>
+}

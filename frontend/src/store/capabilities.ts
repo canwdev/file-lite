@@ -8,7 +8,7 @@
 export interface ServerCapabilities {
   /** 后端能用 ffmpeg 抽帧生成视频封面 */
   videoThumbnail: boolean
-  /** 后端允许替换自身二进制 / 退出进程（config 里的 allowSelfUpdate） */
+  /** 后端允许替换自身二进制 / 重启 / 退出进程（config 里的 allowSelfUpdate） */
   selfUpdate: boolean
 }
 

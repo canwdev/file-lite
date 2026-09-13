@@ -44,8 +44,8 @@ func getAuthInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"capabilities": map[string]any{
 			"videoThumbnail": thumbnails.Default.VideoAvailable(),
-			// config 里没开 allowSelfUpdate 时，/api/update 与 /api/update/exit
-			// 根本没注册；前端据此决定要不要显示那两个菜单项。
+			// config 里没开 allowSelfUpdate 时，/api/update、/api/update/restart
+			// 与 /api/update/exit 根本没注册；前端据此决定要不要显示那几个菜单项。
 			"selfUpdate": config.Config().AllowSelfUpdate,
 		},
 	})
