@@ -81,13 +81,10 @@ function findTabIndex(id: string) {
 }
 
 export function useExplorerTabs() {
-  /** 新建标签并激活。默认沿用当前标签的路径（和资源管理器的「新标签页」一致）。 */
+  /** 新建标签并激活，永远追加在最后。默认沿用当前标签的路径（和资源管理器一致）。 */
   function addTab(path = activePath.value): string {
     const tab = createTab(path)
-    const at = Math.max(0, findTabIndex(state.value.activeTabId))
-    const next = [...state.value.tabs]
-    next.splice(at + 1, 0, tab)
-    state.value = { tabs: next, activeTabId: tab.id }
+    state.value = { tabs: [...state.value.tabs, tab], activeTabId: tab.id }
     return tab.id
   }
 
@@ -149,6 +146,19 @@ export function useExplorerTabs() {
     state.value = { tabs: [state.value.tabs[index]], activeTabId: id }
   }
 
+  /** 关掉它左边的所有标签；活动标签被关掉时接到第一个留下的 */
+  function closeToLeft(id: string) {
+    const index = findTabIndex(id)
+    if (index <= 0) {
+      return
+    }
+    const next = state.value.tabs.slice(index)
+    const activeTabId = next.some(tab => tab.id === state.value.activeTabId)
+      ? state.value.activeTabId
+      : next[0].id
+    state.value = { tabs: next, activeTabId }
+  }
+
   /** 关掉它右边的所有标签；活动标签被关掉时接到最后一个留下的 */
   function closeToRight(id: string) {
     const index = findTabIndex(id)
@@ -198,6 +208,7 @@ export function useExplorerTabs() {
     openTab,
     closeTab,
     closeOthers,
+    closeToLeft,
     closeToRight,
     activateTab,
     activateRelative,

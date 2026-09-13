@@ -3,6 +3,12 @@
 :root {
   --vgo-primary-rgb: 83, 173, 228;
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  /**
+   * explorer 顶栏高度：一个 control-md 高的控件 + 上下各 space-1 内边距。
+   * 顶栏（FileLite 的 .explorer-top-bar）与挂在它下面的浮层（传输面板）共用这一个值，
+   * 免得两边各写一个数字、改一处忘一处。
+   */
+  --explorer-top-bar-height: calc(var(--vgo-control-md) + var(--vgo-space-1) * 2);
 }
 
 body.vgo-theme-default {

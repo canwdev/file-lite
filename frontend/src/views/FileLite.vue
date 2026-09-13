@@ -38,7 +38,8 @@ function toggleTransferPanel() {
             :title="sidebarVisible ? 'Hide navigation' : 'Show navigation'"
             @click="toggleSidebar"
           >
-            <i-mdi-menu-open />
+            <i-mdi-menu-close v-if="sidebarVisible" />
+            <i-mdi-menu-open v-else />
           </button>
           <ExplorerTabBar />
         </div>
@@ -82,6 +83,8 @@ function toggleTransferPanel() {
   justify-content: space-between;
   gap: var(--vgo-space-1);
   padding: var(--vgo-space-1);
+  // 与 explorer-header 等高：两者都是 control-md 控件 + space-1 内边距
+  min-height: var(--explorer-top-bar-height);
   border-bottom: 1px solid var(--vgo-border);
 
   &__left,

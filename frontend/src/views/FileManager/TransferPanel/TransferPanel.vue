@@ -53,7 +53,7 @@ function badge(counts: TransferTabCounts) {
 
 <template>
   <Teleport to="body">
-    <transition name="fade-up">
+    <transition name="fade-down">
       <section
         v-if="visible"
         id="file_lite_transfer_panel"
@@ -108,8 +108,8 @@ function badge(counts: TransferTabCounts) {
 .transfer-panel {
   position: fixed;
   right: var(--vgo-space-4);
-  // 让开底部状态栏：显示/隐藏的入口按钮就在那里，面板不能盖住它
-  bottom: calc(var(--vgo-control-lg) + var(--vgo-space-2));
+  // 从顶栏下方出现：顶栏是固定的 control-md + 上下内边距，用同一个变量取值
+  top: calc(var(--explorer-top-bar-height) + var(--vgo-space-2));
   z-index: var(--vgo-z-window);
   display: flex;
   flex-direction: column;
@@ -119,10 +119,8 @@ function badge(counts: TransferTabCounts) {
   font-size: var(--vgo-font-md);
 
   @media screen and (max-width: $mq_mobile_width) {
+    // 窄屏整宽，仍然贴在顶栏下面
     right: 0;
-    // 移动端整宽贴底（像一张底部抽屉）：状态栏在窄屏上会换行变高，
-    // 留固定缝隙只会把状态栏的文字盖掉一半，不如整块盖住、点面板自己的 × 收起。
-    bottom: 0;
     left: 0;
     width: 100%;
     max-height: 70vh;
@@ -172,16 +170,16 @@ function badge(counts: TransferTabCounts) {
   }
 }
 
-.fade-up-enter-active,
-.fade-up-leave-active {
+.fade-down-enter-active,
+.fade-down-leave-active {
   transition:
     opacity var(--vgo-duration-base) ease,
     transform var(--vgo-duration-base) ease;
 }
 
-.fade-up-enter-from,
-.fade-up-leave-to {
+.fade-down-enter-from,
+.fade-down-leave-to {
   opacity: 0;
-  transform: translateY(var(--vgo-space-4));
+  transform: translateY(calc(var(--vgo-space-4) * -1));
 }
 </style>

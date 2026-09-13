@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { dispatchDragEnd, login, openFolder, row, sourceDir, targetDir } from './helpers'
+import { dispatchDragEnd, login, openFolder, readTextIfExists, row, sourceDir, targetDir } from './helpers'
 
 /** 标签栏里的第 n 个标签标题 */
 function tabLabel(page: import('@playwright/test').Page, index: number) {
@@ -20,7 +20,75 @@ async function twoTabs(page: import('@playwright/test').Page) {
 }
 
 test.describe('多标签页', () => {
-  test('新增 / 切换 / 保活 / 关闭 / 持久化', async ({ page }) => {
+  test('标签栏与顶栏等高，标签项有圆角且无 outline', async ({ page }) => {
+    await login(page)
+    await expect(row(page, 'source')).toBeVisible()
+
+    // 顶栏高度必须和 explorer-header 一致（标签项不能把顶栏撑高）
+    const sizes = await page.evaluate(() => ({
+      bar: document.querySelector('.explorer-top-bar')?.getBoundingClientRect().height,
+      header: document.querySelector('.explorer-main:not([style*="display: none"]) .explorer-header')?.getBoundingClientRect().height,
+    }))
+    expect(sizes.bar).toBe(sizes.header)
+
+    const item = await page.locator('.explorer-tabs__item').first().evaluate((el) => {
+      const style = getComputedStyle(el)
+      return { radius: style.borderTopLeftRadius, outline: style.outlineStyle }
+    })
+    expect(item.radius).not.toBe('0px')
+    expect(item.outline).toBe('none')
+  })
+
+  test('新建标签永远追加在最后并激活', async ({ page }) => {
+    await login(page)
+    await openFolder(page, 'source')
+    const tabs = page.locator('.explorer-tabs__item')
+
+    // 第二个标签停在 target
+    await page.locator('.explorer-tabs__add').click()
+    await page.locator('.drive-list__item').first().click()
+    await openFolder(page, 'target')
+    // 回到第一个标签再新建：新标签应当追加到最后，而不是插在活动标签后面
+    await tabs.nth(0).click()
+    await page.locator('.explorer-tabs__add').click()
+
+    await expect(tabs).toHaveCount(3)
+    await expect(tabLabel(page, 0)).toHaveText('source')
+    await expect(tabLabel(page, 1)).toHaveText('target')
+    await expect(tabLabel(page, 2)).toHaveText('source')
+    await expect(tabs.nth(2)).toHaveClass(/is-active/)
+  })
+
+  test('拖到另一个标签页的内容区 = 落到该目录', async ({ page }) => {
+    await login(page)
+    await openFolder(page, 'source')
+    const tabs = page.locator('.explorer-tabs__item')
+
+    await page.locator('.explorer-tabs__add').click()
+    await page.locator('.drive-list__item').first().click()
+    await openFolder(page, 'target')
+    await tabs.nth(0).click()
+    await expect(row(page, 'note.md')).toBeVisible()
+
+    // 用 note.md：b.txt 是后面几个用例的断言对象，不能在共享夹具里搬走
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
+    await row(page, 'note.md').dispatchEvent('dragstart', { dataTransfer })
+
+    // 悬停第二个标签等弹簧加载切过去，然后落在它现在可见的内容区里（不带 Ctrl = 移动）
+    await tabs.nth(1).dispatchEvent('dragenter', { dataTransfer })
+    await tabs.nth(1).dispatchEvent('dragover', { dataTransfer })
+    await expect(tabs.nth(1)).toHaveClass(/is-active/)
+
+    const content = page.locator('.explorer-main:visible .explorer-content')
+    await content.dispatchEvent('dragover', { dataTransfer })
+    await content.dispatchEvent('drop', { dataTransfer })
+    await dispatchDragEnd(page)
+    await dataTransfer.dispose()
+
+    await expect.poll(() => readTextIfExists(path.join(targetDir, 'note.md'))).toBe('# note')
+  })
+
+  test('切换 / 保活 / 关闭 / 持久化', async ({ page }) => {
     await login(page)
     await expect(row(page, 'source')).toBeVisible()
 
@@ -89,7 +157,7 @@ test.describe('多标签页', () => {
     await expect(tabLabel(page, 1)).toHaveText('source')
   })
 
-  test('右键菜单：Close to the right / Close others', async ({ page }) => {
+  test('右键菜单：Close to the left / right / others', async ({ page }) => {
     await login(page)
     const tabs = page.locator('.explorer-tabs__item')
     await page.locator('.explorer-tabs__add').click()
@@ -99,6 +167,14 @@ test.describe('多标签页', () => {
     // 在最左的标签上右键：关掉它右边所有标签
     await tabs.nth(0).click({ button: 'right' })
     await page.locator('.mx-context-menu-item', { hasText: 'Close to the right' }).click()
+    await expect(tabs).toHaveCount(1)
+
+    // 再开两个，在最右的标签上右键：关掉它左边所有标签
+    await page.locator('.explorer-tabs__add').click()
+    await page.locator('.explorer-tabs__add').click()
+    await expect(tabs).toHaveCount(3)
+    await tabs.nth(2).click({ button: 'right' })
+    await page.locator('.mx-context-menu-item', { hasText: 'Close to the left' }).click()
     await expect(tabs).toHaveCount(1)
 
     // 再开两个，Close others 只保留被右键的那个

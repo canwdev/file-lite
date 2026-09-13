@@ -20,7 +20,7 @@ import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.t
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
-import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isCopyModifier, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
+import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
 import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import FileGridItem from './FileGridItem.vue'
@@ -530,12 +530,11 @@ function onContentDragOver(event: DragEvent) {
   }
 
   dropTargetName.value = null
-  // Ctrl 拖到列表空白处 = 复制到当前目录；若源目录就是当前目录，entry-drag 会把它变成 duplicate。
+  // 落在列表空白处 = 落到当前目录。拖到别的标签页的内容区就走这里：
+  // 目录不同就是普通的移动 / 复制；目录相同只有 Ctrl（复制）才有意义——那是 duplicate。
   // 没有行可以高亮，落点反馈交给拖拽光标。
-  if (internal && isCopyModifier(event)) {
-    acceptDirDrag(basePath.value, event, { delegateExternal: true })
-  }
   if (internal) {
+    acceptDirDrag(basePath.value, event, { delegateExternal: true })
     updateDragAutoScroll(event)
   }
 }
@@ -564,8 +563,8 @@ function onContentDrop(event: DragEvent) {
     dropIntoDir(row.dir, event, { delegateExternal: true })
     return
   }
-  // 落在空白处：只有按住 Ctrl（复制）才有意义——同目录即 duplicate，其它目录即复制过来
-  if (isCopyModifier(event) && dropIntoDir(basePath.value, event, { delegateExternal: true })) {
+  // 落在空白处 = 落到当前目录（同目录只有带 Ctrl 时才会被 entry-drag 接受）
+  if (dropIntoDir(basePath.value, event, { delegateExternal: true })) {
     return
   }
   endEntryDrag()

@@ -27,6 +27,7 @@ const {
   addTab,
   closeTab,
   closeOthers,
+  closeToLeft,
   closeToRight,
   activateTab,
   moveTab,
@@ -171,6 +172,12 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
       onClick: () => closeOthers(tab.id),
     },
     {
+      label: 'Close to the left',
+      icon: 'mdi mdi-arrow-collapse-left',
+      disabled: index <= 0,
+      onClick: () => closeToLeft(tab.id),
+    },
+    {
       label: 'Close to the right',
       icon: 'mdi mdi-arrow-collapse-right',
       disabled: index === -1 || index === tabs.value.length - 1,
@@ -248,8 +255,8 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: var(--vgo-space-1);
-  // 标签多了就互相挤压，不换行
+  // 标签之间不留空隙，靠分隔线区分
+  gap: 0;
   flex-wrap: nowrap;
   overflow: hidden;
 
@@ -262,14 +269,30 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     flex: 1 1 auto;
     min-width: 2.5rem;
     max-width: 12rem;
+    // vgo-list-item 的 min-height 是 control-lg，会把顶栏撑得比 explorer-header 高
     height: var(--vgo-control-md);
-    padding-inline: var(--vgo-space-2);
+    min-height: var(--vgo-control-md);
+    padding: 0 var(--vgo-space-2);
+    border-radius: var(--vgo-radius);
     overflow: hidden;
+    outline: none;
     cursor: pointer;
 
     // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
     &.is-active {
-      outline: none;
+      background-color: var(--vgo-primary-opacity);
+    }
+
+    // 相邻两个都不是活动标签时，中间画一条短分隔线
+    &:not(.is-active) + &:not(.is-active)::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 1px;
+      height: var(--vgo-font-lg);
+      transform: translateY(-50%);
+      background-color: var(--vgo-border);
     }
 
     &.is-drag-source {
@@ -277,7 +300,7 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     }
 
     // 拖拽排序的插入线
-    &.is-drop-before::before,
+    &.is-drop-before::after,
     &.is-drop-after::after {
       content: '';
       position: absolute;
@@ -287,7 +310,7 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
       background-color: var(--vgo-primary);
     }
 
-    &.is-drop-before::before {
+    &.is-drop-before::after {
       left: -1px;
     }
 
@@ -306,6 +329,17 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
     min-width: 0;
     line-height: 1.4;
     text-align: initial;
+  }
+
+  /**
+   * 高亮只留底色，去掉 vgo 的 1px outline。
+   *
+   * 主题规则是 `body.vgo-theme-default .vgo-list-item.is-active`（0,3,1），而 `&__item`
+   * 只会编译成 `.explorer-tabs__item`（不会带上 .explorer-tabs 前缀），(0,3,0) 盖不住，
+   * 所以这里显式再套一层父选择器。
+   */
+  .explorer-tabs__item.is-active {
+    outline: none;
   }
 
   &__close {
