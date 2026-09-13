@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { ExplorerPaneView } from './explorer-tabs-store'
 import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
 import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
@@ -52,6 +53,8 @@ const props = withDefaults(
      * 否则后台面板一加载完就会把活动面板抢走。
      */
     focused?: boolean
+    /** 面板自己的视图偏好（list/grid、图标大小）；不传则用全局设置 */
+    view?: ExplorerPaneView
     // 设置 selectables 防止跨层级选择
     selectables?: string[]
   }>(),
@@ -63,7 +66,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'update:isLoading', 'refresh', 'clearFilter', 'patch'])
+const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'update:isLoading', 'update:view', 'refresh', 'clearFilter', 'patch'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
@@ -73,17 +76,35 @@ const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 const sortMode = pathStateRef(basePath, 'sortMode', SortType.default)
+
+/**
+ * 视图偏好（list/grid、图标大小）属于**面板**：拆分视图里两个面板各看各的，
+ * 改一个不会带着另一个一起变。面板还没设置过时回落到全局设置。
+ *
+ * 状态由外壳持有（挂在标签 store 的面板上，跟着标签一起持久化），这里只按值收发：
+ * 外壳没有接线（选择器窗口）时也不会丢，它会把这一份写回全局设置。
+ */
+const paneView = computed<ExplorerPaneView>(() => props.view ?? {
+  grid: localSettingsStore.value.isGridView,
+  iconSizeList: localSettingsStore.value.iconSizeList,
+  iconSizeGrid: localSettingsStore.value.iconSizeGrid,
+})
+
+function updatePaneView(patch: Partial<ExplorerPaneView>) {
+  emit('update:view', { ...paneView.value, ...patch })
+}
+
 const isGridView = computed({
-  get: () => localSettingsStore.value.isGridView,
-  set: (val: boolean) => { localSettingsStore.value.isGridView = val },
+  get: () => paneView.value.grid,
+  set: (val: boolean) => updatePaneView({ grid: val }),
 })
 const iconSizeList = computed({
-  get: () => localSettingsStore.value.iconSizeList,
-  set: (val: number) => { localSettingsStore.value.iconSizeList = val },
+  get: () => paneView.value.iconSizeList,
+  set: (val: number) => updatePaneView({ iconSizeList: val }),
 })
 const iconSizeGrid = computed({
-  get: () => localSettingsStore.value.iconSizeGrid,
-  set: (val: number) => { localSettingsStore.value.iconSizeGrid = val },
+  get: () => paneView.value.iconSizeGrid,
+  set: (val: number) => updatePaneView({ iconSizeGrid: val }),
 })
 const showHidden = computed({
   get: () => localSettingsStore.value.showHidden,

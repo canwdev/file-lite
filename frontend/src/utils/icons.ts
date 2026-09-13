@@ -10,6 +10,8 @@ import MdiArrowDownBoldCircleOutline from '~icons/mdi/arrow-down-bold-circle-out
 import MdiArrowDownThinCircleOutline from '~icons/mdi/arrow-down-thin-circle-outline'
 import MdiArrowLeft from '~icons/mdi/arrow-left'
 import MdiArrowRight from '~icons/mdi/arrow-right'
+import MdiArrowSplitHorizontal from '~icons/mdi/arrow-split-horizontal'
+import MdiArrowSplitVertical from '~icons/mdi/arrow-split-vertical'
 import MdiArrowUp from '~icons/mdi/arrow-up'
 import MdiArrowUpBoldCircleOutline from '~icons/mdi/arrow-up-bold-circle-outline'
 import MdiArrowUpThinCircleOutline from '~icons/mdi/arrow-up-thin-circle-outline'
@@ -151,9 +153,6 @@ import MdiVideoOutline from '~icons/mdi/video-outline'
 import MdiViewCarouselOutline from '~icons/mdi/view-carousel-outline'
 import MdiViewGridOutline from '~icons/mdi/view-grid-outline'
 import MdiViewListOutline from '~icons/mdi/view-list-outline'
-import MdiViewSequential from '~icons/mdi/view-sequential'
-import MdiViewSplitHorizontal from '~icons/mdi/view-split-horizontal'
-import MdiViewSplitVertical from '~icons/mdi/view-split-vertical'
 import MdiVolumeHigh from '~icons/mdi/volume-high'
 import MdiVolumeVariantOff from '~icons/mdi/volume-variant-off'
 import MdiVuejs from '~icons/mdi/vuejs'
@@ -194,6 +193,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'close-box-multiple-outline': MdiCloseBoxMultipleOutline,
   'arrow-collapse-left': MdiArrowCollapseLeft,
   'arrow-collapse-right': MdiArrowCollapseRight,
+  'arrow-split-vertical': MdiArrowSplitVertical,
+  'arrow-split-horizontal': MdiArrowSplitHorizontal,
   'checkbox-marked': MdiCheckboxMarked,
   'checkbox-blank-outline': MdiCheckboxBlankOutline,
   'open-in-app': MdiOpenInApp,
@@ -317,9 +318,6 @@ export const mdiIconRegistry: Record<string, Component> = {
   'bug-play-outline': MdiBugPlayOutline,
   'server': MdiServer,
   // 标签拆分视图菜单
-  'view-split-vertical': MdiViewSplitVertical,
-  'view-split-horizontal': MdiViewSplitHorizontal,
-  'view-sequential': MdiViewSequential,
   'swap-horizontal': MdiSwapHorizontal,
   'swap-vertical': MdiSwapVertical,
 }

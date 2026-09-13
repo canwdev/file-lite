@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { ExplorerPaneView } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
 import type { FsDirChange, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
@@ -38,6 +39,8 @@ const props = withDefaults(
     active?: boolean
     // 本面板是不是当前聚焦的面板：拆分项里两个面板只有一个是
     focused?: boolean
+    // 面板自己的视图偏好（list/grid、图标大小）；不传则用全局设置
+    view?: ExplorerPaneView
   }>(),
   {
     multiple: false,
@@ -48,6 +51,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{
   'update:path': [string]
+  'update:view': [ExplorerPaneView]
   'handleSelect': [FileSelectResult]
   'cancelSelect': []
   'openPathInNewTab': [string]
@@ -491,6 +495,8 @@ defineExpose({
           :multiple="multiple"
           :content-only="contentOnly"
           :focused="focused"
+          :view="view"
+          @update:view="$emit('update:view', $event)"
           @open="handleFileListOpen"
           @select="handleSelectFromMenu"
           @open-path-in-new-tab="$emit('openPathInNewTab', $event)"

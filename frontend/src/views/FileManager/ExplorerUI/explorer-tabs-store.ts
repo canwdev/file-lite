@@ -15,9 +15,22 @@ import { normalizeListingPath } from '../utils'
  * `path` 存原样（可能是空串），只有比较时才 `normalizeListingPath` —— 空串意味着
  * 「还没导航过」，外壳要靠它决定是否打开第一个磁盘，归一成 `/` 会把这个语义弄丢。
  */
+/**
+ * 面板自己的视图偏好。跟标签内容一起挂在面板上持久化：拆分视图里两个面板各看各的，
+ * 改动一个不会带着另一个一起变。没设置过的面板（刚开、没动过）继续用全局设置，
+ * 选择器窗口没有面板级状态，也一直走全局设置。
+ */
+export interface ExplorerPaneView {
+  grid: boolean
+  iconSizeList: number
+  iconSizeGrid: number
+}
+
 export interface ExplorerTab {
   id: string
   path: string
+  /** 面板级视图偏好；未设置时由外壳回落到全局设置 */
+  view?: ExplorerPaneView
 }
 
 /** 分隔线方向：vertical = 左右并排（默认），horizontal = 上下堆叠。el-splitter 的 layout 与之相反，映射见 FileManager.vue */
@@ -77,10 +90,33 @@ function normalizePanes(raw: unknown): ExplorerTab[] {
   if (!Array.isArray(raw)) {
     return []
   }
-  return raw
-    .filter((tab): tab is ExplorerTab =>
-      Boolean(tab) && typeof tab.id === 'string' && typeof tab.path === 'string')
-    .slice(0, 2)
+  const panes: ExplorerTab[] = []
+  for (const entry of raw) {
+    if (panes.length >= 2) {
+      break
+    }
+    if (!entry || typeof entry.id !== 'string' || typeof entry.path !== 'string') {
+      continue
+    }
+    panes.push({ id: entry.id, path: entry.path, view: normalizePaneView(entry.view) })
+  }
+  return panes
+}
+
+/** 面板级视图偏好三项必须齐全才认，否则整份丢掉，回落到全局设置 */
+function normalizePaneView(raw: unknown): ExplorerPaneView | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined
+  }
+  const { grid, iconSizeList, iconSizeGrid } = raw as Partial<ExplorerPaneView>
+  if (typeof grid !== 'boolean' || !Number.isFinite(iconSizeList) || !Number.isFinite(iconSizeGrid)) {
+    return undefined
+  }
+  return {
+    grid,
+    iconSizeList: iconSizeList as number,
+    iconSizeGrid: iconSizeGrid as number,
+  }
 }
 
 /**
@@ -303,6 +339,21 @@ export function useExplorerTabs() {
     setTabPath(activeTabId.value, path)
   }
 
+  /** 写某个面板自己的视图偏好（list/grid、图标大小），只影响这一个面板 */
+  function setPaneView(paneId: string, view: ExplorerPaneView) {
+    const item = findPaneOwner(paneId)
+    if (!item) {
+      return
+    }
+    const index = item.tabs.findIndex(tab => tab.id === paneId)
+    if (index === -1) {
+      return
+    }
+    const tabs = [...item.tabs]
+    tabs[index] = { ...tabs[index], view }
+    patchItem(item.id, { tabs })
+  }
+
   /**
    * 拆分视图：优先吸收右邻单标签项，其次左邻，都没有就新建一个同路径标签当第二个面板。
    * 合并后的项落在两者中靠前的位置，面板顺序保持标签条原来的左右顺序。
@@ -385,6 +436,7 @@ export function useExplorerTabs() {
     moveTab,
     setTabPath,
     setActivePath,
+    setPaneView,
     splitTab,
     unsplit,
     toggleSplitDirection,

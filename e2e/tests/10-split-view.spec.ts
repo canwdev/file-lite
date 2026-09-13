@@ -180,6 +180,43 @@ test.describe('拆分视图', () => {
     await expect(page.locator('.el-splitter-bar')).toHaveCount(0)
   })
 
+  test('两个面板的 list/grid 与图标大小互不影响', async ({ page }) => {
+    await login(page)
+    await splitSourceTarget(page)
+
+    const modeToggle = (index: number) => pane(page, index).locator('button[title="Toggle grid view"]')
+    const iconSlider = (index: number) => pane(page, index).locator('.explorer-status-bar [role="slider"]')
+
+    // 默认两个面板都是列表视图
+    await expect(pane(page, 0).locator('.explorer-grid-view')).toHaveCount(0)
+    await expect(pane(page, 1).locator('.explorer-grid-view')).toHaveCount(0)
+
+    // 都切成网格视图，图标大小都从默认值开始
+    await modeToggle(0).click()
+    await modeToggle(1).click()
+    await expect(pane(page, 0).locator('.explorer-grid-view')).toBeVisible()
+    await expect(pane(page, 1).locator('.explorer-grid-view')).toBeVisible()
+    await expect(iconSlider(0)).toHaveAttribute('aria-valuenow', '48')
+    await expect(iconSlider(1)).toHaveAttribute('aria-valuenow', '48')
+
+    // 只放大左面板的图标：滑块聚焦后按方向键，网格步长 8
+    await iconSlider(0).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(iconSlider(0)).toHaveAttribute('aria-valuenow', '56')
+    await expect(iconSlider(1)).toHaveAttribute('aria-valuenow', '48')
+
+    // 只把右面板切回列表视图，左面板保持网格
+    await modeToggle(1).click()
+    await expect(pane(page, 1).locator('.explorer-grid-view')).toHaveCount(0)
+    await expect(pane(page, 0).locator('.explorer-grid-view')).toBeVisible()
+
+    // 刷新后两个面板各自保持
+    await page.reload()
+    await expect(pane(page, 0).locator('.explorer-grid-view')).toBeVisible()
+    await expect(pane(page, 1).locator('.explorer-grid-view')).toHaveCount(0)
+    await expect(iconSlider(0)).toHaveAttribute('aria-valuenow', '56')
+  })
+
   test('跨面板拖文件、拖动分隔线调整大小', async ({ page }) => {
     await login(page)
     await splitSourceTarget(page)

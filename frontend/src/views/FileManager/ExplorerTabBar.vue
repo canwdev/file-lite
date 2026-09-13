@@ -169,18 +169,17 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   return [
     {
       label: 'Unsplit',
-      icon: 'mdi mdi-view-sequential',
       onClick: () => unsplit(item.id),
     },
     vertical
       ? {
           label: 'Split horizontally',
-          icon: 'mdi mdi-view-split-horizontal',
+          icon: 'mdi mdi-arrow-split-horizontal',
           onClick: () => toggleSplitDirection(item.id),
         }
       : {
           label: 'Split vertically',
-          icon: 'mdi mdi-view-split-vertical',
+          icon: 'mdi mdi-arrow-split-vertical',
           onClick: () => toggleSplitDirection(item.id),
         },
     {
@@ -227,13 +226,13 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   const splitView: MenuItem = isSplitItem(item)
     ? {
         label: 'Split view',
-        icon: item.split === 'horizontal' ? 'mdi mdi-view-split-horizontal' : 'mdi mdi-view-split-vertical',
+        icon: item.split === 'horizontal' ? 'mdi mdi-arrow-split-horizontal' : 'mdi mdi-arrow-split-vertical',
         divided: true,
         children: splitSubmenu(item),
       }
     : {
         label: 'Split view',
-        icon: 'mdi mdi-view-split-vertical',
+        icon: 'mdi mdi-arrow-split-vertical',
         divided: true,
         onClick: () => splitTab(item.id),
       }
@@ -341,9 +340,12 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     outline: none;
     cursor: pointer;
 
-    // 拆分项里有两个标题，放宽一点，标题仍各自省略号
+    // 拆分项里有两个标题：至少 10rem（实测单个标签约 5.7rem），两个标题都能完整显示；
+    // 字号缩一档，上限取单标签上限的 1.5 倍
     &.is-split {
-      max-width: 16rem;
+      min-width: 10rem;
+      max-width: 18rem;
+      font-size: var(--vgo-font-sm);
     }
 
     // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
@@ -400,6 +402,8 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     flex: 1;
     min-width: 0;
     height: 100%;
+    // 标题不要贴住分隔线 / 标签边缘
+    padding-inline-start: var(--vgo-space-1);
 
     // 拆分项里两个标题之间的分隔线
     & + &::before {

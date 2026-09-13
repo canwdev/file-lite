@@ -27,8 +27,8 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 ```
 
 - 标签状态在 `ExplorerUI/explorer-tabs-store.ts`：模块级 `useStorage`（`LsKeys.EXPLORER_TABS`），
-  存 `{ items: [{ id, tabs: [{ id, path }], split?, activeTabId }], activeItemId }`，
-  风格与 `Apps/apps-store.ts` 一致（未引入 pinia）。两层结构的含义见 §5。
+  存 `{ items: [{ id, tabs: [{ id, path, view? }], split?, activeTabId }], activeItemId }`，
+  风格与 `Apps/apps-store.ts` 一致（未引入 pinia）。两层结构、`view` 的含义见 §5。
 - 首次启动没有该键时，用旧的 `LsKeys.NAV_PATH` 迁移出 1 个标签；活动标签的路径继续镜像回 `NAV_PATH`，
   保证 `?navPath=` 深链与文件选择器的初始目录行为不变。
 - `path` 原样保存（可能是空串）：空串代表「还没导航过」，外壳据此决定是否打开第一个磁盘。
@@ -73,8 +73,9 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   含 1 个（单标签）或 2 个（拆分）面板；项还带 `split`（分隔线方向）与 `activeTabId`（项内聚焦的面板）。
   全局只有 `activeItemId` 一个活动项，聚焦面板由它上面的 `activeTabId` 给出。
 - **入口只有右键菜单**：单标签项第一项是 `Split view`（直接拆）；拆分项第一项是 `Split view` 子菜单
-  （`Unsplit` / `Split horizontally`|`Split vertically` / `Swap views`）。切换项与图标都描述**目标**方向。
-  不做「把一个标签拖到另一个标签上形成拆分」，也不做 3 个以上面板。
+  （`Unsplit` / `Split horizontally`|`Split vertically` / `Swap views`）。切换项与图标都描述**目标**方向
+  （`arrow-split-vertical` = 竖分隔线左右并排，`arrow-split-horizontal` = 横分隔线上下堆叠），
+  `Unsplit` 不给图标。不做「把一个标签拖到另一个标签上形成拆分」，也不做 3 个以上面板。
 - **拆分时的合并规则**（对齐 Chrome）：优先吸收**右邻单标签项**，右侧不是单标签时用**左邻**，
   两侧都没有就新建一个同路径标签当第二个面板。合并后的项落在两者中靠前的位置，面板顺序保持原来的左右顺序，
   聚焦的面板永远是右键的那一个。默认方向 `vertical` = 竖直分隔线、左右并排。
@@ -87,13 +88,26 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   被覆盖成 `hidden`，否则会和面板内部的滚动容器叠成两条滚动条。
 - **大小不持久化**：拖动分隔线只改 element-plus 组件内的 px 尺寸，刷新 / 重挂后回到均分。
 - **点哪个面板哪个面板就聚焦**：`el-splitter-panel` 上的 `mousedown` / `focusin` 调 `activateTab`，
-  于是侧边栏高亮、地址栏、快捷键作用域（`fileManager:<panelId>`，见 §7）一起跟过去。
+  于是侧边栏高亮、地址栏、快捷键作用域（`fileManager:<panelId>`，见 §7）一起跟过去；
+  拆分项里聚焦的那个面板还会得到一圈主题色 inset 描边，单标签项不给（只有一个面板时是噪音）。
+  描边**必须是面板里的绝对定位浮层**（`.explorer-pane-outline`，`pointer-events: none`、
+  `z-index: --vgo-z-sticky`）：直接画在 `.explorer-main` 上会被工具栏 / 滚动区 / 状态栏这些有背景的
+  子元素盖住，四条边只剩一部分看得见。
   反过来，面板加载完把 DOM 焦点抢进文件列表这件事（`FileList` 的 `focusFileList`）只允许**聚焦的那个面板**做，
   否则被吸收进来的邻接标签一加载完就会把活动面板抢走：`FileList` 因此多了一个 `focused` prop，
   由 `ExplorerPane` 从外壳拿 `pane.id === activeTabId` 传下去。
-- 标签条上拆分项的两个标题各自可点，聚焦的那半正常色、另一半压暗；两半之间画一条 1px 分隔线。
+- **标签条上的合并格子**：两个标题各自可点（点哪半就聚焦哪个面板），聚焦的那半正常色、另一半压暗，
+  两半之间画一条 1px 分隔线；字号小一档（`--vgo-font-sm`），半块左侧留 `--vgo-space-1` 内边距避免标题贴住分隔线。
+  宽度是 `min-width: 10rem` + `max-width: 18rem`：标签条本身不撑满、标签按内容收缩，单标签的
+  `max-width: 12rem` 从来只是上限（实测单个约 5.7rem），所以拆分项靠 `min-width` 撑开——
+  不加时两个标题各差 2px，会被省略号截成 `sour…`。
+- **视图偏好按面板走**：list/grid 与图标大小（`ExplorerPaneView`）挂在 `ExplorerTab.view` 上，
+  跟标签内容一起持久化，所以拆分里的两个面板可以一个列表一个大图标、互不影响。
+  没设置过的面板回落到全局设置（`localSettingsStore`），选择器窗口没有面板级状态、继续读写全局设置
+  （外壳在 `FileManager` 里用一份本地 `selectorView` 承接并写回全局）。
 - 被吸收进来的邻接标签的面板会换父节点重挂，因此会重新拉一次目录——这是唯一的可见代价。
-- 两个面板都在同一个目录时共享 `explorerStateMap` 的排序 / 滚动记录（同 §2 的取舍）。
+- 两个面板都在同一个目录时共享 `explorerStateMap` 的排序 / 滚动记录（同 §2 的取舍）；
+  视图偏好不受这条影响，仍然各面板独立。
 
 ## 6. 快捷键
 
@@ -151,6 +165,7 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 3. 子菜单：Swap views 交换、Split horizontally 换方向、Unsplit 无损拆回两个标签。
 4. 一个关闭按钮关掉两个面板；刷新后拆分结构保留。
 5. 跨面板拖文件落盘；拖动 el-splitter 分隔线改变两个面板宽度。
+6. 两个面板的 list/grid 与图标大小互不影响，刷新后各自保留。
 
 `helpers.ts` 的 `row()`、`currentCrumb()`、返回 / 复制 / 粘贴按钮定位都限定在 `.explorer-main:visible` 内，
 否则保活标签里隐藏面板的同名元素会撞上 Playwright 的 strict mode；拆分相关用例改用

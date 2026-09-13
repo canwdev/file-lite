@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
+import type { ExplorerPaneView, ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
 import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
@@ -8,12 +8,13 @@ import { useEventListener, useStorage } from '@vueuse/core'
 import { provide } from 'vue'
 import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { localSettingsStore } from '@/store'
 import { resolveMenuIcons } from '@/utils/icons'
 import { appsStoreState } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
-import { useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
+import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
@@ -76,7 +77,19 @@ const {
   activateTab,
   setTabPath,
   setActivePath,
+  setPaneView,
 } = useExplorerTabs()
+
+/**
+ * 选择器窗口的视图偏好。选择器没有面板级状态，所以本地留一份用于当次显示，
+ * 同时写回全局设置，下次打开还保持。
+ */
+const selectorView = ref<ExplorerPaneView>()
+
+function onSelectorViewUpdate(view: ExplorerPaneView) {
+  selectorView.value = view
+  localSettingsStore.value = { ...localSettingsStore.value, ...view }
+}
 
 /** 标签模式下每个面板（拆分项里的两个各自）一个 ExplorerPane；选择器模式固定一个本地面板 */
 const activePaneId = computed(() => props.tabsMode ? activeTabId.value : SELECTOR_PANE_ID)
@@ -411,6 +424,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
             >
               <ExplorerPane
                 :path="pane.path"
+                :view="pane.view"
                 :active="item.id === activeItemId"
                 :focused="pane.id === activeTabId"
                 :shortcut-scope="paneScope(pane.id)"
@@ -419,24 +433,33 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
                 :content-only="contentOnly"
                 :file-filter-pattern="fileFilterPattern"
                 @update:path="(path: string) => onPanePathUpdate(pane.id, path)"
+                @update:view="(view: ExplorerPaneView) => setPaneView(pane.id, view)"
                 @handle-select="emit('handleSelect', $event)"
                 @cancel-select="emit('cancelSelect')"
                 @open-path-in-new-tab="openPathInNewTab"
+              />
+              <!-- 拆分视图下聚焦面板的描边：必须是不吃点击的浮层，画在面板自身上会被
+                   内部有背景的元素（工具栏、滚动区、状态栏）盖住 -->
+              <div
+                v-if="isSplitItem(item) && pane.id === activeTabId"
+                class="explorer-pane-outline"
               />
             </el-splitter-panel>
           </el-splitter>
         </div>
       </template>
-      <!-- 选择器：固定单面板，路径沿用 NAV_PATH -->
+      <!-- 选择器：固定单面板，路径沿用 NAV_PATH，视图偏好走全局设置 -->
       <ExplorerPane
         v-else
         ref="selectorPaneRef"
         v-model:path="selectorPath"
+        :view="selectorView"
         :shortcut-scope="paneScope(SELECTOR_PANE_ID)"
         :select-file-mode="selectFileMode"
         :multiple="multiple"
         :content-only="contentOnly"
         :file-filter-pattern="fileFilterPattern"
+        @update:view="onSelectorViewUpdate"
         @handle-select="emit('handleSelect', $event)"
         @cancel-select="emit('cancelSelect')"
         @open-path-in-new-tab="openPathInNewTab"
@@ -483,6 +506,16 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     flex-direction: column;
   }
 
+  // 拆分视图下给聚焦的面板一圈主题色 inset 描边（浮层，见模板）
+  .explorer-pane-outline {
+    position: absolute;
+    inset: 0;
+    outline: 2px solid var(--vgo-primary);
+    outline-offset: -2px;
+    pointer-events: none;
+    z-index: var(--vgo-z-sticky);
+  }
+
   // 标签项容器：v-show 保活，撑满侧边栏右侧的区域
   .explorer-tab-panel {
     display: flex;
@@ -498,8 +531,9 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     min-width: 0;
   }
 
-  // 面板自带 overflow: auto，会和面板内部的滚动容器叠成两条滚动条
+  // 面板自带 overflow: auto，会和面板内部的滚动容器叠成两条滚动条；relative 给描边浮层当定位父级
   .explorer-tab-panel :deep(.el-splitter-panel) {
+    position: relative;
     display: flex;
     overflow: hidden;
     min-width: 0;
