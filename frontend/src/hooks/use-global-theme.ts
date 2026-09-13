@@ -21,17 +21,25 @@ export const menuThemeOptions = reactive({
 })
 
 export const colorThemeOptions = [
-  { label: 'Node.js Green', rgb: '83,202,50' },
-  { label: 'Golang Blue', rgb: '0,172,215' },
-  { label: 'JavaScript Yellow', rgb: '247,223,30' },
-  { label: 'Python Blue', rgb: '55,118,171' },
-  { label: 'Swift Orange', rgb: '240,81,51' },
-  { label: 'Apple Pink', rgb: '255,45,85' },
-  { label: 'Ruby Red', rgb: '204,52,45' },
-  { label: 'Rust Orange', rgb: '228,90,44' },
-  { label: 'Kotlin Purple', rgb: '127,13,251' },
-  { label: 'PHP Purple', rgb: '119,123,179' },
-  { label: 'Haskell Purple', rgb: '94,90,138' },
+  { label: 'Red', rgb: '244,67,54' },
+  { label: 'Pink', rgb: '233,30,99' },
+  { label: 'Purple', rgb: '156,39,176' },
+  { label: 'Deep Purple', rgb: '103,58,183' },
+  { label: 'Indigo', rgb: '63,81,181' },
+  { label: 'Blue', rgb: '33,150,243' },
+  { label: 'Light Blue', rgb: '3,169,244' },
+  { label: 'Cyan', rgb: '0,188,212' },
+  { label: 'Teal', rgb: '0,150,136' },
+  { label: 'Green', rgb: '76,175,80' },
+  { label: 'Light Green', rgb: '139,195,74' },
+  { label: 'Lime', rgb: '205,220,57' },
+  { label: 'Yellow', rgb: '255,235,59' },
+  { label: 'Amber', rgb: '255,193,7' },
+  { label: 'Orange', rgb: '255,152,0' },
+  { label: 'Deep Orange', rgb: '255,87,34' },
+  { label: 'Brown', rgb: '121,85,72' },
+  { label: 'Grey', rgb: '158,158,158' },
+  { label: 'Blue Grey', rgb: '96,125,139' },
 ]
 let changeElementPlusTheme: ((color?: string) => void) | undefined
 

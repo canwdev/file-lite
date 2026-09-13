@@ -20,6 +20,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
 - A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
 - The music cover card no longer tilts or lights up on phones, where there is no hover and the 3D effect only costs performance (frontend).
+- The main menu has a Fullscreen entry next to the browser wake lock toggle that switches the app in and out of fullscreen (frontend).
+- The colour themes are named after the Material palette — Red, Pink, Purple, and so on — instead of programming languages and tools (frontend).
+- The Config menu labels are title-cased, so they read Image Cache, Disable Preview and Reduce Motion (frontend).
+- Disable Preview moved to the bottom of the Config menu beside Clear Local Data, and the Image Cache entry is hidden while previews are off (frontend).
+- The context menu draws a border, and a shadow in dark mode, so it no longer blends into the list behind it (frontend).
 
 ### Features
 

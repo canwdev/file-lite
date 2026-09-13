@@ -1,6 +1,8 @@
+import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
+import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
@@ -53,6 +55,7 @@ const internalSpeedTestEntry: IEntry = {
 
 export function useFileLiteMenu() {
   const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
+  const { isSupported: isFullscreenSupported, isFullscreen, toggleFullscreen } = useFullscreenToggle()
   const { clearCollection } = useCollection()
 
   function formatCacheBytes(bytes: number) {
@@ -139,10 +142,10 @@ export function useFileLiteMenu() {
   async function showMenu(event: MouseEvent) {
     const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
     const imageCacheLabel = !cacheAvailable
-      ? 'Image cache: unavailable'
+      ? 'Image Cache: unavailable'
       : cacheEntries > 0
-        ? `Image cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
-        : 'Image cache: empty'
+        ? `Image Cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
+        : 'Image Cache: empty'
     const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
     const rect = button?.getBoundingClientRect()
 
@@ -179,10 +182,11 @@ export function useFileLiteMenu() {
             ].map(item => ({
               ...item,
               icon: item.label === settingsStore.value.themeMode ? `mdi mdi-check` : '',
+              label: item.label.replace(/^./, c => c.toUpperCase()),
             })),
             {
               icon: localSettingsStore.value.reduceMotion ? 'mdi mdi-check' : '',
-              label: `Reduce motion`,
+              label: `Reduce Motion`,
               divided: true,
               onClick: () => {
                 localSettingsStore.value.reduceMotion = !localSettingsStore.value.reduceMotion
@@ -207,13 +211,6 @@ export function useFileLiteMenu() {
           icon: 'mdi mdi-cog',
           divided: true,
           children: [
-            {
-              icon: localSettingsStore.value.disablePreview ? 'mdi mdi-check' : '',
-              label: `Disable preview`,
-              onClick: () => {
-                void toggleDisablePreview()
-              },
-            },
             {
               label: `App Settings`,
               children: [
@@ -283,6 +280,13 @@ export function useFileLiteMenu() {
               divided: true,
             },
             {
+              icon: localSettingsStore.value.disablePreview ? 'mdi mdi-check' : '',
+              label: `Disable Preview`,
+              onClick: () => {
+                void toggleDisablePreview()
+              },
+            },
+            !localSettingsStore.value.disablePreview && {
               label: imageCacheLabel,
               icon: 'mdi mdi-image-multiple-outline',
               onClick: () => {
@@ -296,7 +300,7 @@ export function useFileLiteMenu() {
                 clearLocalData()
               },
             },
-          ],
+          ].filter(Boolean) as MenuItem[],
         },
         {
           label: 'Text Sync',
@@ -321,6 +325,7 @@ export function useFileLiteMenu() {
               list: [],
             })
           },
+          divided: true,
         },
         {
           label: isWakeLockSupported.value
@@ -330,6 +335,16 @@ export function useFileLiteMenu() {
           disabled: !isWakeLockSupported.value,
           onClick: () => {
             toggleWakeLock()
+          },
+        },
+        {
+          label: isFullscreenSupported.value
+            ? `Fullscreen: ${isFullscreen.value ? 'On' : 'Off'}`
+            : 'Fullscreen (unsupported)',
+          icon: isFullscreen.value ? 'mdi mdi-fullscreen-exit' : 'mdi mdi-fullscreen',
+          disabled: !isFullscreenSupported.value,
+          onClick: () => {
+            toggleFullscreen()
           },
           divided: true,
         },

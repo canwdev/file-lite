@@ -74,6 +74,8 @@ import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
 import MdiFolderPoundOutline from '~icons/mdi/folder-pound-outline'
 import MdiFolderUploadOutline from '~icons/mdi/folder-upload-outline'
 import MdiFormatTitle from '~icons/mdi/format-title'
+import MdiFullscreen from '~icons/mdi/fullscreen'
+import MdiFullscreenExit from '~icons/mdi/fullscreen-exit'
 import MdiGithub from '~icons/mdi/github'
 import MdiHarddisk from '~icons/mdi/harddisk'
 import MdiHelpCircleOutline from '~icons/mdi/help-circle-outline'
@@ -236,6 +238,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'image-multiple-outline': MdiImageMultipleOutline,
   'broom': MdiBroom,
   'monitor-eye': MdiMonitorEye,
+  'fullscreen': MdiFullscreen,
+  'fullscreen-exit': MdiFullscreenExit,
   'github': MdiGithub,
   'logout': MdiLogout,
   'view-carousel-outline': MdiViewCarouselOutline,

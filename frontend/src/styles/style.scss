@@ -113,6 +113,14 @@ html.is-debug {
   --mx-menu-open-backgroud: var(--vgo-primary-opacity) !important;
 }
 
+.mx-menu-bar.flat, .mx-context-menu.flat {
+  border: 1px solid var(--mx-menu-divider);
+}
+.mx-menu-bar.flat.dark, .mx-context-menu.flat.dark {
+  // vgo-allow: 上下文菜单只接受阴影颜色，--vgo-shadow 是完整 box-shadow，暗色下需要更重的投影
+  --mx-menu-shadow-color: rgba(0, 0, 0, 0.277);
+}
+
 // element 样式覆盖
 // lazy 模式会同时渲染 ::before/::after（默认各 2px 且叠在一起），视觉上偏粗；
 // Firefox 不稳定渲染 0.5px。改为 1px，并在非拖拽时隐藏 ::after。
