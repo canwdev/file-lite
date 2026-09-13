@@ -17,7 +17,7 @@
 | ![标签页与拆分视图](docs/screenshots/01-tabs-split.webp) | **多标签页与拆分视图**：类似 Chrome + Total Commander 的多标签页和多面板视图，支持水平和垂直分隔，内容可以直接从一个面板拖进另一个面板。 |
 | ![传输与后台任务](docs/screenshots/02-transfers-tasks.webp) | **传输与后台任务**：上传下载，复制 / 移动 / 删除在服务端跑，有进度，可取消。进度集中显示在右上角面板。 |
 | ![Endless Gallery](docs/screenshots/03-gallery.webp) | **Endless Gallery**：像刷短视频一样纵向浏览当前目录里的图片、视频和音频，支持触屏、滚轮和键盘操作。支持收藏。 |
-| ![音乐播放器](docs/screenshots/04-music-player.webp) | **音乐播放器**：播放列表、文件内嵌封面与同步歌词播放。 |
+| ![音乐播放器](docs/screenshots/04-music-player.webp) | **音乐播放器**：播放列表、文件内嵌封面与同步歌词播放；记住上次打开的文件，可在文件夹里一键继续。 |
 | ![视频播放器](docs/screenshots/05-video-player.webp) | **视频播放器**：ArtPlayer 与原生 `<video>` 可在菜单中切换，并记住音量与倍速。 |
 | ![缩略图与预览](docs/screenshots/06-thumbnails.webp) | **缩略图与预览**：图片预览、视频首帧（ffmpeg）与音频封面都由服务端生成，并在浏览器中缓存。 |
 | ![文本编辑器](docs/screenshots/07-text-editor.webp) | **文本编辑器**：在网页里直接编辑并保存文本文件。 |
