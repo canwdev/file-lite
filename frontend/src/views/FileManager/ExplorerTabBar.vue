@@ -351,7 +351,8 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     outline: none;
     cursor: pointer;
     font-size: var(--vgo-font-sm);
-    transition: background-color .3s;
+    // 用 token 而不是字面量：Reduce Motion 会把 --vgo-duration-* 压到 0.01ms
+    transition: background-color var(--vgo-duration-base);
 
     // 拆分项里有两个标题：至少 10rem（实测单个标签约 5.7rem），两个标题都能完整显示；
     // 字号缩一档，上限取单标签上限的 1.5 倍
@@ -363,7 +364,8 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
     &.is-active {
       background-color: var(--vgo-primary-opacity);
-      transition: background-color 0s;
+      // 活动标签立刻变色，不做过渡
+      transition: none;
     }
 
     // 相邻两个都不是活动标签时，中间画一条短分隔线

@@ -50,12 +50,13 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 - 高亮：`.is-active` 只留 `--vgo-primary-opacity` 底色，去掉 `vgo-list-item.is-active` 自带的 1px outline
   （与侧边栏磁盘 / 收藏项一致）。
 - 挤压不换行：容器 `flex-wrap: nowrap; overflow: hidden`，标签项 `flex: 1 1 auto; min-width: 2.5rem;
-  max-width: 12rem`（拆分项 16rem），标题省略号；标签之间不留空隙，用一条短分隔线区分（相邻两个都不是活动标签时才画）。
+  max-width: 12rem`（拆分项见 §5），标题省略号、字号 `--vgo-font-sm` 居中；标签之间不留空隙，
+  用一条短分隔线区分（相邻两个都不是活动标签时才画）。
 - 高度：标签项强制 `height/min-height: var(--vgo-control-md)`。`vgo-list-item` 的 `min-height` 是
   `control-lg`，不覆盖就会把顶栏撑得比 `explorer-header` 高。
 - 高亮是圆角 + 主题色底、不带 outline。注意 `&__item` 只编译成 `.explorer-tabs__item`（不会带上
   `.explorer-tabs` 前缀，特异度 (0,3,0)），盖不住主题的 (0,3,1)，所以去掉 outline 的那条要显式再套一层父选择器。
-- 无动画：不写 transition。
+- 只在底色上做 `background-color` 过渡（`--vgo-duration-*`），活动标签立刻生效；插入线、分隔线都不动画。
 - 操作：单击切换、中键关闭、关闭按钮（**只剩一项时不渲染**）、`+` 新建（沿用当前标签的路径，**永远追加在最后**并激活）；`+` 与关闭是小号的圆形按钮。
 - 右键菜单最上面是 `Split view`（见 §5）并压一条分隔线，下面保持 Close / Close others / Close to the left /
   Close to the right，都天然满足「至少保留 1 项」。
