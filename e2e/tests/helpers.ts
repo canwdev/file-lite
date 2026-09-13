@@ -225,6 +225,32 @@ function currentCrumb(page: Page) {
 }
 
 /**
+ * 拆分视图下的面板定位。
+ *
+ * 单标签时 `.explorer-main:visible` 仍然唯一，上面那些 helper 不受影响；
+ * 拆分项的两个面板同时可见（同一个标签项容器里），所以按可见项里的面板下标定位。
+ */
+export function pane(page: Page, index: number) {
+  return page.locator('.explorer-tab-panel:visible .el-splitter-panel').nth(index)
+}
+
+/** 拆分面板里的一行。 */
+export function paneRow(page: Page, index: number, name: string) {
+  return pane(page, index).locator(`tr[data-name="${name}"]`)
+}
+
+/** 拆分面板的面包屑末段 = 该面板的当前目录。 */
+export function paneCrumb(page: Page, index: number) {
+  return pane(page, index).locator('.address-bar__crumb-text').last()
+}
+
+/** 在指定的拆分面板里进入子目录。 */
+export async function openFolderInPane(page: Page, index: number, name: string) {
+  await paneRow(page, index, name).dblclick()
+  await expect(paneCrumb(page, index)).toHaveText(name)
+}
+
+/**
  * 进入子目录，并等到目录真的切过去。
  * 不能只等「旧行消失」：目标行本来就不在当前目录里，那个条件会立刻成立，
  * 于是粘贴有可能还在上一个目录执行（变成自我复制）。
