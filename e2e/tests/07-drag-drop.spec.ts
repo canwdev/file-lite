@@ -80,6 +80,21 @@ test.describe('拖拽', () => {
     await expect(row(page, 'ctrl-me.txt')).toBeVisible()
   })
 
+  test('Ctrl 拖回当前目录 = 原地复制', async ({ page }) => {
+    await login(page)
+    await openFolder(page, 'drag')
+    await openFolder(page, 'inbox')
+    await selectItem(page, 'move-me.txt')
+
+    // 落在列表空白处（= 当前目录）并按住 Ctrl：资源管理器语义是原地复制，也就是 duplicate
+    await html5Drag(page, row(page, 'move-me.txt'), page.locator('.explorer-main:visible .explorer-content'), { ctrlKey: true })
+
+    await expect.poll(() => readTextIfExists(path.join(dragInboxDir, 'move-me - Copy.txt'))).toBe('move-content')
+    // 原文件仍在原地，只是多了一份副本
+    expect(fs.readFileSync(path.join(dragInboxDir, 'move-me.txt'), 'utf8')).toBe('move-content')
+    await expect(row(page, 'move-me - Copy.txt')).toBeVisible()
+  })
+
   test('拖到面包屑的祖先目录 = 移动到该目录', async ({ page }) => {
     await login(page)
     await openFolder(page, 'drag')
