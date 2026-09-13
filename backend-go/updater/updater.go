@@ -121,6 +121,9 @@ func Restart() error {
 	return restartProcess()
 }
 
+// Stop 只停服不交接，供「退出后端」用。调用方随后结束进程。
+func Stop() { shutdown() }
+
 func options() miniselfupdate.Options {
 	return miniselfupdate.Options{TargetPath: exePath, TargetMode: 0o755}
 }

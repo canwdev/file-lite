@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"file-lite-go/config"
+	"file-lite-go/middlewares"
 	"file-lite-go/updater"
 	"file-lite-go/utils"
 )
@@ -18,6 +19,21 @@ const restartDelay = 500 * time.Millisecond
 
 func registerUpdate(g *echo.Group) {
 	g.POST("", applyUpdate)
+	g.POST("/exit", exitBackend)
+}
+
+// exitBackend 直接结束后端进程（Development → Enable Debug 里的开发功能）。
+// 和自更新一样：先回响应，再停服退出，否则浏览器看到的是连接被重置。
+func exitBackend(c echo.Context) error {
+	utils.LogWarnf("exit requested from %s", middlewares.ClientIP(c))
+
+	go func() {
+		time.Sleep(restartDelay)
+		updater.Stop()
+		os.Exit(0)
+	}()
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Exiting"})
 }
 
 // applyUpdate 接收一个新的后端二进制，校验、替换当前文件，然后在响应之后重启进程。

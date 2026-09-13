@@ -19,3 +19,8 @@ export function applyUpdate(file: File) {
   formData.append('file', file)
   return service.post(baseURL, formData) as unknown as Promise<UpdateResult>
 }
+
+/** 退出后端进程（开发用）。响应之后进程才真正退出，之后再请求就是连接失败。 */
+export function exitBackend() {
+  return service.post(`${baseURL}/exit`) as unknown as Promise<{ message: string }>
+}

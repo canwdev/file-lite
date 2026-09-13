@@ -1,7 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { applyUpdate } from '@/api/update'
+import { applyUpdate, exitBackend } from '@/api/update'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
@@ -76,6 +76,43 @@ function handleUpdateBackend() {
       })
   }
   input.click()
+}
+
+/**
+ * 退出后端进程（Development → Enable Debug）。二次确认后直接退出，退出后弹窗告知。
+ * 不尝试关闭标签页：浏览器只允许关闭脚本打开的标签页，普通标签页会静默失败。
+ */
+async function handleExitBackend() {
+  try {
+    await window.$dialog.confirm(
+      'Exit the backend process? It may need to be started again manually on the server.',
+      'Exit Backend',
+      {
+        type: 'warning',
+        confirmButtonText: 'Exit',
+        cancelButtonText: 'Cancel',
+      },
+    )
+  }
+  catch {
+    // 取消
+    return
+  }
+
+  try {
+    await exitBackend()
+  }
+  catch {
+    // 失败原因已经由 service 拦截器 toast
+    return
+  }
+
+  // 后端在响应之后才真正退出，等它退出再弹窗。
+  setTimeout(() => {
+    void window.$dialog.alert('Backend exited', 'Exit Backend', { type: 'info' }).catch(() => {
+      // 直接关掉了弹窗
+    })
+  }, 600)
 }
 
 export function useFileLiteMenu() {
@@ -306,6 +343,13 @@ export function useFileLiteMenu() {
                   label: 'Update Backend Binary…',
                   onClick: handleUpdateBackend,
 
+                },
+                enableDebug.value && {
+                  icon: 'mdi mdi-logout',
+                  label: 'Exit Backend',
+                  onClick: () => {
+                    void handleExitBackend()
+                  },
                 },
               ].filter(Boolean),
               divided: true,

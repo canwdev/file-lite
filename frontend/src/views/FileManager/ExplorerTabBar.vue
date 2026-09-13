@@ -350,7 +350,7 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
   &__add {
     position: relative;
     flex-shrink: 0;
-    font-size: var(--vgo-icon-xs);
+    font-size: var(--vgo-icon-sm);
     margin-inline-start: var(--vgo-space-1);
   }
 
