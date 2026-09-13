@@ -26,6 +26,7 @@ import (
 	"file-lite-go/config"
 	"file-lite-go/middlewares"
 	"file-lite-go/routes"
+	"file-lite-go/updater"
 	"file-lite-go/utils"
 )
 
@@ -341,6 +342,14 @@ func main() {
 		os.Exit(0)
 	}
 
+	// 自更新的两个前提，必须放在任何文件替换之前：先记下真实的 exe 路径（改名之后
+	// os.Executable() 会漂到 .old），再清掉上一次更新留下的临时文件。
+	// 放在 --version / --help 之后，是为了让「跑一次上传的二进制做校验」保持零副作用。
+	if err := updater.Init(); err != nil {
+		fmt.Fprintln(os.Stderr, "self-update unavailable:", err)
+	}
+	updater.Cleanup()
+
 	if overrides.WithTLS && !overrides.CreateConfig {
 		fmt.Fprintln(os.Stderr, "--with-tls requires --create-config")
 		fmt.Fprintln(os.Stderr, "Try 'file-lite-go --help' for more information.")
@@ -431,6 +440,15 @@ func main() {
 	}
 
 	useTui := (isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())) && !overrides.NoTui
+
+	// 自更新（/api/update）换完文件后要先释放端口，再把进程交给新二进制。
+	// survey 会隐藏光标，而自更新是从后台 goroutine 里退出的，走不到它的清理路径，
+	// 所以这里补一个恢复光标的转义序列（cmd.exe 下 survey 已开启 VT 处理）。
+	updater.SetShutdown(func() {
+		stopServer()
+		fmt.Print("\x1b[?25h")
+	})
+
 	if useTui {
 		if err := cli.RunTui(getCtx, func() bool { return !exited }); err != nil {
 			fmt.Fprintln(os.Stderr, err)

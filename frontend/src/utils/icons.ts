@@ -126,6 +126,7 @@ import MdiRepeat from '~icons/mdi/repeat'
 import MdiRepeatOnce from '~icons/mdi/repeat-once'
 import MdiRepeatVariant from '~icons/mdi/repeat-variant'
 import MdiRewind5 from '~icons/mdi/rewind-5'
+import MdiServer from '~icons/mdi/server'
 import MdiShareVariant from '~icons/mdi/share-variant'
 import MdiShuffle from '~icons/mdi/shuffle'
 import MdiShuffleDisabled from '~icons/mdi/shuffle-disabled'
@@ -309,6 +310,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   // Development 菜单
   'test-tube': MdiTestTube,
   'bug-play-outline': MdiBugPlayOutline,
+  'server': MdiServer,
 }
 /**
  * 把任意图标字符串归一化为注册表 key（去掉 'mdi ' 基类、'mdi-' 前缀及无关修饰类）。

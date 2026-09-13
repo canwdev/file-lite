@@ -24,6 +24,9 @@ func Register(api *echo.Group) {
 	speedTest := api.Group("/speed-test")
 	speedTest.Use(middlewares.AuthMiddleware)
 	registerSpeedTest(speedTest)
+	update := api.Group("/update")
+	update.Use(middlewares.AuthMiddleware)
+	registerUpdate(update)
 }
 
 func authWithPassword(c echo.Context) error {

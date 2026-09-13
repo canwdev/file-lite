@@ -1,6 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
+import { applyUpdate } from '@/api/update'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
@@ -51,6 +52,30 @@ const internalSpeedTestEntry: IEntry = {
   birthtime: 0,
   size: 0,
   error: null,
+}
+
+/**
+ * 选一个后端二进制上传。成功等 1s（服务重启完）后刷新页面；
+ * 失败原因由 service 拦截器 toast，这里不需要再补一份。
+ */
+function handleUpdateBackend() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) {
+      return
+    }
+    applyUpdate(file)
+      .then((res) => {
+        window.$message?.success(`Updated to v${res.to}, restarting…`)
+        setTimeout(() => window.location.reload(), 1000)
+      })
+      .catch(() => {
+        // 失败原因已经由 service 拦截器 toast
+      })
+  }
+  input.click()
 }
 
 export function useFileLiteMenu() {
@@ -276,7 +301,13 @@ export function useFileLiteMenu() {
                     explorerBus.emit(ExplorerEvents.DEBUG_TRANSFER)
                   },
                 },
-              ],
+                enableDebug.value && {
+                  icon: 'mdi mdi-server',
+                  label: 'Update Backend Binary…',
+                  onClick: handleUpdateBackend,
+
+                },
+              ].filter(Boolean),
               divided: true,
             },
             {

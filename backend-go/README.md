@@ -90,6 +90,7 @@ Base path: `http(s)://<host>:<port>/api`.
 - `GET /files/stream?path=`: inline file preview
 - `GET /files/download?path=` or `paths[]=`: download or archive
 - `POST /files/upload-file`: `form-data` field `file`
+- `POST /update`: `form-data` field `file`; replace the running backend binary and restart (used by the Development menu)
 
 Authentication: `Authorization: <token>` header or `file_lite_auth_token` cookie
 

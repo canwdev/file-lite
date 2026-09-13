@@ -36,11 +36,11 @@ body,
   box-sizing: border-box;
 }
 
-html.is-debug {
-  * {  
-    outline: 1px solid var(--vgo-primary) !important;
-  }
-}
+// html.is-debug {
+//   * {  
+//     outline: 1px solid var(--vgo-primary) !important;
+//   }
+// }
 
 ::selection {
   background-color: var(--vgo-primary-opacity);
@@ -91,7 +91,7 @@ html.is-debug {
   $size: 10px;
 
   &.flat {
-    border-radius: var(--vgo-radius-lg) !important;
+    border-radius: var(--vgo-radius) !important;
 
     .mx-context-menu-item {
       padding: var(--vgo-space-2) var(--vgo-space-3) !important;
@@ -119,10 +119,8 @@ html.is-debug {
   --mx-menu-open-backgroud: var(--vgo-primary-opacity) !important;
 }
 
-.mx-menu-bar.flat, .mx-context-menu.flat {
-  border: 1px solid var(--mx-menu-divider);
-}
 .mx-menu-bar.flat.dark, .mx-context-menu.flat.dark {
+  border: 1px solid var(--mx-menu-divider);
   // vgo-allow: 上下文菜单只接受阴影颜色，--vgo-shadow 是完整 box-shadow，暗色下需要更重的投影
   --mx-menu-shadow-color: rgba(0, 0, 0, 0.277);
 }

@@ -253,10 +253,8 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
 .explorer-tabs {
   display: flex;
   align-items: center;
-  flex: 1;
-  min-width: 0;
-  // 标签之间不留空隙，靠分隔线区分
   gap: 0;
+  min-width: 0;
   flex-wrap: nowrap;
   overflow: hidden;
 
@@ -344,13 +342,16 @@ function showTabMenu(tab: ExplorerTab, event: MouseEvent) {
 
   &__close {
     flex-shrink: 0;
-    font-size: var(--vgo-icon-sm);
+    svg {
+      font-size: var(--vgo-icon-sm);
+    }
   }
 
   &__add {
     position: relative;
     flex-shrink: 0;
-    font-size: var(--vgo-icon-sm);
+    font-size: var(--vgo-icon-xs);
+    margin-inline-start: var(--vgo-space-1);
   }
 
   // + 左边也要有分隔线，规则与标签之间的一致（紧邻的活动标签旁边不画）
