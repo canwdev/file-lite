@@ -457,7 +457,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     flex-direction: column;
   }
 
-  // 侧边栏根元素归布局管：固定宽度 + 右侧分隔线（曾经由 el-splitter 提供）
+  // 侧边栏根元素归布局管：固定宽度 + 右侧分隔线（以前由分栏组件提供）
   .explorer-body > .explorer-sidebar {
     flex-shrink: 0;
     width: 130px;

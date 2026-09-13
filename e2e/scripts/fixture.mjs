@@ -50,6 +50,8 @@ export function resetFixture() {
   fs.writeFileSync(path.join(filesDir, 'source', 'note.md'), '# note')
   // 文件名里的 "+" 与空格：下载用例靠它们复现「二次解码」和「download 属性覆盖文件名」
   fs.writeFileSync(path.join(filesDir, 'source', '039.+Vexento+-+Borealis.mp3'), 'fake-audio-bytes')
+  // 视频占位文件：选择器用例靠它打开 Artplayer（音频走的是另一套播放界面）
+  fs.writeFileSync(path.join(filesDir, 'source', 'clip.mp4'), 'fake-video-bytes')
   fs.writeFileSync(path.join(filesDir, 'source', 'report final.txt'), 'report body')
   fs.writeFileSync(path.join(filesDir, 'source', 'nested', 'deep.txt'), 'deep')
 

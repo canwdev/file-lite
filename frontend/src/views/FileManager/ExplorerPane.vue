@@ -405,9 +405,6 @@ defineExpose({
   handleSelect,
   handleSelectFromMenu,
   hasFileList,
-  // 外壳挂载时用它触发首次加载：受控的 path 挂载后才会变化
-  handleRefresh,
-  handleOpenPath,
 })
 </script>
 
