@@ -71,7 +71,7 @@ GET /api/files/thumbnail?path=<绝对路径>&size=<边长>&kind=<image|video>
 
 ### ffmpeg 探测
 
-先看 `config.json` 的 `ffmpegPath`，为空则在 `PATH` 中查找。命中后结论在进程内永久缓存；**未命中只缓存 60 秒**，所以装完 ffmpeg 不必重启。视频不套用图片那条 256 MiB 保险丝，几 GB 的影片是常态，靠超时兜底。
+只在 `PATH` 中查找 ffmpeg（曾经可以用 `ffmpegPath` 指定路径，该配置已删除）。命中后结论在进程内永久缓存；**未命中只缓存 60 秒**，所以装完 ffmpeg 不必重启。视频不套用图片那条 256 MiB 保险丝，几 GB 的影片是常态，靠超时兜底。
 
 ## 前端
 
@@ -89,9 +89,3 @@ IndexedDB 分 `meta` 与 `blobs` 两个 store：淘汰与统计只读 meta，不
 - **动画 GIF / APNG / 动画 WebP**：GIF 与 `.png` 动图只出第一帧；动画 WebP 后端解不了（`x/image/webp` 不支持 `ANIM`/`ANMF`），会 415 并回退原图直连，由浏览器播放。
 - **ICC 色彩配置**不处理（Go 标准库限制），广色域照片颜色会偏淡。
 - **文件夹 2×2 预览不含视频**：每格都要单起一次 ffmpeg，一屏几十个文件夹会挤爆只有一个槽位的视频闸门。
-
-## 配置
-
-| 字段 | 说明 |
-| --- | --- |
-| `ffmpegPath` | ffmpeg 可执行文件路径；留空表示在 `PATH` 中查找，都没有则关闭视频封面（不报错） |
