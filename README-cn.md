@@ -69,7 +69,7 @@ bun run build
 
 - **Go 后端**：编译与 `bun run build:all` 说明见 [backend-go/README.md](backend-go/README.md)
 - **E2E UI 测试**：独立的 Playwright 子项目 [e2e/README.md](e2e/README.md)，测试方法与截图见 [docs/design/frontend-ui-testing.md](docs/design/frontend-ui-testing.md)
-- **文件操作**：复制 / 移动 / 删除是走 WebSocket 的可取消后台任务，设计与实现说明见 [docs/design/async-file-operations-ws-design.md](docs/design/async-file-operations-ws-design.md)（未实现的多面板方案在 [docs/todo/](docs/todo/)）
+- **文件操作**：复制 / 移动 / 删除是走 WebSocket 的可取消后台任务，设计与实现说明见 [docs/design/async-file-operations-ws-design.md](docs/design/async-file-operations-ws-design.md)
 
 ## 配置文件
 
