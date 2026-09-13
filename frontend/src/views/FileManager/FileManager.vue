@@ -1,29 +1,23 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { FileSelectResult } from './types'
-import type { FsDirChange, IDrive, IEntry } from '@/types/server'
+import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { useDebounceFn, useEventListener } from '@vueuse/core'
+import { useEventListener, useStorage } from '@vueuse/core'
 import { provide } from 'vue'
-import { fsWebApi } from '@/api/filesystem'
+import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
-import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
-import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
-import { localSettingsStore } from '@/store'
 import { resolveMenuIcons } from '@/utils/icons'
-import { OpenWithEnum } from '../Apps/apps'
-import AddressBar from './ExplorerUI/AddressBar.vue'
+import { appsStoreState } from '@/views/Apps/apps-store'
+import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
-import { createDefaultFileFilter } from './ExplorerUI/file-filter'
-import FileList from './ExplorerUI/FileList.vue'
+import { useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
-import FilterBar from './ExplorerUI/FilterBar.vue'
-import { useNavigation } from './ExplorerUI/hooks/use-navigation'
+import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
 import FileSidebar from './FileSidebar.vue'
 import { getLastDirName, normalizeListingPath } from './utils'
-import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
   defineProps<{
@@ -39,186 +33,171 @@ const props = withDefaults(
     fileFilterPattern?: string
     // 快捷键作用域，供主文件管理器和文件选择器隔离
     shortcutScope?: string
+    // 多标签模式：只有主界面用；选择器固定单面板、单标签
+    tabsMode?: boolean
   }>(),
   {
     multiple: false,
     contentOnly: false,
     sidebarVisible: true,
     shortcutScope: 'fileManager',
+    tabsMode: false,
   },
 )
 const emit = defineEmits<{
   handleSelect: [val: FileSelectResult]
   cancelSelect: []
 }>()
-const { selectFileMode, multiple, shortcutScope } = toRefs(props)
-// 选择器模式下禁用全部文件管理器快捷键
-const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
-// 选择器固定了 fileFilterPattern 时锁住过滤条，用户不能清除或改动
-const filterLocked = computed(() => Boolean(selectFileMode.value && props.fileFilterPattern))
-provide(shortcutScopeKey, shortcutScope.value)
+const { selectFileMode } = toRefs(props)
 // 选择器模式（FileSelector）只用来挑文件 / 文件夹，整个窗口禁用拖拽
 const dragEnabled = computed(() => !selectFileMode.value)
 provide(dragEnabledKey, dragEnabled)
+// 选择器模式下只响应 FileList 的筛选条目
 const rootRef = ref()
 const route = useRoute()
 const router = useRouter()
 
+/** 选择器（单面板）的路径：沿用旧的 NAV_PATH，标签模式不碰它 */
+const selectorPath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
+  listenToStorageChanges: false,
+})
+const SELECTOR_PANE_ID = 'selector'
+
 const {
-  isLoading,
-  files,
-  handleOpen,
-  handleRefresh,
-  applyEntryChange,
-  basePathNormalized,
-  starList,
-  handleOpenPath,
-  navigationHistory,
-  goBack,
-  goForward,
-  allowUp,
-  goUp,
-  basePath,
-  toggleStar,
-  isStared,
-  highlightFolderName,
-} = useNavigation({
-  getListFn: async ({ signal } = {}) => {
-    const res = await fsWebApi.getList({
-      path: basePath.value,
-    }, {
-      signal,
-    })
-    // console.log(res)
+  tabs,
+  activeTabId,
+  activePath: tabsActivePath,
+  addTab,
+  openTab,
+  closeTab,
+  activateTab,
+  setTabPath,
+  setActivePath,
+} = useExplorerTabs()
 
-    return (res || [])
-  },
-})
+/** 标签模式下每个标签一个面板；选择器模式固定一个本地面板 */
+const activePaneId = computed(() => props.tabsMode ? activeTabId.value : SELECTOR_PANE_ID)
+const activePath = computed(() => props.tabsMode ? tabsActivePath.value : selectorPath.value)
 
-const debounceHandleRefresh = useDebounceFn(() => {
-  handleRefresh()
-}, 100)
+/** 选择器只有一个面板，底部按钮需要它的选中状态；标签模式外壳不需要引用面板实例 */
+const selectorPaneRef = ref<InstanceType<typeof ExplorerPane> | null>(null)
 
-/** 文件操作完成后的条目级更新：直接改列表，不整目录重读。 */
-function handleEntryChange(change: Pick<FsDirChange, 'added' | 'updated' | 'removed'>) {
-  applyEntryChange(change)
+/**
+ * 每个标签一个唯一的快捷键 scope，外壳根节点上的 `data-shortcut-scope` 动态指向活动标签。
+ * 这样按键只会命中活动面板的注册，隐藏标签的注册虽然还在，但永远不会被 `closest` 选中。
+ */
+function paneScope(id: string) {
+  return props.tabsMode ? `${props.shortcutScope}:${id}` : props.shortcutScope
 }
-
-const addressBarPath = computed({
-  get: () => basePath.value,
-  set: (v: string) => {
-    basePath.value = v
-  },
-})
+const activeScope = computed(() => paneScope(activePaneId.value))
 
 const fileSidebarRef = ref()
 onMounted(async () => {
-  if (fileSidebarRef.value) {
-    await fileSidebarRef.value.loadDrives()
-    const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
-    if (navPath) {
-      await handleOpenPath(navPath, true, true)
-      router.replace({ query: { ...route.query, navPath: undefined } })
-    }
-    else if (basePath.value) {
-      handleRefresh()
-    }
-    else {
-      fileSidebarRef.value.openFirstDrive()
-    }
-  }
-})
-const fileListRef = ref()
-const filterBarRef = ref<InstanceType<typeof FilterBar> | null>(null)
-const filterState = ref(createDefaultFileFilter())
-const filterDirectories = computed(() => !selectFileMode.value)
-const lastOpenedMediaItem = useLastOpenedMediaItem(basePathNormalized, files)
-
-function playLastOpenedMedia() {
-  const item = lastOpenedMediaItem.value
-  if (!item) {
+  if (!fileSidebarRef.value) {
     return
   }
-  handleOpen({
-    item,
-    openWith: OpenWithEnum.MediaPlayer,
-    list: fileListRef.value?.sortedFiles ?? files.value,
+  await fileSidebarRef.value.loadDrives()
+  const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
+  if (navPath) {
+    openPath(navPath)
+    router.replace({ query: { ...route.query, navPath: undefined } })
+  }
+  else if (!activePath.value) {
+    // 没有可恢复的路径：打开第一个磁盘。面板自身负责挂载/激活时的首次加载
+    fileSidebarRef.value.openFirstDrive()
+  }
+})
+
+/**
+ * 右键菜单的「Open in new Tab」：主界面开内置标签页。
+ * 选择器窗口没有标签概念，保持原来的浏览器新标签行为。
+ */
+function openPathInNewTab(path: string) {
+  if (props.tabsMode) {
+    openTab(path)
+    return
+  }
+  const routeLocation = router.resolve({
+    name: 'HomeView',
+    query: {
+      ...route.query,
+      navPath: path,
+    },
   })
+  window.open(routeLocation.href, '_blank')
 }
 
-function clearCurrentLastOpenedMedia() {
-  clearLastOpenedMediaInDir(basePathNormalized.value)
-}
-
-function clearFilter() {
-  // 选择器的过滤条件由 fileFilterPattern 决定，用户不能清除
-  if (filterLocked.value) {
+/** 面板内部导航回传：写进对应标签（选择器则写本地路径） */
+function onPanePathUpdate(id: string, path: string) {
+  if (props.tabsMode) {
+    setTabPath(id, path)
     return
   }
-  filterState.value = {
-    ...filterState.value,
-    text: '',
-  }
+  selectorPath.value = path
 }
 
-watch(basePathNormalized, () => {
-  if (!props.fileFilterPattern) {
-    clearFilter()
+/**
+ * 标签快捷键。
+ *
+ * 不走 `useShortcut`：那套按 scope 路由，而标签操作属于外壳、要作用于当前活动标签，
+ * 注册到某一个固定 scope 上都不对。这里直接听 keydown，并排除输入框与 App 窗口。
+ *
+ * 不用 Ctrl+T / Ctrl+W / Ctrl+Tab：Chrome 把这几个保留给浏览器自身，页面拿不到。
+ */
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
   }
-})
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+}
 
-watch(() => props.fileFilterPattern, (pattern) => {
-  if (pattern) {
-    filterState.value = {
-      text: pattern,
-      regex: true,
-      caseSensitive: false,
+useEventListener(document, 'keydown', (event: KeyboardEvent) => {
+  if (!props.tabsMode || event.defaultPrevented || appsStoreState.activeId || isEditableTarget(event.target)) {
+    return
+  }
+  const mod = event.ctrlKey || event.metaKey
+  const alt = event.altKey
+  if (!alt || mod || event.shiftKey) {
+    return
+  }
+
+  const key = event.key.toLowerCase()
+  if (key === 't') {
+    event.preventDefault()
+    addTab()
+    return
+  }
+  if (key === 'w') {
+    event.preventDefault()
+    closeTab(activeTabId.value)
+    return
+  }
+  if (/^[1-9]$/.test(key)) {
+    const tab = tabs.value[Number(key) - 1]
+    if (tab) {
+      event.preventDefault()
+      activateTab(tab.id)
     }
   }
-}, {
-  immediate: true,
 })
 
-watch(isLoading, async (loading) => {
-  if (!loading && highlightFolderName.value) {
-    await nextTick()
-    const name = highlightFolderName.value
-    highlightFolderName.value = null
-    fileListRef.value?.selectByNames([name])
-  }
-})
-
-async function runWithFileListAtPath(targetBasePath: string, action: (fileList: any) => void) {
-  const normalizedTargetPath = normalizeListingPath(targetBasePath)
-  if (normalizedTargetPath !== basePathNormalized.value) {
-    await handleOpenPath(normalizedTargetPath)
-    await nextTick()
-  }
-  if (!fileListRef.value) {
+/** 侧边栏磁盘 / 收藏项：只改活动面板的路径，面板会自己刷新 */
+function openPath(path: string) {
+  if (props.tabsMode) {
+    setActivePath(path)
     return
   }
-  action(fileListRef.value)
+  selectorPath.value = path
 }
 
-// Listen for SELECT_COLLECTED event from App windows
-useExplorerBusOn(ExplorerEvents.SELECT_COLLECTED, async ({ basePath: targetBasePath, names }: { basePath: string, names: string[] }) => {
-  await runWithFileListAtPath(targetBasePath, fileList => fileList.selectByNames(names))
-})
-
-useExplorerBusOn(ExplorerEvents.REVEAL_ITEM, async ({ basePath: targetBasePath, name }: { basePath: string, name: string }) => {
-  await runWithFileListAtPath(targetBasePath, fileList => fileList.selectAndReveal(name))
-})
+const { starList, removeStarredPath } = useFavourites()
 
 const starredPathsList = computed(() => [...starList.value])
-const currentPathForSidebar = computed(() => basePath.value)
+const currentPathForSidebar = computed(() => activePath.value)
 
 /** 收藏项按当前路径高亮，和磁盘项一样；两边路径形态不一定一致，比较前先归一化 */
 function isActiveStarredPath(path: string) {
   return normalizeListingPath(path) === normalizeListingPath(currentPathForSidebar.value)
-}
-
-function removeStarredPath(path: string) {
-  starList.value = starList.value.filter(item => item !== path)
 }
 
 /* ------------------------------------------------------------------ *
@@ -336,23 +315,12 @@ useEventListener(window, 'dragend', () => {
   resetStarDrag()
 })
 
-function openPathInNewTab(path: string) {
-  const routeLocation = router.resolve({
-    name: 'HomeView',
-    query: {
-      ...route.query,
-      navPath: path,
-    },
-  })
-  window.open(routeLocation.href, '_blank')
-}
-
 function showStarredPathMenu(path: string, event: MouseEvent) {
   const items: MenuItem[] = [
     {
       label: 'Open',
       icon: 'mdi mdi-folder-open-outline',
-      onClick: () => handleOpenPath(path),
+      onClick: () => openPath(path),
     },
     {
       label: 'Open in new Tab',
@@ -373,178 +341,10 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     items: resolveMenuIcons(items),
   })
 }
-
-async function jumpToHistory(index: number) {
-  const hist = navigationHistory.value
-  const item = hist?.history[index]
-  if (!hist || !item?.path) {
-    return
-  }
-  hist.currentIndex = index
-  await handleOpenPath(item.path, false)
-}
-
-function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
-  const hist = navigationHistory.value
-  if (!hist) {
-    return
-  }
-
-  const stack = direction === 'back'
-    ? hist.history.slice(0, hist.currentIndex).map((item, index) => ({ item, index })).reverse()
-    : hist.history.slice(hist.currentIndex + 1).map((item, offset) => ({ item, index: hist.currentIndex + 1 + offset }))
-
-  if (!stack.length) {
-    return
-  }
-
-  const items: MenuItem[] = stack.map(({ item, index }) => ({
-    label: item.path,
-    icon: direction === 'back' ? 'mdi mdi-arrow-left' : 'mdi mdi-arrow-right',
-    onClick: () => jumpToHistory(index),
-  }))
-
-  ContextMenu.showContextMenu({
-    x: event.clientX,
-    y: event.clientY,
-    ...menuThemeOptions,
-    items: resolveMenuIcons(items),
-  })
-}
-
-// 启动App
-function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
-  if (selectFileMode.value === 'file' && !item.isDirectory) {
-    // 多选时双击其中一项应返回全部已选文件，而不是只返回被双击的那个
-    const picked = multiple.value ? selectedFilesForPick() : []
-    const items = picked.length > 1 ? picked : [item]
-    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
-    return
-  }
-  return handleOpen({
-    item,
-    openWith,
-    list: localSettingsStore.value.openAppWithFilteredList
-      ? fileListRef.value.filteredFiles
-      : fileListRef.value.sortedFiles,
-  })
-}
-
-function selectedFilesForPick(): IEntry[] {
-  return (fileListRef.value?.selectedItems ?? []).filter((i: IEntry) => !i.isDirectory)
-}
-
-/**
- * 选择器右键菜单的 Select：文件模式返回已选文件，文件夹模式返回选中的文件夹
- * （没有选中条目时就是当前目录，与底部 Select Folder 一致）。
- */
-function handleSelectFromMenu() {
-  if (!fileListRef.value) {
-    return
-  }
-  const basePath = fileListRef.value.basePath
-  if (selectFileMode.value === 'folder') {
-    const folder = (fileListRef.value.selectedItems ?? []).find((i: IEntry) => i.isDirectory)
-    if (folder) {
-      emit('handleSelect', { items: [folder], item: folder, basePath })
-    }
-    else {
-      emit('handleSelect', { basePath })
-    }
-    return
-  }
-  const files = selectedFilesForPick()
-  if (!files.length) {
-    return
-  }
-  emit('handleSelect', { items: files, item: files[0], basePath })
-}
-
-// 是否选中了一个文件夹
-const isSelectAFolder = computed(() => {
-  const items = fileListRef.value.selectedItems
-  if (items.length !== 1) {
-    return false
-  }
-  return items[0].isDirectory
-})
-// 处理选择操作
-function handleSelect() {
-  let items = fileListRef.value.selectedItems
-  // 打开文件夹
-  if (isSelectAFolder.value) {
-    handleOpen({ item: items[0], list: fileListRef.value.files })
-    return
-  }
-  if (selectFileMode.value === 'folder') {
-    emit('handleSelect', { basePath: fileListRef.value.basePath })
-  }
-  if (!items.length) {
-    return
-  }
-  if (selectFileMode.value === 'file') {
-    items = items.filter((i: IEntry) => !i.isDirectory)
-    if (!items.length) {
-      return
-    }
-    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
-  }
-}
-
-const addressBarRef = ref<InstanceType<typeof AddressBar> | null>(null)
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+a',
-  handler: () => addressBarRef.value?.focus(),
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+f',
-  handler: () => filterBarRef.value?.focus(),
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+d',
-  handler: toggleStar,
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+arrowup',
-  handler: goUp,
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+arrowleft',
-  handler: goBack,
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'alt+arrowright',
-  handler: goForward,
-})
-
-useShortcut({
-  disabled: shortcutsDisabled,
-  scope: shortcutScope.value,
-  combo: 'backspace',
-  handler: goUp,
-})
 </script>
 
 <template>
-  <div ref="rootRef" class="explorer-wrap" tabindex="0" :data-shortcut-scope="shortcutScope">
+  <div ref="rootRef" class="explorer-wrap" tabindex="0" :data-shortcut-scope="activeScope">
     <slot name="topBar" />
     <div class="explorer-body">
       <FileSidebar
@@ -552,7 +352,7 @@ useShortcut({
         v-show="sidebarVisible"
         ref="fileSidebarRef"
         :current-path="currentPathForSidebar"
-        @open-drive="(i: IDrive) => handleOpenPath(i.path)"
+        @open-drive="(i: IDrive) => openPath(i.path)"
         @open-path-in-new-tab="openPathInNewTab"
       >
         <div v-if="starredPathsList.length" ref="starListRef" class="star-list">
@@ -569,7 +369,7 @@ useShortcut({
             }"
             :draggable="dragEnabled"
             :title="path"
-            @click="handleOpenPath(path)"
+            @click="openPath(path)"
             @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
             @dragstart="onStarDragStart(path, $event)"
             @dragover="onStarDragOver(path, index, $event)"
@@ -581,112 +381,40 @@ useShortcut({
           </button>
         </div>
       </FileSidebar>
-      <div class="explorer-main">
-        <div v-if="!contentOnly" class="explorer-header vgo-panel vgo-panel--flat">
-          <div class="explorer-toolbar">
-            <div class="explorer-toolbar-stack">
-              <div class="explorer-toolbar-path">
-                <div class="explorer-toolbar-nav">
-                  <button
-                    :disabled="!navigationHistory?.canBack"
-                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                    title="Back (alt+left)"
-                    @click="goBack"
-                    @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
-                  >
-                    <i-mdi-arrow-left />
-                  </button>
-                  <button
-                    :disabled="!navigationHistory?.canForward"
-                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                    title="Forward (alt+right)"
-                    @click="goForward"
-                    @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
-                  >
-                    <i-mdi-arrow-right />
-                  </button>
-                  <button
-                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                    :disabled="!allowUp"
-                    title="Up (alt+up)"
-                    @click="goUp"
-                  >
-                    <i-mdi-arrow-up />
-                  </button>
-                  <button
-                    class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                    title="Refresh (ctrl+r)"
-                    @click="debounceHandleRefresh"
-                  >
-                    <i-mdi-refresh />
-                  </button>
-                </div>
-                <AddressBar
-                  ref="addressBarRef"
-                  v-model="addressBarPath"
-                  @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
-                  @open-path-in-new-tab="openPathInNewTab"
-                  @refresh="debounceHandleRefresh"
-                />
-                <button
-                  class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                  title="Toggle Star (alt+s)"
-                  @click="toggleStar"
-                >
-                  <MdiIcon :name="isStared ? 'star' : 'star-outline'" />
-                </button>
-              </div>
-              <div class="explorer-toolbar-filters">
-                <FilterBar
-                  ref="filterBarRef"
-                  v-model="filterState"
-                  :locked="filterLocked"
-                  @clear="clearFilter"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="explorer-content-wrap vgo-u-scrollbar">
-          <div class="explorer-file-panel">
-            <FileList
-              ref="fileListRef"
-              v-model:is-loading="isLoading"
-              :files="files"
-              :filter="filterState"
-              :filter-directories="filterDirectories"
-              :base-path="basePathNormalized"
-              :select-file-mode="selectFileMode"
-              :multiple="multiple"
-              :content-only="contentOnly"
-              @open="handleFileListOpen"
-              @select="handleSelectFromMenu"
-              @open-path-in-new-tab="openPathInNewTab"
-              @clear-filter="clearFilter"
-              @refresh="debounceHandleRefresh"
-              @patch="handleEntryChange"
-            />
-            <Transition name="last-media-fab">
-              <div v-if="lastOpenedMediaItem && !selectFileMode" class="last-media-fab-wrapper">
-                <button
-                  class="vgo-button vgo-button--primary vgo-button--round vgo-button--lg"
-                  :title="`Play ${lastOpenedMediaItem.name}`"
-                  @click="playLastOpenedMedia"
-                >
-                  <i-mdi-play />
-                </button>
-                <button
-                  class="vgo-button vgo-button--round vgo-button--sm fab-close"
-                  title="Clear remembered media"
-                  @click.stop="clearCurrentLastOpenedMedia"
-                >
-                  <i-mdi-close />
-                </button>
-              </div>
-            </Transition>
-          </div>
-        </div>
-      </div>
+
+      <!-- 标签模式：一个标签一个面板，v-show 保活（隐藏的标签不加载预览，见 ThemedIcon） -->
+      <template v-if="tabsMode">
+        <ExplorerPane
+          v-for="pane in tabs"
+          v-show="pane.id === activePaneId"
+          :key="pane.id"
+          :path="pane.path"
+          :active="pane.id === activePaneId"
+          :shortcut-scope="paneScope(pane.id)"
+          :select-file-mode="selectFileMode"
+          :multiple="multiple"
+          :content-only="contentOnly"
+          :file-filter-pattern="fileFilterPattern"
+          @update:path="(path: string) => onPanePathUpdate(pane.id, path)"
+          @handle-select="emit('handleSelect', $event)"
+          @cancel-select="emit('cancelSelect')"
+          @open-path-in-new-tab="openPathInNewTab"
+        />
+      </template>
+      <!-- 选择器：固定单面板，路径沿用 NAV_PATH -->
+      <ExplorerPane
+        v-else
+        ref="selectorPaneRef"
+        v-model:path="selectorPath"
+        :shortcut-scope="paneScope(SELECTOR_PANE_ID)"
+        :select-file-mode="selectFileMode"
+        :multiple="multiple"
+        :content-only="contentOnly"
+        :file-filter-pattern="fileFilterPattern"
+        @handle-select="emit('handleSelect', $event)"
+        @cancel-select="emit('cancelSelect')"
+        @open-path-in-new-tab="openPathInNewTab"
+      />
     </div>
 
     <ConflictDialog />
@@ -694,11 +422,11 @@ useShortcut({
     <FilePropertiesWindow />
 
     <!-- 文件选择器 -->
-    <div v-if="selectFileMode && fileListRef" class="vgo-u-surface explorer-bottom-wrap">
-      <button class="vgo-button vgo-button--primary" @click="handleSelect">
-        {{ selectFileMode === 'file' || isSelectAFolder ? 'Open' : 'Select Folder' }}
+    <div v-if="selectFileMode && selectorPaneRef?.hasFileList" class="vgo-u-surface explorer-bottom-wrap">
+      <button class="vgo-button vgo-button--primary" @click="selectorPaneRef?.handleSelect()">
+        {{ selectFileMode === 'file' || selectorPaneRef?.isSelectAFolder ? 'Open' : 'Select Folder' }}
       </button>
-      <button class="vgo-button" @click="$emit('cancelSelect')">
+      <button class="vgo-button" @click="emit('cancelSelect')">
         Cancel
       </button>
     </div>
@@ -720,6 +448,7 @@ useShortcut({
     display: flex;
   }
 
+  // 面板根元素（ExplorerPane）的布局：scoped 样式会作用到子组件根节点
   .explorer-main {
     flex: 1;
     min-width: 0;
@@ -734,67 +463,6 @@ useShortcut({
     width: 130px;
     overflow: auto;
     border-right: 1px solid var(--vgo-border);
-  }
-
-  .explorer-header {
-    padding: var(--vgo-space-1) var(--vgo-space-1);
-    border-bottom: 1px solid var(--vgo-border);
-
-    .explorer-toolbar {
-      display: flex;
-      align-items: center;
-      min-width: 0;
-      width: 100%;
-
-      &-nav {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-        gap: var(--vgo-space-1);
-      }
-
-      &-stack {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
-        flex: 1;
-        width: 100%;
-        min-width: 0;
-        gap: var(--vgo-space-1);
-        font-size: var(--vgo-font-md);
-
-        @media screen and (max-width: $mq_mobile_width) {
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          gap: var(--vgo-space-1);
-        }
-      }
-
-      &-path {
-        display: flex;
-        align-items: center;
-        min-width: 0;
-        overflow: hidden;
-        gap: var(--vgo-space-1);
-
-        @media screen and (max-width: $mq_mobile_width) {
-          width: 100%;
-        }
-      }
-
-      &-filters {
-        display: flex;
-        align-items: center;
-        justify-self: end;
-        min-width: 0;
-        gap: var(--vgo-space-1);
-
-        @media screen and (max-width: $mq_mobile_width) {
-          width: 100%;
-        }
-      }
-    }
   }
 
   .star-list {
@@ -840,46 +508,6 @@ useShortcut({
         bottom: -1px;
       }
     }
-  }
-
-  .explorer-content-wrap {
-    flex: 1;
-    overflow: auto;
-    display: flex;
-  }
-
-  .explorer-file-panel {
-    position: relative;
-    flex: 1;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-  }
-
-  .last-media-fab-wrapper {
-    position: absolute;
-    right: var(--vgo-space-4);
-    bottom: 48px;
-    z-index: var(--vgo-z-sticky);
-
-    .fab-close {
-      position: absolute;
-      top: calc(var(--vgo-space-2) * -1);
-      right: calc(var(--vgo-space-2) * -1);
-    }
-  }
-
-  .last-media-fab-enter-active,
-  .last-media-fab-leave-active {
-    transition:
-      opacity var(--vgo-duration-base) ease,
-      transform var(--vgo-duration-base) ease;
-  }
-
-  .last-media-fab-enter-from,
-  .last-media-fab-leave-to {
-    opacity: 0;
-    transform: scale(0.6);
   }
 
   .explorer-bottom-wrap {

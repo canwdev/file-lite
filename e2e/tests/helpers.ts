@@ -209,14 +209,19 @@ export async function dropExternalFiles(
   await dataTransfer.dispose()
 }
 
-/** 列表视图里的一行（FileTable 给每行加了 data-name）。 */
+/**
+ * 列表视图里的一行（FileTable 给每行加了 data-name）。
+ *
+ * 多标签下每个标签都是一个保活的面板，隐藏面板里的同一行也在 DOM 里，
+ * 所以限定在可见面板内，避免 strict mode 撞到多个。
+ */
 export function row(page: Page, name: string) {
-  return page.locator(`tr[data-name="${name}"]`)
+  return page.locator(`.explorer-main:visible tr[data-name="${name}"]`)
 }
 
 /** 地址栏最后一段面包屑 = 当前目录。用它判断导航是否真的完成。 */
 function currentCrumb(page: Page) {
-  return page.locator('.address-bar__crumb-text').last()
+  return page.locator('.explorer-main:visible .address-bar__crumb-text').last()
 }
 
 /**
@@ -231,7 +236,7 @@ export async function openFolder(page: Page, name: string) {
 
 export async function goBack(page: Page) {
   const before = await currentCrumb(page).textContent()
-  await page.locator('button[title="Back (alt+left)"]').click()
+  await page.locator('.explorer-main:visible button[title="Back (alt+left)"]').click()
   await expect(currentCrumb(page)).not.toHaveText(before ?? '')
 }
 
@@ -250,11 +255,11 @@ export async function selectItem(page: Page, name: string) {
  * 快捷键本身由 use-shortcut 的单测覆盖。
  */
 export async function copy(page: Page) {
-  await page.locator('button[title^="Copy (ctrl+c)"]').click()
+  await page.locator('.explorer-main:visible button[title^="Copy (ctrl+c)"]').click()
 }
 
 export async function paste(page: Page) {
-  await page.locator('button[title^="Paste (ctrl+v)"]').click()
+  await page.locator('.explorer-main:visible button[title^="Paste (ctrl+v)"]').click()
 }
 
 /**
@@ -274,7 +279,7 @@ export function readTextIfExists(p: string): string | null {
 
 /** 断言剪贴板里确实有内容，避免「复制没生效」被误判成复制逻辑的错误。 */
 export async function expectClipboardReady(page: Page) {
-  await expect(page.locator('button[title^="Paste (ctrl+v)"]')).toBeEnabled()
+  await expect(page.locator('.explorer-main:visible button[title^="Paste (ctrl+v)"]')).toBeEnabled()
 }
 
 export const conflictDialog = (page: Page) => page.locator('.conflict-dialog')

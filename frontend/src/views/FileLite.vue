@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { localSettingsStore, settingsStore } from '@/store'
 import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
+import ExplorerTabBar from '@/views/FileManager/ExplorerTabBar.vue'
+import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 import FileManager from '@/views/FileManager/FileManager.vue'
+import TransferQueue from '@/views/FileManager/TransferQueue.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
 const { showMenu } = useFileLiteMenu()
@@ -12,12 +15,22 @@ const sidebarVisible = computed(() => localSettingsStore.value.sidebarVisible)
 function toggleSidebar() {
   localSettingsStore.value.sidebarVisible = !localSettingsStore.value.sidebarVisible
 }
+
+// 传输面板全局唯一，注册表里的 ref 在它挂载前是 null，所以取值都走 computed
+const transferVisible = computed(() => transferQueue.value?.isVisible.value === true)
+const transferTotal = computed(() => transferQueue.value?.totalCount.value ?? 0)
+const transferActive = computed(() => transferQueue.value?.activeCount.value ?? 0)
+const transferFailed = computed(() => transferQueue.value?.failedCount.value ?? 0)
+
+function toggleTransferPanel() {
+  transferQueue.value?.toggle()
+}
 </script>
 
 <template>
-  <FileManager :sidebar-visible="sidebarVisible">
+  <FileManager :sidebar-visible="sidebarVisible" tabs-mode>
     <template #topBar>
-      <!-- 顶栏：左侧是多标签页预留区，右侧是页面标题与全局菜单 -->
+      <!-- 顶栏：左侧是标签栏，右侧是传输面板入口、页面标题与全局菜单 -->
       <div class="explorer-top-bar vgo-panel vgo-panel--flat">
         <div class="explorer-top-bar__left">
           <button
@@ -27,9 +40,21 @@ function toggleSidebar() {
           >
             <i-mdi-menu-open />
           </button>
-          <div class="explorer-top-bar__tabs" />
+          <ExplorerTabBar />
         </div>
         <div class="explorer-top-bar__right">
+          <button
+            v-if="transferTotal || transferVisible"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-top-bar__transfers"
+            :class="{ 'is-active': transferVisible }"
+            :title="transferVisible ? 'Hide transfers & tasks' : 'Show transfers & tasks'"
+            @click="toggleTransferPanel"
+          >
+            <i-mdi-cloud-sync v-if="transferActive" />
+            <i-mdi-cloud-check-outline v-else />
+            <span v-if="transferFailed" class="vgo-badge vgo-badge--danger">{{ transferFailed }}</span>
+            <span v-else-if="transferActive" class="vgo-badge vgo-badge--primary">{{ transferActive }}</span>
+          </button>
           <span v-if="pageTitle" class="vgo-badge vgo-badge--primary explorer-top-bar__title">
             <span class="vgo-u-text-overflow">{{ pageTitle }}</span>
           </span>
@@ -44,6 +69,8 @@ function toggleSidebar() {
       </div>
     </template>
   </FileManager>
+  <!-- 全局唯一一份：面板 Teleport 到 body，放在顶栏只是为了有个稳定的挂载点 -->
+  <TransferQueue auto-close />
   <AppsEntry />
 </template>
 
@@ -69,15 +96,19 @@ function toggleSidebar() {
     flex: 1;
   }
 
-  // 多标签页 UI 的位置，暂时只占位
-  &__tabs {
-    flex: 1;
-    min-width: 0;
-  }
-
   &__title {
     flex-shrink: 1;
     min-width: 0;
+  }
+
+  // 图标 + 计数角标并排，不是单图标按钮：--icon 的定宽会把图标挤小
+  &__transfers {
+    width: auto;
+    padding-inline: var(--vgo-space-2);
+
+    :deep(svg) {
+      flex: 0 0 auto;
+    }
   }
 }
 </style>

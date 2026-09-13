@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TransferQueueApi } from './ExplorerUI/transfer-queue-registry'
 import type { IBatchFile, ITransferItem, TransferTab, TransferTabCounts } from './TransferPanel/types'
 import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
@@ -18,10 +19,11 @@ import {
 import { bytesToSize, downloadUrl } from '@/utils'
 import { TaskQueue } from '@/utils/task-queue'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
+import { registerTransferQueue, unregisterTransferQueue } from './ExplorerUI/transfer-queue-registry'
 import ServerTaskList from './TransferPanel/ServerTaskList.vue'
 import TransferList from './TransferPanel/TransferList.vue'
 import TransferPanel from './TransferPanel/TransferPanel.vue'
-import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
+import explorerBus, { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 /**
  * 传输面板的编排层。
@@ -38,7 +40,7 @@ const props = withDefaults(
     autoClose: false,
   },
 )
-const emit = defineEmits(['allDone', 'singleDone'])
+const emit = defineEmits(['singleDone'])
 
 // ---- 客户端的上传 / 下载队列 ----
 // 列表本身用深层 ref：push / splice 会触发数组的长度与下标依赖，虚拟列表才会重新切片。
@@ -342,7 +344,8 @@ onMounted(() => {
     taskHandler,
   })
   taskQueueRef.value.on('allDone', () => {
-    emit('allDone', listData.value)
+    // 面板全局唯一，没有哪一份列表该独占这个事件：广播给所有标签，各自按目录过滤
+    explorerBus.emit(ExplorerEvents.TRANSFER_DONE, listData.value)
     if (props.autoClose && !listData.value.some(item => item.status === 'failed') && !hasServerActive.value) {
       // 直接看列表，避免依赖下一帧才刷新的计数
       isVisible.value = false
@@ -869,7 +872,7 @@ useExplorerBusOn(ExplorerEvents.DEBUG_TRANSFER, () => {
   loadMockTransferList()
 })
 
-defineExpose({
+const queueApi: TransferQueueApi = {
   addTask,
   addTasks,
   toggle,
@@ -877,7 +880,13 @@ defineExpose({
   totalCount,
   activeCount,
   failedCount,
-})
+}
+
+defineExpose(queueApi)
+
+// 全局唯一的一份：挂载时把自己注册进注册表，顶栏外的上传 / 下载入口都往这里塞任务
+onMounted(() => registerTransferQueue(queueApi))
+onBeforeUnmount(() => unregisterTransferQueue(queueApi))
 </script>
 
 <template>

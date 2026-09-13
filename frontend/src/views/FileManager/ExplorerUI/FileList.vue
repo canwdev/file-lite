@@ -18,7 +18,6 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import TransferQueue from '../TransferQueue.vue'
 import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isCopyModifier, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
@@ -592,7 +591,6 @@ onBeforeUnmount(stopDragAutoScroll)
 
 // 上传下载功能
 const {
-  transferQueueRef,
   dropZoneRef,
   isOverDropZone,
   onDropZoneDragEnter,
@@ -689,6 +687,9 @@ function handleTransferAllDone(items: Array<Parameters<typeof uploadEntries>[0][
     emit('patch', { added })
   }
 }
+
+// 传输面板全局唯一，跑完一批后广播；uploadEntries 自己按 basePath 过滤，只补丁落在本目录的
+useExplorerBusOn(ExplorerEvents.TRANSFER_DONE, items => handleTransferAllDone(items))
 
 watch(isLoading, (val) => {
   if (!val) {
@@ -1023,17 +1024,26 @@ function selectAndReveal(name: string) {
   nextTick(() => scrollToItemIndex(index))
 }
 
+/**
+ * 恢复本目录上次的滚动位置。
+ *
+ * 保活的标签被重新显示时调用：`display:none` 期间容器尺寸为 0，虚拟列表的可视区是空的，
+ * 需要重新量一次并滚回去（位置按 path 存在 explorerStateMap 里）。
+ */
+function restoreViewport() {
+  const position = explorerStateMap.value[basePath.value]?.position || 0
+  nextTick(() => {
+    virtualList.refresh()
+    virtualGrid.refresh()
+    getSetScrollPosition('set', position)
+    virtualList.refresh()
+    virtualGrid.refresh()
+  })
+}
+
 watchDebounced(files, () => {
   if (explorerStateMap.value[basePath.value]) {
-    const position = explorerStateMap.value[basePath.value]?.position || 0
-    nextTick(() => {
-      virtualList.refresh()
-      virtualGrid.refresh()
-      getSetScrollPosition('set', position)
-      virtualList.refresh()
-      virtualGrid.refresh()
-      // console.log('restore', basePath.value, position)
-    })
+    restoreViewport()
   }
 }, { debounce: 100, maxWait: 1000 })
 const debounceHandleScroll = useDebounceFn(() => {
@@ -1058,6 +1068,7 @@ defineExpose({
   sortedFiles,
   filteredFiles,
   files,
+  restoreViewport,
 })
 </script>
 
@@ -1301,23 +1312,6 @@ defineExpose({
       </div>
 
       <div class="vgo-u-flex-wrap-center">
-        <!-- 传输面板会自动收起，这里留一个显示 / 隐藏的入口 -->
-        <button
-          v-if="!selectFileMode && (transferQueueRef?.totalCount || transferQueueRef?.isVisible)"
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-activity-toggle"
-          :class="{ 'is-active': transferQueueRef?.isVisible }"
-          :title="transferQueueRef?.isVisible ? 'Hide transfers & tasks' : 'Show transfers & tasks'"
-          @click="transferQueueRef?.toggle()"
-        >
-          <template v-if="transferQueueRef?.activeCount">
-            <i-mdi-cloud-sync />
-          </template>
-          <template v-else>
-            <i-mdi-cloud-check-outline />
-          </template>
-          <span v-if="transferQueueRef?.failedCount" class="vgo-badge vgo-badge--danger">{{ transferQueueRef.failedCount }}</span>
-          <span v-else-if="transferQueueRef?.activeCount" class="vgo-badge vgo-badge--primary">{{ transferQueueRef.activeCount }}</span>
-        </button>
         <el-slider v-if="!isGridView" v-model="iconSizeList" :min="16" :max="128" :step="2" size="small" :show-tooltip="false" />
         <el-slider v-else v-model="iconSizeGrid" :min="48" :max="512" :step="8" size="small" :show-tooltip="false" />
         <button
@@ -1334,8 +1328,6 @@ defineExpose({
         </button>
       </div>
     </div>
-
-    <TransferQueue v-if="!selectFileMode" ref="transferQueueRef" auto-close @all-done="handleTransferAllDone" />
   </div>
 </template>
 
@@ -1435,17 +1427,6 @@ defineExpose({
 
     .el-slider {
       width: 100px;
-    }
-
-    // 这个按钮是「图标 + 计数角标」并排，不是单图标按钮：--icon 的定宽会把图标挤小，
-    // 所以按内容撑开，并显式禁止图标被压缩。
-    .explorer-activity-toggle {
-      width: auto;
-      padding-inline: var(--vgo-space-2);
-
-      :deep(svg) {
-        flex: 0 0 auto;
-      }
     }
   }
 

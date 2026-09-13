@@ -1,20 +1,19 @@
+import type { WritableComputedRef } from 'vue'
 import type { FsDirChange, IEntry } from '@/types/server'
 import type { OpenWithEnum } from '@/views/Apps/apps'
-import { useStorage } from '@vueuse/core'
-import { LsKeys } from '@/enum'
-import { useRemoteSetting } from '@/hooks/use-remote-setting'
 import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
-import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath, toggleArrayElement } from '../../utils'
+import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath } from '../../utils'
 import { seedFolderListing } from '../folder-listing'
+import { useFavourites } from './use-favourites'
 import { useOpener } from './use-opener'
 
-export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]> }) {
+export function useNavigation({ basePath, getListFn }: {
+  basePath: WritableComputedRef<string>
+  getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]>
+}) {
   const files = ref<IEntry[]>([])
 
-  const basePath = useStorage(LsKeys.NAV_PATH, '', localStorage, {
-    listenToStorageChanges: false,
-  })
   const basePathNormalized = computed(() => normalizeListingPath(basePath.value))
   const isLoading = ref(false)
   const navigationHistory = ref<NavigationHistory | null>(null)
@@ -203,20 +202,7 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     }
   }
 
-  const { state: starList } = useRemoteSetting<string[]>({
-    key: LsKeys.STARED_PATH,
-    createDefaultValue: () => [],
-    normalize: value => Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === 'string')
-      : [],
-  })
-
-  const isStared = computed(() => {
-    return starList.value.includes(basePathNormalized.value)
-  })
-  const toggleStar = () => {
-    starList.value = toggleArrayElement([...starList.value], basePathNormalized.value)
-  }
+  const { starList } = useFavourites()
 
   return {
     isLoading,
@@ -233,8 +219,6 @@ export function useNavigation({ getListFn }: { getListFn: (options?: { signal?: 
     allowUp,
     goUp,
     basePath,
-    toggleStar,
-    isStared,
     highlightFolderName,
   }
 }

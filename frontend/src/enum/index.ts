@@ -3,6 +3,7 @@ export const isDev = Boolean(import.meta.env.MODE === 'development')
 export const LsKeys = {
   STARED_PATH: 'file_lite_stared_path',
   NAV_PATH: 'file_lite_nav_path',
+  EXPLORER_TABS: 'file_lite_explorer_tabs',
   CONCURRENT_NUM: 'file_lite_concurrent_num',
   SETTINGS_STORE: 'file_lite_settings_store',
   /** 仅本机 UI / 设备偏好（不入远程 settings） */
