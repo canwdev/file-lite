@@ -416,6 +416,26 @@ export function useExplorerTabs() {
     patchItem(itemId, { tabs: [...item.tabs].reverse() })
   }
 
+  /** 把拆分项里聚焦面板的目录同步给另一个面板（另一个面板自己刷新过去） */
+  function syncSplitPath(itemId: string) {
+    const item = state.value.items.find(entry => entry.id === itemId)
+    if (!item || !isSplitItem(item)) {
+      return
+    }
+    const sourceIndex = item.tabs.findIndex(tab => tab.id === item.activeTabId)
+    if (sourceIndex === -1) {
+      return
+    }
+    const targetIndex = sourceIndex === 0 ? 1 : 0
+    const path = item.tabs[sourceIndex].path
+    if (normalizeListingPath(item.tabs[targetIndex].path) === normalizeListingPath(path)) {
+      return
+    }
+    const tabs = [...item.tabs]
+    tabs[targetIndex] = { ...tabs[targetIndex], path }
+    patchItem(itemId, { tabs })
+  }
+
   return {
     state,
     items,
@@ -441,5 +461,6 @@ export function useExplorerTabs() {
     unsplit,
     toggleSplitDirection,
     swapSplitPanes,
+    syncSplitPath,
   }
 }

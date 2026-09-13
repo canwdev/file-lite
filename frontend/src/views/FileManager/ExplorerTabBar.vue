@@ -7,7 +7,7 @@ import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { resolveMenuIcons } from '@/utils/icons'
 import { isExternalFileDrag, isInternalDrag } from './ExplorerUI/entry-drag'
 import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
-import { getLastDirName } from './utils'
+import { getLastDirName, normalizeListingPath } from './utils'
 
 /**
  * 内置标签栏。只负责「标签长什么样 + 怎么操作」，路径与激活状态都在 store 里。
@@ -39,6 +39,7 @@ const {
   unsplit,
   toggleSplitDirection,
   swapSplitPanes,
+  syncSplitPath,
 } = useExplorerTabs()
 
 const tabBarRef = ref<HTMLElement | null>(null)
@@ -163,7 +164,12 @@ function onTabKeydown(item: ExplorerTabItem, event: KeyboardEvent) {
   }
 }
 
-/** 拆分项的子菜单：取消拆分 / 切换方向（文案与图标都描述**目标**方向） / 交换视图 */
+/** 两个面板已经在同一个目录：Sync path 无事可做 */
+function isSplitPathSynced(item: ExplorerTabItem) {
+  return normalizeListingPath(item.tabs[0].path) === normalizeListingPath(item.tabs[1].path)
+}
+
+/** 拆分项的子菜单：取消拆分 / 切换方向（文案与图标都描述**目标**方向） / 交换视图 / 同步目录 */
 function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   const vertical = item.split !== 'horizontal'
   return [
@@ -186,6 +192,11 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
       label: 'Swap views',
       icon: vertical ? 'mdi mdi-swap-horizontal' : 'mdi mdi-swap-vertical',
       onClick: () => swapSplitPanes(item.id),
+    },
+    {
+      label: 'Sync path',
+      disabled: isSplitPathSynced(item),
+      onClick: () => syncSplitPath(item.id),
     },
   ]
 }

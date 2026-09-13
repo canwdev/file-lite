@@ -73,9 +73,10 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   含 1 个（单标签）或 2 个（拆分）面板；项还带 `split`（分隔线方向）与 `activeTabId`（项内聚焦的面板）。
   全局只有 `activeItemId` 一个活动项，聚焦面板由它上面的 `activeTabId` 给出。
 - **入口只有右键菜单**：单标签项第一项是 `Split view`（直接拆）；拆分项第一项是 `Split view` 子菜单
-  （`Unsplit` / `Split horizontally`|`Split vertically` / `Swap views`）。切换项与图标都描述**目标**方向
+  （`Unsplit` / `Split horizontally`|`Split vertically` / `Swap views` / `Sync path`）。切换项与图标都描述**目标**方向
   （`arrow-split-vertical` = 竖分隔线左右并排，`arrow-split-horizontal` = 横分隔线上下堆叠），
-  `Unsplit` 不给图标。不做「把一个标签拖到另一个标签上形成拆分」，也不做 3 个以上面板。
+  `Unsplit` 与 `Sync path` 不给图标。`Sync path` 把聚焦面板的目录写给另一个面板（另一个面板自己刷新过去），
+  两个面板已经在同一目录时置灰。不做「把一个标签拖到另一个标签上形成拆分」，也不做 3 个以上面板。
 - **拆分时的合并规则**（对齐 Chrome）：优先吸收**右邻单标签项**，右侧不是单标签时用**左邻**，
   两侧都没有就新建一个同路径标签当第二个面板。合并后的项落在两者中靠前的位置，面板顺序保持原来的左右顺序，
   聚焦的面板永远是右键的那一个。默认方向 `vertical` = 竖直分隔线、左右并排。
