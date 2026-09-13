@@ -176,7 +176,7 @@ export function useFileLiteMenu() {
       return
 
     await clearImageThumbCache()
-    window.$message.success('Previews disabled · image cache cleared')
+    window.$message.success('Previews disabled')
   }
 
   async function clearImageCache() {
@@ -186,7 +186,6 @@ export function useFileLiteMenu() {
       return
     }
     if (entries === 0) {
-      window.$message.info('Image cache is already empty')
       return
     }
     try {

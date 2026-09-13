@@ -13,7 +13,6 @@ export function useFullscreenToggle() {
 
     try {
       await toggle()
-      window.$message.info(isFullscreen.value ? 'Fullscreen enabled' : 'Fullscreen disabled')
     }
     catch (error) {
       window.$message.error(`Fullscreen failed: ${error instanceof Error ? error.message : 'Unknown error'}`)

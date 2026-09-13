@@ -102,12 +102,12 @@ function toggleTransferPanel() {
   &__title {
     flex-shrink: 1;
     min-width: 0;
+    padding: var(--vgo-space-1) var(--vgo-space-2);
   }
 
   // 图标 + 计数角标并排，不是单图标按钮：--icon 的定宽会把图标挤小
   &__transfers {
     width: auto;
-    padding-inline: var(--vgo-space-2);
 
     :deep(svg) {
       flex: 0 0 auto;

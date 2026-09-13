@@ -334,23 +334,25 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     // vgo-list-item 的 min-height 是 control-lg，会把顶栏撑得比 explorer-header 高
     height: var(--vgo-control-md);
     min-height: var(--vgo-control-md);
-    padding: 0 var(--vgo-space-2);
+    padding: 0 var(--vgo-space-1);
     border-radius: var(--vgo-radius);
     overflow: hidden;
     outline: none;
     cursor: pointer;
+    font-size: var(--vgo-font-sm);
+    transition: background-color .3s;
 
     // 拆分项里有两个标题：至少 10rem（实测单个标签约 5.7rem），两个标题都能完整显示；
     // 字号缩一档，上限取单标签上限的 1.5 倍
     &.is-split {
       min-width: 10rem;
       max-width: 18rem;
-      font-size: var(--vgo-font-sm);
     }
 
     // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
     &.is-active {
       background-color: var(--vgo-primary-opacity);
+      transition: background-color 0s;
     }
 
     // 相邻两个都不是活动标签时，中间画一条短分隔线
@@ -403,7 +405,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     min-width: 0;
     height: 100%;
     // 标题不要贴住分隔线 / 标签边缘
-    padding-inline-start: var(--vgo-space-1);
+    padding-inline: var(--vgo-space-1);
 
     // 拆分项里两个标题之间的分隔线
     & + &::before {
@@ -412,7 +414,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       left: 0;
       top: 50%;
       width: 1px;
-      height: var(--vgo-font-lg);
+      height: 30%;
       transform: translateY(-50%);
       background-color: var(--vgo-border);
     }
@@ -427,7 +429,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     flex: 1;
     min-width: 0;
     line-height: 1.4;
-    text-align: initial;
+    text-align: center;
   }
 
   /**
