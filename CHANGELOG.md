@@ -92,6 +92,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Double-clicking a file in a multi-select Open File picker returns every selected file instead of only the one under the pointer (frontend).
 - Opening a file applies the same too-large warning to a custom default app as to the built-in viewers, and cancelling the share sheet no longer throws (frontend).
 - The video player's settings entries no longer show "undefined" on the right after they are clicked (frontend).
+- Saving a file in the text editor works again: the save went through the upload endpoint without a conflict policy, so the backend refused to replace the file the editor had just opened and answered "Destination path already exists" (frontend).
 
 ### Engineering
 

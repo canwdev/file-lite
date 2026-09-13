@@ -192,6 +192,9 @@ async function handleSaveFile() {
     await fsWebApi.uploadFile({
       path: absPath.value,
       file: generateTextFile(editContent.value, filename),
+      // 保存就是覆盖打开的这个文件：不给策略时后端按缺省的 error 处理，
+      // 目标已存在就直接 409「Destination path already exists」。
+      onConflict: 'overwrite',
     })
     setTimeout(() => {
       isChanged.value = false
