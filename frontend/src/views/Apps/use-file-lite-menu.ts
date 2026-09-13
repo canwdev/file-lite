@@ -7,6 +7,7 @@ import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
+import { serverCapabilities } from '@/store/capabilities.ts'
 import { localSettingsStore, settingsStore } from '@/store/index.ts'
 import { enableDebug } from '@/utils/debug'
 import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
@@ -338,13 +339,13 @@ export function useFileLiteMenu() {
                     explorerBus.emit(ExplorerEvents.DEBUG_TRANSFER)
                   },
                 },
-                enableDebug.value && {
+                serverCapabilities.value.selfUpdate && {
                   icon: 'mdi mdi-server',
                   label: 'Update Backend Binary…',
                   onClick: handleUpdateBackend,
 
                 },
-                enableDebug.value && {
+                serverCapabilities.value.selfUpdate && {
                   icon: 'mdi mdi-logout',
                   label: 'Exit Backend',
                   onClick: () => {

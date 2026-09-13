@@ -58,7 +58,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The `enableLog` config option is replaced by `logLevel` (`verbose`, `warn` (default), `error`, `none`): HTTP request logs print only at `verbose`, a failed login is recorded as a warning, and server errors print down to `error`, while startup output always prints (backend).
 - Right-clicking a file or folder — or the empty area of a folder — opens a Windows-style Properties window with its icon, name, type, full path, size, contained files and folders, and modified and created dates; a folder's recursive size is counted in the background and fills in without holding the window back (frontend, backend).
 - The Open File picker now opens with Esc, remembers the folder you were in and the window's size and position, and shows a plain title instead of the raw filter pattern (frontend).
-- The Development menu has a Backend submenu that installs a new backend binary: the server checks that the uploaded file really runs on this machine, replaces its own executable and restarts, and the page reloads a second later (frontend, backend).
+- When the config file sets `allowSelfUpdate`, the Development menu can install a new backend binary: the server checks that the uploaded file really runs on this machine, replaces its own executable and restarts, and the page reloads a second later (frontend, backend).
+- The same menu can stop the backend process, after a confirmation that warns it may have to be started again manually (frontend, backend).
+- With the default config both entries stay hidden and the endpoints are not registered at all, so the requests are 404 (frontend, backend).
 
 ### Fixes
 
@@ -90,7 +92,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Engineering
 
-- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
+- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
 - Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
 
 ## 1.4.5

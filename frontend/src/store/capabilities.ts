@@ -8,11 +8,13 @@
 export interface ServerCapabilities {
   /** 后端能用 ffmpeg 抽帧生成视频封面 */
   videoThumbnail: boolean
+  /** 后端允许替换自身二进制 / 退出进程（config 里的 allowSelfUpdate） */
+  selfUpdate: boolean
 }
 
 function createDefaultCapabilities(): ServerCapabilities {
   // 保守默认：没拿到上报之前一律当作「不支持」，避免白发请求
-  return { videoThumbnail: false }
+  return { videoThumbnail: false, selfUpdate: false }
 }
 
 export const serverCapabilities = ref<ServerCapabilities>(createDefaultCapabilities())
@@ -21,6 +23,9 @@ export function setServerCapabilities(value?: Partial<ServerCapabilities> | null
   const next = createDefaultCapabilities()
   if (value && typeof value.videoThumbnail === 'boolean') {
     next.videoThumbnail = value.videoThumbnail
+  }
+  if (value && typeof value.selfUpdate === 'boolean') {
+    next.selfUpdate = value.selfUpdate
   }
   serverCapabilities.value = next
 }
