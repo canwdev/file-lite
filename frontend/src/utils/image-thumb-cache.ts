@@ -95,8 +95,17 @@ let totalEntries = 0
 let cacheInitFailureLogged = false
 let cacheWriteFailureLogged = false
 
+/**
+ * 单飞表里的生成结果：**只有字节，不含 objectURL**。
+ * URL 必须由每个调用方各自创建 —— 两个面板 / 缩略图条同时显示同一张图时，
+ * 共享一个 objectURL 会被先销毁的一方 revoke 掉，另一方直接变成问号图标。
+ */
+type ThumbBlobResult
+  = | { ok: true, blob: Blob }
+    | { ok: false, reason: ThumbFailureReason }
+
 /** 同一 key 的并发生成去重 */
-const inflightGenerations = new Map<string, Promise<ThumbResolveResult>>()
+const inflightGenerations = new Map<string, Promise<ThumbBlobResult>>()
 
 /** 升级被旧连接挡住时，用它让挂起的 openDB 立刻失败 */
 let rejectBlockedOpen: ((error: unknown) => void) | null = null
@@ -477,49 +486,58 @@ async function generateAndStore(
   signal?: AbortSignal,
   persist = true,
 ): Promise<ThumbResolveResult> {
-  const existing = inflightGenerations.get(key)
-  if (existing)
-    return existing
-
-  const generation = (async (): Promise<ThumbResolveResult> => {
-    try {
-      const blob = await fetchThumbBlob(source, signal)
-      if (persist) {
-        // 写缓存失败(配额/事务异常)不影响这一次预览
-        try {
-          await storeBlob(key, fp, blob)
-        }
-        catch (error) {
-          if (!cacheWriteFailureLogged) {
-            cacheWriteFailureLogged = true
-            console.warn('[image-thumb-cache] 缩略图写缓存失败，本次仍正常显示', error)
+  let generation = inflightGenerations.get(key)
+  if (!generation) {
+    generation = (async (): Promise<ThumbBlobResult> => {
+      try {
+        const blob = await fetchThumbBlob(source, signal)
+        if (persist) {
+          // 写缓存失败(配额/事务异常)不影响这一次预览
+          try {
+            await storeBlob(key, fp, blob)
+          }
+          catch (error) {
+            if (!cacheWriteFailureLogged) {
+              cacheWriteFailureLogged = true
+              console.warn('[image-thumb-cache] 缩略图写缓存失败，本次仍正常显示', error)
+            }
           }
         }
+        return { ok: true, blob }
       }
-      return { ok: true, url: URL.createObjectURL(blob) }
-    }
-    catch (error) {
-      if (isAbortError(error))
-        return { ok: false, reason: 'aborted' }
-      if (error instanceof UnsupportedFormatError)
-        return { ok: false, reason: 'unsupported' }
-      if (error instanceof RejectedImageError)
-        return { ok: false, reason: 'rejected' }
-      if (error instanceof NoCoverError)
-        return { ok: false, reason: 'empty' }
-      if (error instanceof TransientThumbError)
-        return { ok: false, reason: 'busy' }
-      return { ok: false, reason: 'failed' }
-    }
-  })()
+      catch (error) {
+        if (isAbortError(error))
+          return { ok: false, reason: 'aborted' }
+        if (error instanceof UnsupportedFormatError)
+          return { ok: false, reason: 'unsupported' }
+        if (error instanceof RejectedImageError)
+          return { ok: false, reason: 'rejected' }
+        if (error instanceof NoCoverError)
+          return { ok: false, reason: 'empty' }
+        if (error instanceof TransientThumbError)
+          return { ok: false, reason: 'busy' }
+        return { ok: false, reason: 'failed' }
+      }
+    })()
+    inflightGenerations.set(key, generation)
+    const created = generation
+    // 生成结束就摘掉单飞表(它不会 reject,这里只是保险)
+    void created.then(
+      () => {
+        if (inflightGenerations.get(key) === created)
+          inflightGenerations.delete(key)
+      },
+      () => {
+        if (inflightGenerations.get(key) === created)
+          inflightGenerations.delete(key)
+      },
+    )
+  }
 
-  inflightGenerations.set(key, generation)
-  try {
-    return await generation
-  }
-  finally {
-    inflightGenerations.delete(key)
-  }
+  const result = await generation
+  if (!result.ok)
+    return result
+  return { ok: true, url: URL.createObjectURL(result.blob) }
 }
 
 export interface ResolveThumbOptions {

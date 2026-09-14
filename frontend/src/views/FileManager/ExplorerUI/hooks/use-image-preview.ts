@@ -92,10 +92,22 @@ export interface ImagePreviewController {
   url: Ref<string>
   /**
    * 加载候选(自动取消上一次未完成的解析);传 null 表示取消并清空。
+   * 内容没变的候选会被忽略:不重新取图,也不重新 createObjectURL。
    */
   request: (candidate: ImagePreviewCandidate | null) => void
+  /**
+   * 只中止在途解析,**保留已经显示出来的图**。
+   * 用于滚出可见范围:滚回来时不必再取一次 —— server / client 模式的
+   * 结果是 blob,重新 createObjectURL 会让 <img> 重新解码,视觉上闪一下。
+   */
+  cancel: () => void
   /** 图片 load / error 后调用,释放并发队列占位(仅占用网络/解码的任务需要) */
   settle: () => void
+}
+
+/** 候选的内容指纹:key 之外还要带上尺寸 / 修改时间,文件变了就得重取 */
+function candidateSignature(candidate: ImagePreviewCandidate) {
+  return `${candidate.key}\u0000${candidate.size}\u0000${candidate.lastModified}\u0000${candidate.mode}\u0000${candidate.url}`
 }
 
 export function useImagePreview(): ImagePreviewController {
@@ -106,6 +118,9 @@ export function useImagePreview(): ImagePreviewController {
   let stopQueueTask: (() => void) | null = null
   /** 本实例内已定论的 key:避免对同一个文件反复重试(与回退并存) */
   const decided = new Map<string, SettledMode>()
+  /** 最近一次请求的候选指纹,以及它是否还在解析中 */
+  let activeSignature = ''
+  let loading = false
 
   function commit(nextUrl: string) {
     if (currentBlobUrl) {
@@ -115,6 +130,7 @@ export function useImagePreview(): ImagePreviewController {
     if (isBlobUrl(nextUrl))
       currentBlobUrl = nextUrl
     url.value = nextUrl
+    loading = false
   }
 
   function releaseQueueSlot() {
@@ -122,17 +138,31 @@ export function useImagePreview(): ImagePreviewController {
     stopQueueTask = null
   }
 
-  function request(candidate: ImagePreviewCandidate | null) {
-    // 取代上一次请求
+  /** 取代上一次请求:递增 seq 让在途结果作废,并释放它占的队列槽位 */
+  function stopCurrent() {
     seq += 1
     abortController?.abort()
     abortController = null
     releaseQueueSlot()
+  }
 
+  function request(candidate: ImagePreviewCandidate | null) {
     if (!candidate) {
+      stopCurrent()
+      activeSignature = ''
       commit('')
       return
     }
+
+    const signature = candidateSignature(candidate)
+    // 同一份内容已经在显示、或者还在解析:什么都不用做。
+    // 重复 request 会再 createObjectURL 一次,同一个 blob 换个 URL
+    // 会让 <img> 重新解码 —— 视觉上就是闪一下。
+    if (signature === activeSignature && (loading || url.value))
+      return
+
+    stopCurrent()
+    activeSignature = signature
 
     const { key, mode } = candidate
     const mySeq = seq
@@ -156,6 +186,7 @@ export function useImagePreview(): ImagePreviewController {
     }
 
     stopQueueTask = requestPreviewLoad(() => {
+      loading = true
       void (async () => {
         let finalUrl: string | null = null
         let outcome: SettledMode | null = null
@@ -205,18 +236,22 @@ export function useImagePreview(): ImagePreviewController {
     })
   }
 
+  /** 滚出可见范围:中止在途解析,但保留已经取到的图(见接口注释) */
+  function cancel() {
+    loading = false
+    stopCurrent()
+  }
+
   function settle() {
     releaseQueueSlot()
   }
 
   onScopeDispose(() => {
-    seq += 1
-    abortController?.abort()
-    releaseQueueSlot()
+    stopCurrent()
     commit('')
   })
 
-  return { url, request, settle }
+  return { url, request, cancel, settle }
 }
 
 export interface FolderImagePreviewsController {

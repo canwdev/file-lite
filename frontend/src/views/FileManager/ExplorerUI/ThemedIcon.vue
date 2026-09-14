@@ -167,17 +167,44 @@ const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
 // 预览图加载：可见 + 防抖；命中/生成/直连回退/取消由 useImagePreview 统一处理。
 // ---------------------------------------------------------------------------
 
-// 仅当元素可见时才加载预览图片。用视口作为 root：IntersectionObserver 的
-// 交叉区域会先被各级滚动容器裁剪，所以网格的纵向滚动与缩略图条的横向滚动
-// 都能正确判定“滚出视野 = 不加载”；rootMargin 只给纵向预加载留余量。
+// 仅当元素可见时才加载预览图片。
+//
+// 滚动容器必须显式当 root：传视口(root: null)时 Chrome 会把交叉区域先裁剪到
+// 各级滚动容器，rootMargin 完全失效 —— 单元格只有已经出现在屏幕上才会开始
+// 取图，滚动时满屏类型图标、图片再一张张弹出来。显式传最近的滚动容器后，
+// 300px 预加载带才真正生效(网格/列表的纵向滚动、缩略图条的横向滚动都算)；
+// 被 v-show 藏起来的标签页是 display:none，仍然判定为不可见、不加载。
 const PREVIEW_LOAD_ROOT_MARGIN = '300px 0px 300px 0px'
+const SCROLLABLE_OVERFLOW = /(auto|scroll|overlay)/
+
+/** 最近的可滚动祖先；一直找到 <body> 就当作视口滚动，返回 null */
+function findScrollParent(from: HTMLElement | null): HTMLElement | null {
+  let node = from?.parentElement ?? null
+  while (node && node !== document.body && node !== document.documentElement) {
+    const style = getComputedStyle(node)
+    if (SCROLLABLE_OVERFLOW.test(`${style.overflowX}${style.overflowY}`))
+      return node
+    node = node.parentElement
+  }
+  return null
+}
 
 const target = useTemplateRef<HTMLDivElement>('target')
+const scrollRoot = ref<HTMLElement | null>(null)
+onMounted(() => {
+  scrollRoot.value = findScrollParent(target.value)
+})
 const targetIsVisible = useElementVisibility(target, {
+  scrollTarget: scrollRoot,
   rootMargin: PREVIEW_LOAD_ROOT_MARGIN,
 })
 
-const { url: previewUrl, request: requestPreview, settle: settlePreview } = useImagePreview()
+const {
+  url: previewUrl,
+  request: requestPreview,
+  cancel: cancelPreview,
+  settle: settlePreview,
+} = useImagePreview()
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function cancelPendingPreview() {
@@ -192,7 +219,7 @@ function cancelPendingPreview() {
  * 排序变化），防抖能把它们合并成一次解析。
  *
  * 其余两种都立即执行：
- * - 取消（滚出视野 / 加载失败 / 图标尺寸落到 48 以下）—— 越早 abort 越省；
+ * - 清空（候选不可预览 / 加载失败 / 图标尺寸落到 48 以下）—— 越早 abort 越省；
  * - 首次可见 —— 全局队列（preview-load-queue）已经限了并发，
  *   再等一个 debounce 周期只是白白推迟首次出图。
  */
@@ -213,9 +240,25 @@ function applyPreviewCandidate(candidate: ImagePreviewCandidate | null, immediat
 watch(
   [previewCandidate, targetIsVisible, loadFailed, previewSizeAllowed],
   ([candidate, isVisible, failed, sizeAllowed], old) => {
-    const next = isVisible && !failed && sizeAllowed ? candidate : null
+    // 候选本身不可预览(路径变化 / 关掉了内容预览 / 尺寸落到阈值下 /
+    // 这个文件已经失败过):清空并回收,没有保留的价值。
+    if (!candidate || failed || !sizeAllowed) {
+      applyPreviewCandidate(null, true)
+      return
+    }
+
+    // 滚出可见范围:只中止在途解析,保留已经取到的图。
+    // 以前这里直接 request(null) —— 清空 url 并 revoke,滚回来要重新取图 +
+    // 重新解码,大图标下一次滚动就是满屏占位图标与图片来回闪。组件本来就
+    // 挂在虚拟化的 overscan 窗口里,保留 url 的内存上界就是那几行。
+    if (!isVisible) {
+      cancelPendingPreview()
+      cancelPreview()
+      return
+    }
+
     const wasActive = !!old && old[1] && !old[2] && old[3]
-    applyPreviewCandidate(next, next === null || !wasActive)
+    applyPreviewCandidate(candidate, !wasActive)
   },
   { immediate: true },
 )
