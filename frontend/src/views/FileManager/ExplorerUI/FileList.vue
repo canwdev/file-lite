@@ -308,10 +308,20 @@ const virtualGrid = useVirtualGrid({
 const virtualGridStyle = computed(() => ({
   height: `${virtualGrid.totalHeight.value}px`,
 }))
-const virtualGridItemsStyle = computed(() => ({
-  ...virtualGrid.gridStyle.value,
-  transform: `translateY(${virtualGrid.offsetTop.value}px)`,
+/**
+ * 网格和列表用同一套定位方式：**文档流 + 撑高的占位块**，而不是
+ * `position: absolute` + `translateY`。
+ *
+ * 用 transform 抬整个容器时，跨行的瞬间容器内所有条目都上移一行、而
+ * transform 又下移一行，两者相加才等于原地不动。这要求合成层在同一帧里
+ * 拿到新 raster，主线程一忙（串流、大批缩略图解码）就可能先按旧 raster
+ * 画新 transform —— 整屏内容跳动一行再弹回来。列表一直用占位块，没有这个
+ * 问题；这里改成和列表一样，让每个条目在文档流里就处在正确位置。
+ */
+const virtualGridSpacerStyle = computed(() => ({
+  height: `${virtualGrid.beforeHeight.value}px`,
 }))
+const virtualGridItemsStyle = computed(() => virtualGrid.gridStyle.value)
 
 function getItemsInSelectionRect(rect: {
   left: number
@@ -1309,6 +1319,7 @@ defineExpose({
         />
       </div>
       <div v-else class="explorer-grid-view" :style="virtualGridStyle">
+        <div class="explorer-grid-spacer" :style="virtualGridSpacerStyle" aria-hidden="true" />
         <div class="explorer-grid-items" :style="virtualGridItemsStyle">
           <FileGridItem
             v-for="{ item } in virtualGrid.visibleItems.value"
@@ -1429,14 +1440,17 @@ defineExpose({
     min-width: 100%;
   }
 
+  // 视口上方那些行的高度：让下面的条目在文档流里就落在正确位置
+  // （等价于旧实现里容器的 translateY）。
+  .explorer-grid-spacer {
+    pointer-events: none;
+  }
+
   .explorer-grid-items {
-    position: absolute;
-    top: 0;
-    left: 10px;
+    margin-left: 10px;
     display: grid;
     align-items: start;
     justify-content: start;
-    will-change: transform;
   }
 
   .explorer-status-bar {

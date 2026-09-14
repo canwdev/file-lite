@@ -99,6 +99,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Saving a file in the text editor works again: the save went through the upload endpoint without a conflict policy, so the backend refused to replace the file the editor had just opened and answered "Destination path already exists" (frontend).
 - Image previews are requested before their cell scrolls into view and kept until the cell leaves the list, instead of only being requested once the cell was already on screen and thrown away the moment it left: scrolling a grid of large icons no longer shows a screenful of file-type icons that fill in late (frontend).
 - A thumbnail shown in two places at once — the same folder on both sides of a split view — no longer falls back to a question-mark file icon when one of them is scrolled away: each place now owns its own copy of the picture (frontend).
+- The icon grid places its rows in the document flow, with a spacer standing in for the rows above the viewport, instead of shifting a whole layer with a transform the way it used to; a transformed layer has to be re-rasterized in the same frame it moves, so a busy browser could draw the grid one row out of place for a moment (frontend).
 
 ### Engineering
 
