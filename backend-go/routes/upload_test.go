@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,11 +39,12 @@ func uploadRequest(t *testing.T, e *echo.Echo, path, filename, content, onConfli
 		t.Fatal(err)
 	}
 
-	url := "/api/files/upload-file?path=" + path
+	// path 必须转义：文件名里带空格时，未转义的 URL 会被 httptest 当成非法请求行
+	endpoint := "/api/files/upload-file?path=" + url.QueryEscape(path)
 	if onConflict != "" {
-		url += "&onConflict=" + onConflict
+		endpoint += "&onConflict=" + onConflict
 	}
-	req := httptest.NewRequest(http.MethodPost, url, &buf)
+	req := httptest.NewRequest(http.MethodPost, endpoint, &buf)
 	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -169,6 +171,62 @@ func TestUploadRejectsReservedTempName(t *testing.T) {
 	rec := uploadRequest(t, e, target, ".fl-part-evil", "x", "overwrite")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+// 文件名中间的点是合法的：这个名字里有两连点，曾经被 ".." 检查一概拒绝，
+// 报 Invalid filename，文件根本传不上来。
+func TestUploadAcceptsDotsInsideFilename(t *testing.T) {
+	const name = "176. ONE OK ROCK - C.h.a.o.s.m.y.t.h..mp3"
+	dir := t.TempDir()
+
+	e := newUploadServer()
+	rec := uploadRequest(t, e, filepath.Join(dir, name), name, "audio", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if got := readText(t, filepath.Join(dir, name)); got != "audio" {
+		t.Fatalf("unexpected content %q", got)
+	}
+}
+
+// 要挡的是「整个名字就是点」：filepath.Join(dest, "..") 会写到父目录，
+// Join(dest, ".") 就是 dest 自己。带目录的名字由 multipart 的 FileName()
+// 先取 Base，到不了这里。
+func TestUploadRejectsDotOnlyNames(t *testing.T) {
+	dir := t.TempDir()
+
+	e := newUploadServer()
+	for _, name := range []string{"..", "."} {
+		rec := uploadRequest(t, e, filepath.Join(dir, name), name, "x", "overwrite")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("%q: expected 400, got %d (%s)", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+// 直接盯住文件名清洗本身：名字中间的点合法，纯点名和带分隔符的名字必须拒绝。
+func TestSanitizeUploadFilename(t *testing.T) {
+	accepted := map[string]string{
+		"176. ONE OK ROCK - C.h.a.o.s.m.y.t.h..mp3": "176. ONE OK ROCK - C.h.a.o.s.m.y.t.h..mp3",
+		"..hidden.txt":     "..hidden.txt",
+		"a..b":             "a..b",
+		"ends with dots..": "ends with dots_",
+	}
+	for name, want := range accepted {
+		got, err := sanitizeUploadFilename(name)
+		if err != nil {
+			t.Errorf("%q must be accepted: %v", name, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("%q: got %q, want %q", name, got, want)
+		}
+	}
+	for _, name := range []string{"", ".", "..", "a/b", `a\b`, "sub/../evil.txt", `..\evil.txt`} {
+		if got, err := sanitizeUploadFilename(name); err == nil {
+			t.Errorf("%q must be rejected, got %q", name, got)
+		}
 	}
 }
 

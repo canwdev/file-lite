@@ -102,6 +102,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The icon grid places its rows in the document flow, with a spacer standing in for the rows above the viewport, instead of shifting a whole layer with a transform the way it used to; a transformed layer has to be re-rasterized in the same frame it moves, so a busy browser could draw the grid one row out of place for a moment (frontend).
 - Moving a file to another disk works again: the copy-and-delete fallback never triggered on Windows, which reports its own error code for a rename across disks, so the move failed with "The system cannot move the file to a different disk drive" (backend).
 - Moving a folder to another disk no longer fails with "Failed to remove source directory": the source directory was removed before the files inside it had finished copying (backend).
+- Uploading a file whose name has two dots in a row — a track named "C.h.a.o.s.m.y.t.h..mp3", for instance — no longer answers "Invalid filename": only a name that is nothing but dots is refused now, instead of every name containing "..", which is what the rule against path traversal had turned into (backend).
 
 ### Engineering
 

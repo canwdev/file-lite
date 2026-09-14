@@ -58,7 +58,13 @@ func isPathSafe(p string) bool {
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
 
 func sanitizeUploadFilename(name string) (string, error) {
-	if name == "" || name != filepath.Base(name) || strings.Contains(name, "..") || strings.ContainsAny(name, `/\`) {
+	if name == "" || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("invalid filename")
+	}
+	// 只有整个名字就是点的时候才会跳出目标目录：filepath.Join(dest, "..") 写到父目录，
+	// Join(dest, ".") 就是 dest 自己。名字中间的点是合法的（"C.h.a.o.s.m.y.t.h..mp3"），
+	// 所以不能像以前那样见到 ".." 就拒绝。
+	if name == "." || name == ".." {
 		return "", fmt.Errorf("invalid filename")
 	}
 	safeName := utils.Sanitize(name, "_")
