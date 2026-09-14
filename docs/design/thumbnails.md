@@ -59,6 +59,8 @@ GET /api/files/thumbnail?path=<绝对路径>&size=<边长>&kind=<image|video>
 
 其余：同一 `kind|path|边长|大小|mtime` 的并发请求由 singleflight 合并；图片排队上限 30 s、视频 5 s（视频槽位只有 1 个，等太久会白白占住前端的并发槽位）；ffmpeg 单进程超时 20 s，输出上限 4 MiB，先试 `-ss 3` 取帧、取不到再退回第 0 帧（因此不依赖 ffprobe）。LRU 上限 128 MiB，单条上限 4 MiB。
 
+**Windows 上的黑窗口**：`ffmpeg.exe` 是控制台程序，只要服务自己没有控制台（自更新重启用 `DETACHED_PROCESS` 启动之后就是这样），Windows 就会为它新建一个控制台窗口，一屏封面就闪一屏。启动统一走 `utils.HideConsoleWindow`（`CREATE_NO_WINDOW` + `HideWindow`，非 Windows 上是空操作）；打开浏览器和自更新时跑 `--version` 用的是同一个助手。
+
 ### 能力上报
 
 `GET /api/files/auth` 兼作能力上报，前端启动时必调：

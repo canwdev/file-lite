@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"file-lite-go/utils"
 )
 
 const (
@@ -154,6 +156,8 @@ func runFFmpeg(ctx context.Context, bin, src string, edge int, timeout time.Dura
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, bin, ffmpegArgs(src, edge, offset)...)
+	// ffmpeg 是控制台程序：服务自己没有控制台时会新建一个黑窗口（见 utils.HideConsoleWindow）
+	utils.HideConsoleWindow(cmd)
 	var out cappedBuffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out

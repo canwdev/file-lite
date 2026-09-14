@@ -21,6 +21,7 @@ import (
 	miniselfupdate "github.com/minio/selfupdate"
 
 	"file-lite-go/config"
+	"file-lite-go/utils"
 )
 
 // maxBinarySize 是允许上传的二进制大小上限。发布出来的二进制约 18 MB。
@@ -151,7 +152,10 @@ func runVersion(path string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, path, "--version").Output()
+	cmd := exec.CommandContext(ctx, path, "--version")
+	// 被执行的也是一个控制台程序：服务没有控制台时它会弹一个黑窗口
+	utils.HideConsoleWindow(cmd)
+	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("uploaded file cannot run on this machine: %w", err)
 	}

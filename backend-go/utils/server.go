@@ -107,5 +107,8 @@ func Opener(url string) error {
 		cmd = "xdg-open"
 		args = []string{url}
 	}
-	return exec.Command(cmd, args...).Start()
+	// Windows 上 cmd /c start 也是控制台程序，服务没有控制台时同样会闪一个黑窗口
+	command := exec.Command(cmd, args...)
+	HideConsoleWindow(command)
+	return command.Start()
 }
