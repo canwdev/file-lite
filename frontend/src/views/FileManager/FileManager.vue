@@ -539,6 +539,17 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     min-width: 0;
   }
 
+  // 拖拽热区默认 16px（横向排列量宽度、纵向排列量高度，组件把尺寸写成行内样式，
+  // 所以只能用 !important 覆盖），压在面板边缘上会抢走那一带的点击；收到 --vgo-space-1。
+  // 可见的分隔线是 dragger 的 ::before，仍是 2px，外观不变
+  .explorer-tab-panel :deep(.el-splitter-bar__dragger-horizontal) {
+    width: var(--vgo-space-1) !important;
+  }
+
+  .explorer-tab-panel :deep(.el-splitter-bar__dragger-vertical) {
+    height: var(--vgo-space-1) !important;
+  }
+
   // 侧边栏根元素归布局管：固定宽度 + 右侧分隔线（以前由分栏组件提供）
   .explorer-body > .explorer-sidebar {
     flex-shrink: 0;

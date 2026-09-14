@@ -33,6 +33,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Holding Ctrl while dragging files or folders onto the empty area of their own folder now duplicates them, the same as Explorer, producing a `name - Copy` next to the original (frontend, backend).
 - The transfer panel moved from the file list's status bar to the top bar, opens at the top right just below the top bar, and is shared by every tab (frontend).
 - The sidebar toggle switches its icon with the navigation's state (`menu-open` while it is shown, `menu-close` while it is hidden) (frontend).
+- In a split view the draggable area beside the divider is 4px wide instead of 16px, so it no longer takes clicks on the panes next to it; the divider itself looks the same (frontend).
 
 ### Features
 
