@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 
 	"file-lite-go/utils"
 )
@@ -152,7 +151,7 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 			}
 			dst = duplicatePath(src)
 		}
-		if err := rs.processEntry(src, dst, baseName(src)); err != nil {
+		if err := rs.processEntry(src, dst, baseName(src), nil); err != nil {
 			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: err.Error()})
 		}
 	}
@@ -326,7 +325,27 @@ func handledMessage(status ItemStatus) string {
 	return ""
 }
 
-func (rs *runState) processEntry(srcPath, dstPath, relPath string) error {
+// pendingCopies 是已经排进队列、但还没写完的异步复制任务，每个正在
+// 跨分区搬家的祖先目录各挂一个等待器。
+//
+// 复制走的是 goroutine，而目录搬家最后要把源目录删掉——不等这些任务落地就
+// os.Remove，源目录里还有没搬完的文件，删除会以 "directory not empty" 失败。
+// 同分区搬家走 rename，不注册任何等待器，所以这条链路对常见路径是零成本。
+type pendingCopies []*sync.WaitGroup
+
+func (p pendingCopies) add() {
+	for _, w := range p {
+		w.Add(1)
+	}
+}
+
+func (p pendingCopies) done() {
+	for _, w := range p {
+		w.Done()
+	}
+}
+
+func (rs *runState) processEntry(srcPath, dstPath, relPath string, pending pendingCopies) error {
 	if err := rs.ctx.Err(); err != nil {
 		return err
 	}
@@ -337,12 +356,12 @@ func (rs *runState) processEntry(srcPath, dstPath, relPath string) error {
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return rs.processFile(srcPath, dstPath, relPath, info)
+		return rs.processFile(srcPath, dstPath, relPath, info, pending)
 	}
-	return rs.processDir(srcPath, dstPath, relPath)
+	return rs.processDir(srcPath, dstPath, relPath, pending)
 }
 
-func (rs *runState) processFile(srcPath, dstPath, relPath string, info os.FileInfo) error {
+func (rs *runState) processFile(srcPath, dstPath, relPath string, info os.FileInfo, pending pendingCopies) error {
 	finalDst, proceed, status := rs.resolvePolicy(relPath, srcPath, dstPath)
 	if !proceed {
 		// 被跳过 / 待决策 / 替换失败的条目也要计入进度，否则总进度永远到不了 100%
@@ -361,27 +380,29 @@ func (rs *runState) processFile(srcPath, dstPath, relPath string, info os.FileIn
 			}
 			rs.record(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: movedStatus(status)})
 			return nil
-		} else if !errors.Is(err, syscall.EXDEV) {
+		} else if !isCrossDeviceError(err) {
 			rs.addItem(1, srcPath)
 			rs.record(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: StatusFailed, Message: err.Error()})
 			return nil
 		}
 	}
 
-	return rs.scheduleCopy(srcPath, finalDst, status, info)
+	return rs.scheduleCopy(srcPath, finalDst, status, info, pending)
 }
 
 // scheduleCopy 在受并发闸门约束的 goroutine 里完成「复制 + （移动时）删除源」。
 // 走闸门而不是无限制起 goroutine，避免十万个小文件时把内存吃满。
-func (rs *runState) scheduleCopy(srcPath, dstPath string, status ItemStatus, info os.FileInfo) error {
+func (rs *runState) scheduleCopy(srcPath, dstPath string, status ItemStatus, info os.FileInfo, pending pendingCopies) error {
 	select {
 	case rs.sem <- struct{}{}:
 	case <-rs.ctx.Done():
 		return rs.ctx.Err()
 	}
 	rs.wg.Add(1)
+	pending.add()
 	go func() {
 		defer rs.wg.Done()
+		defer pending.done()
 		defer func() { <-rs.sem }()
 
 		if err := rs.copyFileAtomic(srcPath, dstPath); err != nil {
@@ -406,7 +427,7 @@ func (rs *runState) scheduleCopy(srcPath, dstPath string, status ItemStatus, inf
 	return nil
 }
 
-func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
+func (rs *runState) processDir(srcPath, dstPath, relPath string, pending pendingCopies) error {
 	if rs.opts.IsMove && !rs.opts.Duplicate && !ExistsAt(dstPath) {
 		// 整棵目录同分区改名：瞬时完成
 		if err := os.Rename(srcPath, dstPath); err == nil {
@@ -414,7 +435,7 @@ func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
 			rs.addItemsAndBytes(items, bytes, srcPath)
 			rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusMoved})
 			return nil
-		} else if !errors.Is(err, syscall.EXDEV) {
+		} else if !isCrossDeviceError(err) {
 			rs.record(ItemResult{FromPath: srcPath, ToPath: dstPath, Status: StatusFailed, Message: err.Error()})
 			return nil
 		}
@@ -438,6 +459,10 @@ func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
 		rs.record(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: StatusFailed, Message: err.Error()})
 		return nil
 	}
+	// 本子树自己的等待器：跨分区时子项的复制是异步的，删源目录前要等它们落地。
+	// 用三下标切片截断容量，避免 append 改到上层传下来的数组。
+	subtree := &sync.WaitGroup{}
+	childPending := append(pending[:len(pending):len(pending)], subtree)
 	for _, e := range entries {
 		if err := rs.ctx.Err(); err != nil {
 			return err
@@ -446,11 +471,12 @@ func (rs *runState) processDir(srcPath, dstPath, relPath string) error {
 		if relPath != "" {
 			childRel = relPath + "/" + e.Name()
 		}
-		if err := rs.processEntry(filepath.Join(srcPath, e.Name()), filepath.Join(finalDst, e.Name()), childRel); err != nil {
+		if err := rs.processEntry(filepath.Join(srcPath, e.Name()), filepath.Join(finalDst, e.Name()), childRel, childPending); err != nil {
 			return err
 		}
 	}
 	if rs.opts.IsMove {
+		subtree.Wait()
 		if err := os.Remove(srcPath); err != nil {
 			rs.record(ItemResult{FromPath: srcPath, ToPath: finalDst, Status: StatusFailed, Message: "Failed to remove source directory: " + err.Error()})
 			return nil

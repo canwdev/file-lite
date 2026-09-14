@@ -222,6 +222,7 @@ type Snapshot struct {
 ```
 
 - **临时文件必须与目标同目录**：保证 `os.Rename` 同文件系统、原子生效。
+- **跨分区移动**：`Rename` 只在同一个卷上成立，失败时回退到「复制 + 删除源」。判断依据必须是各系统真实的错误码——POSIX 是 `EXDEV`，Windows 是 `ERROR_NOT_SAME_DEVICE`；Go 在 Windows 上的 `syscall.EXDEV` 是系统永远不会返回的杜撰值，只判它会让跨盘移动直接失败。回退的复制是异步的，所以目录移动必须等整棵子树的复制落地之后再删源目录，否则 `Remove` 会以 "directory not empty" 失败。
 - **取消可以发生在任何时候**：写文件中途取消 → 删除 tmp → 已完成的其他文件保持完整。
 - **覆盖文件不需要先删目标**：POSIX 与 Go 在 Windows 上的 `os.Rename` 都是替换语义（`MOVEFILE_REPLACE_EXISTING`），新内容原子顶替旧内容，中途不会出现"目标不存在"的窗口。
 - **文件 ↔ 目录的类型冲突**（Replace 选中时）：`Rename` 无法顶替目录，必须 `removeEntrySafely(目标)` 再发布；这是唯一有短暂空窗的情况，弹窗文案需要说明。

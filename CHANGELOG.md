@@ -100,6 +100,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Image previews are requested before their cell scrolls into view and kept until the cell leaves the list, instead of only being requested once the cell was already on screen and thrown away the moment it left: scrolling a grid of large icons no longer shows a screenful of file-type icons that fill in late (frontend).
 - A thumbnail shown in two places at once — the same folder on both sides of a split view — no longer falls back to a question-mark file icon when one of them is scrolled away: each place now owns its own copy of the picture (frontend).
 - The icon grid places its rows in the document flow, with a spacer standing in for the rows above the viewport, instead of shifting a whole layer with a transform the way it used to; a transformed layer has to be re-rasterized in the same frame it moves, so a busy browser could draw the grid one row out of place for a moment (frontend).
+- Moving a file to another disk works again: the copy-and-delete fallback never triggered on Windows, which reports its own error code for a rename across disks, so the move failed with "The system cannot move the file to a different disk drive" (backend).
+- Moving a folder to another disk no longer fails with "Failed to remove source directory": the source directory was removed before the files inside it had finished copying (backend).
 
 ### Engineering
 
