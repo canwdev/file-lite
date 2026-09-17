@@ -102,22 +102,22 @@ defineExpose({
         <i-mdi-close />
       </button>
       <button
-        class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
-        :class="{ 'is-active': localFilter.regex }"
-        title="Use regular expression"
-        :disabled="locked"
-        @click="localFilter.regex = !localFilter.regex"
-      >
-        .*
-      </button>
-      <button
-        class="vgo-button vgo-button--text vgo-button--sm filter-toggle"
+        class="vgo-button vgo-button--text vgo-button--sm filter-toggle vgo-u-font-code"
         :class="{ 'is-active': localFilter.caseSensitive }"
         title="Case sensitive"
         :disabled="locked"
         @click="localFilter.caseSensitive = !localFilter.caseSensitive"
       >
         Aa
+      </button>
+      <button
+        class="vgo-button vgo-button--text vgo-button--sm filter-toggle vgo-u-font-code"
+        :class="{ 'is-active': localFilter.regex }"
+        title="Use regular expression"
+        :disabled="locked"
+        @click="localFilter.regex = !localFilter.regex"
+      >
+        .*
       </button>
     </div>
   </div>

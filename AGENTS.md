@@ -63,7 +63,7 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 
 ## Go backend architecture
 
-The Go backend is the only backend implementation; there is no second implementation to keep in sync.
+The `backend-go` folder is the backend implementation;
 
 - Stack: Echo
 - Development/build steps: see `backend-go/README.md`

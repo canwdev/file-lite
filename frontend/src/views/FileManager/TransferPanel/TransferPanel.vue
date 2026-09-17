@@ -110,7 +110,7 @@ function badge(counts: TransferTabCounts) {
   right: var(--vgo-space-4);
   // 从顶栏下方出现：顶栏是固定的 control-md + 上下内边距，用同一个变量取值
   top: calc(var(--explorer-top-bar-height) + var(--vgo-space-2));
-  z-index: var(--vgo-z-window);
+  z-index: calc(var(--vgo-z-window) - 10);
   display: flex;
   flex-direction: column;
   width: 380px;

@@ -3,7 +3,6 @@ export const shortcutFilenameReg = /\.shortcut$/i
 export const regArchiveFormat = /\.(?:zip|rar|7z|tar|gz|bz2|xz|tgz|tar\.gz|tar\.bz2|tar\.xz|zipx|z|lzh|arj|zoo|pkg|lz|cab|iso|dmg|apk|deb|rpm|jar|war|ear|zst|lz4|br|vhd|vhdx|wim)$/i
 
 export const regImageFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|apng|webp|svg|avif|bmp|tiff?|heif|heic|indd|ico)$/i
-export const regWindowsExeFormat = /\.(?:exe|msi|com|scr|cpl|msc|msp|pif|dll|sys|drv)$/i
 export const regVideoFormat = /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|3gp|ogv)$/i
 export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus)$/i
 
@@ -14,6 +13,13 @@ export const regSupportedTextFormat = /\.(?:txt|csv|md|log|lock|ini|conf|config|
 export const regSupportedImageFormat = regImageFormat
 export const regSupportedVideoFormat = regVideoFormat
 export const regSupportedAudioFormat = regAudioFormat
+
+// platform specific formats
+export const regWindowsFormat = /\.(?:exe|msi|com|scr|cpl|msc|msp|pif|dll|sys|drv)$/i
+export const regPdfFormat = /\.pdf$/i
+export const regExcelFormat = /\.xlsx|\.xls$/i
+export const regWordFormat = /\.docx|\.doc$/i
+export const regPowerpointFormat = /\.pptx|\.ppt$/i
 
 /**
  * 后端（Go + imaging + x/image/webp）能解码的格式。

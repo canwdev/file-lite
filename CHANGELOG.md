@@ -34,6 +34,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The transfer panel moved from the file list's status bar to the top bar, opens at the top right just below the top bar, and is shared by every tab (frontend).
 - The sidebar toggle switches its icon with the navigation's state (`menu-open` while it is shown, `menu-close` while it is hidden) (frontend).
 - In a split view the draggable area beside the divider is 4px wide instead of 16px, so it no longer takes clicks on the panes next to it; the divider itself looks the same (frontend).
+- File icons are outline glyphs, and PDFs, Word, Excel, PowerPoint and Windows binaries each have their own icon (frontend).
+- In the filter bar the case-sensitive toggle sits before the regular-expression one (frontend).
+- The transfer panel sits below floating windows so it no longer covers them (frontend).
 
 ### Features
 

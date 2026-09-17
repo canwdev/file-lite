@@ -5,7 +5,7 @@ import {
   regImageFormat,
   regSupportedTextFormat,
   regVideoFormat,
-  regWindowsExeFormat,
+  regWindowsFormat,
 } from '@/utils/is'
 
 /** 常见扩展名的 Windows 风格类型名；未命中时回落到 `${EXT} File`。 */
@@ -98,7 +98,7 @@ export function getEntryTypeLabel(entry: Pick<IEntry, 'isDirectory' | 'ext'>) {
   if (regVideoFormat.test(ext)) {
     return `${upper} Video`
   }
-  if (regWindowsExeFormat.test(ext)) {
+  if (regWindowsFormat.test(ext)) {
     return 'Application'
   }
   if (regSupportedTextFormat.test(ext)) {

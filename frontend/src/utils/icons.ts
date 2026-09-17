@@ -58,12 +58,16 @@ import MdiFileArrowLeftRightOutline from '~icons/mdi/file-arrow-left-right-outli
 import MdiFileArrowUpDownOutline from '~icons/mdi/file-arrow-up-down-outline'
 import MdiFileDocumentOutline from '~icons/mdi/file-document-outline'
 import MdiFileDocumentPlusOutline from '~icons/mdi/file-document-plus-outline'
-import MdiFileImage from '~icons/mdi/file-image'
+import MdiFileExcelOutline from '~icons/mdi/file-excel-outline'
+import MdiFileImageOutline from '~icons/mdi/file-image-outline'
 import MdiFileMoveOutline from '~icons/mdi/file-move-outline'
 import MdiFileOutline from '~icons/mdi/file-outline'
-import MdiFileQuestion from '~icons/mdi/file-question'
+import MdiFilePdfOutline from '~icons/mdi/file-pdf-outline'
+import MdiFilePowerpointOutline from '~icons/mdi/file-powerpoint-outline'
+import MdiFileQuestionOutline from '~icons/mdi/file-question-outline'
 import MdiFileUploadOutline from '~icons/mdi/file-upload-outline'
 import MdiFileVideoOutline from '~icons/mdi/file-video-outline'
+import MdiFileWordOutline from '~icons/mdi/file-word-outline'
 import MdiFilterCheckOutline from '~icons/mdi/filter-check-outline'
 import MdiFilterOffOutline from '~icons/mdi/filter-off-outline'
 import MdiFilterOutline from '~icons/mdi/filter-outline'
@@ -104,6 +108,7 @@ import MdiMagnify from '~icons/mdi/magnify'
 import MdiMenu from '~icons/mdi/menu'
 import MdiMenuDown from '~icons/mdi/menu-down'
 import MdiMenuUp from '~icons/mdi/menu-up'
+import MdiMicrosoft from '~icons/mdi/microsoft'
 import MdiMicrosoftWindows from '~icons/mdi/microsoft-windows'
 import MdiMinus from '~icons/mdi/minus'
 import MdiMonitorEye from '~icons/mdi/monitor-eye'
@@ -159,12 +164,13 @@ import MdiWifi from '~icons/mdi/wifi'
 import MdiZipBox from '~icons/mdi/zip-box'
 
 export const mdiIconRegistry: Record<string, Component> = {
-  'file-question': MdiFileQuestion,
+  'file-question-outline': MdiFileQuestionOutline,
   'folder': MdiFolder,
   'zip-box': MdiZipBox,
-  'file-image': MdiFileImage,
+  'file-image-outline': MdiFileImageOutline,
   'music-circle-outline': MdiMusicCircleOutline,
   'file-video-outline': MdiFileVideoOutline,
+  'microsoft': MdiMicrosoft,
   'microsoft-windows': MdiMicrosoftWindows,
   'vuejs': MdiVuejs,
   'code-json': MdiCodeJson,
@@ -262,6 +268,10 @@ export const mdiIconRegistry: Record<string, Component> = {
   'file-document-outline': MdiFileDocumentOutline,
   'file-move-outline': MdiFileMoveOutline,
   'file-outline': MdiFileOutline,
+  'file-pdf-outline': MdiFilePdfOutline,
+  'file-excel-outline': MdiFileExcelOutline,
+  'file-word-outline': MdiFileWordOutline,
+  'file-powerpoint-outline': MdiFilePowerpointOutline,
   'shuffle-disabled': MdiShuffleDisabled,
   'shuffle': MdiShuffle,
   'repeat': MdiRepeat,
@@ -330,13 +340,13 @@ export function normalizeMdiName(cls?: string | null): string {
   const prefixed = tokens.find(t => t.startsWith('mdi-') && t.length > 4)
   if (prefixed)
     return prefixed.slice(4)
-  // 兼容裸图标名（如 'star' / 'file-question'），排除 'mdi' 基类残留
+  // 兼容裸图标名（如 'star' / 'file-question-outline'），排除 'mdi' 基类残留
   const bare = tokens.find(t => t && t !== 'mdi' && !t.startsWith('mdi'))
   return bare ?? ''
 }
 
 /** 注册表不存在时兜底图标 */
-const MdiFallback = MdiFileQuestion
+const MdiFallback = MdiFileQuestionOutline
 
 export function mdiComponentFor(name: string): Component {
   return mdiIconRegistry[name] ?? MdiFallback

@@ -438,7 +438,7 @@ onBeforeUnmount(() => {
       <MdiIcon :name="iconClass" />
     </span>
     <span v-else class="themed-icon-class">
-      <MdiIcon name="file-question" />
+      <MdiIcon name="file-question-outline" />
     </span>
     <span
       v-if="showTypeBadge"
