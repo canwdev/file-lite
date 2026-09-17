@@ -211,18 +211,10 @@ export function useExplorerTabs() {
   }
 
   /**
-   * 右键菜单的「Open in new Tab」：同一个路径已经开着就切过去，
-   * 免得同一个目录堆出好几个标签。拆分项里的面板同样会被认出来。
+   * 右键菜单的「Open in new Tab」：始终新建一个标签并激活。
+   * 同一个目录已经开着也再开一份——菜单写的是 new，重复开是预期行为。
    */
   function openTab(path: string): string {
-    const target = normalizeListingPath(path)
-    const existing = state.value.items
-      .flatMap(item => item.tabs)
-      .find(tab => normalizeListingPath(tab.path) === target)
-    if (existing) {
-      activateTab(existing.id)
-      return existing.id
-    }
     return addTab(path)
   }
 

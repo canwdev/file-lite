@@ -108,6 +108,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Moving a folder to another disk no longer fails with "Failed to remove source directory": the source directory was removed before the files inside it had finished copying (backend).
 - Uploading a file whose name has two dots in a row — a track named "C.h.a.o.s.m.y.t.h..mp3", for instance — no longer answers "Invalid filename": only a name that is nothing but dots is refused now, instead of every name containing "..", which is what the rule against path traversal had turned into (backend).
 - On Windows, extracting a video cover no longer flashes a black console window: ffmpeg runs without a console of its own now, and so do the browser opener and the update check, which had the same problem (backend).
+- "Open in new Tab" always opens another tab, even when that folder is already open as a tab (frontend).
 
 ### Engineering
 

@@ -61,6 +61,10 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 - When a change is specific to the frontend or the backend, say which side (frontend / backend).
 - The version number must match in two places and be changed together at release: `frontend/src/enum/version.ts` and `const Version` in `backend-go/config/config.go`.
 
+## Git
+
+Never add a `Co-authored-by` trailer to a commit message, The commit is the repository author's alone.
+
 ## Go backend architecture
 
 The `backend-go` folder is the backend implementation;
