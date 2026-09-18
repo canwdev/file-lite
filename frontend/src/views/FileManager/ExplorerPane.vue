@@ -87,6 +87,7 @@ const basePath = computed({
 
 const {
   isLoading,
+  loadError,
   files,
   handleOpen,
   handleRefresh,
@@ -546,6 +547,7 @@ defineExpose({
           ref="fileListRef"
           v-model:is-loading="isLoading"
           :files="files"
+          :load-error="loadError"
           :filter="filterState"
           :filter-directories="filterDirectories"
           :base-path="basePathNormalized"

@@ -16,6 +16,13 @@ export function useNavigation({ basePath, getListFn }: {
 
   const basePathNormalized = computed(() => normalizeListingPath(basePath.value))
   const isLoading = ref(false)
+  /**
+   * 上一次列目录失败的原因；空串表示没有错误。
+   *
+   * 与 toast 互补：toast 说完就消失，这个值留给列表区的错误空状态，用户回头
+   * 还能看到目录为什么打不开，并能就地重试。
+   */
+  const loadError = ref('')
   const navigationHistory = ref<NavigationHistory | null>(null)
   const highlightFolderName = ref<string | null>(null)
   /** files 当前对应的目录，用来区分「同目录重载」和「切换到别的目录」。 */
@@ -41,6 +48,8 @@ export function useNavigation({ basePath, getListFn }: {
         isLoading.value = false
         return
       }
+      // 每次刷新先清掉上一次的错误：失败后重试成功时，错误空状态必须消失。
+      loadError.value = ''
       const target = normalizeListingPath(basePath.value)
       sameDir = loadedPath.value === target
 
@@ -78,6 +87,8 @@ export function useNavigation({ basePath, getListFn }: {
         return
       }
       console.error(e)
+      // 错误同时进列表区的空状态（见 loadError）：toast 会消失，空状态不会。
+      loadError.value = readErrorMessage(e)
       // 同目录重载失败时保留旧列表，别因为一次瞬时错误把它清空
       if (!sameDir) {
         files.value = []
@@ -210,6 +221,7 @@ export function useNavigation({ basePath, getListFn }: {
 
   return {
     isLoading,
+    loadError,
     files,
     handleOpen,
     handleRefresh,
@@ -270,4 +282,23 @@ function isAbortError(error: unknown) {
     && ('code' in error || 'name' in error)
     && ((error as { code?: string }).code === 'ERR_CANCELED' || (error as { name?: string }).name === 'CanceledError')
   )
+}
+
+/**
+ * 从请求失败里取出给用户看的一句话。
+ *
+ * 优先用后端 `{ message }`（401 / 400 / 404 / 503 都是这个形状，见 utils/service.ts
+ * 的拦截器），否则退回 axios 自己的 message。兜底文案是有意的：宁可说
+ * 「打不开这个目录」，也不要把 `Network Error` 这种英文原始错误甩给用户。
+ */
+function readErrorMessage(error: unknown): string {
+  const data = (error as { response?: { data?: { message?: unknown } } })?.response?.data
+  if (data && typeof data.message === 'string' && data.message) {
+    return data.message
+  }
+  const message = (error as { message?: unknown })?.message
+  if (typeof message === 'string' && message) {
+    return message
+  }
+  return 'Failed to load this folder.'
 }

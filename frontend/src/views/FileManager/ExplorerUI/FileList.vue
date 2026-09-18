@@ -55,6 +55,13 @@ const props = withDefaults(
     focused?: boolean
     /** 面板自己的视图偏好（list/grid、图标大小）；不传则用全局设置 */
     view?: ExplorerPaneView
+    /**
+     * 上一次列目录失败的原因；非空时列表区显示错误空状态而不是「This folder is empty」。
+     *
+     * 与 toast 是互补的：toast 说完就消失，而这里会一直留着，用户回头还能看到
+     * 到底为什么这个目录打不开。
+     */
+    loadError?: string
     // 设置 selectables 防止跨层级选择
     selectables?: string[]
   }>(),
@@ -63,6 +70,7 @@ const props = withDefaults(
     selectables: () => ['.explorer-list-wrap .selectable'],
     filter: () => createDefaultFileFilter(),
     filterDirectories: false,
+    loadError: '',
   },
 )
 
@@ -147,21 +155,38 @@ const isFilterEmpty = computed(() =>
   !isLoading.value && isFilterActive.value && filteredFiles.value.length === 0 && sortedFiles.value.length > 0,
 )
 const emptyState = computed(() => {
+  // 加载失败优先于「空目录」：列失败时 files 会被清空，不特判就会显示
+  // 「This folder is empty」——那是在骗用户，目录里到底有什么我们并不知道。
+  //
+  // 但只在**没有内容可展示**时才顶掉列表：同目录刷新失败会保留旧列表
+  // （见 use-navigation 的 sameDir 分支），那份内容仍然有效，不该被错误卡片盖住。
+  if (props.loadError && !props.files.length) {
+    return {
+      icon: 'alert-circle-outline',
+      title: 'Can\'t open this folder',
+      description: props.loadError,
+      showClear: false,
+      showRetry: true,
+    }
+  }
+
   if (isDirectoryEmpty.value) {
     return {
-      icon: 'mdi mdi-folder-open-outline',
+      icon: 'folder-open-outline',
       title: 'No files',
       description: 'This folder is empty.',
       showClear: false,
+      showRetry: false,
     }
   }
 
   if (isFilterEmpty.value) {
     return {
-      icon: 'mdi mdi-filter-remove-outline',
+      icon: 'filter-remove-outline',
       title: 'No matches',
       description: 'No files match the current filter.',
       showClear: true,
+      showRetry: false,
     }
   }
 
@@ -1298,6 +1323,14 @@ defineExpose({
         >
           <i-mdi-filter-remove-outline />
           Clear filter
+        </button>
+        <button
+          v-if="emptyState.showRetry && !selectFileMode"
+          class="vgo-button"
+          @click.stop="emit('refresh')"
+        >
+          <i-mdi-reload />
+          Try again
         </button>
       </div>
       <div v-else-if="!isGridMode" class="explorer-list-view">
