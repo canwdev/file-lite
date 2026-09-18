@@ -1,5 +1,25 @@
 # VFS 抽象层实现计划与测试清单
 
+## 状态：阶段 1–5 已实现
+
+分支 `dev/next`，版本仍是 **1.5.0**（未发布），**都没有 push**。提交顺序：
+
+| 提交 | 内容 |
+| --- | --- |
+| `84160bf` | `refactor: add the canonical VFS path rules`（阶段 1） |
+| `d451929` | `feat: drop safeBaseDir and add startPath`（阶段 2） |
+| `d699cf0` | `fix: list only real drives, with capacity, on Linux` |
+| `fbc9a62` | `feat: add the mount table and path resolver`（阶段 3 纯逻辑） |
+| `0e5c9b5` | 侧边栏图标 + 交接说明 |
+| `f2a2638` | 4 个 Windows 不友好的测试夹具改为平台无关 |
+| `993fb38` | `feat: route every file operation through the VFS resolver`（阶段 3） |
+| `618fa42` | `feat: make the frontend path handling UNC-safe and mount-driven`（阶段 4） |
+
+**仍然没做的**：E2E 用例（§5.4 的清单，AGENTS.md 要求用户明确要求才加），
+以及只能在真机上做的验证（§5.5 手工验证、§8 的 Windows 清单）。
+
+下面是阶段 1–5 的实现记录与踩坑汇总。
+
 ## 交接说明（给下一个会话）
 
 > 本节是跨会话的交接点。上次会话在 **WSL2 的 Linux** 上完成，开发环境即将迁到
@@ -464,10 +484,18 @@ canonical 路径统一用 `/`，而 `filepath.Base`/`filepath.Dir` 在 Windows �
 | --- | --- | --- | --- |
 | 1 | canonical 规则（前后端各一份）+ 表驱动测试 | 规则表全绿；**现有行为零变化** | ✅ 已实现 |
 | 2 | 删 `safeBaseDir` / `IsPathSafe`，加 `startPath`，保留 `IsPathInsideOrEqual` | 全部既有 Go 测试绿；旧 config 仍能启动 | ✅ 已实现 |
-| 3 | 挂载表 + `Resolve` + 调用点迁移 + 并发档位 + `getDrives` | 本地行为回归全绿；`getDrives` 带 `kind` | 待实现 |
-| 4 | 前端（UNC 豁免、面包屑、`kind` 图标、起始状态） | 前端用例绿；地址栏/侧边栏交互符合 §5.3 | 待实现 |
-| 5 | 文档 + CHANGELOG | `docs/config.md` 等无 `safeBaseDir` 残留；CHANGELOG 各一条 | 待实现 |
+| 3 | 挂载表 + `Resolve` + 调用点迁移 + 并发档位 + `getDrives` | 本地行为回归全绿；`getDrives` 带 `kind` | ✅ 已实现 |
+| 4 | 前端（UNC 豁免、面包屑、`kind` 图标、起始状态） | 前端用例绿；地址栏/侧边栏交互符合 §5.3 | ✅ 已实现 |
+| 5 | 文档 + CHANGELOG | `docs/config.md` 等无 `safeBaseDir` 残留；CHANGELOG 各一条 | ✅ 已实现 |
 | — | E2E | 迁到 Windows 开发机后再做，用例见 §5.4 | 暂缓 |
+
+阶段 3 实际落地的东西比计划多：迁移过程中发现并修掉了一批**只在 Windows 上暴露**的
+缺陷（canonical 路径被 `filepath.Dir` 切错、盘符根退化成相对路径 `D:`、
+UNC 会匹配到 `/` 这个挂载点、上传的 `keep-both` 返回错名字、properties WS 拿
+canonical 路径直接喂 `os.Stat`）。这些单独记在 `CHANGELOG.md` 的 Fixes 里。
+
+**没做**：§5.4 的 E2E 用例。AGENTS.md 要求在用户明确要求时才新增 / 运行 e2e，
+本次改动虽然不小，但没有被要求，所以只跑既有 Go 与前端单测。
 
 **建议**：阶段 1 与 2 可以合在一个 PR（前者零行为变更，后者是纯删除），
 阶段 3 单独一个 PR（真正的重构），阶段 4 与 5 一起。这样每个 PR 的回归面都可控。
@@ -488,3 +516,17 @@ canonical 路径统一用 `/`，而 `filepath.Base`/`filepath.Dir` 在 Windows �
 10. **`IsPathInsideOrEqual` 是词法判断**——原以为"符号链接可绕过"其实是错的（见阶段 2 更正）。
     唯一真实例外是不区分大小写的文件系统，由 `os.Rename` 兜底。
 11. ~~e2e 夹具依赖 `safeBaseDir`~~ 已处理：夹具改用 `startPath`，盘列表在测试侧接管。
+12. **canonical 路径在 Windows 上要小心 `filepath` 的每一种"看起来能用"的函数**。
+    实测（Windows 上）：`filepath.Dir("D:/folder")` = `D:\`、`filepath.Base("D:/folder")`
+    = `folder`——这两个能用；但**拼接**出来的中间结果不行：自己写字符串切片时
+    `"D:/folder"` 的父目录会得到 `D:`，而 `D:` 是**驱动器相对路径**，
+    `os.Stat("D:")` 会成功（指到进程当前目录所在的 D 盘目录），于是错误是静默的。
+    判「是不是根」也一样：只比较 `splitRoot` 拼出来的根会让盘符下的**任何**路径
+    都被判成根（`ComparisonKey("D:/a.txt") == ComparisonKey("D:") == "D"`），
+    必须同时要求「根之后什么都没有」。
+13. **UNC 不属于 `/` 这个挂载点**。`//server/share` 字面上以 `/` 开头，裸前缀匹配
+    会让它命中 `/`，于是网络位置被判成本机卷（并发 64、图标错、错误码错）。
+    Go 与前端两份 `isWithinRoot` 都要显式排除这一条。
+14. **上传的 multipart 文件名要自带 `Base`**。老浏览器会发完整路径，
+    Windows 上带 `\`；`filepath.Base` 只认本机分隔符，于是同一个上传在 Windows 上
+    成功、在 Linux 上 400。分离器统一用 `fileops.BaseName`（两种都认）。

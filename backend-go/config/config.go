@@ -72,9 +72,24 @@ type AuthTicketInfo struct {
 	ExpiresAt time.Time
 }
 
+// normalizePath 把本机路径统一成正斜杠写法，供前端使用。
+//
+// UNC 的前导 `//` 必须保留：`\\server\share` 归一化后应当是 `//server/share`，
+// 而朴素的 `strings.ReplaceAll(s, "//", "/")` 会把它塌成 `/server/share`——
+// 那是一个完全不同的位置（Unix 根下的普通目录），startPath 会因此指错。
+// 所以重复斜杠只在「根之后」折叠。
 func normalizePath(p string) string {
 	s := strings.ReplaceAll(p, "\\", "/")
-	s = strings.ReplaceAll(s, "//", "/")
+	if strings.HasPrefix(s, "//") {
+		body := strings.TrimLeft(s, "/")
+		for strings.Contains(body, "//") {
+			body = strings.ReplaceAll(body, "//", "/")
+		}
+		return "//" + body
+	}
+	for strings.Contains(s, "//") {
+		s = strings.ReplaceAll(s, "//", "/")
+	}
 	return s
 }
 

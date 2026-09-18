@@ -76,6 +76,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - ffmpeg is looked up in `PATH` only, and the `ffmpegPath` config option is gone (backend).
 - Background tasks run two at a time with four files in parallel, and the `taskConcurrency` and `copyFileConcurrency` config options are gone (backend).
 - The `copyFsync` config option is gone: the temporary file is always fsynced before the rename, so a power cut can no longer leave a renamed file whose contents were never written (backend).
+- Typing a network path — `\\server\share`, or a WSL distribution at `\\wsl.localhost\Debian` — in the address bar now browses that share: the leading double slash used to be folded into a single one, which turned the share into an ordinary folder of the Unix root and made every operation address the wrong place (frontend, backend).
+- Opening a folder that cannot be reached on a network share now says the location is unreachable and can be retried, instead of claiming the folder does not exist; an invalid path is refused as such, instead of being reported as a missing file (frontend, backend).
+- Listing a folder on a network share no longer fires one request per entry at the same time: the concurrency drops from 64 to 6 for network locations, while local disks keep all 64 (backend).
+- The sidebar shows the list of locations when no folder has been opened yet, instead of silently dropping into the root of the file system (frontend).
+- A mapped network drive, and a drive letter linked to a share, are shown with the network icon like other network locations (backend, frontend).
+- `startPath` can point at a network share: its leading double slash is kept, where it used to be folded into a single one so the first tab opened an unrelated folder on the server's own disk (backend).
 
 ### Fixes
 
@@ -113,6 +119,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Uploading a file whose name has two dots in a row — a track named "C.h.a.o.s.m.y.t.h..mp3", for instance — no longer answers "Invalid filename": only a name that is nothing but dots is refused now, instead of every name containing "..", which is what the rule against path traversal had turned into (backend).
 - On Windows, extracting a video cover no longer flashes a black console window: ffmpeg runs without a console of its own now, and so do the browser opener and the update check, which had the same problem (backend).
 - "Open in new Tab" always opens another tab, even when that folder is already open as a tab (frontend).
+- The Up button and the address bar's first breadcrumb now stop at the location you started from — the drive letter, the network share or the home folder — instead of walking past a share's root or into a folder that is not a location at all (frontend).
+- Opening a folder called `data2` where a drive or folder called `data` is also mounted no longer treats the two as the same volume, which made a drag between them copy when it should have moved, or move when it should have copied (frontend).
+- The Properties window now counts a folder's size and shows its creation time on a network share or a mapped drive, where it used to fail to read the folder at all (backend).
+- Copying, moving, deleting and duplicating a folder that sits deeper than a drive's root now works on Windows, where the operation used to be refused with "Source path does not exist" (backend).
+- A folder listing no longer stays stale after a copy, move, delete or duplicate underneath a drive's root: the in-place update was computed against paths the file list could not match (backend).
 
 ### Engineering
 

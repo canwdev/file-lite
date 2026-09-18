@@ -2,6 +2,8 @@ package config
 
 import (
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -50,5 +52,39 @@ func TestResolveStartPath(t *testing.T) {
 				t.Fatalf("resolveStartPath(%q, %q) = %q，期望 %q", c.raw, wd, got, c.want)
 			}
 		})
+	}
+}
+
+// TestNormalizePathKeepsUNCPrefix：UNC 的前导 `//` 是「这是一个网络共享」的标记，
+// 折叠掉它就变成 Unix 根下的普通目录，startPath 会指到一个完全不同的位置。
+func TestNormalizePathKeepsUNCPrefix(t *testing.T) {
+	cases := map[string]string{
+		`\\server\share`:            `//server/share`,
+		`\\server\share\docs`:       `//server/share/docs`,
+		`//server//share//docs`:     `//server/share/docs`,
+		`\\wsl.localhost\Debian\me`: `//wsl.localhost/Debian/me`,
+		// 普通路径仍然折叠重复斜杠
+		`/data//x`:  `/data/x`,
+		`C:\Users\`: `C:/Users/`,
+	}
+	for in, want := range cases {
+		if got := normalizePath(in); got != want {
+			t.Errorf("normalizePath(%q) = %q，期望 %q", in, got, want)
+		}
+	}
+}
+
+// UNC 的 startPath 必须是绝对路径（Windows 上 filepath.IsAbs 认 UNC）。
+func TestResolveStartPathWithUNC(t *testing.T) {
+	got := resolveStartPath(`\\server\share\docs`, `C:\work`)
+	if runtime.GOOS == "windows" {
+		if got != `//server/share/docs` {
+			t.Fatalf("UNC startPath 应原样保留前导 //，得到 %q", got)
+		}
+		return
+	}
+	// 非 Windows 上 UNC 不是绝对路径，按相对路径解析——这是有意的降级。
+	if !strings.HasSuffix(got, "/server/share/docs") {
+		t.Fatalf("非 Windows 上 UNC 按相对路径解析，得到 %q", got)
 	}
 }
