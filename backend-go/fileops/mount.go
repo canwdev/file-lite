@@ -1,6 +1,7 @@
 package fileops
 
 import (
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -41,6 +42,9 @@ var mountTable = struct {
 func SetMounts(drives []types.Drive) {
 	setMountsFrom(mountsFromDrives(drives))
 }
+
+// ClearMounts 清空挂载表。给「挂载表为空时仍要能解析本地路径」这类测试用。
+func ClearMounts() { setMountsFrom(nil) }
 
 // setMountsFrom 直接替换挂载表内容，供测试构造部分挂载表使用。
 func setMountsFrom(mounts []Mount) {
@@ -125,6 +129,13 @@ func isWithinRootKey(key, rootKey string) bool {
 	if key == rootKey {
 		return true
 	}
+	// UNC 的根自带 "//" 前导。根为 "/" 时，下面拼出来的前缀就是 "//"，
+	// 于是 "//server/share" 会被判成落在 "/" 之内——它确实落在 Unix 根之下，
+	// 但那不是我们要的答案：UNC 是**独立**的命名空间，必须优先匹配到 UNC 自己的根
+	// （哪怕那个根还没被枚举进挂载表）。所以带 "//" 的路径不参与 "/" 的前缀匹配。
+	if strings.HasPrefix(rootKey, "/") && !strings.HasPrefix(rootKey, "//") && strings.HasPrefix(key, "//") {
+		return false
+	}
 	r := rootKey
 	if !strings.HasSuffix(r, "/") {
 		r += "/"
@@ -142,6 +153,44 @@ type Resolved struct {
 
 // ViaMount 表示这条路径属于一个已知挂载点（而不是「未匹配到挂载点的本地路径」）。
 func (r Resolved) ViaMount() bool { return r.Mount != nil }
+
+// OSPath 返回可以直接交给 os.* / filepath.* 的本机路径。
+//
+// Path 是 canonical 形式（恒用 "/"），而 Windows 的 os 调用只认 "\"——两者之间必须
+// 有一次显式转换，且只能是这一处。调用方不要自己对 canonical 路径用 filepath.Join：
+// 那会在 Windows 上把这个分隔符约定重新混起来。
+func (r Resolved) OSPath() string { return filepath.FromSlash(r.Path) }
+
+// Network 判断这条路径应当按网络位置对待。
+//
+// 两个来源缺一不可：
+//   - 挂载点的 Kind：/mnt/c（WSL 的 9p 共享）、映射的网络盘符 Z: 形态上都像本机卷，
+//     只有挂载表知道它们要走网络；
+//   - 路径形态：UNC（//server/share）在挂载表为空时也得按网络处理——
+//     挂载点没匹配上不代表它在本地。
+func (r Resolved) Network() bool {
+	if r.Mount != nil {
+		return r.Mount.Kind == types.DriveKindNetwork
+	}
+	return NetworkPath(r.Path)
+}
+
+// 列表加载时每个条目的 stat 并发档位。
+//
+// 本机卷可以放心开大；网络位置必须收敛——1000 个文件按 64 并发就是上千次网络往返，
+// 而每次往返都有 RTT，结果是把一台 NAS 打到超时。
+const (
+	concurrencyLocalVolume   = 64
+	concurrencyNetworkVolume = 6
+)
+
+// ReadDirConcurrency 返回这条路径应当使用的 stat 并发档位。
+func (r Resolved) ReadDirConcurrency() int {
+	if r.Network() {
+		return concurrencyNetworkVolume
+	}
+	return concurrencyLocalVolume
+}
 
 // NetworkPath 判断路径形态上属于网络位置。
 //
@@ -188,16 +237,19 @@ func SamePath(a, b string) bool {
 	return ComparisonKey(a) == ComparisonKey(b)
 }
 
-// BaseName 返回 canonical 路径的最后一段。
+// BaseName 返回路径的最后一段。
 //
 // 用 path 语义而不是 filepath：canonical 路径全链路只用 "/"，
 // 而 filepath.Base 在非 Windows 上会把 "C:\x" 当成一个整体、把 "//server/share" 也切错。
+//
+// 同时容忍 "\"（本机路径）：文件操作层有相当一部分入参来自 os.ReadDir / 任务结果，
+// 在 Windows 上带反斜杠。只认一种分隔符的话，那些调用点会得到一个「整条路径」的名字。
 func BaseName(p string) string {
-	p = strings.TrimSuffix(p, "/")
+	p = strings.TrimRight(p, `/\`)
 	if p == "" {
 		return "/"
 	}
-	if i := strings.LastIndexByte(p, '/'); i >= 0 {
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
 		return p[i+1:]
 	}
 	return p
@@ -207,35 +259,51 @@ func BaseName(p string) string {
 //
 // 这是一个**词法**操作：它不知道挂载边界，所以 "/mnt/dev-drive" → "/" 是它给出的
 // 答案，而界面上「到挂载点根就不能再往上」应当由挂载表决定（见 LongestMount）。
-// 只有路径**语法**意义上的根才是自己的父目录："/"、"C:"、"//host/share"。
+// 只有路径**语法**意义上的根才是自己的父目录："/"、"C:/"、"//host/share"。
 func DirName(p string) string {
-	trimmed := strings.TrimSuffix(p, "/")
-	if trimmed == "" {
+	if p == "/" {
 		return "/"
 	}
+	trimmed := strings.TrimSuffix(p, "/")
+	// 根是自己的父目录。"C:" 与 "C:/" 都归一化成 "C:"（canonical 的盘符根写法）。
 	if isSyntacticRoot(trimmed) {
 		return trimmed
 	}
-	if i := strings.LastIndexByte(trimmed, '/'); i > 0 {
-		return trimmed[:i]
-	} else if i == 0 {
-		// 斜杠就在第 0 位：父目录是 Unix 根。
+	i := strings.LastIndexByte(trimmed, '/')
+	if i < 0 {
+		return trimmed
+	}
+	if i == 0 {
 		return "/"
 	}
-	return trimmed
+	parent := trimmed[:i]
+	// 父目录是卷根时必须自带斜杠。canonical 只给 POSIX 根补尾斜杠，盘符根不带，
+	// 所以这里按形态回填："D:/a.txt" → "D:/"；UNC 共享根本来就不带，保持原样。
+	if isSyntacticRoot(parent) && !strings.HasPrefix(parent, "//") {
+		root, _, err := splitRoot(parent)
+		if err == nil {
+			return root
+		}
+	}
+	return parent
 }
 
-// isSyntacticRoot 判断路径是否已经到语法上的根（不能再按字符串往上切）。
+// isSyntacticRoot 判断路径是否已经是**语法根**："/"、"C:/"、"//host/share"。
+//
+// 要求根之后什么都没有，所以 "C:"（驱动器相对路径）与 "D:/a.txt" 都不是根。
+// 只比较 splitRoot 拼出来的根是不够的：它把 "D:/a.txt" 的根也拼成 "D:/"，
+// 而 ComparisonKey 会去掉尾斜杠，于是盘符下的任何路径都会被误判成盘符根。
 func isSyntacticRoot(p string) bool {
-	if p == "/" {
-		return true
+	if p == "" {
+		return false
 	}
-	root, _, err := splitRoot(p)
+	root, rel, err := splitRoot(p)
 	if err != nil {
 		return false
 	}
-	// 与 CanonicalizePath 一样做去尾斜杠的归一化，否则 "/" 与 "/data" 会得到
-	// 同一个比较键（ComparisonKey 会去掉尾斜杠），把普通路径误判成根。
+	if rel != "" {
+		return false
+	}
 	canonicalRoot := strings.TrimSuffix(root, "/")
 	if canonicalRoot == "" {
 		canonicalRoot = "/"

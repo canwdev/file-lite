@@ -2,6 +2,7 @@ package fileops
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -92,38 +93,54 @@ func classifyConflict(srcPath, dstPath string) (Conflict, bool) {
 
 // UniquePath 返回一个不与现有文件冲突的路径：name (1).ext、name (2).ext ……
 // 超过上限后回落到带时间戳的名字。
+//
+// 目标路径可能是 canonical 形式（上传走的是 VFS 路径）。在 Windows 上
+// filepath.Dir("D:/a/b.txt") 会返回 "."——盘符 + 正斜杠不是 filepath 认得的形态——
+// 于是唯一化会算到当前工作目录里去。所以按形态分流（见 splitPath）。
 func UniquePath(p string) string {
-	dir := filepath.Dir(p)
-	base := filepath.Base(p)
-	ext := filepath.Ext(base)
-	stem := strings.TrimSuffix(base, ext)
+	join, dir, base, ext := pathOpsFor(p)
 
 	for i := 1; i < 1000; i++ {
-		candidate := filepath.Join(dir, fmt.Sprintf("%s (%d)%s", stem, i, ext))
+		candidate := join(dir, fmt.Sprintf("%s (%d)%s", base, i, ext))
 		if !ExistsAt(candidate) {
 			return candidate
 		}
 	}
-	return filepath.Join(dir, fmt.Sprintf("%s (%d)%s", stem, time.Now().UnixMilli(), ext))
+	return join(dir, fmt.Sprintf("%s (%d)%s", base, time.Now().UnixMilli(), ext))
 }
 
 // duplicatePath 返回「复制副本」风格的新路径：name - Copy、name - Copy (2) ……
 // 对齐 Windows 在同一目录内复制时的命名习惯。
 func duplicatePath(p string) string {
-	dir := filepath.Dir(p)
-	base := filepath.Base(p)
-	ext := filepath.Ext(base)
-	stem := strings.TrimSuffix(base, ext)
+	join, dir, stem, ext := pathOpsFor(p)
 
-	first := filepath.Join(dir, stem+" - Copy"+ext)
+	first := join(dir, stem+" - Copy"+ext)
 	if !ExistsAt(first) {
 		return first
 	}
 	for i := 2; i < 1000; i++ {
-		candidate := filepath.Join(dir, fmt.Sprintf("%s - Copy (%d)%s", stem, i, ext))
+		candidate := join(dir, fmt.Sprintf("%s - Copy (%d)%s", stem, i, ext))
 		if !ExistsAt(candidate) {
 			return candidate
 		}
 	}
-	return filepath.Join(dir, fmt.Sprintf("%s - Copy (%d)%s", stem, time.Now().UnixMilli(), ext))
+	return join(dir, fmt.Sprintf("%s - Copy (%d)%s", stem, time.Now().UnixMilli(), ext))
+}
+
+// pathOpsFor 按路径形态挑一套「拆分 / 拼回」原语，并返回去掉扩展名的主干。
+//
+// 只有两种形态会流进这里：
+//   - 本机路径（含 "\"）→ filepath 语义，Windows 上还要处理盘符；
+//   - canonical VFS 路径（只用 "/"）→ path 语义，且必须能识别 "C:/" 根。
+//
+// 用错一方的代价是实打实的：在 Windows 上对 "D:/a/b.txt" 用 filepath.Dir 得到 "."，
+// 于是「另存为副本」会写到进程的工作目录。
+func pathOpsFor(p string) (join func(elem ...string) string, dir, stem, ext string) {
+	if strings.ContainsRune(p, '\\') {
+		base := filepath.Base(p)
+		return filepath.Join, filepath.Dir(p), strings.TrimSuffix(base, filepath.Ext(base)), filepath.Ext(base)
+	}
+	base := BaseName(p)
+	ext = path.Ext(base)
+	return path.Join, DirName(p), strings.TrimSuffix(base, ext), ext
 }

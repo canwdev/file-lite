@@ -9,15 +9,27 @@ import (
 	"file-lite-go/tasks"
 )
 
+// changeForDir 按 canonical 语义找目录的变更集。
+//
+// 用 fileops.SamePath 而不是 filepath.Clean：变更集里的 Dir 一律是 canonical 形式
+// （"/" 分隔），而夹具用的是 filepath.Join（Windows 上是 "\"），filepath.Clean 在
+// Windows 上倒是能把两者拉平，但在 Linux 上就把 "\" 当成普通字符了。比较交给
+// canonical 规则本身，测试就不必关心跑在哪个平台。
 func changeForDir(t *testing.T, changes []fsDirChange, dir string) fsDirChange {
 	t.Helper()
 	for _, c := range changes {
-		if filepath.Clean(c.Dir) == filepath.Clean(dir) {
+		if fileops.SamePath(c.Dir, dir) {
 			return c
 		}
 	}
 	t.Fatalf("no change for dir %s in %+v", dir, changes)
 	return fsDirChange{}
+}
+
+// canonical 把夹具路径转成 VFS 形态：任务结果里的路径是 canonical 的，
+// 夹具若用 filepath.Join 就会在 Windows 上产出一堆 "\"。
+func canonical(p string) string {
+	return filepath.ToSlash(p)
 }
 
 func mustWrite(t *testing.T, path, content string) {
@@ -38,7 +50,7 @@ func TestDirChangesCopyAddsDestinationEntry(t *testing.T) {
 	mustWrite(t, filepath.Join(dst, "a.txt"), "alpha")
 
 	changes := dirChangesForTask(tasks.Snapshot{Kind: tasks.KindCopy, ToPath: dst}, []fileops.ItemResult{
-		{FromPath: filepath.Join(src, "a.txt"), ToPath: filepath.Join(dst, "a.txt"), Status: fileops.StatusCopied},
+		{FromPath: canonical(filepath.Join(src, "a.txt")), ToPath: canonical(filepath.Join(dst, "a.txt")), Status: fileops.StatusCopied},
 	})
 
 	c := changeForDir(t, changes, dst)

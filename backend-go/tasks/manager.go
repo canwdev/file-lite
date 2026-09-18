@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -172,12 +173,29 @@ func (m *Manager) List() []Snapshot {
 }
 
 // Create 校验参数、登记任务并开始执行。
+//
+// 路径在入口处解析成 canonical 形态并**以该形态存下来**：前端持有的也是 canonical
+// 路径，快照与结果原样回给它就能直接匹配；文件操作层只在真正调 os.* 的那一步
+// 用 filepath 转换（那些调用点本来就带 filepath.Join）。存 OS 形态的话，
+// Windows 上回给前端的会是 "\" 路径，前端一个都认不出来。
 func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 	if !IsValidKind(params.Kind) {
 		return Snapshot{}, errors.New("Unsupported task kind")
 	}
 	if len(params.FromPaths) == 0 {
 		return Snapshot{}, errors.New("No source path")
+	}
+	fromPaths, err := resolveTaskPaths(params.FromPaths)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	params.FromPaths = fromPaths
+	if params.ToPath != "" {
+		toPath, err := resolveTaskPath(params.ToPath)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		params.ToPath = toPath
 	}
 	isDelete := params.Kind == KindDelete
 	if isDelete {
@@ -189,11 +207,13 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 			return Snapshot{}, errors.New("No destination path")
 		}
 		for _, p := range params.FromPaths {
-			if !fileops.ExistsAt(p) {
+			osPath := filepath.FromSlash(p)
+			if !fileops.ExistsAt(osPath) {
 				return Snapshot{}, errors.New("Source path does not exist: " + p)
 			}
 			// 目录不能复制 / 移动到自己的子树里
-			if info, err := os.Lstat(p); err == nil && info.IsDir() && utils.IsPathInsideOrEqual(params.ToPath, p) {
+			if info, err := os.Lstat(osPath); err == nil && info.IsDir() &&
+				utils.IsPathInsideOrEqual(filepath.FromSlash(params.ToPath), osPath) {
 				return Snapshot{}, errors.New("The destination folder is a subfolder of the source folder")
 			}
 		}
@@ -235,6 +255,29 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 		m.run(t)
 	}()
 	return snap, nil
+}
+
+// resolveTaskPath 把一条 wire 路径解析成 canonical 形态。
+func resolveTaskPath(raw string) (string, error) {
+	res, err := fileops.Resolve(raw)
+	if err != nil {
+		return "", err
+	}
+	return res.Path, nil
+}
+
+// resolveTaskPaths 批量解析，错误信息里带上出问题的那条路径（不回显整条路径
+// 在越根场景下会泄露上层目录名，所以只报规则本身）。
+func resolveTaskPaths(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	for _, p := range raw {
+		resolved, err := resolveTaskPath(p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, resolved)
+	}
+	return out, nil
 }
 
 // Cancel 请求取消任务。

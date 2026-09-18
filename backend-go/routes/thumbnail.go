@@ -23,13 +23,25 @@ import (
 //   - 501 能力未启用（无 ffmpeg）→ 前端按「能力关闭」处理，不算这个文件出错
 //   - 503 解码槽位排队超时     → 前端显示类型图标，但可重试
 func getThumbnail(c echo.Context) error {
-	path := canonicalVFS(c.QueryParam("path"))
-	if path == "" {
+	raw := c.QueryParam("path")
+	if raw == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
+	res, httpErr := resolvePath(raw)
+	if httpErr != nil {
+		return httpErr
+	}
+	osPath := res.OSPath()
 
-	fi, err := os.Stat(path)
-	if err != nil || fi.IsDir() {
+	fi, err := os.Stat(osPath)
+	if err != nil {
+		status, message := fsErrorStatus(err, res.Network())
+		if status == http.StatusInternalServerError {
+			message = "File not found"
+		}
+		return jsonFSError(c, status, message)
+	}
+	if fi.IsDir() {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "File not found"})
 	}
 
@@ -43,7 +55,7 @@ func getThumbnail(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	data, contentType, err := thumbnails.Default.Get(c.Request().Context(), path, edge, kind)
+	data, contentType, err := thumbnails.Default.Get(c.Request().Context(), osPath, edge, kind)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.Canceled):

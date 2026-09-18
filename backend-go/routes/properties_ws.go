@@ -75,24 +75,27 @@ func handleSharedWSPropertiesMessage(client *sharedWSClient, msg sharedWSPropert
 		return
 	}
 
-	info, err := os.Stat(msg.Path)
-	if err != nil {
-		message := "Unable to read properties"
-		if os.IsNotExist(err) {
-			message = "Path not found"
-		}
-		sendSharedWSError(client, "properties", msg.RequestID, message)
+	// 路径来自 wire，先按 VFS 规则解析再碰文件系统：canonical 路径恒用 "/"，
+	// 而 Windows 的 os.* 只认 "\"，不转的话这里永远 stat 不到东西。
+	osPath, ok := resolveWSPath(client, "properties", msg.RequestID, msg.Path)
+	if !ok {
 		return
 	}
 
-	isLink := isLinkEntry(msg.Path, info)
-	name := filepath.Base(filepath.Clean(msg.Path))
+	info, err := os.Stat(osPath)
+	if err != nil {
+		sendSharedWSError(client, "properties", msg.RequestID, pathErrorMessage(err))
+		return
+	}
+
+	isLink := isLinkEntry(osPath, info)
+	name := fileops.BaseName(msg.Path)
 	ext := ""
 	if !info.IsDir() {
 		ext = filepath.Ext(name)
 	}
 	modTime := info.ModTime().UnixMilli()
-	birthtime, ok := utils.BirthTime(msg.Path, info)
+	birthtime, ok := utils.BirthTime(osPath, info)
 	if !ok {
 		birthtime = modTime
 	}
@@ -122,9 +125,9 @@ func handleSharedWSPropertiesMessage(client *sharedWSClient, msg sharedWSPropert
 	sendSharedWSJSON(client, payload)
 
 	// 目录链接用解析后的真实路径遍历，避免把链接自身当成一个文件。
-	root := msg.Path
+	root := osPath
 	if isLink {
-		if resolved, err := filepath.EvalSymlinks(msg.Path); err == nil {
+		if resolved, err := filepath.EvalSymlinks(osPath); err == nil {
 			root = resolved
 		}
 	}
@@ -139,6 +142,30 @@ func isLinkEntry(path string, info os.FileInfo) bool {
 		return true
 	}
 	return false
+}
+
+// resolveWSPath 解析 WebSocket 消息里的路径，失败时回一条错误并返回 ok=false。
+//
+// WebSocket 没有 HTTP 状态码可用，所以「路径不合法」与「读不到」都只能靠消息文本
+// 区分；这里统一用 pathErrorMessage。
+func resolveWSPath(client *sharedWSClient, scope, requestID, raw string) (string, bool) {
+	res, err := fileops.Resolve(raw)
+	if err != nil {
+		sendSharedWSError(client, scope, requestID, err.Error())
+		return "", false
+	}
+	return res.OSPath(), true
+}
+
+// pathErrorMessage 把文件系统错误翻译成给用户看的一句话。
+//
+// 「路径不存在」与「读不到」必须分开：前者是用户的导航目标没了，后者可能是
+// 网络位置离线（可重试）或权限不足（不可重试），混成一句会让用户做错决定。
+func pathErrorMessage(err error) string {
+	if isNotFound(err) {
+		return "Path not found"
+	}
+	return "Unable to read properties"
 }
 
 // ---- 后台统计：每个连接同时只跑一个，新请求 / 取消 / 断开都会终止旧的 ----

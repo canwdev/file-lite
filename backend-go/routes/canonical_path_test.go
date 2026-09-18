@@ -67,6 +67,10 @@ func TestListAcceptsNonCanonicalPathSpellings(t *testing.T) {
 }
 
 // 归一化不能把错误路径变成成功：越根、相对路径、空路径仍要走各自的错误分支。
+//
+// 相对路径与越根现在是 **400**，因为路径统一走 fileops.Resolve。旧行为是把这类路径
+// 原样丢给 os.Stat，于是报的是 404「文件不存在」——把「你的路径写法不合法」说成了
+// 「这个文件没了」，用户会去找一个根本不该存在的文件。
 func TestListRejectsBadPaths(t *testing.T) {
 	e := echo.New()
 	e.GET("/api/files/list", getFiles)
@@ -77,10 +81,8 @@ func TestListRejectsBadPaths(t *testing.T) {
 		want int
 	}{
 		{"空路径", "", http.StatusBadRequest},
-		// 相对路径归一化失败，原样交给 os.Stat → 未找到。
-		{"相对路径", "relative/dir", http.StatusNotFound},
-		// 越根的 ".." 归一化失败，同样原样交给 os.Stat。
-		{"越根", "/a/../../b", http.StatusNotFound},
+		{"相对路径", "relative/dir", http.StatusBadRequest},
+		{"越根", "/a/../../b", http.StatusBadRequest},
 		{"不存在的绝对路径", "/definitely/not/here", http.StatusNotFound},
 	}
 	for _, c := range cases {

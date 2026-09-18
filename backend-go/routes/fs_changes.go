@@ -2,6 +2,7 @@ package routes
 
 import (
 	"os"
+	"path/filepath"
 
 	"file-lite-go/fileops"
 	"file-lite-go/tasks"
@@ -26,15 +27,19 @@ const maxChangeEntries = 2000
 //
 // 只用顶层结果（不受 done 的 200 条 / 引擎的 500 条上限约束）：
 // 目录下的子文件变化不影响当前目录的列表，改了哪些顶层名字才是列表要画的。
+//
+// 结果里的路径在这里统一转成 canonical 形态：`Dir` 要发回前端去匹配它正在显示的
+// 目录，而前端只认 canonical 路径。任务结果本身可能来自本机 API（Windows 上是 "\"），
+// 不转的话前端会把变更集当成「别的目录」丢掉。
 func dirChangesForTask(snap tasks.Snapshot, topLevel []fileops.ItemResult) []fsDirChange {
 	if len(topLevel) > maxChangeEntries {
 		return nil
 	}
+	topLevel = canonicalizeResults(topLevel)
 	byDir := map[string]*fsDirChange{}
 	order := make([]string, 0, len(topLevel))
 
 	dirOf := func(dir string) *fsDirChange {
-		dir = fileops.Clean(dir)
 		if c, ok := byDir[dir]; ok {
 			return c
 		}
@@ -89,17 +94,38 @@ func dirChangesForTask(snap tasks.Snapshot, topLevel []fileops.ItemResult) []fsD
 	return out
 }
 
+// canonicalizeResults 把任务结果里的路径转成 canonical 形态。
+//
+// 已经是 canonical 的路径原样保留；转换失败（相对路径等）的条目不动，
+// 让下游按原来的方式处理——这一步只为统一形态，不是校验。
+func canonicalizeResults(results []fileops.ItemResult) []fileops.ItemResult {
+	out := make([]fileops.ItemResult, len(results))
+	copy(out, results)
+	for i := range out {
+		if c, err := fileops.CanonicalizePath(out[i].FromPath); err == nil {
+			out[i].FromPath = c
+		}
+		if c, err := fileops.CanonicalizePath(out[i].ToPath); err == nil {
+			out[i].ToPath = c
+		}
+	}
+	return out
+}
+
 // statEntry 读一个路径的列表条目形态。失败时调用方回退到整目录刷新。
+//
+// 入参是 canonical 路径，交给 os.* 之前必须转本机形态（Windows 的 os 只认 "\"）。
 func statEntry(path string) (types.Entry, bool) {
-	li, err := os.Lstat(path)
+	osPath := filepath.FromSlash(path)
+	li, err := os.Lstat(osPath)
 	if err != nil {
 		return types.Entry{}, false
 	}
-	st, err := os.Stat(path)
+	st, err := os.Stat(osPath)
 	if err != nil {
 		return types.Entry{}, false
 	}
-	return entryFromStat(fileops.BaseName(path), st, path, li.Mode()&os.ModeSymlink != 0), true
+	return entryFromStat(fileops.BaseName(path), st, osPath, li.Mode()&os.ModeSymlink != 0), true
 }
 
 func dedupeEntries(entries []types.Entry) []types.Entry {

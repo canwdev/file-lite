@@ -300,8 +300,10 @@ func TestRetryRecreatesFailedTask(t *testing.T) {
 	if retried.ID == snap.ID {
 		t.Fatal("retry must create a new task")
 	}
-	if len(retried.FromPaths) != 1 || retried.FromPaths[0] != src {
-		t.Fatalf("unexpected retry sources: %v", retried.FromPaths)
+	// 快照里的路径是 canonical 形态（"/"）：前端持有的就是这种路径，
+	// 回给它 OS 形态（Windows 上的 "\"）会让它一个都对不上。
+	if len(retried.FromPaths) != 1 || retried.FromPaths[0] != filepath.ToSlash(src) {
+		t.Fatalf("unexpected retry sources: %v（期望 %q）", retried.FromPaths, filepath.ToSlash(src))
 	}
 	done2 := waitFor(t, events, EventDone, retried.ID)
 	if done2.Task.State != StateSucceeded {
@@ -309,6 +311,64 @@ func TestRetryRecreatesFailedTask(t *testing.T) {
 	}
 	if got := read(t, filepath.Join(dst, "a.txt")); got != "content" {
 		t.Fatalf("unexpected content %q", got)
+	}
+}
+
+// TestCreateResolvesPathsToCanonical 锁定任务层与前端共用的路径形态。
+//
+// 前端发过来的是 canonical 路径（恒用 "/"），它拿回来的 fromPaths / toPath 也必须
+// 是 canonical。中间存 OS 形态的话，Windows 上回给前端的是 "\" 路径，
+// 前端按路径匹配的列表补丁会一条都命不中。
+func TestCreateResolvesPathsToCanonical(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src", "a.txt")
+	dst := filepath.Join(dir, "dst")
+	write(t, src, "x")
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	m, _ := newTestManager(t, time.Minute)
+	snap, err := m.Create(CreateParams{
+		Kind:      KindCopy,
+		FromPaths: []string{src},
+		ToPath:    dst,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.ToSlash(src); snap.FromPaths[0] != want {
+		t.Errorf("fromPaths[0] = %q，期望 canonical 形态 %q", snap.FromPaths[0], want)
+	}
+	if want := filepath.ToSlash(dst); snap.ToPath != want {
+		t.Errorf("toPath = %q，期望 canonical 形态 %q", snap.ToPath, want)
+	}
+}
+
+// 非法路径必须在建任务时就报错，而不是等执行到一半才失败。
+func TestCreateRejectsBadPaths(t *testing.T) {
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "dst")
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	m, _ := newTestManager(t, time.Minute)
+	for _, bad := range []string{"relative/file.txt", "/a/../../etc/passwd"} {
+		if _, err := m.Create(CreateParams{
+			Kind:      KindCopy,
+			FromPaths: []string{bad},
+			ToPath:    dst,
+		}); err == nil {
+			t.Errorf("非法源路径 %q 应当在建任务时被拒", bad)
+		}
+	}
+	if _, err := m.Create(CreateParams{
+		Kind:      KindCopy,
+		FromPaths: []string{filepath.Join(dir, "missing.txt")},
+		ToPath:    "relative/dest",
+	}); err == nil {
+		t.Error("非法目标路径应当在建任务时被拒")
 	}
 }
 

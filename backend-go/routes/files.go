@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,8 +20,6 @@ import (
 	"file-lite-go/types"
 	"file-lite-go/utils"
 )
-
-const readDirStatConcurrency = 64
 
 func registerFiles(g *echo.Group) {
 	// 挂载表要在任何路径解析之前就位：它决定一条路径属于哪个根。
@@ -57,18 +56,6 @@ func getAuthInfo(c echo.Context) error {
 }
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
-
-// canonicalVFS 在边界处把路径归一化成 canonical 形式（分隔符、重复斜杠、"." / ".."）。
-//
-// 归一化失败（相对路径、越根）时原样返回，让下游走它本来的错误分支——这一步只是为了
-// 让 `\`、重复斜杠、尾斜杠这些写法在所有平台都落到同一个路径上，不改变任何错误语义。
-// 完整的解析（挂载点、错误码）见 docs/design/vfs-abstraction-plan.md 阶段 3 的调用点迁移。
-func canonicalVFS(p string) string {
-	if canonical, err := fileops.CanonicalizePath(p); err == nil {
-		return canonical
-	}
-	return p
-}
 
 func sanitizeUploadFilename(name string) (string, error) {
 	if name == "" || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
@@ -163,24 +150,28 @@ func getStartPath(c echo.Context) error {
 }
 
 func getFiles(c echo.Context) error {
-	path := canonicalVFS(c.QueryParam("path"))
-	if path == "" {
+	raw := c.QueryParam("path")
+	if raw == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
+	res, httpErr := resolvePath(raw)
+	if httpErr != nil {
+		return httpErr
+	}
+	dir := res.OSPath()
 
-	st, err := os.Stat(path)
+	st, err := os.Stat(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		status, message := fsErrorStatus(err, res.Network())
+		return jsonFSError(c, status, message)
 	}
 	if !st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a directory"})
 	}
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read directory"})
+		status, message := fsErrorStatus(err, res.Network())
+		return jsonFSError(c, status, message)
 	}
 
 	type statJob struct {
@@ -198,9 +189,11 @@ func getFiles(c echo.Context) error {
 	}
 	entries = filtered
 
-	res := make([]types.Entry, len(entries))
+	res2 := make([]types.Entry, len(entries))
 	jobs := make(chan statJob)
-	workerCount := readDirStatConcurrency
+	// 并发档位由路径所属的挂载点决定：本机卷 64，网络位置 6。
+	// 一千个文件按 64 并发在 SMB 上就是上千次网络往返，会把共享打到超时。
+	workerCount := res.ReadDirConcurrency()
 	if len(entries) < workerCount {
 		workerCount = len(entries)
 	}
@@ -211,13 +204,13 @@ func getFiles(c echo.Context) error {
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				ep := filepath.Join(path, job.entry.Name())
+				ep := filepath.Join(dir, job.entry.Name())
 				st, statErr := os.Stat(ep)
 				if statErr != nil {
-					res[job.index] = entryFromStatError(job.entry, statErr)
+					res2[job.index] = entryFromStatError(job.entry, statErr)
 					continue
 				}
-				res[job.index] = entryFromStat(job.entry.Name(), st, ep, job.entry.Type()&os.ModeSymlink != 0)
+				res2[job.index] = entryFromStat(job.entry.Name(), st, ep, job.entry.Type()&os.ModeSymlink != 0)
 			}
 		}()
 	}
@@ -228,7 +221,7 @@ func getFiles(c echo.Context) error {
 	close(jobs)
 	wg.Wait()
 
-	return c.JSON(http.StatusOK, res)
+	return c.JSON(http.StatusOK, res2)
 }
 
 func createDirectory(c echo.Context) error {
@@ -238,18 +231,24 @@ func createDirectory(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
 	}
-	body.Path = canonicalVFS(body.Path)
 	if body.Path == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path is required"})
 	}
+	res, httpErr := resolvePath(body.Path)
+	if httpErr != nil {
+		return httpErr
+	}
+	body.Path = res.Path
 	if utils.IsReservedTempName(fileops.BaseName(body.Path)) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
-	if isExist(body.Path) {
+	osPath := res.OSPath()
+	if isExist(osPath) {
 		return c.JSON(http.StatusOK, map[string]any{"existed": true, "path": body.Path})
 	}
-	if err := os.MkdirAll(body.Path, 0755); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+	if err := os.MkdirAll(osPath, 0755); err != nil {
+		status, message := fsErrorStatus(err, res.Network())
+		return jsonFSError(c, status, message)
 	}
 	c.Response().Status = http.StatusCreated
 	return c.JSON(http.StatusCreated, map[string]string{"path": body.Path})
@@ -266,29 +265,43 @@ func renamePath(c echo.Context) error {
 	if body.FromPath == "" || body.ToPath == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "fromPath or toPath is required"})
 	}
-	if body.FromPath == body.ToPath {
+	from, httpErr := resolvePath(body.FromPath)
+	if httpErr != nil {
+		return httpErr
+	}
+	to, httpErr := resolvePath(body.ToPath)
+	if httpErr != nil {
+		return httpErr
+	}
+	// 规范化之后再判「同一个路径」：C:\ 与 C:/ 是同一个位置，不该被当成合法重命名。
+	if from.Path == to.Path {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Paths cannot be the same"})
 	}
-	if !isExist(body.FromPath) {
+	fromOS, toOS := from.OSPath(), to.OSPath()
+	if !isExist(fromOS) {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "Source path not found"})
 	}
-	if utils.IsReservedTempName(fileops.BaseName(body.ToPath)) {
+	if utils.IsReservedTempName(fileops.BaseName(to.Path)) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
-	if isExist(body.ToPath) {
+	if isExist(toOS) {
 		return c.JSON(http.StatusConflict, map[string]string{"message": "Destination path already exists"})
 	}
-	fromInfo, err := os.Stat(body.FromPath)
+	fromInfo, err := os.Stat(fromOS)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		status, message := fsErrorStatus(err, from.Network())
+		return jsonFSError(c, status, message)
 	}
-	if fromInfo.IsDir() && utils.IsPathInsideOrEqual(body.ToPath, body.FromPath) {
+	// 词法判断，两侧都已经是 canonical 路径；大小写不折叠是有意的取舍
+	// （见 utils.IsPathInsideOrEqual 的注释）。
+	if fromInfo.IsDir() && utils.IsPathInsideOrEqual(toOS, fromOS) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "The destination folder is a subfolder of the source folder"})
 	}
-	if err := os.Rename(body.FromPath, body.ToPath); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+	if err := os.Rename(fromOS, toOS); err != nil {
+		status, message := fsErrorStatus(err, from.Network() || to.Network())
+		return jsonFSError(c, status, message)
 	}
-	return c.JSON(http.StatusOK, map[string]string{"path": body.ToPath})
+	return c.JSON(http.StatusOK, map[string]string{"path": to.Path})
 }
 
 func openInHostExplorer(c echo.Context) error {
@@ -317,29 +330,43 @@ func openInHostExplorer(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "paths parameter is required"})
 	}
 
+	// 交给外部程序的是本机路径（资源管理器只认本机路径），但先按 VFS 规则解析一次：
+	// 这样非法路径报的是 400，而不是把一条畸形路径直接喂给 ShellExecute。
+	osPaths := make([]string, 0, len(paths))
 	for _, p := range paths {
-		if !isExist(p) {
+		res, httpErr := resolvePath(p)
+		if httpErr != nil {
+			return httpErr
+		}
+		if !isExist(res.OSPath()) {
 			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found: " + p})
 		}
+		osPaths = append(osPaths, res.OSPath())
 	}
 
-	if err := utils.RevealInHostExplorer(paths); err != nil {
+	if err := utils.RevealInHostExplorer(osPaths); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"paths": paths})
 }
 
 func getFileStream(c echo.Context) error {
-	path := canonicalVFS(c.QueryParam("path"))
-	if path == "" {
+	raw := c.QueryParam("path")
+	if raw == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
-	if !isExist(path) {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
+	res, httpErr := resolvePath(raw)
+	if httpErr != nil {
+		return httpErr
 	}
-	st, err := os.Stat(path)
+	osPath := res.OSPath()
+	st, err := os.Stat(osPath)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		status, message := fsErrorStatus(err, res.Network())
+		if status == http.StatusInternalServerError {
+			message = "Failed to read the path"
+		}
+		return jsonFSError(c, status, message)
 	}
 	if st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a file"})
@@ -354,18 +381,38 @@ func getFileStream(c echo.Context) error {
 	}
 	c.Response().Header().Set("ETag", etagValue)
 	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=0, must-revalidate")
-	name := fileops.BaseName(path)
+	name := fileops.BaseName(res.Path)
 	c.Response().Header().Set("Content-Disposition", utils.InlineDisposition(name))
-	return c.File(path)
+	return c.File(osPath)
+}
+
+// resolveDownloadPaths 把下载请求里的路径统一解析成本机路径。
+//
+// 多选打包（zip）不接受「一半能读一半不能读」：先全部解析再开始写响应，
+// 否则用户在压缩流已经开始之后才拿到错误，客户端只会得到一个缺文件的 zip。
+func resolveDownloadPaths(paths []string) ([]string, *echo.HTTPError) {
+	osPaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		res, httpErr := resolvePath(p)
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		osPaths = append(osPaths, res.OSPath())
+	}
+	return osPaths, nil
 }
 
 func downloadMulti(paths []string, c echo.Context) error {
 	if len(paths) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "No files to download"})
 	}
+	osPaths, httpErr := resolveDownloadPaths(paths)
+	if httpErr != nil {
+		return httpErr
+	}
 	// 写响应头之前先预检所有路径可读（文件被占用/不可读时直接报错，
 	// 避免压缩流开始后才失败、客户端拿到缺文件的 zip 却无法得知）。
-	if err := utils.VerifyZipPathsReadable(paths); err != nil {
+	if err := utils.VerifyZipPathsReadable(osPaths); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	var downloadName string
@@ -381,7 +428,7 @@ func downloadMulti(paths []string, c echo.Context) error {
 	c.Response().Header().Set("Content-Disposition", utils.AttachmentDisposition(t))
 	c.Response().Header().Set("Content-Type", "application/zip")
 	c.Response().WriteHeader(http.StatusOK)
-	return utils.ZipPathsToWriter(paths, c.Response())
+	return utils.ZipPathsToWriter(osPaths, c.Response())
 }
 
 func downloadPath(c echo.Context) error {
@@ -397,15 +444,22 @@ func downloadPath(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path(s) parameter is required"})
 	}
 	if len(paths) == 1 {
-		p := paths[0]
-		if !isExist(p) {
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
+		res, httpErr := resolvePath(paths[0])
+		if httpErr != nil {
+			return httpErr
 		}
-		st, _ := os.Stat(p)
+		st, err := os.Stat(res.OSPath())
+		if err != nil {
+			status, message := fsErrorStatus(err, res.Network())
+			if status == http.StatusInternalServerError {
+				message = "Path not found"
+			}
+			return jsonFSError(c, status, message)
+		}
 		if !st.IsDir() {
-			name := fileops.BaseName(p)
+			name := fileops.BaseName(res.Path)
 			c.Response().Header().Set("Content-Disposition", utils.AttachmentDisposition(name))
-			return c.File(p)
+			return c.File(res.OSPath())
 		}
 	}
 	return downloadMulti(paths, c)
@@ -421,13 +475,23 @@ func downloadPath(c echo.Context) error {
 func uploadFile(c echo.Context) error {
 	qPath := c.QueryParam("path")
 	var dest string
+	var network bool
 	if qPath != "" {
-		dest = fileops.DirName(qPath)
+		// path 是**目标文件**的完整路径（前端把要写入的位置整条传过来），
+		// 目录取它的父目录。父目录用 canonical 语义算（fileops.DirName），
+		// 不能用 filepath.Dir：后者在非 Windows 上对 "C:/x" 返回 "."。
+		res, httpErr := resolvePath(qPath)
+		if httpErr != nil {
+			return httpErr
+		}
+		dest = fileops.DirName(res.Path)
+		network = res.Network()
 	} else {
-		dest = filepath.Join(config.DataBaseDir(), "uploads")
+		dest = filepath.ToSlash(filepath.Join(config.DataBaseDir(), "uploads"))
 	}
-	if _, err := os.Stat(dest); err != nil {
-		_ = os.MkdirAll(dest, 0755)
+	destOS := filepath.FromSlash(dest)
+	if _, err := os.Stat(destOS); err != nil {
+		_ = os.MkdirAll(destOS, 0755)
 	}
 	f, err := c.FormFile("file")
 	if err != nil {
@@ -438,7 +502,12 @@ func uploadFile(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
 	}
 	defer src.Close()
-	name, err := sanitizeUploadFilename(f.Filename)
+	// f.Filename 可能带目录前缀（老浏览器发完整路径，Windows 上还带 "\"）。
+	// 必须先取最后一段：filepath.Base 只认本机分隔符，在 Linux 上对
+	// "C:\Users\a.txt" 会原样返回，于是 sanitizeUploadFilename 里的
+	// Base 检查把它当成含分隔符而拒绝——同一个上传在 Windows 上成功、
+	// 在 Linux 上 400，正是这条链路最难查的形态。
+	name, err := sanitizeUploadFilename(fileops.BaseName(f.Filename))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
@@ -446,14 +515,16 @@ func uploadFile(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
 
-	destPath := filepath.Join(dest, name)
+	destPath := path.Join(dest, name)
+	destPathOS := filepath.FromSlash(destPath)
 	switch c.QueryParam("onConflict") {
 	case "overwrite":
 		// 调用方已确认要替换
 	case "keep-both":
 		destPath = fileops.UniquePath(destPath)
+		destPathOS = filepath.FromSlash(destPath)
 	default:
-		if fileops.ExistsAt(destPath) {
+		if fileops.ExistsAt(destPathOS) {
 			return c.JSON(http.StatusConflict, map[string]any{
 				"message": "Destination path already exists: " + name,
 				"path":    destPath,
@@ -461,25 +532,36 @@ func uploadFile(c echo.Context) error {
 			})
 		}
 	}
+	// 报告落盘时的真实名字：keep-both 会把目标改成 "a (1).txt"，此时返回请求里的
+	// "a.txt" 会让前端按一个并不存在的文件名去更新列表。
+	name = fileops.BaseName(destPath)
 
-	if err := fileops.PublishFile(destPath, fileops.PublishOptions{
+	if err := fileops.PublishFile(destPathOS, fileops.PublishOptions{
 		Mode: 0644,
 	}, func(w io.Writer) error {
 		_, err := io.Copy(w, src)
 		return err
 	}); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+		status, message := fsErrorStatus(err, network)
+		if status == http.StatusInternalServerError {
+			message = "Failed to write the file"
+		}
+		return jsonFSError(c, status, message)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"message": "File uploaded successfully!",
 		"path":    destPath,
-		"name":    fileops.BaseName(destPath),
+		"name":    name,
 	})
 }
 
 // existsPaths 批量查询路径是否存在，用于上传前的冲突预检。
 // 走服务端而不是前端列表，是为了让嵌套路径（文件夹上传）也能被正确检查。
+//
+// 回显的是调用方传进来的原字符串（而不是 canonical 形式）：调用方拿它去跟自己
+// 持有的路径做等值比较，改写这一侧只会让两边对不上。解析失败（相对路径等）记为
+// 「不存在」——预检问的是「这个位置有没有东西」，畸形路径的答案是「没有」。
 func existsPaths(c echo.Context) error {
 	var body struct {
 		Paths []string `json:"paths"`
@@ -492,7 +574,11 @@ func existsPaths(c echo.Context) error {
 	}
 	existing := make([]string, 0, len(body.Paths))
 	for _, p := range body.Paths {
-		if fileops.ExistsAt(p) {
+		res, err := fileops.Resolve(p)
+		if err != nil {
+			continue
+		}
+		if fileops.ExistsAt(res.OSPath()) {
 			existing = append(existing, p)
 		}
 	}

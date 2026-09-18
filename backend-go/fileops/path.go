@@ -20,6 +20,10 @@ func ExistsAt(p string) bool {
 }
 
 // baseName 返回路径的最后一段。
+//
+// 这里保持 **filepath** 语义是有意的：调用点是文件操作层，入参来自 os.ReadDir /
+// filepath.Join，是本机路径（Windows 上带 "\"）。需要 canonical 语义的地方请用
+// BaseName——它同时认两种分隔符。
 func baseName(p string) string {
 	return filepath.Base(filepath.Clean(p))
 }

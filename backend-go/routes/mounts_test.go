@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -38,26 +39,40 @@ func TestMountTableMatchesDrivesEndpoint(t *testing.T) {
 	if len(mounts) == 0 {
 		t.Fatal("注册路由后挂载表不应为空")
 	}
-	// 只比较非 Home 的位置：Home 也会进挂载表，但它的存在与否取决于 os.UserHomeDir()。
-	wantRoots := map[string]bool{}
-	for _, d := range drives {
-		if d.Kind == types.DriveKindHome {
-			continue
-		}
-		wantRoots[d.Path] = true
-	}
+	// 侧边栏每一项都必须能在挂载表里找到。用 canonical 形式比较：挂载表里的 Root 是
+	// 归一化过的（Windows 盘符的 "C:\" 会变成 "C:"），而端点回显的是枚举结果原样。
+	// 只比非 Home 的位置：Home 也会进挂载表，但它的存在与否取决于 os.UserHomeDir()。
 	gotRoots := map[string]bool{}
 	for _, m := range mounts {
 		gotRoots[m.Root] = true
 	}
-	for root := range wantRoots {
-		if !gotRoots[root] {
-			t.Errorf("侧边栏有 %q，挂载表里却没有", root)
+	for _, d := range drives {
+		if d.Kind == types.DriveKindHome {
+			continue
+		}
+		canonical, err := fileops.CanonicalizePath(d.Path)
+		if err != nil {
+			t.Errorf("侧边栏位置 %q 不是合法路径: %v", d.Path, err)
+			continue
+		}
+		want := strings.TrimSuffix(canonical, "/")
+		if want == "" {
+			want = "/"
+		}
+		if !gotRoots[want] {
+			t.Errorf("侧边栏有 %q（canonical %q），挂载表里却没有", d.Path, want)
 		}
 	}
 
-	// 根必须是可解析的挂载点：解析 "/" 应当匹配到 "/"。
-	if res, err := fileops.Resolve("/"); err != nil || !res.ViaMount() {
-		t.Errorf("解析 \"/\" 应匹配到挂载点，得到 %+v err=%v", res.Mount, err)
+	// 每个盘符/共享根都必须是可解析的挂载点：用挂载表里最长的一个来验，
+	// 不写死 "/"——Windows 上根本没有 "/" 这个位置。
+	longest := mounts[0]
+	for _, m := range mounts {
+		if len(m.Root) > len(longest.Root) {
+			longest = m
+		}
+	}
+	if res, err := fileops.Resolve(longest.Root); err != nil || !res.ViaMount() {
+		t.Errorf("解析挂载点根 %q 应匹配到挂载点，得到 %+v err=%v", longest.Root, res.Mount, err)
 	}
 }

@@ -1,6 +1,8 @@
 package fileops
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"file-lite-go/types"
@@ -198,6 +200,102 @@ func TestNetworkPath(t *testing.T) {
 	}
 }
 
+// OSPath 是 canonical 形态与本机 os.* 调用之间唯一的一次转换。
+func TestResolvedOSPath(t *testing.T) {
+	res, err := Resolve("/data/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := res.OSPath(), filepath.FromSlash("/data/x"); got != want {
+		t.Errorf("OSPath() = %q，期望 %q", got, want)
+	}
+}
+
+// Network() 必须同时看形态与挂载点 Kind：/mnt/c 形态上像本机路径，只有挂载表知道
+// 它其实是 WSL 的 9p 共享；反过来 UNC 路径在挂载表为空时也得按网络处理。
+func TestResolvedNetwork(t *testing.T) {
+	defer SetMounts(nil)
+	setMountsFrom(mountsFromDrives([]types.Drive{
+		{Label: "mnt", Path: "/mnt/c", Kind: types.DriveKindNetwork},
+		{Label: "root", Path: "/", Kind: types.DriveKindVolume},
+	}))
+
+	cases := map[string]bool{
+		"/mnt/c/Users":       true,  // 形态不像网络，靠挂载点 Kind
+		"/etc":               false, // 落在 "/" 这个本机卷上
+		"//server/share/doc": true,  // 形态是 UNC，且未匹配任何挂载点
+	}
+	for p, want := range cases {
+		res, err := Resolve(p)
+		if err != nil {
+			t.Fatalf("Resolve(%q): %v", p, err)
+		}
+		if got := res.Network(); got != want {
+			t.Errorf("Resolve(%q).Network() = %v，期望 %v（Mount=%+v）", p, got, want, res.Mount)
+		}
+	}
+}
+
+// 网络档位必须显著低于本机档位：这是「一千个文件的目录在 SMB 上不要打成几千次
+// 网络往返」的唯一执行点。
+func TestReadDirConcurrencyTiers(t *testing.T) {
+	defer SetMounts(nil)
+	setMountsFrom(mountsFromDrives([]types.Drive{
+		{Label: "z", Path: "Z:", Kind: types.DriveKindNetwork},
+		{Label: "c", Path: "C:", Kind: types.DriveKindVolume},
+	}))
+
+	netRes, err := Resolve("Z:/photos")
+	if err != nil {
+		t.Fatal(err)
+	}
+	localRes, err := Resolve("C:/Users")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if netRes.ReadDirConcurrency() >= localRes.ReadDirConcurrency() {
+		t.Fatalf("网络档位 %d 不应大于等于本机档位 %d",
+			netRes.ReadDirConcurrency(), localRes.ReadDirConcurrency())
+	}
+	if netRes.ReadDirConcurrency() < 1 {
+		t.Fatalf("并发档位必须为正，得到 %d", netRes.ReadDirConcurrency())
+	}
+}
+
+// canonical 路径在 Windows 上不能交给 filepath.Dir / filepath.Base：
+// filepath.Dir("D:/a/b.txt") 返回 "."，于是「另存为副本」会写到进程的工作目录。
+// 这里用临时目录（转成 canonical 形态）锁定住，在 Linux 上也会跑。
+func TestUniquePathKeepsCanonicalDir(t *testing.T) {
+	dir := t.TempDir()
+	canonicalDir := filepath.ToSlash(dir)
+	existing := canonicalDir + "/a.txt"
+	if err := os.WriteFile(filepath.FromSlash(existing), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := UniquePath(existing)
+	if gotDir := DirName(got); gotDir != canonicalDir {
+		t.Fatalf("UniquePath 把目录算错了：%q 的目录是 %q，期望 %q", got, gotDir, canonicalDir)
+	}
+	if BaseName(got) != "a (1).txt" {
+		t.Fatalf("UniquePath(%q) = %q，期望同目录下的 a (1).txt", existing, got)
+	}
+}
+
+// 盘符根上的 DirName：Git Bash 之类的来源会拼出 "D:/a.txt"，父目录必须是 "D:/"——
+// 返回 "D:" 会让调用方（拼子路径、os.Stat）落到进程的当前目录里。
+func TestDirNameOnDriveRootForm(t *testing.T) {
+	if got := DirName("D:/a.txt"); got != "D:/" {
+		t.Fatalf("DirName(%q) = %q，期望 D:/", "D:/a.txt", got)
+	}
+	if got := DirName("D:/"); got != "D:" {
+		t.Fatalf("盘符根（带斜杠写法）应归一化成 D:，得到 %q", got)
+	}
+	if got := DirName("D:"); got != "D:" {
+		t.Fatalf("盘符根本身就是自己的父目录，得到 %q", got)
+	}
+}
+
 func TestSamePath(t *testing.T) {
 	cases := []struct {
 		name string
@@ -243,8 +341,12 @@ func TestBaseNameAndDirName(t *testing.T) {
 		"/data":            "/",
 		"/":                "/",
 		"C:/Users/me":      "C:/Users",
-		"C:/Users":         "C:",
+		// 盘符根必须带斜杠："C:" 是驱动器**相对**路径（靠进程当前目录解释），
+		// 拿它去 os.Stat / 拼子路径都会指错位置。"C:" 与 "C:/" 都归一化成 "C:"，
+		// 因为 canonical 的盘符根写法就是不带尾斜杠的 "C:"。
+		"C:/Users":         "C:/",
 		"C:":               "C:",
+		"C:/":              "C:",
 		"//server/share/x": "//server/share",
 		"//server/share":   "//server/share", // 共享根之上不可导航
 		// 词法父目录：挂载边界不在这里判断（见 DirName 注释）。
