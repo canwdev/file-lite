@@ -23,7 +23,7 @@ import (
 //   - 501 能力未启用（无 ffmpeg）→ 前端按「能力关闭」处理，不算这个文件出错
 //   - 503 解码槽位排队超时     → 前端显示类型图标，但可重试
 func getThumbnail(c echo.Context) error {
-	path := c.QueryParam("path")
+	path := canonicalVFS(c.QueryParam("path"))
 	if path == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}

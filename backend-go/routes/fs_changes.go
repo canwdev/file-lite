@@ -2,7 +2,6 @@ package routes
 
 import (
 	"os"
-	"path/filepath"
 
 	"file-lite-go/fileops"
 	"file-lite-go/tasks"
@@ -35,7 +34,7 @@ func dirChangesForTask(snap tasks.Snapshot, topLevel []fileops.ItemResult) []fsD
 	order := make([]string, 0, len(topLevel))
 
 	dirOf := func(dir string) *fsDirChange {
-		dir = filepath.Clean(dir)
+		dir = fileops.Clean(dir)
 		if c, ok := byDir[dir]; ok {
 			return c
 		}
@@ -55,7 +54,7 @@ func dirChangesForTask(snap tasks.Snapshot, topLevel []fileops.ItemResult) []fsD
 			if !ok {
 				continue
 			}
-			destDir := filepath.Dir(r.ToPath)
+			destDir := fileops.DirName(r.ToPath)
 			c := dirOf(destDir)
 			if r.Status == fileops.StatusReplaced {
 				c.Updated = append(c.Updated, entry)
@@ -64,15 +63,15 @@ func dirChangesForTask(snap tasks.Snapshot, topLevel []fileops.ItemResult) []fsD
 			}
 			// move 会把源从原目录拿掉；copy / duplicate 源不动。
 			if snap.Kind == tasks.KindMove {
-				srcDir := filepath.Clean(filepath.Dir(r.FromPath))
-				if srcDir != filepath.Clean(destDir) {
+				srcDir := fileops.DirName(r.FromPath)
+				if srcDir != destDir {
 					src := dirOf(srcDir)
-					src.Removed = append(src.Removed, filepath.Base(r.FromPath))
+					src.Removed = append(src.Removed, fileops.BaseName(r.FromPath))
 				}
 			}
 		case fileops.StatusDeleted:
-			c := dirOf(filepath.Dir(r.FromPath))
-			c.Removed = append(c.Removed, filepath.Base(r.FromPath))
+			c := dirOf(fileops.DirName(r.FromPath))
+			c.Removed = append(c.Removed, fileops.BaseName(r.FromPath))
 		}
 	}
 
@@ -100,7 +99,7 @@ func statEntry(path string) (types.Entry, bool) {
 	if err != nil {
 		return types.Entry{}, false
 	}
-	return entryFromStat(filepath.Base(path), st, path, li.Mode()&os.ModeSymlink != 0), true
+	return entryFromStat(fileops.BaseName(path), st, path, li.Mode()&os.ModeSymlink != 0), true
 }
 
 func dedupeEntries(entries []types.Entry) []types.Entry {

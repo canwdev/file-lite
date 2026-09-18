@@ -23,6 +23,10 @@ import (
 const readDirStatConcurrency = 64
 
 func registerFiles(g *echo.Group) {
+	// 挂载表要在任何路径解析之前就位：它决定一条路径属于哪个根。
+	// 与侧边栏用同一份枚举结果（enumerateDrives），避免两者漂移。
+	fileops.SetMounts(enumerateDrives())
+
 	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
 	g.GET("/start", func(c echo.Context) error { return getStartPath(c) })
@@ -53,6 +57,18 @@ func getAuthInfo(c echo.Context) error {
 }
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
+
+// canonicalVFS 在边界处把路径归一化成 canonical 形式（分隔符、重复斜杠、"." / ".."）。
+//
+// 归一化失败（相对路径、越根）时原样返回，让下游走它本来的错误分支——这一步只是为了
+// 让 `\`、重复斜杠、尾斜杠这些写法在所有平台都落到同一个路径上，不改变任何错误语义。
+// 完整的解析（挂载点、错误码）见 docs/design/vfs-abstraction-plan.md 阶段 3 的调用点迁移。
+func canonicalVFS(p string) string {
+	if canonical, err := fileops.CanonicalizePath(p); err == nil {
+		return canonical
+	}
+	return p
+}
 
 func sanitizeUploadFilename(name string) (string, error) {
 	if name == "" || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
@@ -118,15 +134,25 @@ func entryFromStatError(e os.DirEntry, err error) types.Entry {
 }
 
 func getDrives(c echo.Context) error {
+	return c.JSON(http.StatusOK, enumerateDrives())
+}
+
+// enumerateDrives 枚举可导航的位置：Home + 本机卷 / 网络位置。
+//
+// 侧边栏展示它，启动时也用它填充 fileops 的挂载表——两者必须是同一份数据，
+// 否则「界面上的盘」与「解析器认识的挂载点」会漂移。
+func enumerateDrives() []types.Drive {
 	home, _ := os.UserHomeDir()
-	homeDrive := types.Drive{Label: "Home", Path: home, Kind: types.DriveKindHome, Free: nil, Total: nil}
-	var list []types.Drive
+	list := make([]types.Drive, 0, 8)
+	if home != "" {
+		list = append(list, types.Drive{Label: "Home", Path: home, Kind: types.DriveKindHome})
+	}
 	if strings.EqualFold(os.Getenv("OS"), "Windows_NT") || runtime.GOOS == "windows" {
 		list = append(list, utils.GetWindowsDrives()...)
 	} else {
 		list = append(list, utils.GetUnixMounts()...)
 	}
-	return c.JSON(http.StatusOK, append([]types.Drive{homeDrive}, list...))
+	return list
 }
 
 // getStartPath 返回配置里的起始目录（未配置时为空串）。
@@ -137,7 +163,7 @@ func getStartPath(c echo.Context) error {
 }
 
 func getFiles(c echo.Context) error {
-	path := c.QueryParam("path")
+	path := canonicalVFS(c.QueryParam("path"))
 	if path == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
@@ -212,10 +238,11 @@ func createDirectory(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
 	}
+	body.Path = canonicalVFS(body.Path)
 	if body.Path == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path is required"})
 	}
-	if utils.IsReservedTempName(filepath.Base(body.Path)) {
+	if utils.IsReservedTempName(fileops.BaseName(body.Path)) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
 	if isExist(body.Path) {
@@ -245,7 +272,7 @@ func renamePath(c echo.Context) error {
 	if !isExist(body.FromPath) {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "Source path not found"})
 	}
-	if utils.IsReservedTempName(filepath.Base(body.ToPath)) {
+	if utils.IsReservedTempName(fileops.BaseName(body.ToPath)) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
 	}
 	if isExist(body.ToPath) {
@@ -303,7 +330,7 @@ func openInHostExplorer(c echo.Context) error {
 }
 
 func getFileStream(c echo.Context) error {
-	path := c.QueryParam("path")
+	path := canonicalVFS(c.QueryParam("path"))
 	if path == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
@@ -327,7 +354,7 @@ func getFileStream(c echo.Context) error {
 	}
 	c.Response().Header().Set("ETag", etagValue)
 	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=0, must-revalidate")
-	name := filepath.Base(path)
+	name := fileops.BaseName(path)
 	c.Response().Header().Set("Content-Disposition", utils.InlineDisposition(name))
 	return c.File(path)
 }
@@ -343,9 +370,9 @@ func downloadMulti(paths []string, c echo.Context) error {
 	}
 	var downloadName string
 	if len(paths) == 1 && paths[0] != "" {
-		downloadName = filepath.Base(paths[0])
+		downloadName = fileops.BaseName(paths[0])
 	} else if len(paths) > 1 && paths[0] != "" {
-		downloadName = filepath.Base(filepath.Dir(paths[0]))
+		downloadName = fileops.BaseName(fileops.DirName(paths[0]))
 	}
 	if downloadName == "" {
 		downloadName = "download"
@@ -376,7 +403,7 @@ func downloadPath(c echo.Context) error {
 		}
 		st, _ := os.Stat(p)
 		if !st.IsDir() {
-			name := filepath.Base(p)
+			name := fileops.BaseName(p)
 			c.Response().Header().Set("Content-Disposition", utils.AttachmentDisposition(name))
 			return c.File(p)
 		}
@@ -395,7 +422,7 @@ func uploadFile(c echo.Context) error {
 	qPath := c.QueryParam("path")
 	var dest string
 	if qPath != "" {
-		dest = filepath.Dir(qPath)
+		dest = fileops.DirName(qPath)
 	} else {
 		dest = filepath.Join(config.DataBaseDir(), "uploads")
 	}
@@ -447,7 +474,7 @@ func uploadFile(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"message": "File uploaded successfully!",
 		"path":    destPath,
-		"name":    filepath.Base(destPath),
+		"name":    fileops.BaseName(destPath),
 	})
 }
 

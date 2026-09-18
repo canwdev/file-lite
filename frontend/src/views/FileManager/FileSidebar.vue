@@ -47,7 +47,7 @@ function getIcon(item: IDrive) {
     return 'mdi-folder-pound-outline'
   }
   if (kind === 'network') {
-    return 'mdi-server-network'
+    return 'mdi-folder-network-outline'
   }
   if (kind === 'home') {
     return 'mdi-home-account'

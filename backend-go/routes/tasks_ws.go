@@ -3,7 +3,6 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"sync"
 
 	"github.com/labstack/echo/v4"
@@ -305,7 +304,7 @@ func changedPathsForTask(snap tasks.Snapshot) []string {
 	}
 	if snap.Kind == tasks.KindMove || snap.Kind == tasks.KindDelete {
 		for _, p := range snap.FromPaths {
-			add(filepath.Dir(p))
+			add(fileops.DirName(p))
 		}
 	}
 	return out

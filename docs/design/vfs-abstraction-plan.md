@@ -1,9 +1,12 @@
 # VFS 抽象层实现计划与测试清单
 
-> 状态：**阶段 1、2 已实现**；阶段 3-5 待实现。
+> 状态：**阶段 1、2 已实现，阶段 3 的纯逻辑部分已实现**；阶段 3 剩余项与 4、5 待实现。
 >
 > - 阶段 1（canonical 规则，纯新增）见下方实现记录。
 > - 阶段 2（删 `safeBaseDir` / `IsPathSafe`，加 `startPath`）见下方阶段 2 记录。
+> - 阶段 3 的挂载表 / Resolver / 边界归一化见下方阶段 3 记录；
+>   **调用点迁移只做了零风险的那一半**——批量改走 `Resolve` 会改变非法路径的错误码
+>   （相对路径 500 → 400），那是行为变化，单独一步做。
 > - E2E 仍暂缓：开发机是 Linux，UNC/WSL 无法完整验证，等迁到 Windows 开发机再做。
 >   本次只改夹具与既有用例，未新增平台相关测试。
 >
@@ -65,6 +68,42 @@ cd frontend && bun test && bun run type-check && bun run lint
 把唯一真实的例外写清楚：**不区分大小写的文件系统**上 `SRC` 与 `src` 是同一个目录，
 这里按不同字符串处理；Windows 上 `os.Rename` 自己会拒绝，因此不折叠大小写
 （折叠反而会在大小写敏感的平台上把两个不同目录误判成同一个）。
+
+## 阶段 3 实现记录（纯逻辑部分）
+
+| 产物 | 说明 |
+| --- | --- |
+| `fileops/mount.go` | `Mount`、`SetMounts` / `GetMounts`、`LongestMount`（纯函数）、`Resolve`、`NetworkPath`、`SamePath`、`BaseName` / `DirName` |
+| `fileops/mount_test.go` | 挂载点归一化、最长前缀 + **段边界**、解析（含「未匹配挂载点仍可用」）、canonical 的 Base/Dir |
+| `routes/mounts_test.go` | 钉住「侧边栏的盘」与「解析器的挂载点」来自同一份枚举结果 |
+| `routes/files.go` | `enumerateDrives()` 抽出来，`getDrives` 与启动时的 `SetMounts` 共用；新增 `canonicalVFS()` 在边界归一化 |
+
+### 两个在实现中纠正的设计错误
+
+1. **挂载点不必是语法意义上的根**。最初写成「挂载点必须是 `/`、`C:/`、`//host/share`」，
+   结果 Linux 的 `/mnt/dev-drive` 被拒——它确实是挂载点。**边界由挂载表决定，不由路径语法决定**，
+   所以只要求「合法的绝对路径」。
+2. **`DirName` 是词法操作**。最初想让它在挂载点根停住，但那是「界面能不能往上退」的问题，
+   该由前端 + 挂载表决定（`LongestMount` 已提供依据）。写成挂载感知会让第 3 阶段的分层变形，
+   而且当前没有调用点需要那个语义。
+
+### 顺带修掉的跨平台缺陷
+
+canonical 路径统一用 `/`，而 `filepath.Base`/`filepath.Dir` 在 Windows 上只认 `\`——
+`filepath.Base("C:/Users/a.txt")` 会把整条路径当成文件名。原先这是潜在问题（路径来自
+`os.ReadDir` 的名字，不含分隔符，所以看不出错），一旦边界开始归一化就会真的出错。
+处理 wire 路径的地方（`files.go`、`thumbnail.go`、`fs_changes.go`、`tasks_ws.go`）已改用
+`fileops.BaseName` / `fileops.DirName`。
+
+### 阶段 3 剩余项
+
+- **调用点迁移到 `Resolve`**：`getFiles` / `createDirectory` / `renamePath` / `getFileStream` /
+  `downloadPath` / `uploadFile` / `existsPaths` 的错误码会变（非法路径 400 而不是下游的
+  500/404）。这是行为变化，单独一步做，并同步既有测试。
+- **并发档位**：`readDirStatConcurrency` 按挂载点 `Kind` 取 64 / 4–8。
+- **网络错误的 502/503 映射**：与 404 区分开。
+- **Windows 盘符的 `Kind`**：`GetDriveType == DRIVE_REMOTE` 标 `network`——需要原生 Windows 验证。
+
 
 ## 0. 改动地图
 

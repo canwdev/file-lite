@@ -77,6 +77,7 @@ import MdiFlagOutline from '~icons/mdi/flag-outline'
 import MdiFolder from '~icons/mdi/folder'
 import MdiFolderDownloadOutline from '~icons/mdi/folder-download-outline'
 import MdiFolderMoveOutline from '~icons/mdi/folder-move-outline'
+import MdiFolderNetworkOutline from '~icons/mdi/folder-network-outline'
 import MdiFolderOpenOutline from '~icons/mdi/folder-open-outline'
 import MdiFolderOutline from '~icons/mdi/folder-outline'
 import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
@@ -133,7 +134,6 @@ import MdiRepeat from '~icons/mdi/repeat'
 import MdiRepeatOnce from '~icons/mdi/repeat-once'
 import MdiRepeatVariant from '~icons/mdi/repeat-variant'
 import MdiRewind5 from '~icons/mdi/rewind-5'
-import MdiServerNetwork from '~icons/mdi/server-network'
 import MdiShareVariant from '~icons/mdi/share-variant'
 import MdiShuffle from '~icons/mdi/shuffle'
 import MdiShuffleDisabled from '~icons/mdi/shuffle-disabled'
@@ -186,8 +186,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'folder-pound-outline': MdiFolderPoundOutline,
   'folder-outline': MdiFolderOutline,
   'folder-move-outline': MdiFolderMoveOutline,
+  'folder-network-outline': MdiFolderNetworkOutline,
   'harddisk': MdiHarddisk,
-  'server-network': MdiServerNetwork,
   'star-off-outline': MdiStarOffOutline,
   'arrow-left': MdiArrowLeft,
   'arrow-right': MdiArrowRight,
