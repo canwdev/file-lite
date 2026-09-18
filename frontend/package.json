@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
+    "test": "bun test",
     "lint": "eslint . && bun run lint:styles",
     "lint:fix": "eslint . --fix",
     "lint:styles": "node scripts/check-styles.mjs"
