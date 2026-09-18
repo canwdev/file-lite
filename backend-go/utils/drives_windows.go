@@ -51,7 +51,9 @@ func GetWindowsDrives() []types.Drive {
 		label := fmt.Sprintf("%s (%s:)", labelName, letter)
 
 		// 3. 获取容量信息
-		var freeBytes, totalBytes, availBytes int64
+		// GetDiskFreeSpaceExW(lpDirectoryName, lpFreeBytesAvailableToCaller,
+		//                     lpTotalNumberOfBytes, lpTotalNumberOfFreeBytes)
+		var availBytes, totalBytes, freeBytes int64
 		r2, _, _ := procGetDiskFreeSpaceExW.Call(
 			uintptr(unsafe.Pointer(&syscall.StringToUTF16(path)[0])),
 			uintptr(unsafe.Pointer(&availBytes)),
@@ -64,7 +66,8 @@ func GetWindowsDrives() []types.Drive {
 			pFree, pTotal = &availBytes, &totalBytes
 		}
 
-		list = append(list, types.Drive{Label: label, Path: path, Free: pFree, Total: pTotal})
+		// 映射的网络盘符仍是卷，但容量来自服务器，拿得到就显示；拿不到就是空。
+		list = append(list, types.Drive{Label: label, Path: path, Kind: types.DriveKindVolume, Free: pFree, Total: pTotal})
 	}
 
 	// 4. 排序 (C, D, E...)
@@ -75,6 +78,6 @@ func GetWindowsDrives() []types.Drive {
 	return list
 }
 
-func GetUnixMounts() []string {
-	return []string{"/"}
+func GetUnixMounts() []types.Drive {
+	return []types.Drive{{Label: "/", Path: "/", Kind: types.DriveKindVolume}}
 }

@@ -119,17 +119,12 @@ func entryFromStatError(e os.DirEntry, err error) types.Entry {
 
 func getDrives(c echo.Context) error {
 	home, _ := os.UserHomeDir()
-	homeDrive := types.Drive{Label: "Home", Path: home}
+	homeDrive := types.Drive{Label: "Home", Path: home, Kind: types.DriveKindHome, Free: nil, Total: nil}
 	var list []types.Drive
 	if strings.EqualFold(os.Getenv("OS"), "Windows_NT") || runtime.GOOS == "windows" {
-		// 此时 d 直接就是 types.Drive 对象了
-		for _, d := range utils.GetWindowsDrives() {
-			list = append(list, d)
-		}
+		list = append(list, utils.GetWindowsDrives()...)
 	} else {
-		for _, m := range utils.GetUnixMounts() {
-			list = append(list, types.Drive{Label: m, Path: m})
-		}
+		list = append(list, utils.GetUnixMounts()...)
 	}
 	return c.JSON(http.StatusOK, append([]types.Drive{homeDrive}, list...))
 }

@@ -11,9 +11,14 @@ export interface IEntry {
   error: string | null
 }
 
+/** 侧边栏里的一个可导航位置。 */
+export type DriveKind = 'volume' | 'network' | 'home'
+
 export interface IDrive {
   label: string
   path: string
+  /** 缺省视为 volume（老后端不带这个字段）。 */
+  kind?: DriveKind
   free?: number
   total?: number
 }

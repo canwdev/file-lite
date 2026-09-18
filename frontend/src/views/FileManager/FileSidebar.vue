@@ -37,11 +37,20 @@ function openFirstDrive() {
 }
 
 function getIcon(item: IDrive) {
+  // 图标看 kind，不看「有没有容量」：网络位置与拿不到容量的卷都会被误判。
+  // 后端不带 kind 时（老版本）沿用「有容量才算卷」的回退。
+  const kind = item.kind ?? (item.total ? 'volume' : undefined)
   if (item.label.toLowerCase() === 'home') {
     return 'mdi-home-account'
   }
   if (item.label.toLowerCase() === 'data') {
     return 'mdi-folder-pound-outline'
+  }
+  if (kind === 'network') {
+    return 'mdi-server-network'
+  }
+  if (kind === 'home') {
+    return 'mdi-home-account'
   }
   if (!item.total) {
     return 'mdi-folder-outline'
