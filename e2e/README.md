@@ -79,7 +79,8 @@ bun run report       # 打开上一次的 HTML 报告
 测试直接往里写即可，也不会留下未跟踪的空目录。
 
 > 与 README 功能表格用的截图要分清：那些是人工挑选的展示图，由
-> `bun run docs:screenshots` 生成到 `../docs/screenshots/`，**仍然提交**。
+> `bun run docs:screenshots` 生成到 `../docs/screenshots/`，**仍然提交**（只提交
+> `.webp`；同目录的 `.png` 是压缩前的中间产物，见下）。
 
 ## README 截图
 
@@ -96,6 +97,13 @@ bun run docs:screenshots --refresh    # 重新下载演示素材
 - 演示内容不碰测试夹具：`scripts/docs-fixture.mjs` 会在 `/tmp/file-lite-demo/` 下
   单独建一份「Pictures / Videos / Music / Media / Documents」演示库（可用 `E2E_DOCS_DIR` 改位置）。
   放 `/tmp` 而不是仓库里，是因为地址栏显示绝对路径，放仓库会把仓库路径印进截图。
+- **盘列表用真实的，不做替身**：截图要展示的功能里包括侧边栏的位置列表
+  （卷、网络位置、WSL 发行版、被 BitLocker 锁住的卷），把它压成「演示库是唯一的盘」
+  就等于把这些功能从展示里删掉了。代价是演示库不再是侧边栏第一项，所以脚本改用
+  `?navPath=` 深链直接进演示库，`goToRoot` 走的也是同一个入口——都是应用自身的深链能力，
+  不需要为截图改动产品行为。
+- 只有 `.webp` 入库：`writeScreenshot()` 先写 `.png` 再用 ffmpeg 压成 `.webp`
+  （没有 ffmpeg 时降级为保留 `.png`）。`.png` 是中间产物，已 gitignore。
 - 素材（图片、视频、音频）来自 picsum.photos、download.samplelib.com 与
   test-videos.co.uk，下载后缓存在 `.samples/`（已 gitignore，可复用、不提交）；
   带封面和歌词的 mp3 由本机 ffmpeg 合成，歌词用脚本手工写入 USLT 帧
@@ -174,8 +182,10 @@ e2e/
 │   ├── helpers.ts            # 登录、导航、复制/粘贴、截图等
 │   └── *.spec.ts
 ├── .samples/                 # 素材下载缓存（gitignore，可复用）
-└── screenshots/              # 测试文档用截图（提交）
+└── screenshots/              # 测试文档用截图（不入库）
 ```
+
+`../docs/screenshots/` 则是 README 的展示图，入库；中间的 `.png` 已 gitignore。
 
 > `scripts/fixture.mjs` 与 `scripts/start-app.mjs` 是分开的：测试代码要 import 夹具常量，
 > 如果常量写在会启动服务的文件里，每个测试 worker 都会试图再起一个服务。

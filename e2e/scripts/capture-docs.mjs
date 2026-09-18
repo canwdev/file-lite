@@ -17,7 +17,15 @@ import { fileURLToPath } from 'node:url'
 import { expect } from '@playwright/test'
 import { binaryPath, buildApp } from './build-app.mjs'
 import { ensureSamples, hasFfmpeg } from './docs-assets.mjs'
-import { DOCS_PASSWORD, DOCS_PORT, docsDataDir, docsFilesDir, docsTmpDir, resetDocsFixture } from './docs-fixture.mjs'
+import {
+  DOCS_PASSWORD,
+  DOCS_PORT,
+  docsDataDir,
+  docsFilesCanonical,
+  docsFilesDir,
+  docsTmpDir,
+  resetDocsFixture,
+} from './docs-fixture.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const e2eDir = path.resolve(here, '..')
@@ -44,23 +52,20 @@ const row = (page, name) => page.locator(`.explorer-main:visible tr[data-name="$
 const currentCrumb = page => page.locator('.explorer-main:visible .address-bar__crumb-text').last()
 
 /**
- * 只把演示库报成唯一的「盘」。
+ * 打开演示库。
  *
- * 1.5.0 起没有 `startPath`：首次打开进入 `/api/files/drives` 的第一个位置
- * （真实环境是 Home）。截图需要每次都从演示库开始，所以在这里接管盘列表——
- * 既让结果与宿主机的真实盘符无关，也让 `goToRoot`（点侧边栏第一项）落在演示库上。
+ * 1.5.0 起盘列表是**真实的**：不再把它压成「演示库是唯一的盘」——侧边栏
+ * 要能看到这台机器上真实的位置（卷、网络位置、WSL 发行版、被 BitLocker
+ * 锁住的卷），截图才算把功能展示全。
  *
- * 截图里侧边栏是收起状态，所以这份替身不会改变画面内容。
+ * 代价是演示库不再是「侧边栏第一项」：它只是 `D:\tmp\file-lite-demo\files`，
+ * 属于 `D:` 卷。所以改用 `?navPath=` 深链直接进演示库——走的是应用自己的
+ * 深链入口，不额外改产品行为。`goToRoot` 也走同一个入口。
  */
-async function stubDemoMount(page) {
-  await page.route('**/api/files/drives', route => route.fulfill({
-    json: [{ label: 'Files', path: docsFilesDir, kind: 'volume' }],
-  }))
-}
+const demoUrl = `${BASE}/?navPath=${encodeURIComponent(docsFilesCanonical)}`
 
 async function login(page) {
-  await stubDemoMount(page)
-  await page.goto(`${BASE}/`)
+  await page.goto(demoUrl)
   await page.locator('.explorer-wrap').waitFor()
   await expect(row(page, 'Pictures')).toBeVisible()
 }
@@ -70,8 +75,14 @@ async function openFolder(page, name) {
   await expect(currentCrumb(page)).toHaveText(name)
 }
 
+/**
+ * 回演示库根。
+ *
+ * 不能点侧边栏第一项——那现在是真实的 Home，不是演示库。重新走一次深链，
+ * 与 `login` 完全同一条路径，各张截图拿到的都是同一份干净起点。
+ */
 async function goToRoot(page) {
-  await page.locator('.drive-list__item').first().click()
+  await page.goto(demoUrl)
   await expect(row(page, 'Pictures')).toBeVisible()
 }
 

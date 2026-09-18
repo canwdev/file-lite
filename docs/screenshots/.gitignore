@@ -1,0 +1,4 @@
+# README 展示图：只有手工精修的 00-main.webp 与 ffmpeg 压好的 *.webp 入库。
+# 中间的 PNG 是 `docs:screenshots` 的临时产物（没有 ffmpeg 时的降级输出也落这里），
+# 不入库：它每次运行都会变，而且比 webp 大一到两个数量级。
+*.png

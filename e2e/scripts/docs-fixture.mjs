@@ -17,6 +17,14 @@ export const docsFilesDir = path.join(docsWorkDir, 'files')
 export const docsDataDir = path.join(docsWorkDir, 'data')
 /** 截图需要用到、但不能出现在文件列表里的临时文件。 */
 export const docsTmpDir = path.join(docsWorkDir, 'tmp')
+
+/**
+ * 演示库的 canonical 路径（正斜杠、盘符大写）。
+ *
+ * 截图脚本用它做 `?navPath=` 深链——1.5.0 起盘列表是真实的（不再被桩限制），
+ * 演示库本身不是挂载点，只能靠深链在启动后直接打开它。
+ */
+export const docsFilesCanonical = path.resolve(docsFilesDir).replace(/\\/g, '/')
 export const DOCS_PORT = Number(process.env.E2E_DOCS_PORT || 4174)
 export const DOCS_PASSWORD = 'e2e-password'
 

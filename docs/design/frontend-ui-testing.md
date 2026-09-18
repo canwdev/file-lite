@@ -12,7 +12,8 @@
 > 它们是一份**「跑到这里该看到什么」的对照表**：本地跑一次
 > `cd e2e && bun run test`，对应文件就会出现在 `e2e/screenshots/` 下。
 > README 功能表格用的展示图是另一回事——那些仍由 `bun run docs:screenshots`
-> 生成到 `../docs/screenshots/`，**仍然提交**。
+> 生成到 `../docs/screenshots/`，**仍然提交**（只提交 `.webp`，压缩前的 `.png`
+> 中间产物已 gitignore）。
 
 
 ## 为什么单独建一个子项目
