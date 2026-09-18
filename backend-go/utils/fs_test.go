@@ -14,7 +14,7 @@ import (
 // 一致」这个前提：链接本身位于源目录内，它下面的路径因此也在源目录内，
 // 字符串前缀判断同样成立，两者不会分叉。
 func TestIsPathInsideOrEqual(t *testing.T) {
-	root := t.TempDir()
+	root := tempDirNearCwd(t)
 	src := filepath.Join(root, "src")
 	sub := filepath.Join(src, "sub")
 	outside := filepath.Join(root, "outside")
@@ -57,7 +57,6 @@ func TestIsPathInsideOrEqual(t *testing.T) {
 		})
 	}
 }
-
 // 大小写：只在真正不区分大小写的平台上验证，避免在 Linux 上写死 Windows 语义。
 func TestIsPathInsideOrEqualCaseInsensitiveFS(t *testing.T) {
 	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
@@ -73,6 +72,26 @@ func TestIsPathInsideOrEqualCaseInsensitiveFS(t *testing.T) {
 	if got := IsPathInsideOrEqual(filepath.Join(root, "SRC", "sub"), src); got != false {
 		t.Fatalf("词法判断不折叠大小写，期望 false，得到 %v", got)
 	}
+}
+
+// tempDirNearCwd 在**当前工作目录所在的分区**上建临时目录。
+//
+// 「相对目标」这条用例要把绝对路径转成相对路径，而 Windows 上盘符不同的两个路径
+// 之间不存在相对路径（filepath.Rel 会直接报错）。t.TempDir() 落在系统盘，
+// 工作区可能在别的盘，于是这条断言会在 Windows 上以夹具报错的形式失败。
+// 把夹具建在工作目录下，两边必然同盘。
+func tempDirNearCwd(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", "fs-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
 }
 
 func mustRel(t *testing.T, p string) string {

@@ -437,18 +437,21 @@ func TestReservedTempName(t *testing.T) {
 
 // TestFailureMessageHidesTempFile 用户看到的报错必须是目标路径，
 // 不能泄露内部的 .fl-part-* 临时文件名。
+//
+// 失败用「目标是一个文件」制造，而不是 chmod 0500：目录权限在 Windows 上不生效
+// （os.Geteuid 返回 -1、只读目录照样能写文件），用权限做夹具会让这条用例在 Windows 上
+// 静默失去它唯一的验证目标。目标位置上有个**文件**时，写入必定落到它下面，
+// 于是打开临时文件必败——这是所有平台一致的行为，且错误里带的是目标路径。
 func TestFailureMessageHidesTempFile(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("running as root: directory permissions are not enforced")
-	}
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src", "a.txt")
 	dst := filepath.Join(dir, "dst")
 	writeFile(t, src, []byte("x"))
-	if err := os.MkdirAll(dst, 0500); err != nil {
+	// dst 本该是目录，这里故意放一个文件
+	if err := os.WriteFile(dst, []byte("not a directory"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dst, 0755) })
+	target := filepath.Join(dst, "a.txt")
 
 	e := NewEngine()
 	results, err := e.Run(context.Background(), Options{
@@ -468,6 +471,9 @@ func TestFailureMessageHidesTempFile(t *testing.T) {
 	}
 	if !strings.Contains(msg, dst) {
 		t.Fatalf("error message should mention the destination: %q", msg)
+	}
+	if !strings.Contains(msg, target) {
+		t.Fatalf("error message should mention the target path %q: %q", target, msg)
 	}
 }
 

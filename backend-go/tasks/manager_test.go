@@ -258,6 +258,12 @@ func TestRetryOnlyFailedItems(t *testing.T) {
 	}
 }
 
+// TestRetryRecreatesFailedTask 先制造一次真实失败，再重试。
+//
+// 失败用「目标是一个文件」制造，而不是 chmod 0500：目录权限在 Windows 上不生效
+// （os.Geteuid 返回 -1、只读目录照样能写文件），用权限做夹具会让这条用例在 Windows 上
+// 拿到一个 succeeded 的任务，从而完全测不到重试路径。目标位置上有个**文件**时写入必定失败，
+// 之后把它换成目录，重试就必须成功——「先失败后成功」正是这条用例要的两种状态。
 func TestRetryRecreatesFailedTask(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src", "a.txt")
@@ -266,12 +272,9 @@ func TestRetryRecreatesFailedTask(t *testing.T) {
 
 	m, events := newTestManager(t, 50*time.Millisecond)
 
-	// 先制造一次真实失败：目标目录不可写
-	if err := os.MkdirAll(dst, 0500); err != nil {
+	// dst 本该是目录，先放一个同名文件，让复制没法落盘
+	if err := os.WriteFile(dst, []byte("not a directory"), 0644); err != nil {
 		t.Fatal(err)
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("running as root: directory permissions are not enforced")
 	}
 
 	snap, err := m.Create(CreateParams{Kind: KindCopy, FromPaths: []string{src}, ToPath: dst, OnConflict: fileops.PolicyAsk})
@@ -283,8 +286,11 @@ func TestRetryRecreatesFailedTask(t *testing.T) {
 		t.Fatalf("expected failed, got %s", done.Task.State)
 	}
 
-	// 修好权限后重试，应当用失败项建出一个新任务并成功
-	if err := os.Chmod(dst, 0755); err != nil {
+	// 修好目标（文件换成目录）后重试，应当用失败项建出一个新任务并成功
+	if err := os.Remove(dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dst, 0755); err != nil {
 		t.Fatal(err)
 	}
 	retried, err := m.Retry(snap.ID)
