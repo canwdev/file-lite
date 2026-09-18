@@ -30,6 +30,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A button at the top bar's left shows or hides the navigation sidebar, the choice is remembered in the browser, and the sidebar is no longer resized by dragging (frontend).
 - The navigation sidebar uses the raised surface colour, and its "Storage" heading stays pinned while the drive list scrolls (frontend).
 - When the address bar's breadcrumb collapses to the last two folders, a leading … shows that earlier folders are hidden (frontend).
+- The folder dropdown on a breadcrumb now highlights the folder you are currently in and scrolls it into view immediately, so a long list no longer opens at the top with your own folder below the fold (frontend).
 - A favourite folder in the sidebar is highlighted while you are inside it, and the drive / favourite highlight is a background wash without an outline (frontend).
 - Holding Ctrl while dragging files or folders onto the empty area of their own folder now duplicates them, the same as Explorer, producing a `name - Copy` next to the original (frontend, backend).
 - The transfer panel moved from the file list's status bar to the top bar, opens at the top right just below the top bar, and is shared by every tab (frontend).
@@ -83,6 +84,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Listing a folder on a network share no longer fires one request per entry at the same time: the concurrency drops from 64 to 6 for network locations, while local disks keep all 64 (backend).
 - The list of locations is shown if the drive list comes back empty, instead of silently dropping into the root of the file system (frontend).
 - A mapped network drive, and a drive letter linked to a share, are shown with the network icon like other network locations (backend, frontend).
+- A BitLocker volume that is still locked shows up in the sidebar with a lock icon instead of looking like an ordinary disk that happens to be empty, and opening it quotes Windows' own explanation — unlock it from Control Panel — rather than a generic "failed to read the path" (backend, frontend).
 - Installed WSL distributions now appear in the sidebar as their own locations, below the local disks and with the network icon, so `\\wsl.localhost\Debian` no longer has to be typed into the address bar by someone who happens to know the rule; the list comes from the registry, so it costs about a millisecond and never waits on the network (backend, frontend).
 - Network locations added to This PC with "Add a network location" — a share that was never given a drive letter, such as `\\DESKTOP-ROGZ16\shared` — now appear in the sidebar too, read from the shortcut Explorer keeps for them rather than by probing the network; a location only shows up for the account the server runs as, and one that is offline reports itself as unreachable when opened (backend, frontend).
 

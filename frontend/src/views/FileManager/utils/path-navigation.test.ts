@@ -12,10 +12,10 @@ mock.module('../ExplorerUI/drives', () => ({
 }))
 
 const { canGoUp, getBreadcrumbSegments, getParentPath, getVolumeBoundary, normalizeListingPath, normalizePath } = await import('./index')
-const { findMountRoot, syntacticRoot } = await import('./volume-mounts')
+const { currentChildNameFor, findMountRoot, syntacticRoot } = await import('./volume-mounts')
 
 /**
- * 阶段 4 的路径契约。设计依据见 docs/design/vfs-abstraction-plan.md §5.3。
+ * 路径契约。设计依据见 docs/design/vfs-abstraction-design.md §4、§5.2。
  *
  * 注意：这些函数会去读 `drives.ts` 的挂载点列表，而测试里没有后端，
  * 列表是空的——所以这里同时覆盖「挂载表已加载」的纯函数（mounts 参数）与
@@ -163,5 +163,44 @@ describe('面包屑', () => {
       expect(seg.path.endsWith('/')).toBe(true)
       expect(normalizeListingPath(seg.path)).toBe(seg.path)
     }
+  })
+})
+
+/**
+ * 面包屑下拉里「当前目录」的定位。
+ *
+ * 返回的是**名字**而不是下标：子目录列表按目录自身的排序规则产出，
+ * 用名字去 findIndex 才不会因为排序规则不同而错位。
+ */
+describe('currentChildNameFor', () => {
+  test('当前目录是下一级', () => {
+    expect(currentChildNameFor('/a/b/', '/a/b/c/')).toBe('c')
+  })
+
+  test('当前目录在更深处时取沿途第一段', () => {
+    // 从 /a/b 的下拉里看：当前在 /a/b/c/d，要标出来的是 c
+    expect(currentChildNameFor('/a/b/', '/a/b/c/d/')).toBe('c')
+  })
+
+  test('当前目录就是该段自身：没有可高亮的项', () => {
+    expect(currentChildNameFor('/a/b/', '/a/b/')).toBe(null)
+    expect(currentChildNameFor('/', '/')).toBe(null)
+  })
+
+  test('当前目录不在该段之下：没有可高亮的项（前缀相同但不同目录）', () => {
+    // /a/b2 不是 /a/b 的子目录
+    expect(currentChildNameFor('/a/b/', '/a/b2/')).toBe(null)
+    // 兄弟分支
+    expect(currentChildNameFor('/a/b/', '/a/x/')).toBe(null)
+  })
+
+  test('盘符与 UNC 形态同样适用', () => {
+    expect(currentChildNameFor('D:/', 'D:/Users/')).toBe('Users')
+    expect(currentChildNameFor('//server/share/', '//server/share/docs/')).toBe('docs')
+  })
+
+  test('段名与尾斜杠写法无关', () => {
+    expect(currentChildNameFor('/a/b', '/a/b/c')).toBe('c')
+    expect(currentChildNameFor('/a/b/', '/a/b/c')).toBe('c')
   })
 })

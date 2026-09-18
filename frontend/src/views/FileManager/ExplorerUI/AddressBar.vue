@@ -5,6 +5,7 @@ import ContextMenu from '@imengyu/vue3-context-menu'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { resolveMenuIcons } from '@/utils/icons'
 import { getBreadcrumbSegments, normalizeListingPath, normalizePath } from '../utils'
+import { currentChildNameFor } from '../utils/volume-mounts'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './entry-drag'
 import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFolderListingOk } from './folder-listing'
 
@@ -232,7 +233,37 @@ const crumbMenuLoading = ref(false)
 const crumbMenuSubDirs = ref<IEntry[]>([])
 const crumbMenuError = ref(false)
 const menuActiveIndex = ref(-1)
+/**
+ * 「当前目录」在下拉里的下标；-1 表示不在这个列表里。
+ *
+ * 与 `menuActiveIndex`（键盘 / 悬停高亮）分开：打开菜单时先把当前目录高亮出来，
+ * 用户一旦用方向键或悬停，键盘高亮就接管，两者不该互相覆盖。
+ */
+const menuCurrentIndex = ref(-1)
 const crumbMenuRef = ref<HTMLElement | null>(null)
+
+/**
+ * 当前目录在 `seg` 的哪个子目录里（见 currentChildNameFor 的注释）。
+ */
+function currentChildName(seg: BreadcrumbSegment): string | null {
+  return currentChildNameFor(seg.path, props.modelValue)
+}
+
+/** 高亮当前目录那一行，并把它滚进可视区（瞬时，不做平滑滚动）。 */
+function revealCurrentDir() {
+  const name = crumbMenu.value ? currentChildName(crumbMenu.value) : null
+  const index = name ? crumbMenuSubDirs.value.findIndex(item => item.name === name) : -1
+  menuCurrentIndex.value = index
+  if (index < 0) {
+    return
+  }
+  // 等列表渲染出来再量位置
+  void nextTick(() => {
+    const row = crumbMenuRef.value?.querySelectorAll<HTMLElement>('.address-bar__menu-row')[index]
+    // 默认就是瞬时；显式写出来免得将来有人给容器加上 scroll-behavior: smooth
+    row?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+  })
+}
 
 const crumbMenuPanelStyle = computed(() => {
   const pos = crumbMenuPos.value
@@ -274,6 +305,7 @@ function closeCrumbMenu() {
   crumbMenuSubDirs.value = []
   crumbMenuError.value = false
   menuActiveIndex.value = -1
+  menuCurrentIndex.value = -1
 }
 
 function onCrumbCaretClick(seg: BreadcrumbSegment, event: MouseEvent) {
@@ -290,9 +322,11 @@ function onCrumbCaretClick(seg: BreadcrumbSegment, event: MouseEvent) {
 async function loadCrumbMenuEntries(path: string) {
   crumbMenuError.value = false
   crumbMenuSubDirs.value = []
+  menuCurrentIndex.value = -1
   // 命中缓存时同步展示，避免已加载过的目录再次闪烁 Loading
   if (wasFolderListingOk(path)) {
     crumbMenuSubDirs.value = getSortedFolderEntries(path).filter(item => item.isDirectory)
+    revealCurrentDir()
     return
   }
   crumbMenuLoading.value = true
@@ -304,6 +338,7 @@ async function loadCrumbMenuEntries(path: string) {
   crumbMenuError.value = !wasFolderListingOk(path) && raw.length === 0
   const sorted = applyFolderListSort(path, raw)
   crumbMenuSubDirs.value = sorted.filter(item => item.isDirectory)
+  revealCurrentDir()
 }
 
 function onMenuPick(dir: IEntry) {
@@ -355,7 +390,7 @@ function onMenuKeydown(e: KeyboardEvent) {
   menuActiveIndex.value = next
   const panel = crumbMenuRef.value
   const button = panel?.querySelectorAll<HTMLElement>('.address-bar__menu-row')[next]
-  button?.scrollIntoView({ block: 'nearest' })
+  button?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
 }
 
 function onWindowPointerDown(e: PointerEvent) {
@@ -517,7 +552,7 @@ defineExpose({
             type="button"
             role="menuitem"
             class="vgo-u-button-reset vgo-list-item address-bar__menu-row"
-            :class="{ 'is-active': menuActiveIndex === index }"
+            :class="{ 'is-active': menuActiveIndex === index || menuCurrentIndex === index }"
             :title="dir.name"
             @mouseenter="menuActiveIndex = index"
             @click="onMenuPick(dir)"

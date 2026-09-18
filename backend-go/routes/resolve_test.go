@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -17,8 +19,8 @@ import (
 	"file-lite-go/types"
 )
 
-// 阶段 3 的 HTTP 契约：非法路径 400、不存在 404、网络位置不可用 503，
-// 三者不得互相冒充。设计依据见 docs/design/vfs-abstraction-plan.md §5.1。
+// HTTP 契约：非法路径 400、不存在 404、网络位置不可用 503、BitLocker 未解锁 423，
+// 四者不得互相冒充。设计依据见 docs/design/vfs-abstraction-design.md §5.3。
 
 // newFilesServer 注册文件路由（会顺带填充挂载表）。
 func newFilesServer() *echo.Echo {
@@ -192,6 +194,28 @@ func TestFSErrorStatusMapping(t *testing.T) {
 				t.Fatalf("fsErrorStatus(%v, network=%v) = %d，期望 %d", c.err, c.network, got, c.want)
 			}
 		})
+	}
+}
+
+// BitLocker 未解锁的卷：423 + 系统原话。
+//
+// 用 423（Locked）而不是 500：这不是「服务出了故障」，而是「这个卷现在打不开、
+// 去解锁就行」。消息必须是系统那句「去哪解锁」，不能退化成笼统的「读不到」。
+func TestFSErrorStatusBitLocker(t *testing.T) {
+	// 与 utils 的 bitLockerLockedErrno 同一个值（STATUS_FVE_LOCKED_VOLUME）
+	const locked = syscall.Errno(0x80310000)
+	err := &os.PathError{Op: "CreateFile", Path: `H:\`, Err: locked}
+
+	status, message := fsErrorStatus(err, false)
+	if status != http.StatusLocked {
+		t.Fatalf("BitLocker 锁定应为 423，得到 %d", status)
+	}
+	if !strings.Contains(message, "BitLocker") {
+		t.Fatalf("消息应保留系统原话（含 BitLocker），得到 %q", message)
+	}
+	// Go 的 syscall 前缀与内部路径对用户没有意义，应当剥掉
+	if strings.Contains(message, "CreateFile") || strings.Contains(message, `H:\`) {
+		t.Fatalf("消息不该带 syscall 前缀或路径，得到 %q", message)
 	}
 }
 

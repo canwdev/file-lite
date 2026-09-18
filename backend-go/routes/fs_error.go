@@ -90,9 +90,48 @@ func fsErrorStatus(err error, network bool) (int, string) {
 		// 网络位置上的其余错误（共享被卸载、认证失败…）同样属于「可能是暂时的」，
 		// 但对本机卷来说 500 才是诚实的答案。
 		return http.StatusServiceUnavailable, "Failed to access the network location"
+	case isBitLockerLocked(err):
+		// BitLocker 未解锁：423 Locked（WebDAV 沿用下来的语义），并把系统那句话
+		// 原样回显——它会明确告诉用户去哪里解锁，换成「Failed to read the path」
+		// 等于把唯一有用的线索扔掉。
+		return http.StatusLocked, bitLockerMessage(err)
 	default:
+		// 其余本机错误仍然给一句稳定的话，**不回显 os 的错误**：
+		// Windows 的路径错误会把整条绝对路径写进消息（`CreateFile D:\...: ...`），
+		// 那既是服务端的目录结构、也不是用户能处置的信息。
+		// BitLocker 是例外，因为它的话里有「去哪解锁」这个可操作步骤。
 		return http.StatusInternalServerError, "Failed to read the path"
 	}
+}
+
+// bitLockerMessage 取出系统给的 BitLocker 提示，剥掉 Go 加的前缀。
+//
+// `os.Stat` 的 `*PathError` 会渲染成 `CreateFile H:\: <系统原文>`；那个
+// `CreateFile H:\:` 是 syscall 的实现细节，对用户没有意义，而且看起来像内部错误。
+// 系统原文本身（「This drive is locked by BitLocker Drive Encryption. You must
+// unlock this drive from Control Panel.」）才是要显示的东西。
+func bitLockerMessage(err error) string {
+	base := err
+	if pe, ok := err.(*os.PathError); ok {
+		base = pe.Err
+	}
+	msg := base.Error()
+	if msg == "" {
+		return "This drive is locked by BitLocker Drive Encryption."
+	}
+	return msg
+}
+
+// bitLockerLockedErrno 是 Windows 在「卷被 BitLocker 锁住」时返回的 NTSTATUS
+// （STATUS_FVE_LOCKED_VOLUME = 0x80310000）。
+//
+// 它不是一个 Win32 错误码，所以 syscall 里没有常量；Go 会把它原样放进
+// `*os.PathError.Err`（实测 os.Stat 与 os.ReadDir 都是这个值）。
+const bitLockerLockedErrno = syscall.Errno(0x80310000)
+
+// isBitLockerLocked 判断错误是不是「这个卷被 BitLocker 锁住了」。
+func isBitLockerLocked(err error) bool {
+	return errors.Is(err, bitLockerLockedErrno)
 }
 
 // jsonFSError 写出一个已经定好状态码的错误响应，并带上 Retry-After 供客户端退避。

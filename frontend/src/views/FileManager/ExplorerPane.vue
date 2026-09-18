@@ -178,6 +178,9 @@ function openMount(path: string) {
  * 问号图标，不会构建失败（见 AGENTS.md 的图标约定）。
  */
 function mountIcon(mount: { kind?: string }): string {
+  if (mount.kind === 'locked') {
+    return 'lock-outline'
+  }
   if (mount.kind === 'network') {
     return 'folder-network-outline'
   }

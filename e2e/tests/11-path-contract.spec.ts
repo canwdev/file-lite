@@ -19,7 +19,7 @@ import {
  *   - 列目录失败时列表区留下原因，而不是谎称「目录为空」。
  *
  * 平台相关的部分（UNC / WSL 的真实读写）不在这里：那需要在有共享的机器上验证，
- * 见 docs/design/vfs-abstraction-plan.md §5.5。这里只覆盖与平台无关的规则。
+ * 见 docs/design/vfs-abstraction-design.md §8.4。这里只覆盖与平台无关的规则。
  */
 
 /** 夹具根（helpers 把它 stub 成唯一的挂载点）。 */
@@ -119,6 +119,23 @@ test.describe('路径与挂载点', () => {
     await expect(row(page, 'target')).toBeVisible()
   })
 
+  // 下拉打开时应当已经停在「当前目录」那一项，而不是列表顶部。
+  // 用 drag 这一级：它的子目录里有 inbox，而当前就在 drag/inbox。
+  test('面包屑下拉高亮当前目录', async ({ page }) => {
+    await login(page)
+    await openFolder(page, 'drag')
+    await openFolder(page, 'inbox')
+
+    // 在「drag」那一段点 ▼（它在第一段的 caret 之后）
+    await page.locator('.explorer-main:visible .address-bar__crumb-caret').nth(1).click()
+    const menu = page.locator('.address-bar__crumb-menu')
+    await expect(menu).toBeVisible()
+
+    const current = menu.locator('.address-bar__menu-row.is-active')
+    await expect(current).toHaveCount(1)
+    await expect(current).toHaveText('inbox')
+  })
+
   test('「上一级」在挂载点根停住', async ({ page }) => {
     await login(page)
     await openFolder(page, 'drag')
@@ -209,6 +226,47 @@ test.describe('路径与挂载点', () => {
     // 归一化后只允许正斜杠：canonical 规则全链路只用 "/"
     expect(requested.replace(/\/+$/, '')).toBe(`${mountRoot}/drag/inbox`)
     expect(requested).not.toContain('\\')
+  })
+  test('加密未解锁的卷显示锁图标，点进去报系统原话', async ({ page }) => {
+    await login(page)
+
+    // 真实环境里这是 BitLocker 未解锁的盘：盘符在，但读不到卷标也读不到容量。
+    await page.route('**/api/files/drives', route => route.fulfill({
+      json: [
+        { label: 'Files', path: mountRoot, kind: 'volume' },
+        { label: 'BitLocker (H:)', path: 'H:', kind: 'locked' },
+      ],
+    }))
+    await page.route('**/api/files/list**', route => route.fulfill({
+      status: 423,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        message: 'This drive is locked by BitLocker Drive Encryption. You must unlock this drive from Control Panel.',
+      }),
+    }))
+
+    await page.locator('button[title="Reload drives"]').click()
+
+    const locked = page.locator('.drive-list__item', { hasText: 'BitLocker' })
+    await expect(locked).toBeVisible()
+    // 锁图标：侧边栏这一步就能让用户看出「不是盘坏了，是没解锁」。
+    // 断言 data-icon 而**不是**「有没有 svg」：MdiIcon 对未注册的名字会静默回落成
+    // 问号图标，只数 svg 的话名字写错了也照样通过（见 AGENTS.md 的图标约定）。
+    await expect(locked.locator('.drive-list__icon [data-icon]')).toHaveAttribute('data-icon', 'lock-outline')
+    // 另一块盘必须用别的图标——两者一样的话「锁」就没有信息量了。
+    // （这个夹具没给容量，所以是 folder-outline 而不是 harddisk：容量未知的老回退。）
+    const normal = page.locator('.drive-list__item', { hasText: 'Files' })
+    const normalIcon = await normal.locator('.drive-list__icon [data-icon]').getAttribute('data-icon')
+    expect(normalIcon).not.toBe('lock-outline')
+
+    await locked.click()
+
+    const empty = page.locator('.explorer-main:visible .explorer-empty-state')
+    await expect(empty).toBeVisible()
+    // 必须是系统那句「去哪解锁」，不能退化成笼统的读不到
+    await expect(empty).toContainText('BitLocker')
+    await expect(empty).toContainText('Control Panel')
+    await expect(empty).not.toContainText('Failed to read the path')
   })
 })
 

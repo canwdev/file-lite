@@ -12,7 +12,7 @@ export interface IEntry {
 }
 
 /** 侧边栏里的一个可导航位置。 */
-export type DriveKind = 'volume' | 'network' | 'home'
+export type DriveKind = 'volume' | 'network' | 'home' | 'locked'
 
 export interface IDrive {
   label: string

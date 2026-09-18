@@ -46,6 +46,10 @@ function getIcon(item: IDrive) {
   if (item.label.toLowerCase() === 'data') {
     return 'mdi-folder-pound-outline'
   }
+  // 加密未解锁的卷：读不到卷标也读不到容量，给锁图标，别让它看起来像一块普通硬盘
+  if (kind === 'locked') {
+    return 'mdi-lock-outline'
+  }
   if (kind === 'network') {
     return 'mdi-folder-network-outline'
   }

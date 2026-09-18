@@ -103,6 +103,7 @@ import MdiLanguageJavascript from '~icons/mdi/language-javascript'
 import MdiLanguageMarkdownOutline from '~icons/mdi/language-markdown-outline'
 import MdiLinkVariant from '~icons/mdi/link-variant'
 import MdiLoading from '~icons/mdi/loading'
+import MdiLockOutline from '~icons/mdi/lock-outline'
 import MdiLogout from '~icons/mdi/logout'
 import MdiMagnify from '~icons/mdi/magnify'
 import MdiMenu from '~icons/mdi/menu'
@@ -311,6 +312,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'home': MdiHome,
   'wifi': MdiWifi,
   'key-outline': MdiKeyOutline,
+  // 加密但未解锁的卷（Windows 的 BitLocker）
+  'lock-outline': MdiLockOutline,
   'menu': MdiMenu,
   'checkbox-blank-circle': MdiCheckboxBlankCircle,
   'checkbox-marked-circle': MdiCheckboxMarkedCircle,

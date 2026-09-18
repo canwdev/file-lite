@@ -1,11 +1,19 @@
 # 前端 UI 端到端测试方法与结果
 
-> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，44 个用例，约 95 秒）
+> 测试子项目：[`e2e/`](../e2e/README.md)（Playwright，56 个用例，约 95 秒）
 > 运行：`cd e2e && bun install && bun run install:browser && bun run test`
 
-本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。截图由测试自己产出，
-不是手工截的——用例跑到关键界面时调用 `screenshot()` 落盘，所以只要测试通过，
+本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。下面这些截图由测试自己
+产出，不是手工截的——用例跑到关键界面时调用 `screenshot()` 落盘，所以只要测试通过，
 截图就一定与当前代码一致。
+
+> 注意：`e2e/screenshots/` 里的图**不入库**（测试产物，每次运行都会变，进版本控制只会
+> 制造无意义的二进制 diff），所以下面的图片链接在仓库里是打不开的。
+> 它们是一份**「跑到这里该看到什么」的对照表**：本地跑一次
+> `cd e2e && bun run test`，对应文件就会出现在 `e2e/screenshots/` 下。
+> README 功能表格用的展示图是另一回事——那些仍由 `bun run docs:screenshots`
+> 生成到 `../docs/screenshots/`，**仍然提交**。
+
 
 ## 为什么单独建一个子项目
 
@@ -175,4 +183,4 @@ toast 仍然会弹一次，两者互补：toast 说完就消失，空状态会�
 
 > UNC / WSL 的**真实读写**（`\\server\share`、`\\wsl.localhost\<发行版>`）
 > 需要在有共享的机器上验证，E2E 只覆盖与平台无关的路径规则，
-> 详见 [`vfs-abstraction-plan.md`](./vfs-abstraction-plan.md) §5.5 与 §8.4。
+> 详见 [`vfs-abstraction-design.md`](./vfs-abstraction-design.md) §8.4。

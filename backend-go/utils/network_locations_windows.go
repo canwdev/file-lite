@@ -16,8 +16,7 @@ import (
 // （资源管理器 → 右键「添加一个网络位置」/ 映射前的那个入口）。
 //
 // 它们**不是映射盘符**，所以 GetLogicalDriveStringsW 完全看不到，`HKCU\Network`
-// 也是空的。实际形态是每个位置一个 shell 文件夹：
-//
+// 也是空的。实际形态是每个位置一个 shell 文件夹：//
 //	%APPDATA%\Microsoft\Windows\Network Shortcuts\<显示名>\
 //	    desktop.ini   CLSID2={0AFACED1-E828-11D1-9187-B532F1E9575D}
 //	    target.lnk    指向 \\host\share 的快捷方式

@@ -146,3 +146,23 @@ export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): 
   }
   return out
 }
+
+/**
+ * 面包屑某一段的下拉里，「当前目录」对应哪一项。
+ *
+ * 返回那一项在 `segPath` 子目录列表里的**名字**（不是下标）：列表按目录自身的排序
+ * 规则产出，调用方拿名字去找下标才不会因为排序规则不同而错位。
+ *
+ * 往下走时的中间目录也算：从 `D:/` 的下拉里打开菜单时，当前目录可能是 `D:/a/b/c`，
+ * 沿途经过的 `a` 就是这一级要标出来的那一项。
+ *
+ * 当前目录就是该段自身（或不在其下）时返回 null——没有可高亮的项。
+ */
+export function currentChildNameFor(segPath: string, currentPath: string): string | null {
+  const base = toListingPath(segPath)
+  const current = toListingPath(currentPath)
+  if (current === base || !current.startsWith(base)) {
+    return null
+  }
+  return current.slice(base.length).split('/').filter(Boolean)[0] ?? null
+}

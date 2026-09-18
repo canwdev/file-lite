@@ -29,4 +29,7 @@ const (
 	DriveKindNetwork = "network"
 	// DriveKindHome 是用户主目录这个虚拟位置。
 	DriveKindHome = "home"
+	// DriveKindLocked 是存在但当前读不了的加密卷（Windows 上 BitLocker 未解锁）。
+	// 它仍是一个可导航位置——点进去会拿到解锁提示，而不是 404。
+	DriveKindLocked = "locked"
 )

@@ -1,7 +1,7 @@
 # VFS 抽象层设计（本地 / UNC・WSL / 挂载点）
 
-> 状态：**待实现**。本文是设计依据，落地步骤与测试清单见
-> [`vfs-abstraction-plan.md`](./vfs-abstraction-plan.md)。
+> 状态：**已实现**（1.5.0）。本文既是设计依据，也记录了落地后的实现细节与取舍
+> ——查「为什么这么做」看这里就够了。
 >
 > 一句话范围：把「路径 = 本地绝对路径」这一隐含假设，换成「路径 = canonical VFS 路径 +
 > 挂载表」，并让本地后端同时覆盖 UNC / WSL / 系统挂载点。
@@ -401,9 +401,38 @@ UTF-16 段取出 UNC 目标（实测 `\\DESKTOP-ROGZ16\shared` 稳定可读）�
 宁可少一个入口也不猜出错误路径。
 
 ### 8.5 `filepath.Dir` 的跨平台陷阱
+
 `filepath.Dir("C:\\Users\\me\\a.txt")` 在非 Windows 上返回 `"."`。
 `routes/fs_changes.go:58,67,74` 与 `routes/files.go:416` 依赖它取父目录——
 统一改用 canonical (`path.Dir`) 之后取父目录，只在最后一刻转 OS 路径。
+
+### 8.5.1 加密但未解锁的卷（Windows BitLocker）
+
+未解锁的 BitLocker 卷**存在**（`GetLogicalDriveStringsW` 照常返回盘符、
+`GetDriveType` 报固定盘），但任何读写都失败，错误码是
+`STATUS_FVE_LOCKED_VOLUME = 0x80310000`。实测（`H:` 盘）：
+
+| 调用 | 结果 |
+| --- | --- |
+| `GetDriveTypeW` | 3（固定盘）——看不出异常 |
+| `GetVolumeInformationW` | 失败，`lastErr = 0x80310000`，卷标为空 |
+| `GetDiskFreeSpaceExW` | 失败，`lastErr = 0x80310000`，容量为 0 |
+| `os.Stat` / `os.ReadDir` | `*os.PathError`，`Err = 0x80310000` |
+
+处理方式（`utils/drives_windows.go` + `routes/fs_error.go`）：
+
+1. **枚举时标 `kind = locked`**，标签写成 `BitLocker (H:)`。不这样做的后果是它看起来
+   就是「一块有盘符、没容量、点进去报错的本地盘」，用户完全不知道原因。
+   前端按 `kind` 给锁图标（`mdi-lock-outline`，注册在 `utils/icons.ts`）。
+2. **错误码 423**（Locked）而不是 500：这不是「服务出了故障」，而是「这个卷现在打不开、
+   去解锁就行」。
+3. **原样保留系统那句话**：「This drive is locked by BitLocker Drive Encryption.
+   You must unlock this drive from Control Panel.」——它给出了唯一的可操作步骤。
+   只剥掉 Go 的 `CreateFile H:\: ` 前缀（syscall 的实现细节，看着像内部错误）。
+   这是**唯一**回显底层消息的错误分支：其余本机错误都把整条绝对路径写进消息，
+   那既是服务端的目录结构、也不是用户能处置的信息。
+4. **不做自动解锁**。BitLocker 解锁需要凭据 / 恢复密钥，超出本项目的职责；
+   423 把用户指回系统的解锁入口。
 
 ### 8.6 符号链接穿越挂载根
 `\\wsl.localhost\Debian` 或 SMB 共享内部的符号链接可能指向挂载根之外。
