@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows/registry"
 
 	"file-lite-go/types"
 )
@@ -119,12 +122,83 @@ func GetWindowsDrives() []types.Drive {
 		})
 	}
 
-	// 4. 排序 (C, D, E...)
-	sort.Slice(list, func(i, j int) bool {
+	// 4. WSL 发行版：本机卷枚举不到它们，但用户完全可能想直接进 Debian。
+	list = append(list, wslDistroDrives()...)
+
+	// 5. 排序：盘符在前 (C, D, E...)，网络位置（WSL）在后。
+	//
+	// 不能只按 Path 排：`//wsl.localhost/...` 的 "/" (0x2F) 排在 "C" (0x43) 之前，
+	// 于是 WSL 会挤在本地盘上面。分组排序让侧边栏先给"这台机器有什么盘"，
+	// 再给"还有哪些网络位置"。
+	sort.SliceStable(list, func(i, j int) bool {
+		ni, nj := list[i].Kind == types.DriveKindNetwork, list[j].Kind == types.DriveKindNetwork
+		if ni != nj {
+			return !ni
+		}
 		return list[i].Path < list[j].Path
 	})
 
 	return list
+}
+
+// lxssRegistryPath 是 WSL 发行版的注册位置。
+//
+// 这里只读**注册表**，不调 `wsl.exe -l`：子进程会拉起 WSL 服务、有可见延迟，
+// 而侧边栏加载不该等它。实测读这个键约 1ms。
+const lxssRegistryPath = `Software\Microsoft\Windows\CurrentVersion\Lxss`
+
+// wslDistroDrives 枚举已安装的 WSL 发行版，每个产出 `//wsl.localhost/<发行版>`。
+//
+// 为什么要列它们：`\\wsl.localhost\Debian` 早就可用，但没有任何地方告诉用户它存在——
+// 用户得先知道 WSL 的 UNC 命名规则才会去地址栏输。列出来就把「藏起来的功能」变成了
+// 侧边栏里可点的入口。
+//
+// 为什么这不算「网络发现」：读的是本机注册表，离线、毫秒级、不涉及凭据与网络往返，
+// 与设计文档 §8.4 排除掉的「网络邻居枚举」（COM 外壳命名空间）完全是两回事。
+//
+// 得到的路径属于 `kind=network`：WSL 的 9p 共享要走网络栈，并发档位、错误映射、
+// 图标都该按网络位置处理——这与 GetUnixMounts 把 Linux 下的 9p 标成 network 同源。
+func wslDistroDrives() []types.Drive {
+	k, err := registry.OpenKey(registry.CURRENT_USER, lxssRegistryPath, registry.READ)
+	if err != nil {
+		// 没装 WSL、或服务账户读不到 HKCU：静默返回空，这不是错误。
+		return nil
+	}
+	defer k.Close()
+
+	names, err := k.ReadSubKeyNames(-1)
+	if err != nil {
+		return nil
+	}
+
+	out := make([]types.Drive, 0, len(names))
+	seen := map[string]bool{}
+	for _, sub := range names {
+		sk, err := registry.OpenKey(k, sub, registry.READ)
+		if err != nil {
+			continue
+		}
+		distro, _, err := sk.GetStringValue("DistributionName")
+		sk.Close()
+		if err != nil || distro == "" || seen[distro] {
+			continue
+		}
+		// 发行版名会进入路径，必须挡掉分隔符：注册表是可信来源，但路径规则
+		// 不允许一个「段」里出现 `/` 或 `\`，宁可跳过也不构造畸形路径。
+		if strings.ContainsAny(distro, `/\`) || distro == "." || distro == ".." {
+			continue
+		}
+		seen[distro] = true
+		out = append(out, types.Drive{
+			Label: fmt.Sprintf("%s (WSL)", distro),
+			// canonical 形态，无尾斜杠；挂载表与前端的解析都基于它。
+			Path: "//wsl.localhost/" + distro,
+			Kind: types.DriveKindNetwork,
+		})
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
 }
 
 func GetUnixMounts() []types.Drive {

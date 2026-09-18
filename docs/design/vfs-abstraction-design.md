@@ -343,9 +343,30 @@ os 级实现**：
 
 **因此**：`\\host\share` 与 `\\wsl.localhost\<发行版>` 完全支持（共享名就是根），
 `\\host\` 报错并提示正确写法。侧边栏也不列网络位置——用地址栏输入即可。
-将来若真要做 WSL 的侧边栏入口，依据在注册表
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\*` 的 `DistributionName`
-（读注册表，无延迟、不联网），而不需要碰 `\\host\` 这种形态。
+
+#### 8.4.2 WSL 发行版例外：列进侧边栏
+
+`\\wsl.localhost\<发行版>` 属于「用户不知道它存在」的那一类——地址栏能用，但没人会
+凭空知道这条命名规则。因此**WSL 发行版进侧边栏**，实现是 `utils/drives_windows.go`
+的 `wslDistroDrives()`：
+
+- **只读注册表** `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\*` 的
+  `DistributionName`（实测约 1ms），**不调 `wsl.exe -l`**——子进程会拉起 WSL 服务、
+  有可见延迟，而侧边栏加载不该等它；
+- 每个发行版产出 `//wsl.localhost/<发行版>`，`kind = network`：9p 共享要走网络栈，
+  所以并发档位 6、错误映射 503、网络图标全部自动正确（与 `GetUnixMounts` 把 9p 标成
+  network 同源）；
+- 路径不可达时不预先探测：点进去会得到一个可读的错误，这比枚举时联网探测更诚实；
+- 排序：盘符在前、网络位置在后。不能只按 Path 排——`//` 的 `/` (0x2F) 排在 `C` (0x43)
+  之前，会把 WSL 挤到本地盘上面。
+
+**这不是 §8.4 排除的那件事**：§8.4 排除的是「网络邻居枚举」（COM 外壳命名空间、
+依赖 Computer Browser / WS-Discovery、可能需要几十秒），WSL 是本机注册表、
+离线、毫秒级。两者只是都产出 UNC 路径而已。
+
+真正的网络共享（`\\DESKTOP-ROGZ16\shared`）仍然靠地址栏输入。若要让它也可以固定，
+正确的形态是用户可维护的 `networkLocations: string[]`（写进 config，侧边栏单开
+Network 分组），而不是自动枚举。
 
 ### 8.5 `filepath.Dir` 的跨平台陷阱
 `filepath.Dir("C:\\Users\\me\\a.txt")` 在非 Windows 上返回 `"."`。
