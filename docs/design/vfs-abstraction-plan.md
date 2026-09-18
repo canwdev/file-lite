@@ -1,5 +1,110 @@
 # VFS 抽象层实现计划与测试清单
 
+## 交接说明（给下一个会话）
+
+> 本节是跨会话的交接点。上次会话在 **WSL2 的 Linux** 上完成，开发环境即将迁到
+> **原生 Windows**，会话会重新开始——先读这一节，再读下面的实现记录。
+
+### 仓库状态
+
+- 分支 `dev/next`，版本仍是 **1.5.0**（未发布）。
+- **都没有 push**。截至写这份交接时的提交（用 `git log --oneline` 看最新状态）：
+
+  | 提交 | 内容 |
+  | --- | --- |
+  | `84160bf` | `refactor: add the canonical VFS path rules`（阶段 1） |
+  | `d451929` | `feat: drop safeBaseDir and add startPath`（阶段 2） |
+  | `d699cf0` | `fix: list only real drives, with capacity, on Linux` |
+  | `fbc9a62` | `feat: add the mount table and path resolver`（阶段 3 纯逻辑） |
+  | 其后一次 | 侧边栏图标（home / network folder）+ 本交接说明 |
+
+- 交付约定：**完成即可提交，不要 push**。
+- 提交信息用英文 `type: subject`，正文用中文说明「为什么」。
+
+### 怎么跑测试（务必先看这条）
+
+```bash
+cd backend-go && GOCACHE=$PWD/.gocache go build ./... && GOCACHE=$PWD/.gocache go test ./...
+cd frontend   && bun test && bun run type-check && bun run lint
+cd e2e        && node scripts/run-tests.mjs tests/01-login.spec.ts   # 只跑受影响的 spec
+```
+
+- **沙箱里 `go test` 会因为 `$HOME/.cache/go-build` 不可写而失败**，用
+  `GOCACHE=$PWD/.gocache` 覆盖；跑完记得 `rm -rf backend-go/.gocache`（它没有进 .gitignore）。
+- e2e 会重新构建前端 + 后端、并**重新生成截图**，约 30–60 秒。改了前端或路由就值得跑一次
+  受影响的 spec；整套只在被要求时跑。
+- `e2e/` 的夹具依赖 `config.startPath`，盘列表由 `tests/helpers.ts` 的
+  `stubFixtureMounts()` 在测试侧接管（真实盘列表是整个文件系统，不能当测试根）。
+
+### 已实现（不要重复做）
+
+- **阶段 1**：`fileops/vfs_path.go` 的 canonical 规则，前端副本 `canonical-path.ts`，
+  两边同一张表驱动测试。
+- **阶段 2**：`safeBaseDir` / `IsPathSafe` 已整体删除；`startPath` 取代"首个标签打开哪里"。
+- **驱动器列表修复**：`drives_linux.go` 过滤伪文件系统与 WSL 内部挂载、按设备去重、
+  用 statfs 提供容量；`types.Drive` 增加 `kind`（volume/network/home）。
+- **阶段 3 纯逻辑**：`fileops/mount.go` 的挂载表、`LongestMount`、`Resolve`、
+  `NetworkPath`、`SamePath`、canonical 的 `BaseName`/`DirName`；
+  边界处 `canonicalVFS()` 归一化；`enumerateDrives()` 与挂载表共用一份枚举。
+
+### 下一步：按这个顺序做
+
+1. **调用点迁移到 `Resolve`**（可在 Linux 完成，但有行为变化，需要同步改测试）
+   - 目标：`getFiles` / `createDirectory` / `renamePath` / `getFileStream` /
+     `downloadPath` / `uploadFile` / `existsPaths` 统一走 `fileops.Resolve`。
+   - **已知的行为变化**：非法路径的错误码从下游的 500/404 变成 400（相对路径、越根）。
+     每个变化都要在提交信息里说明，并更新 `routes/*_test.go` 里相应的期望。
+   - 目前只做了归一化（失败时原样返回），所以错误语义没变——这是刻意留的。
+2. **并发档位**（可在 Linux 完成）
+   - `readDirStatConcurrency`（`routes/files.go`）按挂载点 `Kind` 取值：卷 64、网络 4–8。
+   - 真实效果只能上 SMB 才看得出来（见"Windows 上必验"）。
+3. **网络错误的 502/503 映射**（逻辑可在此写，真实表现要 Windows）
+   - 「服务器不可达 / 超时」不得与「文件不存在」的 404 混为一谈。
+4. **阶段 4 前端**（UNC 相关的部分留到 Windows，其余可在 Linux 做）
+   - `normalizePath`（`FileManager/utils/index.ts`）**豁免 UNC 前导 `//`**——
+     这是当前唯一会破坏数据的函数，也是所有前端改动里优先级最高的一条。
+   - `canGoUp` / `getParentPath` / `AddressBar` 面包屑改为**挂载点驱动**（第一段 = 挂载点根）。
+   - `drives.ts` 的 `resolveVolumeRoot` 加**段边界**检查（`/data2` 不得匹配 `/data`）。
+   - 起始状态：不再默认 `/`，未选中位置时列表区显示挂载点列表。
+5. **阶段 5**：文档与 CHANGELOG 收尾。注意 `docs/config.md` 已改过，
+   `safeBaseDir` 不该再作为"现存字段"出现。
+
+### Windows 上必须验证的清单（换环境后优先做）
+
+- **UNC 读写**：`\\<主机>\<共享>` 能列目录、打开、预览、下载、重命名、删除；
+  断网/共享离线时错误可读且可重试（对应上面第 3 项）。
+- **WSL 路径**：`\\wsl.localhost\<发行版>\...` 同上。
+- **地址栏**：粘贴 `C:\Users\...` 能被识别；`\\server\share` 的前导 `//` 不被折叠；
+  面包屑第一段是挂载点根，"上一级"到根为止。
+- **映射盘符**：在资源管理器映射一个共享为 `Z:`，确认它出现在侧边栏且归类正确。
+- **`GetDriveType`**：把 `DRIVE_REMOTE` 标成 `network`（当前 Windows 侧只补了 `kind`，
+  没有区分远程盘符）。
+- **网络路径的并发**：千文件目录的列表加载时间，对比卷档位（验证第 2 项是否有效）。
+- **属性窗口**：`utils.BirthTime` 在 UNC/WSL 上拿不到时回落 mtime。
+- **e2e**：在 Windows 上补 UNC/面包屑相关的用例（上次会话刻意没加平台相关用例）。
+
+### 仍然有效的约束
+
+- `AGENTS.md`：前端改动跑 `bun run lint` / `type-check`；后端改动跑相邻 Go 测试；
+  **不要主动新增或运行 e2e**，除非用户要求或改动大到读代码不够。
+- 版本号要在 `frontend/src/enum/version.ts` 与 `backend-go/config/config.go` 同步；
+  1.5.0 尚未发布，所以本次的功能都记在 `## 1.5.0` 段内。
+- 新图标名必须注册进 `mdiIconRegistry`（`frontend/src/utils/icons.ts`），
+  否则静默回落成问号图标。
+
+### 已知的取舍与待决项
+
+- **ZIP 只读 VFS 不做**。将来若做，形态是**纯路径前缀**：`D:/Downloads/temp.zip/temp/videos`
+  （`.zip` 只是普通路径段，由挂载表赋予语义），不引入 scheme。
+- **reparse 点（junction/symlink）**：`filepath.Abs` 不解析它们，
+  因此"父路径是链接"的兄弟目录判重是词法判断的盲点（不是可利用的绕过）。
+- **cifs 挂载的容量**：本机没有 cifs 挂载可验，`statfs` 在 cifs 上多半拿不到容量，
+  届时会走"没有容量就不显示"的降级路径——在真实 NAS 上确认一下。
+- **`fstype` 变化**：macOS 的 SMB 相关实现不经过 `drives_linux.go`（`//go:build linux`），
+  非 Linux 的 Unix 目前只返回根，这是有意的降级。
+
+---
+
 > 状态：**阶段 1、2 已实现，阶段 3 的纯逻辑部分已实现**；阶段 3 剩余项与 4、5 待实现。
 >
 > - 阶段 1（canonical 规则，纯新增）见下方实现记录。

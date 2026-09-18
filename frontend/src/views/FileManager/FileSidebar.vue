@@ -41,7 +41,7 @@ function getIcon(item: IDrive) {
   // 后端不带 kind 时（老版本）沿用「有容量才算卷」的回退。
   const kind = item.kind ?? (item.total ? 'volume' : undefined)
   if (item.label.toLowerCase() === 'home') {
-    return 'mdi-home-account'
+    return 'mdi-home'
   }
   if (item.label.toLowerCase() === 'data') {
     return 'mdi-folder-pound-outline'
@@ -50,7 +50,7 @@ function getIcon(item: IDrive) {
     return 'mdi-folder-network-outline'
   }
   if (kind === 'home') {
-    return 'mdi-home-account'
+    return 'mdi-home'
   }
   if (!item.total) {
     return 'mdi-folder-outline'

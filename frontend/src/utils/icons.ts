@@ -90,7 +90,6 @@ import MdiGithub from '~icons/mdi/github'
 import MdiHarddisk from '~icons/mdi/harddisk'
 import MdiHelpCircleOutline from '~icons/mdi/help-circle-outline'
 import MdiHome from '~icons/mdi/home'
-import MdiHomeAccount from '~icons/mdi/home-account'
 import MdiImage from '~icons/mdi/image'
 import MdiImageMultipleOutline from '~icons/mdi/image-multiple-outline'
 import MdiImageOffOutline from '~icons/mdi/image-off-outline'
@@ -182,7 +181,6 @@ export const mdiIconRegistry: Record<string, Component> = {
   'text-box-outline': MdiTextBoxOutline,
   'folder-open-outline': MdiFolderOpenOutline,
   'open-in-new': MdiOpenInNew,
-  'home-account': MdiHomeAccount,
   'folder-pound-outline': MdiFolderPoundOutline,
   'folder-outline': MdiFolderOutline,
   'folder-move-outline': MdiFolderMoveOutline,
