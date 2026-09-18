@@ -13,6 +13,7 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { appsStoreState } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
+import { configuredStartPath, loadStartPath } from './ExplorerUI/drives'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
 import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
@@ -121,14 +122,21 @@ onMounted(async () => {
     return
   }
   await fileSidebarRef.value.loadDrives()
+  await loadStartPath()
   const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
   if (navPath) {
     openPath(navPath)
     router.replace({ query: { ...route.query, navPath: undefined } })
   }
   else if (!activePath.value) {
-    // 没有可恢复的路径：打开第一个磁盘。面板自身负责挂载/激活时的首次加载
-    fileSidebarRef.value.openFirstDrive()
+    // 没有可恢复的路径：优先进入配置的起始目录，否则打开第一个磁盘。
+    // 面板自身负责挂载/激活时的首次加载。
+    if (configuredStartPath.value) {
+      openPath(configuredStartPath.value)
+    }
+    else {
+      fileSidebarRef.value.openFirstDrive()
+    }
   }
 })
 

@@ -38,7 +38,7 @@ type Cfg struct {
 	Port         string   `json:"port"`
 	Password     string   `json:"password"`
 	JWTToken     string   `json:"jwtToken"`
-	SafeBaseDir  string   `json:"safeBaseDir"`
+	StartPath    string   `json:"startPath"`
 	LogLevel     string   `json:"logLevel"`
 	SSLKey       string   `json:"sslKey"`
 	SSLCert      string   `json:"sslCert"`
@@ -55,7 +55,7 @@ const Version = "1.5.0"
 
 var cfg Cfg
 var dataBaseDir string
-var safeBaseDir string
+var startPath string
 var jwtToken string
 var configInitialized bool
 var configFilePath string
@@ -96,7 +96,7 @@ func normalizeLogLevel(raw string) string {
 }
 
 func DataBaseDir() string     { return dataBaseDir }
-func SafeBaseDir() string     { return safeBaseDir }
+func StartPath() string       { return startPath }
 func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
@@ -108,6 +108,21 @@ func IsExplicitDevMode() bool {
 	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
 }
 
+// resolveStartPath 把配置里的 startPath 转成绝对路径。
+//
+// 注意这里用 filepath 是正确的：startPath 是**服务进程所在的真实文件系统**上的
+// 本机路径，不是需要跨平台一致的 VFS 路径（VFS 路径的规则见
+// docs/design/vfs-abstraction-design.md）。
+func resolveStartPath(raw, wd string) string {
+	if raw == "" {
+		return ""
+	}
+	if filepath.IsAbs(raw) {
+		return normalizePath(filepath.Clean(raw))
+	}
+	return normalizePath(filepath.Clean(filepath.Join(wd, raw)))
+}
+
 func LoadConfig(allowCreate bool) error {
 	fmt.Printf("%s version: %s\n\n", PkgName, Version)
 	base := os.Getenv("FILE_LITE_DATA_BASE_DIR")
@@ -117,6 +132,8 @@ func LoadConfig(allowCreate bool) error {
 	}
 	dataBaseDir = base
 	fmt.Printf("DATA_BASE_DIR: %s\n", dataBaseDir)
+	// 明确告知访问范围：路径不再有限制，登录后即可读写进程有权访问的一切。
+	fmt.Println("file access scope: the whole file system (no safeBaseDir)")
 
 	if allowCreate {
 		_ = os.MkdirAll(dataBaseDir, fs.ModePerm)
@@ -127,7 +144,7 @@ func LoadConfig(allowCreate bool) error {
 		Port:        "",
 		Password:    "",
 		JWTToken:    "",
-		SafeBaseDir: "./",
+		StartPath:   "",
 		LogLevel:    LogLevelWarn,
 		SSLKey:      "",
 		SSLCert:     "",
@@ -191,23 +208,12 @@ func LoadConfig(allowCreate bool) error {
 		configInitialized = false
 	}
 
-	if cfg.SafeBaseDir != "" {
+	// startPath 是前端首次打开时进入的目录；留空表示从挂载点列表开始。
+	// 相对路径按启动时的工作目录解析。只在首次导航用一次，不影响任何访问范围。
+	if cfg.StartPath != "" {
 		wd, _ := os.Getwd()
-		abs := normalizePath(filepath.Clean(filepath.Join(wd, cfg.SafeBaseDir)))
-		if filepath.IsAbs(cfg.SafeBaseDir) {
-			abs = normalizePath(filepath.Clean(cfg.SafeBaseDir))
-		}
-		safeBaseDir = abs
-		if safeBaseDir != "" {
-			if allowCreate {
-				if _, err := os.Stat(safeBaseDir); err != nil {
-					_ = os.MkdirAll(safeBaseDir, fs.ModePerm)
-				}
-			}
-			fmt.Printf("safeBaseDir: %s\n", safeBaseDir)
-		}
-	} else {
-		safeBaseDir = ""
+		startPath = resolveStartPath(cfg.StartPath, wd)
+		fmt.Printf("startPath: %s\n", startPath)
 	}
 
 	jwtToken = cfg.JWTToken

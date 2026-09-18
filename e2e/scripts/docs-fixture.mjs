@@ -83,7 +83,7 @@ Everything runs from a single Go binary with the UI embedded.
   "host": "0.0.0.0",
   "port": "3111",
   "password": "change-me",
-  "safeBaseDir": "/srv/files",
+  "startPath": "/srv/files",
   "logLevel": "warn",
   "allowedCIDRs": null,
   "allowSelfUpdate": false
@@ -159,9 +159,8 @@ export function resetDocsFixture() {
     host: '127.0.0.1',
     port: String(DOCS_PORT),
     password: DOCS_PASSWORD,
-    safeBaseDir: docsFilesDir,
+    startPath: docsFilesDir,
     logLevel: 'error',
-    copyFsync: true,
   }, null, 2))
 
   return docsFilesDir

@@ -5,7 +5,7 @@ test.describe('登录与基本界面', () => {
   test('登录后打开夹具根目录', async ({ page }) => {
     await login(page)
 
-    // 侧边栏应当显示 safeBaseDir 对应的驱动器
+    // 侧边栏应当显示夹具盘（由 helpers 的 stubFixtureMounts 提供）
     await expect(page.locator('.explorer-sidebar')).toBeVisible()
     // 根目录里能看到夹具目录
     await expect(row(page, 'source')).toBeVisible()

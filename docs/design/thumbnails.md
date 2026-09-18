@@ -14,7 +14,7 @@ GET /api/files/thumbnail?path=<绝对路径>&size=<边长>&kind=<image|video>
 
 | 参数 | 说明 |
 | --- | --- |
-| `path` | 必填，必须是 `safeBaseDir` 之内的文件 |
+| `path` | 必填，必须是存在的文件路径 |
 | `size` | 目标边长，规整到 `64 / 128 / 256 / 512`（向上取最近档），缺省 512 |
 | `kind` | `image`（缺省）走 imaging 解码；`video` 走 ffmpeg 抽帧 |
 | `m` | 仅作 HTTP 缓存标识，服务端**不信任**它，自己 `stat` 文件 |

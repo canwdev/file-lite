@@ -24,8 +24,8 @@ import (
 //   - 503 解码槽位排队超时     → 前端显示类型图标，但可重试
 func getThumbnail(c echo.Context) error {
 	path := c.QueryParam("path")
-	if !isPathSafe(path) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe"})
+	if path == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
 
 	fi, err := os.Stat(path)

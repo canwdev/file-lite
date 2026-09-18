@@ -12,8 +12,14 @@ import { normalizeListingPath } from '../utils'
 
 export const driveList = ref<IDrive[]>([])
 export const drivesLoading = ref(false)
+/**
+ * 后端配置的起始目录（`startPath`）；空串表示从挂载点列表开始。
+ * 由 `loadStartPath()` 拉取一次，用于首次打开标签页。
+ */
+export const configuredStartPath = ref('')
 
 let inflight: Promise<IDrive[]> | null = null
+let startPathInflight: Promise<string> | null = null
 
 /** 已加载的驱动器路径（listing 形态，带结尾 `/`），从长到短，便于取最长前缀。 */
 function normalizeDrives(list: IDrive[] | null | undefined): IDrive[] {
@@ -45,6 +51,30 @@ export function loadDrives(force = false): Promise<IDrive[]> {
     return driveList.value
   })()
   return inflight
+}
+
+/**
+ * 读取后端配置的起始目录（只用于首次导航）。
+ * 失败按「未配置」处理：起始目录不是关键路径，不该因此报错打扰用户。
+ */
+export function loadStartPath(): Promise<string> {
+  if (startPathInflight) {
+    return startPathInflight
+  }
+  startPathInflight = (async () => {
+    try {
+      configuredStartPath.value = await fsWebApi.getStartPath()
+    }
+    catch (error) {
+      console.error('[startPath]', error)
+      configuredStartPath.value = ''
+    }
+    finally {
+      startPathInflight = null
+    }
+    return configuredStartPath.value
+  })()
+  return startPathInflight
 }
 
 /**

@@ -37,9 +37,6 @@ func Scan(ctx context.Context, fromPaths []string, toDir string) (ScanResult, er
 		if !ExistsAt(src) {
 			return res, errors.New("Source path does not exist: " + src)
 		}
-		if !IsPathSafe(src) || !IsPathSafe(toDir) {
-			return res, errors.New("Path is not safe")
-		}
 		dst := filepath.Join(toDir, baseName(src))
 		if samePath(src, dst) {
 			// 原地粘贴：执行阶段会自动改名（复制）或跳过（移动），不是冲突，

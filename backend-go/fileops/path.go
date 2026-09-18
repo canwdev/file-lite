@@ -9,34 +9,7 @@ package fileops
 import (
 	"os"
 	"path/filepath"
-	"strings"
-
-	"file-lite-go/config"
 )
-
-// IsPathSafe 判断路径是否位于 safeBaseDir 之内。safeBaseDir 为空表示不限制。
-func IsPathSafe(p string) bool {
-	if p == "" {
-		return false
-	}
-	base := config.SafeBaseDir()
-	if base == "" {
-		return true
-	}
-	rp, err := filepath.Abs(p)
-	if err != nil {
-		return false
-	}
-	bp, err := filepath.Abs(base)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(bp, rp)
-	if err != nil {
-		return false
-	}
-	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel))
-}
 
 // ExistsAt 用 Lstat 判断路径是否存在。
 // 不用 os.Stat：断链的符号链接也应该被判定为「已存在」，

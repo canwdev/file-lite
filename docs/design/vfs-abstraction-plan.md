@@ -1,9 +1,11 @@
 # VFS 抽象层实现计划与测试清单
 
-> 状态：**阶段 1 已实现**（canonical 规则，纯新增、零行为变更）；阶段 2-5 待实现。
+> 状态：**阶段 1、2 已实现**；阶段 3-5 待实现。
 >
-> **E2E 暂缓**：开发机是 Linux，UNC/WSL 无法完整验证，等迁到 Windows 开发机再做。
-> 本次改动不涉及 `e2e/`，但 §3.4 的夹具问题必须在**阶段 2 之前**定下来。
+> - 阶段 1（canonical 规则，纯新增）见下方实现记录。
+> - 阶段 2（删 `safeBaseDir` / `IsPathSafe`，加 `startPath`）见下方阶段 2 记录。
+> - E2E 仍暂缓：开发机是 Linux，UNC/WSL 无法完整验证，等迁到 Windows 开发机再做。
+>   本次只改夹具与既有用例，未新增平台相关测试。
 >
 > 设计依据见 [`vfs-abstraction-design.md`](./vfs-abstraction-design.md)，
 > 本文只讲**怎么做、注意什么、测什么**。
@@ -37,6 +39,32 @@ cd frontend && bun test && bun run type-check && bun run lint
 
 > 若 `go test` 报 `permission denied` 于 `/home/<user>/.cache/go-build`，
 > 用 `GOCACHE=<工作区内的可写目录>` 覆盖即可（沙箱/CI 环境常见）。
+
+## 阶段 2 实现记录
+
+| 改动 | 说明 |
+| --- | --- |
+| 删除 `safeBaseDir` | `Cfg` 字段、全局变量、`SafeBaseDir()`、默认值 `"./"`、以及原 `:194-211` 整段（含「按需创建受限根」） |
+| 删除 `IsPathSafe` | `fileops/path.go` 中的实现 + `routes/files.go` 的 `isPathSafe` 包装 + 9 个调用点（`routes/files.go`、`routes/thumbnail.go`、`routes/properties_ws.go`、`tasks/manager.go`、`fileops/scan.go`、`fileops/ops.go`） |
+| 新增 `startPath` | 配置字段 + `resolveStartPath()`（可单测的纯函数）+ `GET /api/files/start` + 前端 `loadStartPath()` / `configuredStartPath`；首次打开优先进入它，否则打开第一个盘 |
+| `getDrives` | 删掉「设了 `safeBaseDir` 就只返回它一个盘」的特例 |
+| 保留 | `utils.IsPathInsideOrEqual` 及其两个调用点（见下方更正） |
+| e2e | 夹具改用 `startPath`；盘列表由 `tests/helpers.ts` 的 `stubFixtureMounts()` 在测试侧接管——真实盘列表是整个文件系统，不适合当测试根 |
+
+### 一处计划外的更正：符号链接那个判断是错的
+
+原计划写的是「`IsPathInsideOrEqual` 现在没解析符号链接，软链接可绕过，本次顺手修掉」。
+动手前验证发现**这个判断不成立**：
+
+`filepath.Abs` 已经折叠了 `.` 与 `..`，所以唯一能让「词法上在源内」与「实际指向在源外」
+分叉的情况是**源路径自身含符号链接**——而那时字符串前缀判断与实际指向**恰好一致**
+（链接在源目录内 ⇒ 链接下的路径也在源目录内，两者同时成立或同时不成立）。
+
+一度实现了「逐级向上 `os.Stat` + `os.SameFile`」的祖先解析，但用探针验证后发现
+它对任何输入都不会改变结果（死代码），于是撤掉，只保留词法判断并补上注释与用例，
+把唯一真实的例外写清楚：**不区分大小写的文件系统**上 `SRC` 与 `src` 是同一个目录，
+这里按不同字符串处理；Windows 上 `os.Rename` 自己会拒绝，因此不折叠大小写
+（折叠反而会在大小写敏感的平台上把两个不同目录误判成同一个）。
 
 ## 0. 改动地图
 
@@ -89,17 +117,20 @@ cd frontend && bun test && bun run type-check && bun run lint
 
 **目标**：字段与函数彻底消失，为 resolver 腾出位置。
 
-- [ ] `config.go`：删字段、全局变量、`SafeBaseDir()`、默认值 `"./"`、`:194-211` 整段
+- [x] `config.go`：删字段、全局变量、`SafeBaseDir()`、默认值 `"./"`、`:194-211` 整段
       （含"按需 MkdirAll 受限根"的逻辑）。
-- [ ] `fileops/path.go`：删 `IsPathSafe`；`Clean` 改为调用 `canonicalizePath`；
-      `samePath` 改为 canonical 比较 + 后端 `CaseSensitive` 判断（不要只比字符串）。
-- [ ] 删除 9 个调用点：`routes/files.go:55`、`tasks/manager.go:183,197`、
-      `fileops/scan.go:40`、`fileops/ops.go:111,129`。
-- [ ] **保留** `utils.IsPathInsideOrEqual`（`utils/fs.go:20`）及其两个调用点
-      （`routes/files.go:265`、`tasks/manager.go:205`），但修两个隐藏缺陷：
-      解析符号链接后再比较、同挂载内才做 Rel。
-- [ ] 启动输出（`main.go:202-237`）增加一行「文件访问范围: 全盘」。
-- [ ] `docs/config.md` 删除该字段并说明变更（旧配置里的该字段会被忽略）。
+- [ ] `fileops/path.go`：删 `IsPathSafe`（已完成）；`Clean` 改为调用 `canonicalizePath`、
+      `samePath` 改为 canonical 比较 + 后端 `CaseSensitive` 判断——**推迟到阶段 3**，
+      因为此刻还没有后端能力声明，改了反而要写两遍。
+- [x] 删除 9 个调用点：`routes/files.go:55`、`tasks/manager.go:183,197`、
+      `fileops/scan.go:40`、`fileops/ops.go:111,129`，另加 `thumbnail.go`、
+      `properties_ws.go` 两处。
+- [x] **保留** `utils.IsPathInsideOrEqual`（`utils/fs.go`）及其两个调用点
+      （`routes/files.go:265`、`tasks/manager.go:205`），补注释与用例。
+      原计划的"修符号链接绕过"经核实不成立，见上方更正。
+- [x] 启动输出增加一行访问范围提示（`config.go` 的 `LoadConfig`）。
+- [x] `docs/config.md` 删除该字段并说明变更（旧配置里的该字段会被忽略）。
+- [x] e2e 夹具改用 `startPath`，盘列表在测试侧接管（§3.4 方案 A）。
 
 **危险点**：
 - 兼容性：旧 `config.json` 含 `safeBaseDir` 时必须正常启动（`json.Unmarshal` 默认忽略未知字段，
@@ -288,7 +319,7 @@ cd frontend && bun test && bun run type-check && bun run lint
 | 阶段 | 内容 | 验收标准 | 状态 |
 | --- | --- | --- | --- |
 | 1 | canonical 规则（前后端各一份）+ 表驱动测试 | 规则表全绿；**现有行为零变化** | ✅ 已实现 |
-| 2 | 删 `safeBaseDir` / `IsPathSafe`，保留 `IsPathInsideOrEqual` | 全部既有 Go 测试绿；旧 config 仍能启动 | 待实现 |
+| 2 | 删 `safeBaseDir` / `IsPathSafe`，加 `startPath`，保留 `IsPathInsideOrEqual` | 全部既有 Go 测试绿；旧 config 仍能启动 | ✅ 已实现 |
 | 3 | 挂载表 + `Resolve` + 调用点迁移 + 并发档位 + `getDrives` | 本地行为回归全绿；`getDrives` 带 `kind` | 待实现 |
 | 4 | 前端（UNC 豁免、面包屑、`kind` 图标、起始状态） | 前端用例绿；地址栏/侧边栏交互符合 §5.3 | 待实现 |
 | 5 | 文档 + CHANGELOG | `docs/config.md` 等无 `safeBaseDir` 残留；CHANGELOG 各一条 | 待实现 |
@@ -310,6 +341,6 @@ cd frontend && bun test && bun run type-check && bun run lint
 8. **"服务器不可达"不能报成 404**，否则用户以为文件没了。
 9. **删除 `IsPathSafe` 后，Zip Slip 校验必须写进将来 ZIP 后端/解压命令内部**，
    不能依赖路由层（本次不做 ZIP，但要在设计文档里留话）。
-10. **`IsPathInsideOrEqual` 现在没解析符号链接**，软链接可绕过"移进自己的子目录"检查——
-    本次要顺手修掉。
-11. **e2e 夹具依赖 `safeBaseDir`**，阶段 2 之前必须先定 §3.4 的处置方式。
+10. **`IsPathInsideOrEqual` 是词法判断**——原以为"符号链接可绕过"其实是错的（见阶段 2 更正）。
+    唯一真实例外是不区分大小写的文件系统，由 `os.Rename` 兜底。
+11. ~~e2e 夹具依赖 `safeBaseDir`~~ 已处理：夹具改用 `startPath`，盘列表在测试侧接管。

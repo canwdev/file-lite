@@ -108,10 +108,6 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 			if err := ctx.Err(); err != nil {
 				break
 			}
-			if !IsPathSafe(p) {
-				rs.record(ItemResult{FromPath: p, Status: StatusFailed, Message: "Path is not safe"})
-				continue
-			}
 			if err := removeAllCtx(ctx, p, func() { rs.addItem(1, p) }); err != nil {
 				rs.record(ItemResult{FromPath: p, Status: StatusFailed, Message: err.Error()})
 			} else {
@@ -125,10 +121,6 @@ func (e *Engine) Run(ctx context.Context, opts Options, cb Callbacks) ([]ItemRes
 	for _, src := range opts.FromPaths {
 		if err := ctx.Err(); err != nil {
 			break
-		}
-		if !IsPathSafe(src) || !IsPathSafe(opts.ToPath) {
-			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: "Path is not safe"})
-			continue
 		}
 		if !ExistsAt(src) {
 			rs.record(ItemResult{FromPath: src, Status: StatusFailed, Message: "Source path does not exist"})

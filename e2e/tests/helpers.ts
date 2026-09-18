@@ -69,6 +69,26 @@ export async function dismissFinishedTasks(page: Page) {
 const AUTH_TOKEN_COOKIE = 'file_lite_auth_token'
 let sharedAuthToken: string | null = null
 
+/**
+ * 把夹具目录伪装成唯一的「盘」，并让它作为起始目录。
+ *
+ * 1.5.0 起后端不再有 `safeBaseDir`：`/api/files/drives` 返回真实的系统挂载点，
+ * 起始目录来自 config 的 `startPath`。但用例需要的是「夹具目录就是根」，
+ * 所以在测试侧接管这两个端点，而不是改动生产行为：
+ *
+ * - `drives` 只报夹具目录，于是侧边栏第一项、以及各用例里
+ *   `.drive-list__item').first()` 这个「回根」入口都落在夹具根上；
+ * - `start` 返回同一个路径，首次打开的标签页直接进入夹具根。
+ *
+ * `scripts/fixture.mjs` 里的 `config.startPath` 是同一件事的另一半：
+ * 服务器确实从 `startPath` 进入，这里只覆盖「盘列表里没有夹具目录」的差异。
+ */
+async function stubFixtureMounts(page: Page) {
+  const drive = { label: 'Files', path: filesDir }
+  await page.route('**/api/files/drives', route => route.fulfill({ json: [drive] }))
+  await page.route('**/api/files/start', route => route.fulfill({ json: { path: filesDir } }))
+}
+
 export async function login(page: Page) {
   if (sharedAuthToken) {
     await page.context().addCookies([
@@ -76,6 +96,7 @@ export async function login(page: Page) {
     ])
   }
 
+  await stubFixtureMounts(page)
   await page.goto('/')
   if (!sharedAuthToken) {
     const password = page.locator('input[placeholder="Input password"]')

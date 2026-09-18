@@ -36,7 +36,7 @@ bun run report       # 打开上一次的 HTML 报告
 1. `scripts/build-app.mjs`：`bun run build`（`vite build` + 打包成 `frontend-assets.tar.gz`）
    → `go build`。**必须两步都做**，因为后端用 `go:embed` 把那个 tar.gz 编进二进制，
    只跑 `vite build` 浏览器拿到的还是旧前端。
-2. `scripts/fixture.mjs`：重建干净的夹具目录与 `config.json`（固定密码、`safeBaseDir` 指向夹具）。
+2. `scripts/fixture.mjs`：重建干净的夹具目录与 `config.json`（固定密码、`startPath` 指向夹具）。
 3. 启动二进制，由 Playwright 轮询 `http://127.0.0.1:4173/api/` 判断就绪，测试结束后关掉。
 
 所有可写的产物都在 `e2e/.file-lite-e2e/`（已 gitignore），

@@ -56,7 +56,7 @@ func parseSharedWSPropertiesMessage(raw []byte) (sharedWSPropertiesClientMessage
 
 	switch msg.Type {
 	case "get":
-		if msg.RequestID == "" || msg.Path == "" || !isPathSafe(msg.Path) {
+		if msg.RequestID == "" || msg.Path == "" {
 			return sharedWSPropertiesClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
 		}
 	case "cancel":

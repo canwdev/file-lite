@@ -179,12 +179,6 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 	if len(params.FromPaths) == 0 {
 		return Snapshot{}, errors.New("No source path")
 	}
-	for _, p := range params.FromPaths {
-		if !fileops.IsPathSafe(p) {
-			return Snapshot{}, errors.New("Path is not safe: " + p)
-		}
-	}
-
 	isDelete := params.Kind == KindDelete
 	if isDelete {
 		if params.ToPath != "" {
@@ -193,9 +187,6 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 	} else {
 		if params.ToPath == "" {
 			return Snapshot{}, errors.New("No destination path")
-		}
-		if !fileops.IsPathSafe(params.ToPath) {
-			return Snapshot{}, errors.New("Path is not safe: " + params.ToPath)
 		}
 		for _, p := range params.FromPaths {
 			if !fileops.ExistsAt(p) {

@@ -127,7 +127,8 @@ backend-go/
 │   ├── conflict.go        冲突分类、Windows 合并语义、uniquePath / duplicatePath
 │   ├── publish.go         PublishFile：同目录临时文件 + fsync + 原子改名
 │   ├── tempfile.go        临时文件命名（同目录、随机后缀）
-│   └── path.go            IsPathSafe / ExistsAt（从 routes 迁入）
+│   ├── path.go            ExistsAt（从 routes 迁入）
+│   └── vfs_path.go        canonical VFS 路径规则（见 vfs-abstraction-design.md）
 ├── tasks/                 任务管理器（异步执行 + 状态机 + 事件）
 │   ├── manager.go         注册表、并发闸门、事件广播、取消、冲突 TTL、结果上限
 │   └── task.go            任务结构、状态机、快照、结果聚合
@@ -334,7 +335,7 @@ done 的 200 条上限约束的顶层结果），前端据此 upsert / 删除列
 
 ### 3.9 安全与限制
 
-- 创建任务时对每个 `fromPaths` / `toPath` 做 `isPathSafe`（`config.SafeBaseDir()` 之内），保留「目标在源内部」检查（`utils.IsPathInsideOrEqual`）。
+- 创建任务时保留「目标在源内部」检查（`utils.IsPathInsideOrEqual`）；路径的访问范围限制（`safeBaseDir`）已删除。
 - 删除沿用 `removeEntrySafely` 的链接语义（只删链接本身）。
 - 任务注册表纯内存；**进程重启会中断进行中任务**。UI 需要提示。
 

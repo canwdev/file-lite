@@ -16,7 +16,7 @@ import (
 )
 
 // newUploadServer 注册上传与存在性检查两个端点。
-// 不加载 config，因此 safeBaseDir 为空、IsPathSafe 放行任意路径。
+// 不加载 config：路径不再有访问范围限制，测试直接用 t.TempDir() 下的绝对路径。
 func newUploadServer() *echo.Echo {
 	e := echo.New()
 	e.POST("/api/files/upload-file", uploadFile)

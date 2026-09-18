@@ -25,6 +25,7 @@ const readDirStatConcurrency = 64
 func registerFiles(g *echo.Group) {
 	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
+	g.GET("/start", func(c echo.Context) error { return getStartPath(c) })
 	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
 	g.POST("/rename", func(c echo.Context) error { return renamePath(c) })
@@ -49,10 +50,6 @@ func getAuthInfo(c echo.Context) error {
 			"selfUpdate": config.Config().AllowSelfUpdate,
 		},
 	})
-}
-
-func isPathSafe(p string) bool {
-	return fileops.IsPathSafe(p)
 }
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
@@ -121,9 +118,6 @@ func entryFromStatError(e os.DirEntry, err error) types.Entry {
 }
 
 func getDrives(c echo.Context) error {
-	if config.SafeBaseDir() != "" {
-		return c.JSON(http.StatusOK, []types.Drive{{Label: config.SafeBaseDir(), Path: config.SafeBaseDir()}})
-	}
 	home, _ := os.UserHomeDir()
 	homeDrive := types.Drive{Label: "Home", Path: home}
 	var list []types.Drive
@@ -140,10 +134,17 @@ func getDrives(c echo.Context) error {
 	return c.JSON(http.StatusOK, append([]types.Drive{homeDrive}, list...))
 }
 
+// getStartPath 返回配置里的起始目录（未配置时为空串）。
+//
+// 前端只在首次打开标签页时用一次：空串表示从挂载点列表开始，由用户自己选位置。
+func getStartPath(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{"path": config.StartPath()})
+}
+
 func getFiles(c echo.Context) error {
 	path := c.QueryParam("path")
-	if !isPathSafe(path) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe"})
+	if path == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
 
 	st, err := os.Stat(path)
@@ -216,8 +217,8 @@ func createDirectory(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
 	}
-	if !isPathSafe(body.Path) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe"})
+	if body.Path == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path is required"})
 	}
 	if utils.IsReservedTempName(filepath.Base(body.Path)) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid filename"})
@@ -245,9 +246,6 @@ func renamePath(c echo.Context) error {
 	}
 	if body.FromPath == body.ToPath {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Paths cannot be the same"})
-	}
-	if !isPathSafe(body.FromPath) || !isPathSafe(body.ToPath) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A specified path is not safe"})
 	}
 	if !isExist(body.FromPath) {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "Source path not found"})
@@ -298,9 +296,6 @@ func openInHostExplorer(c echo.Context) error {
 	}
 
 	for _, p := range paths {
-		if !isPathSafe(p) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe: " + p})
-		}
 		if !isExist(p) {
 			return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found: " + p})
 		}
@@ -314,8 +309,8 @@ func openInHostExplorer(c echo.Context) error {
 
 func getFileStream(c echo.Context) error {
 	path := c.QueryParam("path")
-	if !isPathSafe(path) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe"})
+	if path == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
 	}
 	if !isExist(path) {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "Path not found"})
@@ -379,11 +374,6 @@ func downloadPath(c echo.Context) error {
 	if len(paths) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path(s) parameter is required"})
 	}
-	for _, p := range paths {
-		if !isPathSafe(p) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe: " + p})
-		}
-	}
 	if len(paths) == 1 {
 		p := paths[0]
 		if !isExist(p) {
@@ -410,9 +400,6 @@ func uploadFile(c echo.Context) error {
 	qPath := c.QueryParam("path")
 	var dest string
 	if qPath != "" {
-		if !isPathSafe(qPath) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not safe: " + qPath})
-		}
 		dest = filepath.Dir(qPath)
 	} else {
 		dest = filepath.Join(config.DataBaseDir(), "uploads")
@@ -483,9 +470,6 @@ func existsPaths(c echo.Context) error {
 	}
 	existing := make([]string, 0, len(body.Paths))
 	for _, p := range body.Paths {
-		if !isPathSafe(p) {
-			continue
-		}
 		if fileops.ExistsAt(p) {
 			existing = append(existing, p)
 		}

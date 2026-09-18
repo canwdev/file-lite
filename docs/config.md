@@ -24,7 +24,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
   "port": "3100",
   "password": "2f8c1a9d0b3e4f56",
   "jwtToken": "9Xk...",
-  "safeBaseDir": "./",
+  "startPath": "",
   "logLevel": "warn",
   "sslKey": "",
   "sslCert": "",
@@ -41,7 +41,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 | `port` | string | `"3100"` | 监听端口。优先级：`--port` / `-p` > 配置文件 > 环境变量 `PORT` |
 | `password` | string | 随机 | 登录密码。为空时随机生成并写回；ephemeral 模式下只存在于内存。控制台不打印它，请查配置文件 |
 | `jwtToken` | string | 随机 | JWT 签名密钥。改它会让所有已登录会话立刻失效 |
-| `safeBaseDir` | string | `"./"` | 文件管理器的根目录，相对路径按启动时的工作目录解析；留空表示不限制 |
+| `startPath` | string | `""` | 首次打开页面时进入的目录，空表示从驱动器列表开始。相对路径按启动时的工作目录解析。只影响首次导航，**不限制**能访问哪些路径 |
 | `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
 | `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
 | `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
@@ -49,9 +49,12 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 
 超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，临时文件在改名之前一定 fsync。
 
+`safeBaseDir` 也已删除：**文件管理器可以访问进程有权限访问的任意路径**，不再有一个受限根。需要改变首次进入的位置用 `startPath`，它只影响起点、不是访问范围。
+
 ## 注意
 
 - `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
+- **服务进程有权访问的每一个路径，登录后都能读写**（`safeBaseDir` 删除后的行为）。只在你信任的网络里运行；必要时配合 `allowedCIDRs` 限制来源。
 - `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
 - 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。
 - 环境变量只在配置文件没有写该字段时生效：命令行 > 配置文件 > 环境变量。
