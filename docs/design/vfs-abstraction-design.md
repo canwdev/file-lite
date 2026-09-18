@@ -368,6 +368,38 @@ os 级实现**：
 正确的形态是用户可维护的 `networkLocations: string[]`（写进 config，侧边栏单开
 Network 分组），而不是自动枚举。
 
+#### 8.4.3 用户手动添加的网络位置：可以本地枚举
+
+资源管理器「此电脑 → 添加一个网络位置」加进去的共享**不是映射盘符**，所以
+`GetLogicalDriveStringsW` 看不到，`HKCU\Network` 也是空的。但它们是本地可读的：
+
+```
+%APPDATA%\Microsoft\Windows\Network Shortcuts\<显示名>\
+    desktop.ini   CLSID2={0AFACED1-E828-11D1-9187-B532F1E9575D}
+    target.lnk    指向 \\host\share
+```
+
+`utils/network_locations_windows.go` 读这个目录、认 CLSID、从 `target.lnk` 的
+UTF-16 段取出 UNC 目标（实测 `\\DESKTOP-ROGZ16\shared` 稳定可读），产出
+`//host/share`、`kind = network`。
+
+**绝不做可达性预检**——这是实测出来的硬约束：
+
+| 情况 | 一次 `stat` 耗时 |
+| --- | --- |
+| 共享可达 | ~11ms |
+| 主机在、共享不存在 | ~29ms |
+| 主机不可达（TEST-NET-1） | **2549ms** |
+| 主机名解析不了 | **1263ms** |
+
+枚举时逐个探测会让侧边栏卡住好几秒，所以只列出来，可达性交给路径本身：
+点进去会得到 503（可重试），见 §5.3 的错误映射。
+
+**边界**：这是**每用户**数据。服务器以服务账户运行时读不到当前登录用户的
+`%APPDATA%`，那就列不出来（安静返回空，不是错误）；以用户身份运行时正常。
+不实现完整 MS-SHLLINK 解析——只取一个 `\\host\share` 字符串，扫不到就跳过，
+宁可少一个入口也不猜出错误路径。
+
 ### 8.5 `filepath.Dir` 的跨平台陷阱
 `filepath.Dir("C:\\Users\\me\\a.txt")` 在非 Windows 上返回 `"."`。
 `routes/fs_changes.go:58,67,74` 与 `routes/files.go:416` 依赖它取父目录——

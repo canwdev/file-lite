@@ -125,7 +125,10 @@ func GetWindowsDrives() []types.Drive {
 	// 4. WSL 发行版：本机卷枚举不到它们，但用户完全可能想直接进 Debian。
 	list = append(list, wslDistroDrives()...)
 
-	// 5. 排序：盘符在前 (C, D, E...)，网络位置（WSL）在后。
+	// 5. 用户手动添加的网络位置（不是映射盘符，盘符枚举看不到）。
+	list = append(list, networkLocationDrives()...)
+
+	// 6. 排序：盘符在前 (C, D, E...)，网络位置（WSL、网络共享）在后。
 	//
 	// 不能只按 Path 排：`//wsl.localhost/...` 的 "/" (0x2F) 排在 "C" (0x43) 之前，
 	// 于是 WSL 会挤在本地盘上面。分组排序让侧边栏先给"这台机器有什么盘"，

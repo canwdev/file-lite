@@ -28,9 +28,17 @@ func TestGetWindowsDrivesShape(t *testing.T) {
 		switch {
 		case isDriveLetter(d.Path):
 			// 盘符：kind 由 driveKind 判定，这里只钉形态
-		case strings.HasPrefix(d.Path, "//wsl.localhost/"):
+		case strings.HasPrefix(d.Path, "//"):
+			// UNC 位置（WSL 发行版、用户添加的网络共享）：都走网络栈
 			if d.Kind != types.DriveKindNetwork {
-				t.Errorf("WSL 位置 %q 应当是 network，得到 %q", d.Path, d.Kind)
+				t.Errorf("UNC 位置 %q 应当是 network，得到 %q", d.Path, d.Kind)
+			}
+			segs := strings.Split(strings.Trim(d.Path, "/"), "/")
+			if len(segs) < 2 || segs[0] == "" || segs[1] == "" {
+				t.Errorf("UNC 位置 %q 不是 //host/share 形态", d.Path)
+			}
+			if strings.Contains(d.Path, `\`) {
+				t.Errorf("UNC 位置 %q 含反斜杠，canonical 形态只允许 \"/\"", d.Path)
 			}
 		default:
 			t.Errorf("位置 %q 既不是盘符也不是已知的 UNC 形态", d.Path)

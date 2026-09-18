@@ -84,6 +84,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The sidebar shows the list of locations when no folder has been opened yet, instead of silently dropping into the root of the file system (frontend).
 - A mapped network drive, and a drive letter linked to a share, are shown with the network icon like other network locations (backend, frontend).
 - Installed WSL distributions now appear in the sidebar as their own locations, below the local disks and with the network icon, so `\\wsl.localhost\Debian` no longer has to be typed into the address bar by someone who happens to know the rule; the list comes from the registry, so it costs about a millisecond and never waits on the network (backend, frontend).
+- Network locations added to This PC with "Add a network location" — a share that was never given a drive letter, such as `\\DESKTOP-ROGZ16\shared` — now appear in the sidebar too, read from the shortcut Explorer keeps for them rather than by probing the network; a location only shows up for the account the server runs as, and one that is offline reports itself as unreachable when opened (backend, frontend).
 - `startPath` can point at a network share: its leading double slash is kept, where it used to be folded into a single one so the first tab opened an unrelated folder on the server's own disk (backend).
 
 ### Fixes
