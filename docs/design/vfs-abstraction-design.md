@@ -423,7 +423,7 @@ UTF-16 段取出 UNC 目标（实测 `\\DESKTOP-ROGZ16\shared` 稳定可读）�
 
 1. **枚举时标 `kind = locked`**，标签写成 `BitLocker (H:)`。不这样做的后果是它看起来
    就是「一块有盘符、没容量、点进去报错的本地盘」，用户完全不知道原因。
-   前端按 `kind` 给锁图标（`mdi-lock-outline`，注册在 `utils/icons.ts`）。
+   前端按 `kind` 给「文件夹 + 锁」图标（`folder-lock-outline`，注册在 `utils/icons.ts`）。
 2. **错误码 423**（Locked）而不是 500：这不是「服务出了故障」，而是「这个卷现在打不开、
    去解锁就行」。
 3. **原样保留系统那句话**：「This drive is locked by BitLocker Drive Encryption.

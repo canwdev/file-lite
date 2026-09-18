@@ -13,7 +13,7 @@ const component = computed(() => resolveMdiComponent(props.name))
  *
  * `MdiIcon` 对未注册的名字会**静默**回落成问号图标（见 AGENTS.md 的图标约定），
  * 所以「渲染出了一个 svg」并不能证明用对了图标。把这个名字暴露出来，
- * 测试就能断言「这里确实是 lock-outline」，而不是只断言「有个图标」。
+ * 测试就能断言「这里确实是 folder-lock-outline」，而不是只断言「有个图标」。
  */
 const iconName = computed(() => normalizeMdiName(props.name))
 </script>

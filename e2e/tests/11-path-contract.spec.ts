@@ -252,12 +252,12 @@ test.describe('路径与挂载点', () => {
     // 锁图标：侧边栏这一步就能让用户看出「不是盘坏了，是没解锁」。
     // 断言 data-icon 而**不是**「有没有 svg」：MdiIcon 对未注册的名字会静默回落成
     // 问号图标，只数 svg 的话名字写错了也照样通过（见 AGENTS.md 的图标约定）。
-    await expect(locked.locator('.drive-list__icon [data-icon]')).toHaveAttribute('data-icon', 'lock-outline')
+    await expect(locked.locator('.drive-list__icon [data-icon]')).toHaveAttribute('data-icon', 'folder-lock-outline')
     // 另一块盘必须用别的图标——两者一样的话「锁」就没有信息量了。
     // （这个夹具没给容量，所以是 folder-outline 而不是 harddisk：容量未知的老回退。）
     const normal = page.locator('.drive-list__item', { hasText: 'Files' })
     const normalIcon = await normal.locator('.drive-list__icon [data-icon]').getAttribute('data-icon')
-    expect(normalIcon).not.toBe('lock-outline')
+    expect(normalIcon).not.toBe('folder-lock-outline')
 
     await locked.click()
 

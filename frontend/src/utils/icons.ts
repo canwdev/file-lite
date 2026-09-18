@@ -76,6 +76,7 @@ import MdiFlagCheckered from '~icons/mdi/flag-checkered'
 import MdiFlagOutline from '~icons/mdi/flag-outline'
 import MdiFolder from '~icons/mdi/folder'
 import MdiFolderDownloadOutline from '~icons/mdi/folder-download-outline'
+import MdiFolderLockOutline from '~icons/mdi/folder-lock-outline'
 import MdiFolderMoveOutline from '~icons/mdi/folder-move-outline'
 import MdiFolderNetworkOutline from '~icons/mdi/folder-network-outline'
 import MdiFolderOpenOutline from '~icons/mdi/folder-open-outline'
@@ -103,7 +104,6 @@ import MdiLanguageJavascript from '~icons/mdi/language-javascript'
 import MdiLanguageMarkdownOutline from '~icons/mdi/language-markdown-outline'
 import MdiLinkVariant from '~icons/mdi/link-variant'
 import MdiLoading from '~icons/mdi/loading'
-import MdiLockOutline from '~icons/mdi/lock-outline'
 import MdiLogout from '~icons/mdi/logout'
 import MdiMagnify from '~icons/mdi/magnify'
 import MdiMenu from '~icons/mdi/menu'
@@ -312,8 +312,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'home': MdiHome,
   'wifi': MdiWifi,
   'key-outline': MdiKeyOutline,
-  // 加密但未解锁的卷（Windows 的 BitLocker）
-  'lock-outline': MdiLockOutline,
+  // 加密但未解锁的卷（Windows 的 BitLocker）：仍是个位置，所以是文件夹 + 锁
+  'folder-lock-outline': MdiFolderLockOutline,
   'menu': MdiMenu,
   'checkbox-blank-circle': MdiCheckboxBlankCircle,
   'checkbox-marked-circle': MdiCheckboxMarkedCircle,

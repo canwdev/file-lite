@@ -179,7 +179,7 @@ function openMount(path: string) {
  */
 function mountIcon(mount: { kind?: string }): string {
   if (mount.kind === 'locked') {
-    return 'lock-outline'
+    return 'folder-lock-outline'
   }
   if (mount.kind === 'network') {
     return 'folder-network-outline'
