@@ -487,15 +487,31 @@ canonical 路径统一用 `/`，而 `filepath.Base`/`filepath.Dir` 在 Windows �
 | 3 | 挂载表 + `Resolve` + 调用点迁移 + 并发档位 + `getDrives` | 本地行为回归全绿；`getDrives` 带 `kind` | ✅ 已实现 |
 | 4 | 前端（UNC 豁免、面包屑、`kind` 图标、起始状态） | 前端用例绿；地址栏/侧边栏交互符合 §5.3 | ✅ 已实现 |
 | 5 | 文档 + CHANGELOG | `docs/config.md` 等无 `safeBaseDir` 残留；CHANGELOG 各一条 | ✅ 已实现 |
-| — | E2E | 迁到 Windows 开发机后再做，用例见 §5.4 | 暂缓 |
+| — | E2E | 与平台无关的路径契约用例见 `e2e/tests/11-path-contract.spec.ts` | ✅ 已实现 |
 
 阶段 3 实际落地的东西比计划多：迁移过程中发现并修掉了一批**只在 Windows 上暴露**的
 缺陷（canonical 路径被 `filepath.Dir` 切错、盘符根退化成相对路径 `D:`、
 UNC 会匹配到 `/` 这个挂载点、上传的 `keep-both` 返回错名字、properties WS 拿
 canonical 路径直接喂 `os.Stat`）。这些单独记在 `CHANGELOG.md` 的 Fixes 里。
 
-**没做**：§5.4 的 E2E 用例。AGENTS.md 要求在用户明确要求时才新增 / 运行 e2e，
-本次改动虽然不小，但没有被要求，所以只跑既有 Go 与前端单测。
+### E2E 落地情况（2026-09）
+
+新增 `e2e/tests/11-path-contract.spec.ts`（10 个用例），覆盖 §5.4 建议清单里
+**与平台无关**的那部分：挂载点驱动的面包屑、上一级停点、地址栏各种写法落点、
+UNC 前导 `//` 存活、列目录失败的错误呈现（404 / 503 不互相冒充）、
+「同目录刷新失败不顶掉已有列表」。整套 54 个用例全绿。
+
+顺带修掉两个 e2e 自身的 Windows 问题：
+
+- `run-tests.mjs` / `install-browser.mjs` 之前 `spawn` `.bin` 垫片，在 Windows 上
+  直接 `EINVAL`（`spawn` 不允许执行 `.cmd`，而 bun 装的是 `.exe`）。改成用 `node`
+  跑 Playwright 的 `cli.js`，与平台无关。
+- `05-failure-retry.spec.ts` 用 `chmod 0500` 制造写失败——在 Windows 上不生效，
+  于是这条用例拿不到任何失败、后续断言全部落空。与 Go 侧同样的修法：把目标位置
+  先做成一个**文件**，写完再换回目录。
+
+**仍然没做**：`\\server\share` / `\\wsl.localhost` 的真实读写、断网重试、
+千文件目录在网络档位下的加载时间——这些只能在有共享的机器上手工验证，见 §5.5。
 
 **建议**：阶段 1 与 2 可以合在一个 PR（前者零行为变更，后者是纯删除），
 阶段 3 单独一个 PR（真正的重构），阶段 4 与 5 一起。这样每个 PR 的回归面都可控。

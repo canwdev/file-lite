@@ -64,8 +64,9 @@ bun run report       # 打开上一次的 HTML 报告
 | `08-tabs.spec.ts` | 内置标签页的新增（追加在最后）/ 切换 / 保活 / 关闭 / 持久化；最后一个标签不能关；顶栏与工具栏等高；拖拽排序并持久化；右键 Close to the left / right / others；拖到另一个标签的内容区；拖文件悬停标签 500ms 自动切换且标签不接受落点；`Alt+T` / `Alt+数字` / `Alt+W` | — |
 | `09-file-selector.spec.ts` | 选择器模式（打开服务器视频）：单面板、没有标签栏，选中后能返回 | — |
 | `10-split-view.spec.ts` | 标签拆分视图：吸收右邻标签合并且只留一个关闭按钮；没有邻接时新建同路径面板；子菜单的交换视图 / 切换方向 / 取消拆分；总关闭按钮关掉两个面板；拆分随刷新保留；两个面板的 list/grid 与图标大小互不影响；跨面板拖文件；拖动分隔线调整大小 | — |
+| `11-path-contract.spec.ts` | VFS 路径契约：面包屑第一段 = 挂载点根；「上一级」在挂载点根停住；地址栏里各种写法（尾分隔符 / 连续斜杠 / 点段 / 父目录段 / 反斜杠）落到同一个目录；UNC 前导 `//` 不被折叠；列目录失败时列表区显示原因 + Try again，404 与 503 不互相冒充；同目录刷新失败不顶掉已有列表 | `11-mount-breadcrumb`、`11-list-error` |
 
-合计 44 个用例，单次运行约 95 秒。
+合计 54 个用例，单次运行约 95 秒。
 
 ## 截图
 
@@ -119,6 +120,23 @@ pkill -x file-lite-go
 `expect.poll` 的回调一旦**抛错就立刻失败、不会重试**（实测：4ms、只调用 1 次）。
 所以「等异步操作落地」不能用 `fs.readFileSync` 直接抛 ENOENT，
 要用 `helpers.ts` 里不抛错的 `readTextIfExists` / `fs.existsSync`。
+
+**地址栏用例：编辑器打不开 / 只输入了一部分**
+两个坑（见 `11-path-contract.spec.ts` 的 `openAddressBar`）：
+
+1. 「点地址栏」**不**进编辑态——容器的 click 只在恰好落到 padding 上时才进编辑，
+   而那个落点随路径长度变化。走 `Alt+A`（面板注册的快捷键）才可靠。
+2. `Alt+A` 的作用域由 `event.target.closest('[data-shortcut-scope]')` 解析，
+   所以焦点必须在 `.explorer-wrap` 内。**提交一次路径后焦点会落到 `<body>`**，
+   此时快捷键静默失效，必须先 focus 回根节点（用 `page.evaluate` 直接 focus，
+   `locator.focus()` 会走 actionability 检查而超时）。
+3. `fill` 与 `Enter` 要分两次调用：编辑器刚打开时面包屑的溢出测量会在同一帧改布局，
+   连在一起写 `fill` 会被打断、**只留下一部分字符**（实测面包屑显示成 `i`）。
+
+**构建阶段报 `spawn EINVAL` / `Executable doesn't exist`**
+前者是 Windows 上 `spawn` 无法直接执行 `.cmd` 垫片——`run-tests.mjs` 与
+`install-browser.mjs` 已改成用 `node` 跑 Playwright 的 `cli.js`，与平台无关。
+后者是浏览器没装：`bun run install:browser`（装进项目内的 `.browsers`）。
 
 **改了前端却没生效**
 先确认 `bun run test`（而不是 `E2E_SKIP_BUILD=1`）——只有完整构建才会更新

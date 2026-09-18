@@ -137,15 +137,42 @@ upload/               a.txt（与服务端同名）、fresh.txt
 
 ![文件管理器](../e2e/screenshots/01-file-manager.png)
 
+### 路径与挂载点
+
+面包屑的第一段是**挂载点根**（盘符、UNC 共享、Home 或 Linux 的挂载目录），
+不是在它之上的语法根：`D:/Users/me` 的第一段是 `D:/`，`//server/share/docs`
+的第一段是 `//server/share/`。「上一级」到挂载点根为止，`canGoUp` 与
+`getParentPath` 都以挂载表为界（设计依据见
+[`vfs-abstraction-design.md`](./vfs-abstraction-design.md) §3、§5.2）。
+截图是在 `drag/inbox` 下，面包屑只有三段：夹具根 + `drag` + `inbox`。
+
+![挂载点驱动的面包屑](../e2e/screenshots/11-mount-breadcrumb.png)
+
+### 列目录失败
+
+列目录失败时列表区**留下原因**（警告图标 + 可点的 Try again），而不是显示
+「This folder is empty」——那是在骗用户：目录里到底有什么我们并不知道，只是没读到。
+toast 仍然会弹一次，两者互补：toast 说完就消失，空状态会一直留着。
+地址栏里的非法路径返回 400、不存在的路径返回 404、网络位置不可达返回 503，
+三者不互相冒充。
+
+![列目录失败](../e2e/screenshots/11-list-error.png)
+
 ## 与后端测试的分工
 
 | 层次 | 位置 | 覆盖 |
 | --- | --- | --- |
 | 文件操作原语 | `backend-go/fileops/*_test.go` | 策略矩阵、**取消后无残留 / 无半个文件**、结果集上限、扫描、Windows 合并语义 |
+| 路径规则 | `backend-go/fileops/vfs_path_test.go`、`mount_test.go` | canonical 规则表、挂载点最长前缀与**段边界**、并发档位、`IsWithinRoot` 的 UNC 例外 |
 | 任务状态机 | `backend-go/tasks/manager_test.go` | 冲突暂停 / 决策 / 取消 / TTL、重试只挑失败项、创建必须广播完整快照 |
-| HTTP 接口 | `backend-go/routes/upload_test.go` | 上传默认拒绝覆盖 / overwrite / keep-both、保留前缀、启动不死锁 |
+| HTTP 接口 | `backend-go/routes/*_test.go` | 上传策略、400 / 404 / 503 的错误码契约、rename 进子树、drives 带 kind |
+| 前端纯函数 | `frontend/src/**/*.test.ts`（`bun test`） | `normalizePath` 的 UNC 豁免、段边界匹配、面包屑与上一级 |
 | 真实 WS 冒烟 | 手工脚本（本文未收录） | 冲突→决策→执行、运行中取消、中断上传、临时文件不可见 |
-| **浏览器 UI** | **`e2e/`（本文）** | **上面全部行为的用户可见路径**：弹窗、双页签面板与进度条、取消、失败清单、跨窗口可见、原地粘贴、下载文件名、拖拽移动 / 复制与系统拖入上传 |
+| **浏览器 UI** | **`e2e/`（本文）** | **上面全部行为的用户可见路径**：弹窗、双页签面板与进度条、取消、失败清单、跨窗口可见、原地粘贴、下载文件名、拖拽移动 / 复制与系统拖入上传、挂载点面包屑与列目录失败的呈现 |
 
 上层不重复下层：E2E 不验证策略矩阵的每个组合（那是单测的事），只验证
 「用户点得到、看得见、结果对」。
+
+> UNC / WSL 的**真实读写**（`\\server\share`、`\\wsl.localhost\<发行版>`）
+> 需要在有共享的机器上验证，E2E 只覆盖与平台无关的路径规则，
+> 详见 [`vfs-abstraction-plan.md`](./vfs-abstraction-plan.md) §5.5 与 §8.4。
