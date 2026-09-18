@@ -122,8 +122,7 @@ filepath.Clean("//server/share")      = "/server/share"       ← 在 Linux 上�
 | 3 | `C:/Users/` | `C:/Users` | 非根去掉尾斜杠 |
 | 4 | `\\server\share` | `//server/share/` | UNC 前导 `//` 保留；共享根保留尾斜杠 |
 | 5 | `\\server\share\docs\` | `//server/share/docs` | 同上 |
-| 6 | `\\wsl.localhost\Debian\home\me` | `//wsl.localhost/Debian/home/me` | WSL 是 UNC 特例，无额外规则 |
-| 7 | `/home/me/../other` | `/home/other` | 允许在挂载根内折叠 `.` / `..` |
+| 6 | `\\wsl.localhost\Debian\home\me` | `//wsl.localhost/Debian/home/me` | WSL 是 UNC 特例，无额外规则 || 7 | `/home/me/../other` | `/home/other` | 允许在挂载根内折叠 `.` / `..` |
 | 8 | `/data/../../etc` | **拒绝** | 折叠后越出挂载根 |
 | 9 | `//server/share/../..` | **拒绝** | 不得逃出共享根 |
 | 10 | `//server//share//docs` | `//server/share/docs` | 折叠重复分隔符 |
@@ -134,6 +133,7 @@ filepath.Clean("//server/share")      = "/server/share"       ← 在 Linux 上�
 | 15 | `/data/a\b.txt`（Unix） | `/data/a/b.txt` | `\` 一律折叠为分隔符（见 §8.2 的取舍：含反斜杠的 Unix 文件名因此不可达） |
 | 16 | `/data/é.txt`（NFC/NFD） | 原样 | 不做 Unicode 归一化 |
 | 17 | `C:Users` | **拒绝** | 驱动器相对路径（依赖进程当前目录），不猜成 `C:/Users` |
+| 18 | `\\server`、`\\wsl.localhost\` | **拒绝**（`ErrPathNeedsShare`） | 只给到主机名；提示写成 `//host/share`。理由见 §8.4.1——`\\host\` 没有可用的 os 级实现 |
 
 ### 4.3 专用 cleaner
 
@@ -323,6 +323,29 @@ Windows「网络邻居」的自动枚举走 COM 外壳命名空间（`IShellFold
 重且与「不管凭据」冲突。本设计只要求：枚举本机卷 + 映射盘符
 （`GetDriveType == DRIVE_REMOTE`）、Unix 下从 `/proc/mounts` 识别 cifs/nfs/9p，
 其余靠用户直接输入路径。**不承诺**完整的网络发现。
+
+#### 8.4.1 `\\host\` 本身不支持，且拒绝是有技术依据的
+
+只写到主机名的 UNC（`\\wsl.localhost`、`\\DESKTOP-ROGZ16`）被拒绝，返回
+`ErrPathNeedsShare`（`//host/share` 才接受）。这不是「懒得做」，而是它**没有可用的
+os 级实现**：
+
+- Win32 文件 API 不接受 UNC 主机根。实测
+  `[System.IO.Directory]::GetDirectories('\\wsl.localhost')` 与
+  `'\\DESKTOP-ROGZ16'` 一律 `ERROR_INVALID_NAME`（"The specified path is invalid"），
+  加不加尾斜杠都一样。
+- 资源管理器里之所以能展开，是因为它走**外壳命名空间**（`IShellFolder` /
+  网络邻居）自己枚举共享，而不是把 `\\host\` 当成目录去读。
+- 本项目的每一层都建立在「路径交给 `os.*` 就能用」之上（见 §4、§5），
+  引入一条「只有外壳能解析的路径形态」会让 canonical 规则、挂载表、并发档位、
+  错误映射同时失去依据。
+- 枚举共享还要网络往返与凭据处理，与 §8.4 的「不管凭据」直接冲突。
+
+**因此**：`\\host\share` 与 `\\wsl.localhost\<发行版>` 完全支持（共享名就是根），
+`\\host\` 报错并提示正确写法。侧边栏也不列网络位置——用地址栏输入即可。
+将来若真要做 WSL 的侧边栏入口，依据在注册表
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\*` 的 `DistributionName`
+（读注册表，无延迟、不联网），而不需要碰 `\\host\` 这种形态。
 
 ### 8.5 `filepath.Dir` 的跨平台陷阱
 `filepath.Dir("C:\\Users\\me\\a.txt")` 在非 Windows 上返回 `"."`。

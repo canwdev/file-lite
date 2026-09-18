@@ -103,7 +103,20 @@ describe('canonicalizePath', () => {
   })
 
   // ---- 畸形 UNC ----
-  test.each(['\\\\server', '//server'])('畸形 UNC 必须报错 %j', (input: string) => {
+  // 只给到主机名是最常见的误用（照着资源管理器输 `\\wsl.localhost`），
+  // 给它专门的错误码，文案要能直接告诉用户该补共享名。
+  test.each(['\\\\server', '//server', '//wsl.localhost/'])('UNC 缺共享名 %j', (input: string) => {
+    expect(() => canonicalizePath(input)).toThrow(PathError)
+    expect(() => canonicalizePath(input)).toThrow('must name a share')
+    try {
+      canonicalizePath(input)
+    }
+    catch (error) {
+      expect((error as PathError).code).toBe('needs-share')
+    }
+  })
+
+  test.each(['\\\\\\share', '\\\\.\\share', '\\\\server\\..'])('畸形 UNC %j', (input: string) => {
     expect(() => canonicalizePath(input)).toThrow(PathError)
     expect(() => canonicalizePath(input)).toThrow('malformed')
   })

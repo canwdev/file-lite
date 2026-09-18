@@ -23,6 +23,12 @@ var (
 	ErrPathNotAbsolute = errors.New("path is not absolute")
 	// ErrPathMalformed 表示路径形态不合法（UNC 主机名/共享名缺失）。
 	ErrPathMalformed = errors.New("path is malformed")
+	// ErrPathNeedsShare 表示 UNC 只给到了主机名，没给共享名。
+	//
+	// 单独一条错误（而不是并进 ErrPathMalformed）是因为它是**用户最常犯**的那一个：
+	// 看到资源管理器里 `\\wsl.localhost` 能展开，就很自然地照着输进地址栏。
+	// 所以这里的文案要说清「为什么不行、该怎么写」，而不是只说一句形态不合法。
+	ErrPathNeedsShare = errors.New("a network path must name a share, for example //host/share")
 	// ErrPathEscapesRoot 表示折叠 "." / ".." 之后路径越出了所在根。
 	ErrPathEscapesRoot = errors.New("path escapes its root")
 )
@@ -53,7 +59,8 @@ func isDotSegment(s string) bool {
 //	C:/            盘符（C: 与 C:/ 等价）
 //	/              Unix
 //
-// 非绝对路径返回 ErrPathNotAbsolute；形态不完整的 UNC 返回 ErrPathMalformed。
+// 非绝对路径返回 ErrPathNotAbsolute；UNC 只给了主机名返回 ErrPathNeedsShare
+// （见 §8.4.1）；其余形态不完整返回 ErrPathMalformed。
 func splitRoot(p string) (root, rel string, err error) {
 	p = strings.ReplaceAll(p, `\`, "/")
 
@@ -61,12 +68,21 @@ func splitRoot(p string) (root, rel string, err error) {
 	case strings.HasPrefix(p, "//"):
 		// 先把分隔符折叠成单个，再取前两段：否则 "//server//share//docs" 里
 		// 空的共享名段会让根切分错位。
-		body := strings.Trim(p, "/")
+		raw := strings.TrimPrefix(p, "//")
+		body := strings.Trim(raw, "/")
 		for strings.Contains(body, "//") {
 			body = strings.ReplaceAll(body, "//", "/")
 		}
 		parts := strings.SplitN(body, "/", 3)
+		// 只给了主机名（"//wsl.localhost"、"//server"）时是「没写共享名」——
+		// 最常见的误用，给专门的错误与能照抄的写法。
+		//
+		// 判断必须看**剥斜杠之前**的形态：`\\\share`（空主机名）剥完是
+		// ["share"]，与 "//share" 长得一模一样，只有开头多出来的那个 `/` 能区分。
 		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			if len(parts) == 1 && parts[0] != "" && !isDotSegment(parts[0]) && !strings.HasPrefix(raw, "/") {
+				return "", "", ErrPathNeedsShare
+			}
 			return "", "", ErrPathMalformed
 		}
 		// 主机名与共享名本身不允许是 "." / ".."

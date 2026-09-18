@@ -79,7 +79,10 @@ func TestCanonicalizePath(t *testing.T) {
 		{"Unix 去尾斜杠", `/home/me/`, "/home/me", nil},
 
 		// ---- 畸形 UNC ----
-		{"UNC 缺共享名", `\\server`, "", ErrPathMalformed},
+		// 只给到主机名：最常见的误用（照着资源管理器输 \\wsl.localhost），
+		// 给专门的错误，文案要能直接告诉用户该补什么。
+		{"UNC 缺共享名", `\\server`, "", ErrPathNeedsShare},
+		{"UNC 缺共享名带尾斜杠", `//wsl.localhost/`, "", ErrPathNeedsShare},
 		{"UNC 空主机名", `\\\share`, "", ErrPathMalformed},
 		{"UNC 点点主机", `\\.\share`, "", ErrPathMalformed},
 		{"UNC 点点共享", `\\server\..`, "", ErrPathMalformed},

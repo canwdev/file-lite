@@ -15,7 +15,7 @@
 export class PathError extends Error {
   constructor(
     message: string,
-    readonly code: 'not-absolute' | 'malformed' | 'escapes-root',
+    readonly code: 'not-absolute' | 'malformed' | 'needs-share' | 'escapes-root',
   ) {
     super(message)
     this.name = 'PathError'
@@ -60,9 +60,18 @@ export function splitRoot(input: string): { root: string, rel: string } {
 
   if (p.startsWith('//')) {
     // 先折叠分隔符再取前两段：否则 `//server//share//docs` 会把空段当成共享名。
+    const raw = p.slice(2)
     const body = p.replace(/^\/+|\/+$/g, '').replace(/\/{2,}/g, '/')
     const parts = body.split('/')
+    // 只给了主机名（`//wsl.localhost`、`//server`）时是「没写共享名」——最常见的误用，
+    // 给专门的错误码与能直接照抄的写法。与后端 ErrPathNeedsShare 对齐。
+    //
+    // 判断必须看**剥斜杠之前**的形态：`\\\share`（空主机名）剥完是 ['share']，
+    // 与 `//share` 长得一模一样，只有开头多出来的那个 `/` 能区分。
     if (parts.length < 2 || parts[0] === '' || parts[1] === '') {
+      if (parts.length === 1 && parts[0] !== '' && !DOT_SEGMENTS.has(parts[0]) && !raw.startsWith('/')) {
+        throw new PathError('a network path must name a share, for example //host/share', 'needs-share')
+      }
       throw new PathError('path is malformed', 'malformed')
     }
     if (DOT_SEGMENTS.has(parts[0]) || DOT_SEGMENTS.has(parts[1])) {
