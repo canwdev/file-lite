@@ -183,12 +183,18 @@ func ComparisonKey(original string) string {
 // IsWithinRoot 判断 canonical 路径 p 是否位于 canonical 根 root 之内（含 root 自身）。
 //
 // 必须是**段边界**匹配：裸 strings.HasPrefix 会把 "/data2" 判成在 "/data" 之内。
+//
+// UNC 是**独立**的命名空间：`//server/share` 虽然字面上落在 "/" 之下，但不属于
+// 本机 Unix 根那个卷（见 mount.go 的 isWithinRootKey 与 §5.2）。
 func IsWithinRoot(p, root string) bool {
 	if p == "" || root == "" {
 		return false
 	}
 	if p == root {
 		return true
+	}
+	if strings.HasPrefix(root, "/") && !strings.HasPrefix(root, "//") && strings.HasPrefix(p, "//") {
+		return false
 	}
 	r := root
 	if !strings.HasSuffix(r, "/") {

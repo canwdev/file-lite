@@ -143,6 +143,10 @@ export function comparisonKey(input: string): string {
  * 判断 canonical 路径 `p` 是否位于 canonical 根 `root` 之内（含 root 自身）。
  *
  * 必须是**段边界**匹配：裸 `startsWith` 会把 `/data2` 判成在 `/data` 之内。
+ *
+ * UNC 是**独立**的命名空间：`//server/share` 虽然字面上落在 `/` 之下，但不属于
+ * 本机 Unix 根那个卷。不排除这一条的话，`/` 这个挂载点会把所有 UNC 路径都吞掉，
+ * 于是网络位置被判成本机卷、并发档位与图标跟着一起错。
  */
 export function isWithinRoot(p: string, root: string): boolean {
   if (p === '' || root === '') {
@@ -150,6 +154,9 @@ export function isWithinRoot(p: string, root: string): boolean {
   }
   if (p === root) {
     return true
+  }
+  if (root.startsWith('/') && !root.startsWith('//') && p.startsWith('//')) {
+    return false
   }
   const r = root.endsWith('/') ? root : `${root}/`
   return p.startsWith(r)

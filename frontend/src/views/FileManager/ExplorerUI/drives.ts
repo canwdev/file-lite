@@ -9,6 +9,7 @@ import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
 import { fsWebApi } from '@/api/filesystem'
 import { normalizeListingPath } from '../utils'
+import { findMountRoot } from '../utils/volume-mounts'
 
 export const driveList = ref<IDrive[]>([])
 export const drivesLoading = ref(false)
@@ -81,18 +82,30 @@ export function loadStartPath(): Promise<string> {
  * 路径所属的卷根（驱动器 / 挂载点）。
  *
  * 取「最长匹配前缀」是因为挂载点可以嵌套：`/data` 与 `/` 同时命中时，`/data/x`
- * 属于 `/data` 而不是 `/`。找不到匹配返回 null（卷未知，调用方按同卷处理）。
+ * 属于 `/data` 而不是 `/`。匹配必须是**段边界**：裸 `startsWith` 会把 `/data2/x`
+ * 判成属于 `/data`，于是跨卷判断错了，拖拽会把跨卷复制做成同卷移动。
+ *
+ * 找不到匹配返回 null（卷未知，调用方按同卷处理）。
  */
 export function resolveVolumeRoot(path: string): string | null {
-  const target = normalizeListingPath(path)
-  let best: string | null = null
-  for (const drive of driveList.value) {
-    const root = normalizeListingPath(drive.path)
-    if (target === root || target.startsWith(root)) {
-      if (!best || root.length > best.length) {
-        best = root
-      }
-    }
+  return findMountRoot(path, mountPaths())
+}
+
+/**
+ * 当前挂载点路径（listing 形态）。
+ *
+ * 供 `utils/index.ts` 的挂载感知导航（canGoUp / getParentPath / 面包屑）读取。
+ * 这里做一次归一化并缓存，避免每次按键都重新算一遍整张表。
+ */
+let cachedMountPaths: string[] = []
+let cachedMountSource: IDrive[] = []
+
+export function mountPaths(): readonly string[] {
+  const list = driveList.value
+  if (list === cachedMountSource) {
+    return cachedMountPaths
   }
-  return best
+  cachedMountSource = list
+  cachedMountPaths = list.map(drive => normalizeListingPath(drive.path))
+  return cachedMountPaths
 }

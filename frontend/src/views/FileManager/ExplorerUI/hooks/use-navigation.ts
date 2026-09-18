@@ -34,8 +34,12 @@ export function useNavigation({ basePath, getListFn }: {
 
     try {
       basePath.value = basePathNormalized.value
+      // 空路径 = 「还没有选中位置」。这不是 `/`：默认进根目录会把用户直接丢到
+      // 整个文件系统的顶上，而卷列表才是真正该从这里开始的界面。
+      // 面板会渲染挂载点列表，这里不发请求、也不清空列表（没有「上一个目录」可言）。
       if (!basePath.value) {
-        basePath.value = '/'
+        isLoading.value = false
+        return
       }
       const target = normalizeListingPath(basePath.value)
       sameDir = loadedPath.value === target

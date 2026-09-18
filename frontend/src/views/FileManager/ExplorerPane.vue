@@ -10,9 +10,11 @@ import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
+import { bytesToSize } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
+import { driveList, loadDrives } from './ExplorerUI/drives'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
@@ -155,6 +157,38 @@ const addressBarPath = computed({
   set: (v: string) => {
     basePath.value = v
   },
+})
+
+/**
+ * 「还没选中位置」：面板不列任何目录，改为展示挂载点列表。
+ *
+ * 判断依据是**原始**路径（`props.path`）而不是 `basePathNormalized`——后者会把空串
+ * 归一成 `/`，正是这个状态要被区分掉的东西。
+ */
+const isUnselected = computed(() => !currentPath.value)
+
+/** 未选中状态下点一个挂载点：进入它的根 */
+function openMount(path: string) {
+  void handleOpenPath(normalizeListingPath(path))
+}
+
+/**
+ * 挂载点图标。只用手册里已注册的名字——`MdiIcon` 对未注册的名字会**静默**回落成
+ * 问号图标，不会构建失败（见 AGENTS.md 的图标约定）。
+ */
+function mountIcon(mount: { kind?: string }): string {
+  if (mount.kind === 'network') {
+    return 'folder-network-outline'
+  }
+  if (mount.kind === 'home') {
+    return 'home'
+  }
+  return 'harddisk'
+}
+
+onMounted(() => {
+  // 挂载点列表在未选中状态下就是全部内容，必须保证已加载。
+  void loadDrives()
 })
 
 const fileListRef = ref()
@@ -484,7 +518,31 @@ defineExpose({
     </div>
     <div class="explorer-content-wrap vgo-u-scrollbar">
       <div class="explorer-file-panel">
+        <!-- 还没选中位置：给挂载点列表，而不是默认钻进整个文件系统的根 -->
+        <div v-if="isUnselected" class="explorer-mount-list vgo-u-scrollbar">
+          <div class="explorer-mount-list__title">
+            Locations
+          </div>
+          <button
+            v-for="mount in driveList"
+            :key="mount.path"
+            type="button"
+            class="vgo-u-button-reset vgo-list-item explorer-mount-list__row"
+            :title="mount.path"
+            @click="openMount(mount.path)"
+          >
+            <MdiIcon :name="mountIcon(mount)" />
+            <span class="explorer-mount-list__name vgo-u-text-overflow">{{ mount.label }}</span>
+            <span v-if="mount.total" class="explorer-mount-list__meta">
+              {{ bytesToSize(mount.free ?? 0) }} free
+            </span>
+          </button>
+          <div v-if="!driveList.length" class="vgo-empty">
+            No locations available.
+          </div>
+        </div>
         <FileList
+          v-else
           ref="fileListRef"
           v-model:is-loading="isLoading"
           :files="files"
@@ -602,6 +660,42 @@ defineExpose({
     height: 100%;
     min-width: 0;
     min-height: 0;
+  }
+
+  // 未选中位置时的挂载点列表：布局只有这一层，视觉全部来自 vgo 原语
+  .explorer-mount-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vgo-space-1);
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: var(--vgo-space-4);
+
+    &__title {
+      font-size: var(--vgo-font-sm);
+      color: var(--vgo-text-secondary);
+    }
+
+    &__row {
+      width: 100%;
+      min-height: var(--vgo-control-md);
+      padding-inline: var(--vgo-space-2);
+      text-align: left;
+      gap: var(--vgo-space-2);
+    }
+
+    &__name {
+      flex: 1;
+      min-width: 0;
+      line-height: 1.4;
+    }
+
+    &__meta {
+      flex-shrink: 0;
+      font-size: var(--vgo-font-sm);
+      color: var(--vgo-text-secondary);
+    }
   }
 
   .last-media-fab-wrapper {

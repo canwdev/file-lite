@@ -4,14 +4,11 @@ import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { resolveMenuIcons } from '@/utils/icons'
-import { normalizeListingPath, normalizePath } from '../utils'
+import { getBreadcrumbSegments, normalizeListingPath, normalizePath } from '../utils'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './entry-drag'
 import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFolderListingOk } from './folder-listing'
 
-export interface BreadcrumbSegment {
-  name: string
-  path: string
-}
+export type BreadcrumbSegment = ReturnType<typeof getBreadcrumbSegments>[number]
 
 const props = defineProps<{
   modelValue: string
@@ -23,43 +20,6 @@ const emit = defineEmits<{
   'openPathInNewTab': [string]
   'refresh': []
 }>()
-
-function getBreadcrumbSegments(path: string): BreadcrumbSegment[] {
-  const raw = (path || '').trim()
-  if (!raw) {
-    return []
-  }
-  const normalized = normalizePath(raw)
-  const trimmed = normalized.replace(/\/+$/, '') || '/'
-
-  if (trimmed === '/') {
-    return [{ name: '/', path: '/' }]
-  }
-
-  const isUnix = trimmed.startsWith('/')
-  const out: BreadcrumbSegment[] = []
-
-  if (isUnix) {
-    out.push({ name: '/', path: '/' })
-    const rest = trimmed.slice(1)
-    const segments = rest.split('/').filter(Boolean)
-    let acc = ''
-    for (const seg of segments) {
-      acc = `${acc}/${seg}`
-      out.push({ name: seg, path: `${acc}/` })
-    }
-  }
-  else {
-    const segments = trimmed.split('/').filter(Boolean)
-    let acc = ''
-    for (let i = 0; i < segments.length; i++) {
-      acc = i === 0 ? segments[i] : `${acc}/${segments[i]}`
-      out.push({ name: segments[i], path: `${acc}/` })
-    }
-  }
-
-  return out
-}
 
 const editing = ref(false)
 const editDraft = ref('')

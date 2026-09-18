@@ -28,6 +28,14 @@ declare module 'bun:test' {
   export function expect(actual: unknown): Matchers
   export function beforeEach(fn: () => void | Promise<void>): void
   export function afterEach(fn: () => void | Promise<void>): void
+  /**
+   * 替换一个模块的实现。用于让被测代码摆脱 `@/` 别名依赖（Vue / axios / 后端 API），
+   * 见 `path-navigation.test.ts`。
+   */
+  export function mock(reason?: string): void
+  export namespace mock {
+    function module(specifier: string, factory: () => unknown): void
+  }
 }
 
 interface Window {
