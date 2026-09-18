@@ -70,23 +70,20 @@ const AUTH_TOKEN_COOKIE = 'file_lite_auth_token'
 let sharedAuthToken: string | null = null
 
 /**
- * 把夹具目录伪装成唯一的「盘」，并让它作为起始目录。
+ * 把夹具目录伪装成唯一的「盘」。
  *
- * 1.5.0 起后端不再有 `safeBaseDir`：`/api/files/drives` 返回真实的系统挂载点，
- * 起始目录来自 config 的 `startPath`。但用例需要的是「夹具目录就是根」，
- * 所以在测试侧接管这两个端点，而不是改动生产行为：
+ * 1.5.0 起后端不再有 `safeBaseDir`，也不再有 `startPath`：首次打开进入
+ * `/api/files/drives` 的**第一个位置**（真实环境下是 Home）。所以用例需要的
+ * 「夹具目录就是根」由这里在测试侧接管，而不是改动生产行为：
  *
- * - `drives` 只报夹具目录，于是侧边栏第一项、以及各用例里
- *   `.drive-list__item').first()` 这个「回根」入口都落在夹具根上；
- * - `start` 返回同一个路径，首次打开的标签页直接进入夹具根。
+ * - `drives` 只报夹具目录，于是侧边栏第一项、首次打开进入的目录、以及各用例里
+ *   `.drive-list__item').first()` 这个「回根」入口都落在夹具根上。
  *
- * `scripts/fixture.mjs` 里的 `config.startPath` 是同一件事的另一半：
- * 服务器确实从 `startPath` 进入，这里只覆盖「盘列表里没有夹具目录」的差异。
+ * 注：真实盘列表是整个文件系统（Home + 各卷 + WSL + 网络位置），不适合当测试根。
  */
 async function stubFixtureMounts(page: Page) {
-  const drive = { label: 'Files', path: filesDir }
+  const drive = { label: 'Files', path: filesDir, kind: 'volume' }
   await page.route('**/api/files/drives', route => route.fulfill({ json: [drive] }))
-  await page.route('**/api/files/start', route => route.fulfill({ json: { path: filesDir } }))
 }
 
 export async function login(page: Page) {

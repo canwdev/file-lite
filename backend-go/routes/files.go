@@ -28,7 +28,6 @@ func registerFiles(g *echo.Group) {
 
 	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
-	g.GET("/start", func(c echo.Context) error { return getStartPath(c) })
 	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
 	g.POST("/rename", func(c echo.Context) error { return renamePath(c) })
@@ -140,13 +139,6 @@ func enumerateDrives() []types.Drive {
 		list = append(list, utils.GetUnixMounts()...)
 	}
 	return list
-}
-
-// getStartPath 返回配置里的起始目录（未配置时为空串）。
-//
-// 前端只在首次打开标签页时用一次：空串表示从挂载点列表开始，由用户自己选位置。
-func getStartPath(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]string{"path": config.StartPath()})
 }
 
 func getFiles(c echo.Context) error {

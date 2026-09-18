@@ -24,7 +24,6 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
   "port": "3100",
   "password": "2f8c1a9d0b3e4f56",
   "jwtToken": "9Xk...",
-  "startPath": "",
   "logLevel": "warn",
   "sslKey": "",
   "sslCert": "",
@@ -41,7 +40,6 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 | `port` | string | `"3100"` | 监听端口。优先级：`--port` / `-p` > 配置文件 > 环境变量 `PORT` |
 | `password` | string | 随机 | 登录密码。为空时随机生成并写回；ephemeral 模式下只存在于内存。控制台不打印它，请查配置文件 |
 | `jwtToken` | string | 随机 | JWT 签名密钥。改它会让所有已登录会话立刻失效 |
-| `startPath` | string | `""` | 首次打开页面时进入的目录，空表示从驱动器列表开始。相对路径按启动时的工作目录解析。只影响首次导航，**不限制**能访问哪些路径。Windows 上可以填 UNC 路径（`\\server\share` 或 `\\wsl.localhost\Debian`） |
 | `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
 | `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
 | `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
@@ -49,7 +47,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 
 超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，临时文件在改名之前一定 fsync。
 
-`safeBaseDir` 也已删除：**文件管理器可以访问进程有权限访问的任意路径**，不再有一个受限根。需要改变首次进入的位置用 `startPath`，它只影响起点、不是访问范围。
+`safeBaseDir` 与 `startPath` 也已删除：**文件管理器可以访问进程有权限访问的任意路径**，不再有一个受限根，也不再有「服务端指定的起始目录」。首次打开进入**位置列表的第一个**（通常是 Home），之后的位置由地址栏或侧边栏自由切换——起点不再是配置项，也就不会再出现「配置里写了一个不存在的目录」这类问题。旧配置里残留的这两个字段会被忽略，不影响启动。
 
 ## 注意
 

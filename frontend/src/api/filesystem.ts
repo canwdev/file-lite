@@ -27,14 +27,6 @@ export const fsWebApi = {
   async getDrives() {
     return (await service.get(`${baseURL}/drives`)) as unknown as IDrive[]
   },
-  /**
-   * 配置里的起始目录（`startPath`），未配置时为空串。
-   * 只在首次打开标签页时用一次；空串表示从挂载点列表开始。
-   */
-  async getStartPath() {
-    const res = await service.get(`${baseURL}/start`) as unknown as { path?: string }
-    return res?.path ?? ''
-  },
   async getList(params: any = {}, config: ServiceRequestConfig = {}) {
     const { path } = params
     return await service.get(`${baseURL}/list`, {

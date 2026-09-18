@@ -42,7 +42,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Features
 
 - The `safeBaseDir` config option is gone: the file manager can now reach every path the server process can, so a folder anywhere on the machine — including a network share such as `\\server\share` or a WSL distribution at `\\wsl.localhost\Debian` — can be opened by typing its path in the address bar (backend).
-- A new `startPath` config option picks the folder the first tab opens, which used to be what `safeBaseDir` was used for; leaving it empty starts from the drive list (backend, frontend).
+- The `startPath` config option is gone: opening the app enters the first location in the drive list (normally Home) and you navigate from there, so a typo in the config can no longer leave the first tab pointing at a folder that does not open; the field is ignored if it is still in your config file (backend, frontend).
 - On Linux the sidebar's drive list shows only real storage — the pseudo file systems (`/proc`, `/sys`, `/run`, container layers) and WSL's internal mounts no longer clutter it, a volume mounted at several paths appears once, and each entry now reports its free and total space, so the usage bar and the "Used / Available" tooltip finally have data (backend, frontend).
 - The sidebar tells a network location (NFS, CIFS, WSL's 9p drives) from a local volume with a network folder icon, and home with a plain home icon (frontend).
 - The explorer has built-in tabs: open several folders at once and switch between them, and each tab keeps its own folder, selection, filter and scroll position (frontend).
@@ -81,11 +81,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Opening a folder that cannot be reached on a network share now says the location is unreachable and can be retried, instead of claiming the folder does not exist; an invalid path is refused as such, instead of being reported as a missing file (frontend, backend).
 - Opening a network path that names only a host — `\\wsl.localhost` by itself — now explains that a share has to be named and shows the `//host/share` form, instead of answering "path is malformed"; the location itself is not browseable because the file system refuses it, so it stays out of the sidebar too (backend, frontend).
 - Listing a folder on a network share no longer fires one request per entry at the same time: the concurrency drops from 64 to 6 for network locations, while local disks keep all 64 (backend).
-- The sidebar shows the list of locations when no folder has been opened yet, instead of silently dropping into the root of the file system (frontend).
+- The list of locations is shown if the drive list comes back empty, instead of silently dropping into the root of the file system (frontend).
 - A mapped network drive, and a drive letter linked to a share, are shown with the network icon like other network locations (backend, frontend).
 - Installed WSL distributions now appear in the sidebar as their own locations, below the local disks and with the network icon, so `\\wsl.localhost\Debian` no longer has to be typed into the address bar by someone who happens to know the rule; the list comes from the registry, so it costs about a millisecond and never waits on the network (backend, frontend).
 - Network locations added to This PC with "Add a network location" — a share that was never given a drive letter, such as `\\DESKTOP-ROGZ16\shared` — now appear in the sidebar too, read from the shortcut Explorer keeps for them rather than by probing the network; a location only shows up for the account the server runs as, and one that is offline reports itself as unreachable when opened (backend, frontend).
-- `startPath` can point at a network share: its leading double slash is kept, where it used to be folded into a single one so the first tab opened an unrelated folder on the server's own disk (backend).
 
 ### Fixes
 

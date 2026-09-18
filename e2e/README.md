@@ -36,7 +36,7 @@ bun run report       # 打开上一次的 HTML 报告
 1. `scripts/build-app.mjs`：`bun run build`（`vite build` + 打包成 `frontend-assets.tar.gz`）
    → `go build`。**必须两步都做**，因为后端用 `go:embed` 把那个 tar.gz 编进二进制，
    只跑 `vite build` 浏览器拿到的还是旧前端。
-2. `scripts/fixture.mjs`：重建干净的夹具目录与 `config.json`（固定密码、`startPath` 指向夹具）。
+2. `scripts/fixture.mjs`：重建干净的夹具目录与 `config.json`（固定密码）。
 3. 启动二进制，由 Playwright 轮询 `http://127.0.0.1:4173/api/` 判断就绪，测试结束后关掉。
 
 所有可写的产物都在 `e2e/.file-lite-e2e/`（已 gitignore），
@@ -132,6 +132,13 @@ pkill -x file-lite-go
    `locator.focus()` 会走 actionability 检查而超时）。
 3. `fill` 与 `Enter` 要分两次调用：编辑器刚打开时面包屑的溢出测量会在同一帧改布局，
    连在一起写 `fill` 会被打断、**只留下一部分字符**（实测面包屑显示成 `i`）。
+
+**拆分视图里拖不动分隔线**
+`page.mouse.*` 在这条用例里打不到 dragger 上：它只有 4px 宽，而且前面的落盘刷新会
+让面板重排，`mousedown` 恰好落在重排的空档里（实测 dragger 上一个事件都收不到，
+于是每个阶段量到的宽度完全相同，看起来像「拖动无效」）。
+`el-splitter` 监听的就是 dragger 上的 `mousedown` + window 上的 `mousemove` / `mouseup`，
+所以用例改成直接按事件派发，既确定又不需要命中 4px 的目标。
 
 **构建阶段报 `spawn EINVAL` / `Executable doesn't exist`**
 前者是 Windows 上 `spawn` 无法直接执行 `.cmd` 垫片——`run-tests.mjs` 与

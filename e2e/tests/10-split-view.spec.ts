@@ -232,17 +232,32 @@ test.describe('拆分视图', () => {
     await expect.poll(() => readTextIfExists(path.join(targetDir, 'b.txt'))).toBe('beta')
 
     // 拖动分隔线：左窄右宽，且不需要刷新就生效
+    //
+    // 不用 page.mouse.*：实测在这条用例里 mousedown 打不到 dragger 上
+    //（dragger 只有 4px 宽，鼠标按下时元素正在因为前面的落盘刷新而重排），
+    // 于是 before 与 after 完全相同、看起来像「拖动无效」。
+    // el-splitter 监听的就是 dragger 上的 mousedown + window 上的 mousemove/mouseup，
+    // 直接按事件派发既确定又不需要命中 4px 的目标。
     await expect.poll(async () => Math.min(...await panelWidths(page))).toBeGreaterThan(100)
     const before = await panelWidths(page)
-    const dragger = page.locator('.explorer-tab-panel:visible .el-splitter-bar__dragger')
-    const box = await dragger.boundingBox()
+    const box = await page.locator('.explorer-tab-panel:visible .el-splitter-bar__dragger').boundingBox()
     expect(box).not.toBeNull()
-    const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2
-    const cy = (box?.y ?? 0) + (box?.height ?? 0) / 2
-    await page.mouse.move(cx, cy)
-    await page.mouse.down()
-    await page.mouse.move(cx - 150, cy, { steps: 5 })
-    await page.mouse.up()
+    const cx = Math.round((box?.x ?? 0) + (box?.width ?? 0) / 2)
+    const cy = Math.round((box?.y ?? 0) + (box?.height ?? 0) / 2)
+
+    await page.evaluate(({ cx, cy }) => {
+      const dragger = document.querySelector<HTMLElement>(
+        '.explorer-tab-panel:not([style*="display: none"]) .el-splitter-bar__dragger',
+      ) ?? document.querySelector<HTMLElement>('.el-splitter-bar__dragger')!
+      const fire = (target: EventTarget, type: string, x: number, y: number) => {
+        target.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y }))
+      }
+      fire(dragger, 'mousedown', cx, cy)
+      for (let i = 1; i <= 5; i++) {
+        fire(window, 'mousemove', cx - (150 * i) / 5, cy)
+      }
+      fire(window, 'mouseup', cx - 150, cy)
+    }, { cx, cy })
 
     const after = await panelWidths(page)
     expect(after[0]).toBeLessThan(before[0] - 50)

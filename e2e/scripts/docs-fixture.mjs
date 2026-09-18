@@ -33,11 +33,23 @@ function put(file, content, index) {
   fs.utimesSync(file, time, time)
 }
 
+/**
+ * 拷贝素材；源不存在时跳过并返回 false。
+ *
+ * 带封面与歌词的 mp3 由 ffmpeg 合成（`docs-assets.mjs` 的 `ensureSamples`），
+ * 没有 ffmpeg 时那一步会**主动降级**并只打一行日志。这里必须跟着降级而不是
+ * 抛 ENOENT——否则「没装 ffmpeg」会变成整个截图流程的硬失败，而它本该只是
+ * 少几张封面（脚本自己的日志就是这么承诺的）。
+ */
 function copy(from, to, index) {
+  if (!fs.existsSync(from)) {
+    return false
+  }
   fs.mkdirSync(path.dirname(to), { recursive: true })
   fs.copyFileSync(from, to)
   const time = new Date(BASE_TIME.getTime() - index * 53 * 60 * 1000)
   fs.utimesSync(to, time, time)
+  return true
 }
 
 /** 目录的 mtime 也得往回拨，否则属性窗口里会显示「刚刚」。 */
@@ -83,7 +95,6 @@ Everything runs from a single Go binary with the UI embedded.
   "host": "0.0.0.0",
   "port": "3111",
   "password": "change-me",
-  "startPath": "/srv/files",
   "logLevel": "warn",
   "allowedCIDRs": null,
   "allowSelfUpdate": false
@@ -118,6 +129,8 @@ release-notes.md,Documents,0.6 KB,2026-05-09
 /**
  * 重建演示库与它自己的 config.json。
  * 素材必须先由 ensureSamples() 准备好（这里只做拷贝，不联网）。
+ * 缺素材时对应条目直接跳过（见 copy 的注释）：没装 ffmpeg 只会少几首带封面的歌，
+ * 不该让整个截图流程失败。
  */
 export function resetDocsFixture() {
   fs.rmSync(docsFilesDir, { recursive: true, force: true })
@@ -159,7 +172,6 @@ export function resetDocsFixture() {
     host: '127.0.0.1',
     port: String(DOCS_PORT),
     password: DOCS_PASSWORD,
-    startPath: docsFilesDir,
     logLevel: 'error',
   }, null, 2))
 

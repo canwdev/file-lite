@@ -15,10 +15,23 @@
 | `993fb38` | `feat: route every file operation through the VFS resolver`（阶段 3） |
 | `618fa42` | `feat: make the frontend path handling UNC-safe and mount-driven`（阶段 4） |
 
-**仍然没做的**：E2E 用例（§5.4 的清单，AGENTS.md 要求用户明确要求才加），
-以及只能在真机上做的验证（§5.5 手工验证、§8 的 Windows 清单）。
+**仍然没做的**：只能在有共享的机器上验证的部分（§5.5 手工验证、§8 的 Windows 清单）。
 
 下面是阶段 1–5 的实现记录与踩坑汇总。
+
+## 后续调整：`startPath` 也已删除
+
+`startPath` 是阶段 2 为了「首个标签打开哪里」加的（`safeBaseDir` 的替代品），
+后来又作为 e2e 夹具的入口。但它带来一个不对称：**起点是服务端配置，而访问范围是
+整个文件系统**——配错了只会得到一个打不开的初始目录，用户还得自己导航走。
+
+现在删除：首次打开进入 `/api/files/drives` 的**第一个位置**（通常是 Home），
+其余靠地址栏与侧边栏。连带删除的还有 `GET /api/files/start`、
+`config.normalizePath`（只为归一化 startPath 而存在）、以及前端
+`loadStartPath()` / `configuredStartPath`。
+
+夹具与演示库改成在测试侧接管 `/api/files/drives`（返回夹具目录作为唯一位置），
+这样「夹具目录就是根」与生产行为解耦，也不再需要服务端配置配合。
 
 ## 交接说明（给下一个会话）
 
@@ -483,7 +496,7 @@ canonical 路径统一用 `/`，而 `filepath.Base`/`filepath.Dir` 在 Windows �
 | 阶段 | 内容 | 验收标准 | 状态 |
 | --- | --- | --- | --- |
 | 1 | canonical 规则（前后端各一份）+ 表驱动测试 | 规则表全绿；**现有行为零变化** | ✅ 已实现 |
-| 2 | 删 `safeBaseDir` / `IsPathSafe`，加 `startPath`，保留 `IsPathInsideOrEqual` | 全部既有 Go 测试绿；旧 config 仍能启动 | ✅ 已实现 |
+| 2 | 删 `safeBaseDir` / `IsPathSafe`，保留 `IsPathInsideOrEqual` | 全部既有 Go 测试绿；旧 config 仍能启动 | ✅ 已实现 |
 | 3 | 挂载表 + `Resolve` + 调用点迁移 + 并发档位 + `getDrives` | 本地行为回归全绿；`getDrives` 带 `kind` | ✅ 已实现 |
 | 4 | 前端（UNC 豁免、面包屑、`kind` 图标、起始状态） | 前端用例绿；地址栏/侧边栏交互符合 §5.3 | ✅ 已实现 |
 | 5 | 文档 + CHANGELOG | `docs/config.md` 等无 `safeBaseDir` 残留；CHANGELOG 各一条 | ✅ 已实现 |

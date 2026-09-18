@@ -38,7 +38,6 @@ type Cfg struct {
 	Port         string   `json:"port"`
 	Password     string   `json:"password"`
 	JWTToken     string   `json:"jwtToken"`
-	StartPath    string   `json:"startPath"`
 	LogLevel     string   `json:"logLevel"`
 	SSLKey       string   `json:"sslKey"`
 	SSLCert      string   `json:"sslCert"`
@@ -55,7 +54,6 @@ const Version = "1.5.0"
 
 var cfg Cfg
 var dataBaseDir string
-var startPath string
 var jwtToken string
 var configInitialized bool
 var configFilePath string
@@ -70,27 +68,6 @@ type authTicket struct {
 type AuthTicketInfo struct {
 	Value     string
 	ExpiresAt time.Time
-}
-
-// normalizePath 把本机路径统一成正斜杠写法，供前端使用。
-//
-// UNC 的前导 `//` 必须保留：`\\server\share` 归一化后应当是 `//server/share`，
-// 而朴素的 `strings.ReplaceAll(s, "//", "/")` 会把它塌成 `/server/share`——
-// 那是一个完全不同的位置（Unix 根下的普通目录），startPath 会因此指错。
-// 所以重复斜杠只在「根之后」折叠。
-func normalizePath(p string) string {
-	s := strings.ReplaceAll(p, "\\", "/")
-	if strings.HasPrefix(s, "//") {
-		body := strings.TrimLeft(s, "/")
-		for strings.Contains(body, "//") {
-			body = strings.ReplaceAll(body, "//", "/")
-		}
-		return "//" + body
-	}
-	for strings.Contains(s, "//") {
-		s = strings.ReplaceAll(s, "//", "/")
-	}
-	return s
 }
 
 // normalizeLogLevel 把配置里的等级归一化为四个合法值之一。空串或未知值回落到
@@ -111,7 +88,6 @@ func normalizeLogLevel(raw string) string {
 }
 
 func DataBaseDir() string     { return dataBaseDir }
-func StartPath() string       { return startPath }
 func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
@@ -121,21 +97,6 @@ func FrontendStorageFilePath() string {
 }
 func IsExplicitDevMode() bool {
 	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
-}
-
-// resolveStartPath 把配置里的 startPath 转成绝对路径。
-//
-// 注意这里用 filepath 是正确的：startPath 是**服务进程所在的真实文件系统**上的
-// 本机路径，不是需要跨平台一致的 VFS 路径（VFS 路径的规则见
-// docs/design/vfs-abstraction-design.md）。
-func resolveStartPath(raw, wd string) string {
-	if raw == "" {
-		return ""
-	}
-	if filepath.IsAbs(raw) {
-		return normalizePath(filepath.Clean(raw))
-	}
-	return normalizePath(filepath.Clean(filepath.Join(wd, raw)))
 }
 
 func LoadConfig(allowCreate bool) error {
@@ -159,7 +120,6 @@ func LoadConfig(allowCreate bool) error {
 		Port:        "",
 		Password:    "",
 		JWTToken:    "",
-		StartPath:   "",
 		LogLevel:    LogLevelWarn,
 		SSLKey:      "",
 		SSLCert:     "",
@@ -221,14 +181,6 @@ func LoadConfig(allowCreate bool) error {
 		configInitialized = true
 	} else {
 		configInitialized = false
-	}
-
-	// startPath 是前端首次打开时进入的目录；留空表示从挂载点列表开始。
-	// 相对路径按启动时的工作目录解析。只在首次导航用一次，不影响任何访问范围。
-	if cfg.StartPath != "" {
-		wd, _ := os.Getwd()
-		startPath = resolveStartPath(cfg.StartPath, wd)
-		fmt.Printf("startPath: %s\n", startPath)
 	}
 
 	jwtToken = cfg.JWTToken

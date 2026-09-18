@@ -43,7 +43,23 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const row = (page, name) => page.locator(`.explorer-main:visible tr[data-name="${name}"]`)
 const currentCrumb = page => page.locator('.explorer-main:visible .address-bar__crumb-text').last()
 
+/**
+ * 只把演示库报成唯一的「盘」。
+ *
+ * 1.5.0 起没有 `startPath`：首次打开进入 `/api/files/drives` 的第一个位置
+ * （真实环境是 Home）。截图需要每次都从演示库开始，所以在这里接管盘列表——
+ * 既让结果与宿主机的真实盘符无关，也让 `goToRoot`（点侧边栏第一项）落在演示库上。
+ *
+ * 截图里侧边栏是收起状态，所以这份替身不会改变画面内容。
+ */
+async function stubDemoMount(page) {
+  await page.route('**/api/files/drives', route => route.fulfill({
+    json: [{ label: 'Files', path: docsFilesDir, kind: 'volume' }],
+  }))
+}
+
 async function login(page) {
+  await stubDemoMount(page)
   await page.goto(`${BASE}/`)
   await page.locator('.explorer-wrap').waitFor()
   await expect(row(page, 'Pictures')).toBeVisible()

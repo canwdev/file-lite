@@ -71,8 +71,5 @@ export function resetFixture() {
     host: '127.0.0.1',
     port: String(PORT),
     password: PASSWORD,
-    // 首次打开的标签页直接进入夹具根。盘列表由 tests/helpers.ts 的
-    // stubFixtureMounts 接管（真实盘列表是整个文件系统，不适合当测试根）。
-    startPath: filesDir,
   }, null, 2))
 }

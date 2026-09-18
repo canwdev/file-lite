@@ -26,7 +26,7 @@ playwright.config.ts 的 webServer
 scripts/start-app.mjs
         ├─ assertPortFree()          端口被占说明有孤儿进程 → 直接报错，不静默连旧进程
         ├─ build-app.mjs             前端 build → frontend-assets.tar.gz → go build
-        ├─ fixture.mjs              重建夹具目录 + config.json（固定密码 / startPath 指向夹具）
+        ├─ fixture.mjs              重建夹具目录 + config.json（固定密码）
         └─ spawn(二进制)              Playwright 轮询 /api/ 就绪，测试结束关掉
 ```
 

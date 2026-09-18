@@ -66,13 +66,31 @@ async function openAddressBar(page: import('@playwright/test').Page) {
  * `fill` 与 `Enter` 分开两次调用：编辑器刚打开时面包屑的溢出测量
  * （AddressBar.recomputeBreadcrumbFit）会在同一帧里改一次布局，紧跟着 `Enter`
  * 一起调用时 `fill` 会被那次重排打断、**只留下一部分字符**（实测面包屑显示成 "i"，
- * 也就是 6 次逐字输入只落下了 1 个）。先 fill、等值真的写进去，再单独提交。
+ * 也就是 6 次逐字输入只落下了 1 个）。
+ *
+ * 外面再包一层有限重试：编辑器偶尔会在布局重排的瞬间不可见（实测整轮跑时
+ * `fill` 会一直重试到 90 秒超时，单独跑同一条用例却是 9 秒过），
+ * 这时重新进一次编辑态就恢复了。重试次数有限，真有问题照样会失败。
  */
 async function typePathAndEnter(page: import('@playwright/test').Page, value: string) {
-  const input = await openAddressBar(page)
-  await input.fill(value)
-  await expect(input).toHaveValue(value)
-  await input.press('Enter')
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const input = await openAddressBar(page)
+      // 单次尝试用短超时：撞上重排时立刻失败并重试，而不是干等到用例超时
+      await input.fill(value, { timeout: 5000 })
+      await expect(input).toHaveValue(value, { timeout: 5000 })
+      await input.press('Enter')
+      return
+    }
+    catch (error) {
+      lastError = error
+      // 把编辑器关掉，下一次循环重新打开
+      await page.keyboard.press('Escape').catch(() => {})
+      await page.waitForTimeout(150)
+    }
+  }
+  throw lastError
 }
 
 test.describe('路径与挂载点', () => {

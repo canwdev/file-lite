@@ -27,6 +27,7 @@
 - **Bundle size**: single artifact stays around **20MB** or less
 - **Features**
   - Explorer: tabs and split view, list / grid, breadcrumbs, favourites, drives, hidden files, filter, per-path sort and layout
+  - Network drives: SMB / UNC shares and WSL distributions are first-class locations — mapped drive letters, shares added to This PC and installed WSL distros all show up in the sidebar, and any other path (`\\server\share`, `\\wsl.localhost\Debian`, a local folder) can be typed into the address bar. Network locations are read at a lower concurrency and an unreachable one reports itself as retryable instead of pretending the folder is gone
   - Files & folders: create, rename, move, copy, duplicate, delete, properties, per-extension default app
   - Transfers: drag & drop upload (files or folders), download, download a folder as ZIP; copy, move and delete are cancellable background tasks over the WebSocket ([design notes](./docs/design/async-file-operations-ws-design.md)), with progress and retry
   - Conflicts: replace, skip or keep both — per item or for the whole batch — and folders merge the way Windows Explorer does it
@@ -43,7 +44,6 @@
   - Console URLs use a short-lived `ticket` login parameter with a 2-minute TTL; printing URLs again generates a new `ticket`
   - “Remember login status” supports persistent cookies or browser-session cookies
   - Optional IP ban after repeated failed logins
-  - Configurable allowed root path scope
   - Optional [IP-range allowlist](./docs/ip-allowlist.md) (`allowedCIDRs`)
   - HTTPS including [self-signed certificates](./docs/ssl.md)
   - Login attempt rate limiting
