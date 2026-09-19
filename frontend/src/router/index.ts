@@ -5,7 +5,7 @@ import { fsWebApi } from '@/api/filesystem'
 import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authToken } from '@/store/auth'
-import { setServerCapabilities } from '@/store/capabilities'
+import { setServerBaseDir, setServerCapabilities } from '@/store/capabilities'
 import { isUnauthorizedError } from '@/utils/auth-error'
 
 const router = createRouter({
@@ -64,6 +64,7 @@ async function ensureAuthReady() {
   }
   const info = await fsWebApi.auth()
   setServerCapabilities(info?.capabilities)
+  setServerBaseDir(info?.baseDir)
   verifiedAuthToken = authToken.value
   warmSettingsStore()
 }

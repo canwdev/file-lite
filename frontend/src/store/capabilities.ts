@@ -19,6 +19,18 @@ function createDefaultCapabilities(): ServerCapabilities {
 
 export const serverCapabilities = ref<ServerCapabilities>(createDefaultCapabilities())
 
+/**
+ * 服务端配置的文件访问范围（`safeBaseDir`），空串表示不限制。
+ *
+ * 与能力开关同一份上报、同一个时机。它不影响功能开关，所以不并进
+ * `ServerCapabilities`：那不是「能力」，而是这次部署的一个约束。
+ */
+export const serverBaseDir = ref('')
+
+export function setServerBaseDir(value?: string | null) {
+  serverBaseDir.value = typeof value === 'string' ? value : ''
+}
+
 export function setServerCapabilities(value?: Partial<ServerCapabilities> | null) {
   const next = createDefaultCapabilities()
   if (value && typeof value.videoThumbnail === 'boolean') {

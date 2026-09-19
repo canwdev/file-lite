@@ -12,6 +12,13 @@ export type UploadConflictPolicy = 'error' | 'overwrite' | 'keep-both'
 /** 登录态探测的响应，同时携带后端能力开关 */
 export interface IAuthInfo {
   capabilities?: Partial<ServerCapabilities>
+  /**
+   * 服务端配置的文件访问范围（`safeBaseDir`），空串表示不限制。
+   *
+   * 后端只在配置了它时才收窄，此时范围之外的请求一律 403。前端拿到这个值是为了
+   * 把「为什么这里点不进去」讲清楚——一个没有说明的 403 只会让人以为坏了。
+   */
+  baseDir?: string
 }
 
 export const fsWebApi = {
