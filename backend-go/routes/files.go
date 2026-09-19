@@ -23,8 +23,8 @@ import (
 
 func registerFiles(g *echo.Group) {
 	// 挂载表要在任何路径解析之前就位：它决定一条路径属于哪个根。
-	// 与侧边栏用同一份枚举结果（enumerateDrives），避免两者漂移。
-	fileops.SetMounts(enumerateDrives())
+	// 与侧边栏用同一份枚举结果（visibleDrives），避免两者漂移。
+	fileops.SetMounts(visibleDrives())
 
 	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
@@ -51,6 +51,9 @@ func getAuthInfo(c echo.Context) error {
 			// 与 /api/update/exit 根本没注册；前端据此决定要不要显示那几个菜单项。
 			"selfUpdate": config.Config().AllowSelfUpdate,
 		},
+		// safeBaseDir 生效时的基目录，空串表示不限制。
+		// 前端用它把「为什么这里点不进去」讲清楚：一个没有说明的 403 只会让人以为坏了。
+		"baseDir": fileops.BaseDir(),
 	})
 }
 
@@ -120,7 +123,49 @@ func entryFromStatError(e os.DirEntry, err error) types.Entry {
 }
 
 func getDrives(c echo.Context) error {
-	return c.JSON(http.StatusOK, enumerateDrives())
+	return c.JSON(http.StatusOK, visibleDrives())
+}
+
+// visibleDrives 返回配置的访问范围之内可以暴露的位置。
+//
+// 未配 safeBaseDir 时就是 enumerateDrives() 的原样结果。
+//
+// 配了之后必须收窄，理由有两个，缺一不可：
+//
+//  1. **列表就是枚举面**。照报全盘等于继续告诉调用方「这台机器上有什么」，
+//     而访问控制刚刚才决定不让他看。
+//  2. **导航边界**。挂载点同时是「上一级能到哪」的停点。范围之外的挂载点留在表里，
+//     用户就会看到点不进去的盘（点进去 403），而原因在界面上完全看不出来。
+//
+// 收窄规则：保留**包含基目录的挂载点**（用户要能到达那里），以及**落在基目录之内
+// 的挂载点**（那是范围内的其他地方）；其余全部去掉。
+func visibleDrives() []types.Drive {
+	base := fileops.BaseDir()
+	if base == "" {
+		return enumerateDrives()
+	}
+
+	out := make([]types.Drive, 0, len(enumerateDrives())+1)
+	for _, d := range enumerateDrives() {
+		root, err := fileops.CanonicalizePath(d.Path)
+		if err != nil {
+			continue
+		}
+		if fileops.IsWithinRoot(base, root) || fileops.IsWithinRoot(root, base) {
+			out = append(out, d)
+		}
+	}
+
+	// 基目录本身不必是一个挂载点（Linux 上往往只有 /）。没有覆盖它的挂载点时补一个：
+	// 否则「上一级」会停在基目录之外，用户按一下就拿到 403。
+	if !fileops.HasMountFor(base) {
+		kind := types.DriveKindVolume
+		if fileops.IsNetworkTarget(base) {
+			kind = types.DriveKindNetwork
+		}
+		out = append(out, types.Drive{Label: fileops.BaseName(base), Path: base, Kind: kind})
+	}
+	return out
 }
 
 // enumerateDrives 枚举可导航的位置：Home + 本机卷 / 网络位置。
