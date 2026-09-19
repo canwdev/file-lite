@@ -1,2 +1,11 @@
 # CI 里的 shell 脚本必须是 LF，CRLF 会让 Linux 上的 bash 报 "invalid option name"
 *.sh text eol=lf
+
+# 自己也得固定成 LF，否则 core.autocrlf 会在 checkout 时把它变成 CRLF 并一直提示
+.gitattributes text eol=lf
+
+# 生成物固定 LF。unplugin-vue-components 每次构建都会用 LF 重写这个文件，而
+# core.autocrlf=true 会在 checkout 时把它变成 CRLF，于是每次构建完 `git status`
+# 都报它被改动、`git diff` 却什么都不显示（内容一致、只是行尾翻转），
+# Windows 上表现为一条永远清不掉的噪声。固定成 LF 后两边一致。
+frontend/components.d.ts text eol=lf
