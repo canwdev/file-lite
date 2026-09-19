@@ -197,21 +197,45 @@ func TestFSErrorStatusMapping(t *testing.T) {
 	}
 }
 
+// fveLockedError 是 Linux 上的替身：Errors.Is 命中 bitLockerLockedErrno，消息用系统措辞。
+//
+// 注意方法名是 `Is` 而不是 `As`：errors.Is 只认 `Is(error) bool` 与可比较性，
+// 写 `As` 的话 errors.As 能过、errors.Is 照样不命中（实测就是 500）。
+type fveLockedError struct{}
+
+func (fveLockedError) Error() string { return bitLockerSystemMessage }
+
+func (fveLockedError) Is(target error) bool {
+	errno, ok := target.(syscall.Errno)
+	return ok && errno == bitLockerLockedErrno
+}
+
+const bitLockerSystemMessage = "This drive is locked by BitLocker Drive Encryption. You must unlock this drive from Control Panel."
+
 // BitLocker 未解锁的卷：423 + 系统原话。
 //
 // 用 423（Locked）而不是 500：这不是「服务出了故障」，而是「这个卷现在打不开、
 // 去解锁就行」。消息必须是系统那句「去哪解锁」，不能退化成笼统的「读不到」。
+//
+// 错误值必须按平台构造。STATUS_FVE_LOCKED_VOLUME 是 Windows 专属状态码，直接拿
+// `syscall.Errno(0x80310000)` 当底在 Linux 上没有对应文本（Go 渲染成
+// "errno 2150694912"），于是同一条用例 Windows 绿、Linux 红——差别不在被测代码，
+// 而在用例假设了 Windows 的错误文本。Linux 上用 fveLockedError 覆盖同一条分支。
 func TestFSErrorStatusBitLocker(t *testing.T) {
-	// 与 utils 的 bitLockerLockedErrno 同一个值（STATUS_FVE_LOCKED_VOLUME）
-	const locked = syscall.Errno(0x80310000)
+	var locked error
+	if runtime.GOOS == "windows" {
+		locked = bitLockerLockedErrno
+	} else {
+		locked = fveLockedError{}
+	}
 	err := &os.PathError{Op: "CreateFile", Path: `H:\`, Err: locked}
 
 	status, message := fsErrorStatus(err, false)
 	if status != http.StatusLocked {
-		t.Fatalf("BitLocker 锁定应为 423，得到 %d", status)
+		t.Fatalf("BitLocker 锁定应为 423，得到 %d（message=%q）", status, message)
 	}
-	if !strings.Contains(message, "BitLocker") {
-		t.Fatalf("消息应保留系统原话（含 BitLocker），得到 %q", message)
+	if message != bitLockerSystemMessage {
+		t.Fatalf("消息应当是系统原话，得到 %q", message)
 	}
 	// Go 的 syscall 前缀与内部路径对用户没有意义，应当剥掉
 	if strings.Contains(message, "CreateFile") || strings.Contains(message, `H:\`) {

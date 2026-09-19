@@ -549,6 +549,10 @@ func (rs *runState) copyFileAtomic(srcPath, dstPath string) error {
 	return PublishFile(dstPath, PublishOptions{
 		Mode:  info.Mode(),
 		Mtime: info.ModTime(),
+		// 目标在网络位置上时，发布照旧（目标路径依旧不出现半个文件），只跳过
+		// fsync 与发布前的 chmod / chtimes；权限本身在创建临时文件时就带上。
+		// 见 PublishOptions.NetworkTarget。
+		NetworkTarget: IsNetworkTarget(dstPath),
 	}, func(w io.Writer) error {
 		_, err := io.Copy(&progressWriter{dst: w, rs: rs, current: srcPath}, ctxReader{ctx: rs.ctx, r: in})
 		return err

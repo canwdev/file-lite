@@ -530,6 +530,9 @@ func uploadFile(c echo.Context) error {
 
 	if err := fileops.PublishFile(destPathOS, fileops.PublishOptions{
 		Mode: 0644,
+		// 网络位置：仍然「临时文件 + 改名」（中断的上传不留半个文件），
+		// 但跳过 fsync 与发布前的 chmod——见 PublishOptions.NetworkTarget。
+		NetworkTarget: network,
 	}, func(w io.Writer) error {
 		_, err := io.Copy(w, src)
 		return err

@@ -45,7 +45,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 | `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
 | `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/update`（校验并替换自身二进制、重启）、`POST /api/update/restart`（原地重启进程）和 `POST /api/update/exit`（退出进程）。关闭时这三条路由**根本不注册**，请求得到 404 |
 
-超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，临时文件在改名之前一定 fsync。
+超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，**本机卷上**临时文件在改名之前一定 fsync。网络位置（SMB / NFS / 对象存储挂载）上不做这次 fsync，也不对齐权限与时间——那三处各是一次网络往返，而挂载层本身已经保证数据已提交。
 
 `safeBaseDir` 与 `startPath` 也已删除：**文件管理器可以访问进程有权限访问的任意路径**，不再有一个受限根，也不再有「服务端指定的起始目录」。首次打开进入**位置列表的第一个**（通常是 Home），之后的位置由地址栏或侧边栏自由切换——起点不再是配置项，也就不会再出现「配置里写了一个不存在的目录」这类问题。旧配置里残留的这两个字段会被忽略，不影响启动。
 

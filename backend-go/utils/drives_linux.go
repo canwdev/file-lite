@@ -38,12 +38,27 @@ var pseudoFileSystems = map[string]bool{
 
 // networkFileSystems 是需要走网络的文件系统，单独标成 network：
 // 它们拿不到可靠的容量（有的能拿、有的拿不到），界面上不该显示成磁盘。
+//
+// 还得包含「以网络为后端的 FUSE」：/proc/mounts 里报的是 `fuse.<name>`，
+// 形态上是一个普通挂载点、容量也可能拿得到，只有这张表知道它每次元数据操作
+// 都是一次网络往返。漏掉的后果不是显示难看，而是并发档位错成 64——
+// 对着 S3 同时甩出几十个对象请求，换来的是限流和请求费用（见 ReadDirConcurrency）。
+//
+// 只列**网络后端**。`fuse.sshfs` 这类已经在下面单列，因为缩写形式（`sshfs`）
+// 与 `fuse.` 前缀两种写法都可能出现；本地后端的 FUSE（如 `fuse.mergerfs`、
+// `fuse.bindfs`）不在其中——它们没有网络往返，按本机卷处理是对的。
 var networkFileSystems = map[string]bool{
 	"cifs": true, "smb3": true, "smbfs": true,
 	"nfs": true, "nfs4": true,
 	"sshfs": true, "fuse.sshfs": true,
-	"9p": true, "davfs": true, "fuse.davfs2": true,
+	"9p": true, "davfs": true, "fuse.davfs2": true, "fuse.davfs": true,
 	"afp": true, "fuse.afp": true,
+	// 对象存储 / 云盘：rename 是服务端 copy，元数据操作是往返。
+	"fuse.rclone":  true,
+	"fuse.s3fs":    true,
+	"fuse.gcsfuse": true,
+	"fuse.juicefs": true,
+	"fuse.goofys":  true,
 }
 
 // platformInternalMounts 是发行版 / 虚拟化层自己挂的内部路径，不是给用户浏览的位置。

@@ -126,6 +126,52 @@ func TestNetworkFileSystemsAreTagged(t *testing.T) {
 	}
 }
 
+// 网络后端的 FUSE 也必须算网络。
+//
+// 这张表曾经只列了内核自带的网络文件系统（cifs / nfs / 9p）与几个形如 `fuse.sshfs`
+// 的条目，漏掉了 rclone / s3fs 这些**以对象存储为后端**的 FUSE。它们形态上是一个
+// 普通挂载点，甚至能报出容量，所以漏判之后在侧边栏看起来完全正常——错的是并发档位：
+// 本机档 64，于是一次列目录就是几十个并发对象请求，换来的是限流与请求费用。
+func TestFuseNetworkBackendsAreTagged(t *testing.T) {
+	const fuseMounts = `/dev/sdd / ext4 rw,relatime 0 0
+remote:bucket /mnt/s3 fuse.rclone rw,nosuid,nodev,user_id=0 0 0
+s3fs /mnt/s3fs fuse.s3fs rw,nosuid,nodev 0 0
+bucket /mnt/gcs fuse.gcsfuse rw,nosuid 0 0
+juicefs /mnt/jfs fuse.juicefs rw,nosuid 0 0
+goofys /mnt/goofys fuse.goofys rw,nosuid 0 0
+user@host:/ /mnt/ssh fuse.sshfs rw,nosuid 0 0
+user@host:/ /mnt/ssh2 sshfs rw,nosuid 0 0
+/mnt/disk /mnt/bind fuse.bindfs rw 0 0
+/mnt/a /mnt/union fuse.mergerfs rw 0 0
+`
+
+	entries, err := parseMounts(writeTempMounts(t, fuseMounts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 网络后端：必须算网络，否则并发档位会错成 64。
+	for _, e := range entries {
+		switch e.fsType {
+		case "fuse.rclone", "fuse.s3fs", "fuse.gcsfuse", "fuse.juicefs", "fuse.goofys", "fuse.sshfs", "sshfs":
+			if !networkFileSystems[e.fsType] {
+				t.Errorf("%q 是网络后端的 FUSE，应当算网络位置", e.fsType)
+			}
+		}
+		if pseudoFileSystems[e.fsType] {
+			t.Errorf("%q 是真实存储，不该被当成伪文件系统", e.fsType)
+		}
+	}
+
+	// 本地后端的 FUSE 是反向用例：它们没有网络往返，按本机卷处理才对。
+	// 把它们也标成网络会让并发从 64 掉到 6，纯属自损。
+	for _, fsType := range []string{"fuse.bindfs", "fuse.mergerfs"} {
+		if networkFileSystems[fsType] {
+			t.Errorf("%q 是本地后端的 FUSE，不该算网络位置", fsType)
+		}
+	}
+}
+
 func TestUnescapeMountField(t *testing.T) {
 	cases := map[string]string{
 		`/plain/path`:          `/plain/path`,

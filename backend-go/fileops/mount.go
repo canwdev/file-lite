@@ -200,6 +200,26 @@ func NetworkPath(p string) bool {
 	return strings.HasPrefix(p, "//")
 }
 
+// IsNetworkTarget 判断一条路径是否位于网络位置。
+//
+// 给 fileops 的写入路径用（`PublishFile` 的 NetworkTarget）：挂载表只认 canonical
+// 路径，而复制循环手里是 os 路径（Windows 上带反斜杠）。两种形态都接受——反斜杠
+// 统一折成 "/"，否则 Windows 的 `\\server\share\...` 会被形态兜底漏掉，
+// 于是写出一个「同一条共享在 Windows 上算本机卷」的差异。
+//
+// 与 Resolved.Network 同源、判断也一致：先看所属挂载点的 Kind，形态上的 UNC 兜底
+// （挂载表为空时 UNC 也得算网络）。
+func IsNetworkTarget(p string) bool {
+	if p == "" {
+		return false
+	}
+	canonical := strings.ReplaceAll(p, `\`, "/")
+	if m, ok := LongestMount(canonical, GetMounts()); ok {
+		return m.Kind == types.DriveKindNetwork
+	}
+	return NetworkPath(canonical)
+}
+
 // Resolve 把一条 VFS 路径解析为「canonical 路径 + 所属挂载点」。
 //
 // 它是所有文件操作的统一入口，取代了原来的 fileops.IsPathSafe：
