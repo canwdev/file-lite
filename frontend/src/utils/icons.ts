@@ -50,6 +50,7 @@ import MdiDeleteSweep from '~icons/mdi/delete-sweep'
 import MdiDotsVertical from '~icons/mdi/dots-vertical'
 import MdiDownload from '~icons/mdi/download'
 import MdiDownloadOutline from '~icons/mdi/download-outline'
+import MdiEject from '~icons/mdi/eject'
 import MdiEyeOffOutline from '~icons/mdi/eye-off-outline'
 import MdiEyeOutline from '~icons/mdi/eye-outline'
 import MdiFastForward5 from '~icons/mdi/fast-forward-5'
@@ -75,6 +76,7 @@ import MdiFilterRemoveOutline from '~icons/mdi/filter-remove-outline'
 import MdiFlagCheckered from '~icons/mdi/flag-checkered'
 import MdiFlagOutline from '~icons/mdi/flag-outline'
 import MdiFolder from '~icons/mdi/folder'
+import MdiFolderArrowUpDownOutline from '~icons/mdi/folder-arrow-up-down-outline'
 import MdiFolderDownloadOutline from '~icons/mdi/folder-download-outline'
 import MdiFolderLockOutline from '~icons/mdi/folder-lock-outline'
 import MdiFolderMoveOutline from '~icons/mdi/folder-move-outline'
@@ -314,6 +316,10 @@ export const mdiIconRegistry: Record<string, Component> = {
   'key-outline': MdiKeyOutline,
   // 加密但未解锁的卷（Windows 的 BitLocker）：仍是个位置，所以是文件夹 + 锁
   'folder-lock-outline': MdiFolderLockOutline,
+  // 浏览器挂载的本地文件夹：同一个「位置」的含义，用带上下箭头的文件夹与普通磁盘区分
+  'folder-arrow-up-down-outline': MdiFolderArrowUpDownOutline,
+  // 取消挂载（弹出）：磁盘项右侧的操作按钮
+  'eject': MdiEject,
   'menu': MdiMenu,
   'checkbox-blank-circle': MdiCheckboxBlankCircle,
   'checkbox-marked-circle': MdiCheckboxMarkedCircle,

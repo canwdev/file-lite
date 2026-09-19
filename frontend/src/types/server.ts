@@ -11,8 +11,8 @@ export interface IEntry {
   error: string | null
 }
 
-/** 侧边栏里的一个可导航位置。 */
-export type DriveKind = 'volume' | 'network' | 'home' | 'locked'
+/** 侧边栏里的一个可导航位置。`mounted` 是浏览器挂载的本地文件夹，只存在于前端。 */
+export type DriveKind = 'volume' | 'network' | 'home' | 'locked' | 'mounted'
 
 export interface IDrive {
   label: string

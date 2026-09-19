@@ -14,12 +14,14 @@ import { bytesToSize } from '@/utils'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
+import { MountedFsError, readMountedDir } from './ExplorerUI/browser-fs'
 import { driveList, loadDrives } from './ExplorerUI/drives'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
+import { isMountedPath } from './ExplorerUI/mounted-volumes'
 import { normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
@@ -103,12 +105,29 @@ const {
 } = useNavigation({
   basePath,
   getListFn: async ({ signal } = {}) => {
+    // 浏览器挂载卷的内容在客户端，走后端只会拿到一条它解析不了的路径。
+    // 两条分支返回同一个 IEntry[]，所以下游（排序 / 过滤 / 预览 / 打开）不必区分。
+    if (isMountedPath(basePath.value)) {
+      if (signal?.aborted) {
+        return []
+      }
+      try {
+        return await readMountedDir(basePath.value, { showHidden: localSettingsStore.value.showHidden })
+      }
+      catch (error) {
+        console.error('[mounted-volumes] failed to list', basePath.value, error)
+        window.$message?.error(error instanceof MountedFsError && error.code === 'permission'
+          ? 'Access to this mounted folder was denied'
+          : 'Failed to read the mounted folder')
+        return []
+      }
+    }
+
     const res = await fsWebApi.getList({
       path: basePath.value,
     }, {
       signal,
     })
-    // console.log(res)
 
     return (res || [])
   },

@@ -9,7 +9,7 @@
  * （见 docs/design/vfs-abstraction-design.md §3、§5.2）。
  */
 import { isWithinRoot, PathError, splitRoot } from './canonical-path'
-import { normalizePath } from './index'
+import { normalizePath } from './path-form'
 
 export interface BreadcrumbSegment {
   name: string

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { ExplorerPaneView, ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
+import type { MountedVolume } from './ExplorerUI/mounted-volumes'
 import type { FileSelectResult } from './types'
 import type { IDrive } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
@@ -17,6 +18,7 @@ import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME 
 import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
+import { mountedVolumeListingPath } from './ExplorerUI/mounted-volumes'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
 import FileSidebar from './FileSidebar.vue'
 import { getLastDirName, normalizeListingPath } from './utils'
@@ -120,7 +122,12 @@ onMounted(async () => {
   if (!fileSidebarRef.value) {
     return
   }
-  await fileSidebarRef.value.loadDrives()
+  // 磁盘列表与浏览器挂载卷并行装载：两块内容互不依赖，串行等待只会让
+  // 挂载区晚一步出现（反过来也一样）。挂载列表的失败由侧边栏自己兜住。
+  await Promise.all([
+    fileSidebarRef.value.loadDrives(),
+    fileSidebarRef.value.loadMounted(),
+  ])
   const navPath = typeof route.query.navPath === 'string' ? route.query.navPath : ''
   if (navPath) {
     openPath(navPath)
@@ -378,6 +385,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
         ref="fileSidebarRef"
         :current-path="currentPathForSidebar"
         @open-drive="(i: IDrive) => openPath(i.path)"
+        @open-mounted-volume="(v: MountedVolume) => openPath(mountedVolumeListingPath(v.id))"
         @open-path-in-new-tab="openPathInNewTab"
       >
         <div v-if="starredPathsList.length" ref="starListRef" class="star-list">
