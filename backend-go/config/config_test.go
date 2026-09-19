@@ -29,7 +29,7 @@ func TestNormalizeLogLevel(t *testing.T) {
 // 这条用例存在的意义不是测行为，而是**防止字段悄悄回来**：`Cfg` 会原样写回
 // config.json，多一个字段就会重新定义「首次打开进入哪里」的语义。
 //
-// safeBaseDir 后来**按需求回来了**（限制访问范围，默认空 = 不限制），所以这里不再
+// allowedRoots 后来**按需求回来了**（限制访问范围，默认空 = 不限制），所以这里不再
 // 断言它不存在——它不再决定「首次打开进入哪里」，而是决定「能到哪里」。
 func TestConfigHasNoStartPath(t *testing.T) {
 	var c Cfg

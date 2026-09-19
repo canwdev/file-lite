@@ -14,8 +14,8 @@ import (
 //
 //  1. 最长前缀 + **段边界**匹配。"/data2" 不得匹配挂载点 "/data"，
 //     "//server/share2" 不得匹配 "//server/share"。
-//  2. 挂载点是路径解析的依据，**不是访问控制**。safeBaseDir 已删除，
-//     解析不到任何挂载点的绝对路径仍然可用（见 Resolve）。
+//  2. 挂载点是路径解析的依据，**不是访问控制**——解析不到任何挂载点的绝对路径
+//     仍然可用（见 Resolve）。访问控制只有一处：配置里的 allowedRoots（见 roots.go）。
 type Mount struct {
 	// Root 是 canonical 形式且无尾斜杠："/"、"C:"、"//server/share"、"/home/me"。
 	Root string
@@ -229,11 +229,11 @@ func IsNetworkTarget(p string) bool {
 //   - **解析不到挂载点的绝对路径照样通过**。Linux 上只有 / 被枚举时这是常态，
 //     而用户完全可能直接导航到 /srv/foo 这种没有单独挂载的目录。
 //
-// 唯一属于访问控制的是**基目录**（safeBaseDir，见 base.go）：配了它才生效，
+// 唯一属于访问控制的是**允许根**（配置项 allowedRoots，见 roots.go）：配了它才生效，
 // 默认不限制，所以默认路径上只多一次字符串比较。
 //
 // 错误分两类，调用方要映射成不同的状态码：形态问题（不是合法绝对路径等）→ 400；
-// 范围问题（ErrPathOutsideBase）→ 403。
+// 范围问题（ErrPathOutsideRoots）→ 403。
 func Resolve(p string) (Resolved, error) {
 	canonical, err := CanonicalizePath(p)
 	if err != nil {
@@ -241,8 +241,8 @@ func Resolve(p string) (Resolved, error) {
 	}
 	// 顺序有意义：先判形态、再判范围。反过来的话，一条相对路径会先被范围检查
 	// 拒掉，用户拿到「超出范围」而不是「路径不合法」——后者才是他能自己修的。
-	if !pathWithinBase(canonical) {
-		return Resolved{}, ErrPathOutsideBase
+	if !allowedPath(canonical) {
+		return Resolved{}, ErrPathOutsideRoots
 	}
 	res := Resolved{Path: canonical}
 	if m, ok := LongestMount(canonical, GetMounts()); ok {
@@ -254,11 +254,11 @@ func Resolve(p string) (Resolved, error) {
 // HasMountRootFor 判断一条 canonical 路径是否**正好**是挂载表里的某个根。
 //
 // 「正好是根」与「落在某个根之下」必须分开：挂载表里的 `D:` 覆盖 `D:/a/b`，
-// 但只有 `D:` 自己是根。判断访问范围要不要为基目录合成一个根时必须用前者——
+// 但只有 `D:` 自己是根。判断访问范围要不要为允许根合成一个根时必须用前者——
 // 用后者会把「落在盘符根之下」当成「已经是根」，合成被跳过，收窄后列表变空。
 //
 // 同时也别拿它去问「这个位置有挂载点吗」：那要用 LongestMount。曾经这里叫
-// HasMountFor（前缀语义）并被当成「正好」用，结果 `D:` 让基目录看起来已经有根，
+// HasMountFor（前缀语义）并被当成「正好」用，结果 `D:` 让允许根看起来已经有根，
 // 侧边栏把 D: 原样留了下来。
 func HasMountRootFor(canonical string) bool {
 	for _, m := range GetMounts() {

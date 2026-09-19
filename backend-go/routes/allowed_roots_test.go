@@ -15,21 +15,21 @@ import (
 	"file-lite-go/types"
 )
 
-// withBases 设定允许的基目录并在结束后清空。给测试用，省掉每处的样板。
+// withBases 设定允许的允许根并在结束后清空。给测试用，省掉每处的样板。
 func withBases(t *testing.T, dirs ...string) {
 	t.Helper()
-	if err := fileops.SetBaseDirs(dirs); err != nil {
+	if err := fileops.SetAllowedRoots(dirs); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(fileops.ClearBaseDirs)
+	t.Cleanup(fileops.ClearAllowedRoots)
 }
 
-// onlyBase 返回配置里唯一的那个基目录（canonical 形态）。
+// onlyBase 返回配置里唯一的那个允许根（canonical 形态）。
 func onlyBase(t *testing.T) string {
 	t.Helper()
-	bases := fileops.BaseDirs()
+	bases := fileops.AllowedRoots()
 	if len(bases) != 1 {
-		t.Fatalf("期望恰好一条基目录，得到 %v", bases)
+		t.Fatalf("期望恰好一条允许根，得到 %v", bases)
 	}
 	return bases[0]
 }
@@ -44,18 +44,18 @@ func TestResolvePathOutsideBaseIsForbidden(t *testing.T) {
 	baseCanonical := onlyBase(t)
 	sub := filepath.ToSlash(filepath.Join(baseCanonical, "sub", "a.txt"))
 
-	// 基目录之内：正常解析。
+	// 允许根之内：正常解析。
 	if _, httpErr := resolvePath(baseCanonical); httpErr != nil {
-		t.Fatalf("基目录自身不该报错：%v", httpErr)
+		t.Fatalf("允许根自身不该报错：%v", httpErr)
 	}
 	if _, httpErr := resolvePath(sub); httpErr != nil {
-		t.Fatalf("基目录之内不该报错：%v", httpErr)
+		t.Fatalf("允许根之内不该报错：%v", httpErr)
 	}
 
-	// 基目录之外：403。
+	// 允许根之外：403。
 	outside := filepath.ToSlash(filepath.Dir(baseCanonical))
 	if _, httpErr := resolvePath(outside); httpErr == nil {
-		t.Fatal("基目录之外应当报错")
+		t.Fatal("允许根之外应当报错")
 	} else if httpErr.Code != http.StatusForbidden {
 		t.Fatalf("状态码 = %d，期望 403", httpErr.Code)
 	} else if msg, _ := httpErr.Message.(string); msg == "" {
@@ -82,7 +82,7 @@ func TestForbiddenMessageShowsBaseButNotRequestPath(t *testing.T) {
 	}
 	msg, _ := httpErr.Message.(string)
 	if !contains(msg, onlyBase(t)) {
-		t.Errorf("消息里应当写明基目录，得到 %q", msg)
+		t.Errorf("消息里应当写明允许根，得到 %q", msg)
 	}
 	if contains(msg, "secret-folder") || contains(msg, "passwords.txt") {
 		t.Errorf("消息不该回显请求的路径，得到 %q", msg)
@@ -99,7 +99,7 @@ func TestForbiddenMessageListsAllBases(t *testing.T) {
 		t.Fatal("范围外路径应当报错")
 	}
 	msg, _ := httpErr.Message.(string)
-	for _, base := range fileops.BaseDirs() {
+	for _, base := range fileops.AllowedRoots() {
 		if !contains(msg, base) {
 			t.Errorf("消息里少了 %q，得到 %q", base, msg)
 		}
@@ -119,11 +119,11 @@ func withDrives(t *testing.T, drives []types.Drive) {
 		// 先还原枚举函数，再重建挂载表——顺序反过来会把测试用的假位置留在表里。
 		enumerateDrivesFn = origEnumerate
 		fileops.SetMounts(enumerateDrives())
-		fileops.ClearBaseDirs()
+		fileops.ClearAllowedRoots()
 	})
 }
 
-// 配了 safeBaseDirs 之后，盘列表必须收窄到配置的范围。
+// 配了 allowedRoots 之后，盘列表必须收窄到配置的范围。
 //
 // 这是一个**枚举面**问题：照报全盘等于继续告诉调用方「这台机器上有什么」，
 // 而访问控制刚刚才决定不让他看。同时也是导航边界问题——范围外的挂载点留在列表里，
@@ -135,7 +135,7 @@ func TestVisibleDrivesNarrowedToBase(t *testing.T) {
 	}
 
 	// 不限制时：原样返回枚举结果。
-	fileops.ClearBaseDirs()
+	fileops.ClearAllowedRoots()
 	all := visibleDrives()
 	if len(all) == 0 {
 		t.Fatal("未限制时不该返回空列表")
@@ -146,7 +146,7 @@ func TestVisibleDrivesNarrowedToBase(t *testing.T) {
 	base := onlyBase(t)
 	narrowed := visibleDrives()
 	if len(narrowed) == 0 {
-		t.Fatal("收窄后至少要留下覆盖基目录的位置，否则用户无处可去")
+		t.Fatal("收窄后至少要留下覆盖允许根的位置，否则用户无处可去")
 	}
 	for _, d := range narrowed {
 		root, err := fileops.CanonicalizePath(d.Path)
@@ -154,16 +154,16 @@ func TestVisibleDrivesNarrowedToBase(t *testing.T) {
 			t.Errorf("返回了无法解析的路径 %q", d.Path)
 			continue
 		}
-		// 留下的必须在某条基目录之内（或就是它）。
-		if !fileops.IsWithinAnyRoot(root, []string{base}) {
+		// 留下的必须在某条允许根之内（或就是它）。
+		if !fileops.IsWithinRoots(root, []string{base}) {
 			t.Errorf("位置 %q 在范围之外，不该出现", d.Path)
 		}
 	}
 }
 
-// 基目录是某个卷**内部**的目录时，那个卷的根必须从列表里消失。
+// 允许根是某个卷**内部**的目录时，那个卷的根必须从列表里消失。
 //
-// 这是实际反馈的问题：`D:` 包含 `D:/Projects/app/bin`，按「包含基目录就算在范围内」
+// 这是实际反馈的问题：`D:` 包含 `D:/Projects/app/bin`，按「包含允许根就算在范围内」
 // 的判据会把它留下，于是侧边栏仍然显示 D: 根，点进去就是 403。挂载点同时是
 // 「上一级」的停点，留着它等于把出口留在了范围之外。
 func TestVisibleDrivesDropsContainingVolume(t *testing.T) {
@@ -177,9 +177,9 @@ func TestVisibleDrivesDropsContainingVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 用一个只含这个卷的枚举结果，模拟「基目录落在某个卷内部」。
+	// 用一个只含这个卷的枚举结果，模拟「允许根落在某个卷内部」。
 	withDrives(t, []types.Drive{{Label: "VOL", Path: volumeCanonical, Kind: types.DriveKindVolume}})
-	if err := fileops.SetBaseDirs([]string{base}); err != nil {
+	if err := fileops.SetAllowedRoots([]string{base}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -191,10 +191,10 @@ func TestVisibleDrivesDropsContainingVolume(t *testing.T) {
 			t.Fatalf("返回了无法解析的路径 %q", d.Path)
 		}
 		if root == volumeCanonical {
-			t.Errorf("包含基目录的卷根 %q 不该出现在列表里（点进去会 403）", d.Path)
+			t.Errorf("包含允许根的卷根 %q 不该出现在列表里（点进去会 403）", d.Path)
 		}
 	}
-	// 基目录本身必须在，而且要是可用的那一项。
+	// 允许根本身必须在，而且要是可用的那一项。
 	found := false
 	for _, d := range got {
 		if d.Path == onlyBase(t) {
@@ -202,11 +202,11 @@ func TestVisibleDrivesDropsContainingVolume(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("列表里应当有基目录 %q，得到 %+v", onlyBase(t), got)
+		t.Errorf("列表里应当有允许根 %q，得到 %+v", onlyBase(t), got)
 	}
 }
 
-// 基目录**正好**是枚举结果里的某个根时，它就是根：不补、也不动它下面的其他位置。
+// 允许根**正好**是枚举结果里的某个根时，它就是根：不补、也不动它下面的其他位置。
 //
 // 判据必须是「正好是某一项」而不是「落在某个根之下」——后者会让这个分支永远走不到，
 // 因为任何绝对路径都落在某个根之下（Windows 上至少落在盘符根之下）。
@@ -222,7 +222,7 @@ func TestVisibleDrivesKeepsBaseThatIsItselfAMountRoot(t *testing.T) {
 		{Label: "BASE", Path: baseCanonical, Kind: types.DriveKindVolume},
 		{Label: "NESTED", Path: nested, Kind: types.DriveKindVolume},
 	})
-	if err := fileops.SetBaseDirs([]string{base}); err != nil {
+	if err := fileops.SetAllowedRoots([]string{base}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -232,7 +232,7 @@ func TestVisibleDrivesKeepsBaseThatIsItselfAMountRoot(t *testing.T) {
 		labels = append(labels, d.Label)
 	}
 
-	// 基目录自己保留，它之下更深的挂载点也是范围内的位置，同样保留。
+	// 允许根自己保留，它之下更深的挂载点也是范围内的位置，同样保留。
 	for _, want := range []string{"BASE", "NESTED"} {
 		found := false
 		for _, d := range got {
@@ -246,14 +246,14 @@ func TestVisibleDrivesKeepsBaseThatIsItselfAMountRoot(t *testing.T) {
 	}
 	// 不该再多补一个合成项。
 	if len(got) != 2 {
-		t.Errorf("基目录已经是列表里的一项时不该补充合成项，得到 %v", labels)
+		t.Errorf("允许根已经是列表里的一项时不该补充合成项，得到 %v", labels)
 	}
 }
 
 // visibleDrives 必须**幂等**：挂载表由它的结果建立，而它又被 /drives 反复调用。
 //
-// 这是实际反馈的那个 bug：判据去问了挂载表「基目录是不是已经有自己的根」。第一次
-// 调用把合成的基目录项写进表里（registerFiles 就是这么做的），第二次就答「已经有」，
+// 这是实际反馈的那个 bug：判据去问了挂载表「允许根是不是已经有自己的根」。第一次
+// 调用把合成的允许根项写进表里（registerFiles 就是这么做的），第二次就答「已经有」，
 // 于是 /drives 原样返回全盘列表——侧边栏又出现 D:，点进去 403。
 // 单看一次调用是发现不了的，必须连调两次。
 func TestVisibleDrivesIsIdempotent(t *testing.T) {
@@ -268,7 +268,7 @@ func TestVisibleDrivesIsIdempotent(t *testing.T) {
 	}
 
 	withDrives(t, []types.Drive{{Label: "VOL", Path: volumeCanonical, Kind: types.DriveKindVolume}})
-	if err := fileops.SetBaseDirs([]string{base}); err != nil {
+	if err := fileops.SetAllowedRoots([]string{base}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -294,23 +294,23 @@ func TestVisibleDrivesIsIdempotent(t *testing.T) {
 	}
 }
 
-// 多条基目录时侧边栏列出**每一条**，且顺序与配置一致。
+// 多条允许根时侧边栏列出**每一条**，且顺序与配置一致。
 func TestVisibleDrivesListsEveryBase(t *testing.T) {
 	dirA, dirB := t.TempDir(), t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dirA, "x"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	withDrives(t, nil) // 空枚举：所有位置都靠基目录自己补出来
-	if err := fileops.SetBaseDirs([]string{dirA, dirB}); err != nil {
+	withDrives(t, nil) // 空枚举：所有位置都靠允许根自己补出来
+	if err := fileops.SetAllowedRoots([]string{dirA, dirB}); err != nil {
 		t.Fatal(err)
 	}
 
 	got := visibleDrives()
 	if len(got) != 2 {
-		t.Fatalf("两条基目录应当列出两项，得到 %+v", got)
+		t.Fatalf("两条允许根应当列出两项，得到 %+v", got)
 	}
-	for i, want := range fileops.BaseDirs() {
+	for i, want := range fileops.AllowedRoots() {
 		if got[i].Path != want {
 			t.Errorf("第 %d 项 = %q，期望 %q", i, got[i].Path, want)
 		}
@@ -320,19 +320,19 @@ func TestVisibleDrivesListsEveryBase(t *testing.T) {
 	}
 }
 
-// 基目录不在任何挂载点之下时（Linux 上常见：只枚举了 /），要补一个合成挂载点。
+// 允许根不在任何挂载点之下时（Linux 上常见：只枚举了 /），要补一个合成挂载点。
 //
-// 没有它，「上一级」会停在基目录之外，用户按一下就拿到 403。
+// 没有它，「上一级」会停在允许根之外，用户按一下就拿到 403。
 func TestVisibleDrivesSynthesizesBaseMount(t *testing.T) {
 	// 构造一个空挂载表：任何路径都匹配不到挂载点。
 	fileops.SetMounts(nil)
 	t.Cleanup(func() { fileops.SetMounts(enumerateDrives()) })
 
 	base := t.TempDir()
-	if err := fileops.SetBaseDirs([]string{base}); err != nil {
+	if err := fileops.SetAllowedRoots([]string{base}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(fileops.ClearBaseDirs)
+	t.Cleanup(fileops.ClearAllowedRoots)
 
 	baseCanonical := onlyBase(t)
 	if fileops.HasMountRootFor(baseCanonical) {
@@ -349,13 +349,13 @@ func TestVisibleDrivesSynthesizesBaseMount(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("应当为基目录 %q 合成一个挂载点", baseCanonical)
+		t.Errorf("应当为允许根 %q 合成一个挂载点", baseCanonical)
 	}
 }
 
-// baseDirs 要出现在 /auth 的响应里：前端需要一个途径把「为什么点不进去」讲清楚，
+// allowedRoots 要出现在 /auth 的响应里：前端需要一个途径把「为什么点不进去」讲清楚，
 // 否则一个没有说明的 403 只会让人以为坏了。
-func TestAuthInfoReportsBaseDirs(t *testing.T) {
+func TestAuthInfoReportsAllowedRoots(t *testing.T) {
 	e := echo.New()
 	call := func() map[string]any {
 		rec := httptest.NewRecorder()
@@ -373,28 +373,28 @@ func TestAuthInfoReportsBaseDirs(t *testing.T) {
 	dirA, dirB := t.TempDir(), t.TempDir()
 	withBases(t, dirA, dirB)
 
-	raw, ok := call()["baseDirs"].([]any)
+	raw, ok := call()["allowedRoots"].([]any)
 	if !ok {
-		t.Fatal("baseDirs 应当是一个数组（允许多条）")
+		t.Fatal("allowedRoots 应当是一个数组（允许多条）")
 	}
-	want := fileops.BaseDirs()
+	want := fileops.AllowedRoots()
 	if len(raw) != len(want) {
-		t.Fatalf("baseDirs = %v，期望 %v", raw, want)
+		t.Fatalf("allowedRoots = %v，期望 %v", raw, want)
 	}
 	for i := range want {
 		if raw[i] != want[i] {
-			t.Errorf("baseDirs[%d] = %v，期望 %q", i, raw[i], want[i])
+			t.Errorf("allowedRoots[%d] = %v，期望 %q", i, raw[i], want[i])
 		}
 	}
 
 	// 未限制时是空数组，前端据此不显示任何提示。
-	fileops.ClearBaseDirs()
-	raw2, ok := call()["baseDirs"].([]any)
+	fileops.ClearAllowedRoots()
+	raw2, ok := call()["allowedRoots"].([]any)
 	if !ok {
-		t.Fatal("未限制时 baseDirs 仍应当是数组")
+		t.Fatal("未限制时 allowedRoots 仍应当是数组")
 	}
 	if len(raw2) != 0 {
-		t.Errorf("未限制时 baseDirs = %v，期望空数组", raw2)
+		t.Errorf("未限制时 allowedRoots = %v，期望空数组", raw2)
 	}
 }
 
