@@ -304,6 +304,65 @@ export async function removeMountedEntry(path: string): Promise<void> {
   }
 }
 
+/**
+ * 卷内重命名（同目录改名 / 改大小写）。
+ *
+ * 优先用 `FileSystemFileHandle.move()`——同卷内它是**零拷贝**的，浏览器直接改
+ * 目录项，大文件也是瞬间完成。它没有跨目录保证、也未必在所有实现里可用，所以
+ * 拿不到 `move` 时退回「读出来 + 写新名 + 删旧名」；那是有数据拷贝的，但行为一致。
+ */
+export async function renameMountedEntry(fromPath: string, toPath: string): Promise<void> {
+  const fromName = lastPathSegment(fromPath)
+  const toName = lastPathSegment(toPath)
+  const fromDir = await resolveMountedDirHandle(parentPathOf(fromPath, fromName))
+  const toDir = await resolveMountedDirHandle(parentPathOf(toPath, toName))
+
+  const sameDir = parentPathOf(fromPath, fromName) === parentPathOf(toPath, toName)
+  if (sameDir && fromName === toName) {
+    return
+  }
+
+  const entry = await findEntry(fromDir, fromName)
+  if (!entry) {
+    throw new MountedFsError('not-found', `not found in mounted folder: ${fromName}`)
+  }
+
+  const move = (entry as FileSystemHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> }).move
+  if (typeof move === 'function') {
+    try {
+      await move.call(entry, toDir, toName)
+      return
+    }
+    catch (error) {
+      // 只读目录、跨文件系统等：退回下面的复制方案，而不是直接失败
+      console.warn('[mounted] move() failed, falling back to copy', error)
+    }
+  }
+
+  if (entry.kind === 'directory') {
+    throw new MountedFsError('permission', `renaming a folder is not supported: ${fromName}`)
+  }
+  const fileHandle = entry as FileSystemFileHandle
+  const body = (await fileHandle.getFile()).stream()
+  await writeMountedFileFromStream(parentPathOf(toPath, toName), toName, body)
+  await fromDir.removeEntry(fromName, { recursive: false })
+}
+
+/** 在同一目录下按名字找条目（文件或目录）。 */
+async function findEntry(dir: FileSystemDirectoryHandle, name: string): Promise<FileSystemHandle | null> {
+  try {
+    return await dir.getFileHandle(name)
+  }
+  catch {
+    try {
+      return await dir.getDirectoryHandle(name)
+    }
+    catch {
+      return null
+    }
+  }
+}
+
 /** 卷内某个名字是否已被占用（冲突预检用）。 */
 export async function mountedEntryExists(dirPath: string, name: string): Promise<boolean> {
   const dir = await resolveMountedDirHandle(dirPath)

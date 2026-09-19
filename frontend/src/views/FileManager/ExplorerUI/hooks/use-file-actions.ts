@@ -12,6 +12,8 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
+import { renameMountedEntry } from '../browser-fs'
+import { isMountedPath } from '../mounted-volumes'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
@@ -150,10 +152,15 @@ export function useFileActions({
 
     try {
       isLoading.value = true
-      await fsWebApi.renameEntry({
-        fromPath: normalizePath(`${basePath.value}/${item.name}`),
-        toPath: normalizePath(`${basePath.value}/${name}`),
-      })
+      const fromPath = normalizePath(`${basePath.value}/${item.name}`)
+      const toPath = normalizePath(`${basePath.value}/${name}`)
+      if (isMountedPath(fromPath)) {
+        // 挂载卷的内容在浏览器里，后端解析不了这条路径
+        await renameMountedEntry(fromPath, toPath)
+      }
+      else {
+        await fsWebApi.renameEntry({ fromPath, toPath })
+      }
       const renamedItem: IEntry = {
         ...item,
         name,

@@ -239,6 +239,13 @@ async function resolvePolicy(
   isMove: boolean,
   requested: ConflictPolicy,
 ): Promise<ConflictPolicy | null> {
+  // 「复制/剪切到自己所在的目录」只能靠改名落地（keep-both）。
+  // 服务端靠自动生成 `name (1).ext` 保证源不被动；客户端执行器没有那条兜底，
+  // 一旦按 overwrite 写就会把源本身覆盖掉，所以这里强制改名。
+  if (items.length && items.every(item => parentDirOf(item.fromPath) === destPath.replace(/\/+$/, ''))) {
+    return 'keep-both'
+  }
+
   if (requested !== 'ask') {
     return requested
   }
@@ -429,6 +436,39 @@ async function copyInsideBrowser(srcPath: string, destDir: string, filename: str
   publish(ctx)
 }
 
+/**
+ * `keep-both` 在挂载卷里的改名：`file.txt` → `file (1).txt`。
+ *
+ * 服务端的 keep-both 由后端生成新名字；客户端这一侧必须自己来，否则
+ * 「复制到自己所在目录」会把源覆盖掉。名字被占用就继续加编号。
+ */
+async function uniqueMountedName(dirPath: string, filename: string): Promise<string> {
+  const dot = filename.lastIndexOf('.')
+  const base = dot > 0 ? filename.slice(0, dot) : filename
+  const ext = dot > 0 ? filename.slice(dot) : ''
+  for (let index = 1; index < 1000; index += 1) {
+    const candidate = `${base} (${index})${ext}`
+    if (!(await mountedEntryExists(dirPath, candidate))) {
+      return candidate
+    }
+  }
+  return `${base} (${Date.now()})${ext}`
+}
+
+/** 服务端目录下的可用名字（keep-both 用；服务端也会兜底改名，这里只是先定好名字）。 */
+async function uniqueServerName(dirPath: string, filename: string): Promise<string> {
+  const dot = filename.lastIndexOf('.')
+  const base = dot > 0 ? filename.slice(0, dot) : filename
+  const ext = dot > 0 ? filename.slice(dot) : ''
+  for (let index = 1; index < 1000; index += 1) {
+    const candidate = `${base} (${index})${ext}`
+    if (!(await serverEntryExists(joinPath(dirPath, candidate)))) {
+      return candidate
+    }
+  }
+  return `${base} (${Date.now()})${ext}`
+}
+
 // ---------------------------------------------------------------------------
 // 入口
 // ---------------------------------------------------------------------------
@@ -545,7 +585,6 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
 
       const destPath = `${targetRoot}/${item.relativePath}`
       const destDir = parentDirOf(destPath)
-      const destName = lastSegment(destPath)
       ctx.currentPath = item.fromPath
 
       // 跳过：目标已存在则不动它。只在复制时有意义（移动的源必须搬走）
@@ -557,6 +596,16 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
         continue
       }
 
+      // keep-both：先定好一个没被占用的名字，再按它写。
+      // 这一步必须在写入之前完成——「复制到自己所在目录」时，写回原名就等于
+      // 把源覆盖掉，而客户端这一侧没有服务端那条自动改名的兜底。
+      const destName = ctx.policy === 'keep-both'
+        ? (isMountedPath(destDir)
+            ? await uniqueMountedName(destDir, lastSegment(destPath))
+            : await uniqueServerName(destDir, lastSegment(destPath)))
+        : lastSegment(destPath)
+      const finalPath = joinPath(destDir, destName)
+
       try {
         const sourceIsBrowser = isMountedPath(item.fromPath)
         const destIsBrowser = isMountedPath(destPath)
@@ -565,7 +614,7 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
           await copyInsideBrowser(item.fromPath, destDir, destName, ctx, item)
         }
         else if (sourceIsBrowser) {
-          await uploadToServer(item.fromPath, destPath, ctx, item)
+          await uploadToServer(item.fromPath, finalPath, ctx, item)
         }
         else {
           await createMountedDir(destDir)
@@ -574,7 +623,11 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
 
         ctx.itemsDone += 1
         ctx.itemsSucceeded += 1
-        ctx.results.push({ fromPath: item.fromPath, toPath: destPath, status: statusFor(isMove) })
+        ctx.results.push({
+          fromPath: item.fromPath,
+          toPath: finalPath,
+          status: destName === lastSegment(destPath) ? statusFor(isMove) : 'renamed',
+        })
       }
       catch (error) {
         ctx.results.push({ fromPath: item.fromPath, toPath: destPath, status: 'failed', message: messageOf(error) })
