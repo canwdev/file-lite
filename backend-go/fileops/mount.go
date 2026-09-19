@@ -229,17 +229,35 @@ func IsNetworkTarget(p string) bool {
 //   - **解析不到挂载点的绝对路径照样通过**。Linux 上只有 / 被枚举时这是常态，
 //     而用户完全可能直接导航到 /srv/foo 这种没有单独挂载的目录。
 //
-// 返回错误目前只有「不是合法绝对路径」一种，错误码由调用方映射成 400。
+// 唯一属于访问控制的是**基目录**（safeBaseDir，见 base.go）：配了它才生效，
+// 默认不限制，所以默认路径上只多一次字符串比较。
+//
+// 错误分两类，调用方要映射成不同的状态码：形态问题（不是合法绝对路径等）→ 400；
+// 范围问题（ErrPathOutsideBase）→ 403。
 func Resolve(p string) (Resolved, error) {
 	canonical, err := CanonicalizePath(p)
 	if err != nil {
 		return Resolved{}, err
+	}
+	// 顺序有意义：先判形态、再判范围。反过来的话，一条相对路径会先被范围检查
+	// 拒掉，用户拿到「超出范围」而不是「路径不合法」——后者才是他能自己修的。
+	if !pathWithinBase(canonical) {
+		return Resolved{}, ErrPathOutsideBase
 	}
 	res := Resolved{Path: canonical}
 	if m, ok := LongestMount(canonical, GetMounts()); ok {
 		res.Mount = &m
 	}
 	return res, nil
+}
+
+// HasMountFor 判断一条 canonical 路径是否落在挂载表里的某个挂载点之下。
+//
+// 与 Resolved.ViaMount 的区别是它不需要先有一份解析结果：调用方（例如按访问范围
+// 收窄盘列表的地方）手里只有路径本身。
+func HasMountFor(canonical string) bool {
+	_, ok := LongestMount(canonical, GetMounts())
+	return ok
 }
 
 // SamePath 判断两条 canonical 路径是否指向同一个位置。

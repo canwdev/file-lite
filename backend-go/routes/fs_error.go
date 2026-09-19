@@ -29,13 +29,21 @@ import (
 // resolvePath 是所有文件操作入口的统一解析。
 //
 // 取代了原来的 fileops.IsPathSafe：路径先 canonical 化（分隔符、重复斜杠、"." / ".."），
-// 再匹配挂载点。**不做访问控制**——解析不到挂载点的绝对路径照样通过（见 fileops.Resolve）。
+// 再匹配挂载点。**挂载点不做访问控制**——解析不到挂载点的绝对路径照样通过
+// （见 fileops.Resolve）。真正属于访问控制的只有 `safeBaseDir`，未配置时不限制。
 //
-// 非法路径（相对路径、越根）返回 400。这是相对旧行为的一处变化：以前这类路径会被原样
-// 交给 os.Stat，于是报的是 404/500，用户看到的是「文件不存在」而不是「路径不合法」。
+// 非法路径（相对路径、越根）返回 400；配了 `safeBaseDir` 而路径在它之外返回 403。
+// 两者必须分开：前者是「这条路径本身不合法」，后者是「这里有个边界」——用户看到
+// 403 才知道该去改配置，看到 400 只会以为是自己输错了。
 func resolvePath(raw string) (fileops.Resolved, *echo.HTTPError) {
 	res, err := fileops.Resolve(raw)
 	if err != nil {
+		if errors.Is(err, fileops.ErrPathOutsideBase) {
+			// 消息里带上基目录（用户自己的配置），但**不回显请求的那条路径**：
+			// 那等于把服务端目录结构写进响应，而这个响应本身就是在拒绝他。
+			return fileops.Resolved{}, echo.NewHTTPError(http.StatusForbidden,
+				"Path is outside the configured base directory: "+fileops.BaseDir())
+		}
 		// 不回显整条路径：错误信息里只有规则，没有用户输入。
 		return fileops.Resolved{}, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
