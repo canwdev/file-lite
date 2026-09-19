@@ -1,3 +1,4 @@
+import { mountIdFromPath } from '../../../utils/fs/paths'
 /**
  * 对挂载卷做写操作时的统一守卫。
  *
@@ -6,7 +7,7 @@
  * 地方，新建 / 重命名 / 删除 / 粘贴就不必各自重复这套判断。
  */
 import { MountedFsError } from './browser-fs'
-import { canWriteVolume, downgradeVolumeToReadOnly, mountedVolumes, mountIdFromPath } from './mounted-volumes'
+import { canWriteVolume, downgradeVolumeToReadOnly, mountedVolumes } from './mounted-volumes'
 
 export interface MountedWriteGuard {
   /** 该卷能不能写；不能写时 `reason` 是要展示给用户的一句话。 */

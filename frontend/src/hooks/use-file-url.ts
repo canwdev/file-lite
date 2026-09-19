@@ -16,8 +16,8 @@
  *   谁先卸载都不能把别人正在用的 URL 撤销掉。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { fsWebApi } from '@/api/filesystem'
-import { isMountedPath } from '@/views/FileManager/ExplorerUI/mounted-volumes'
+import { fs } from '@/utils/fs'
+import { isMountedPath } from '@/utils/fs/paths'
 
 interface CachedUrl {
   url: string
@@ -46,7 +46,7 @@ export function resolveFileUrl(path: string | null | undefined): string {
     return ''
   }
   if (!isMountedPath(path)) {
-    return fsWebApi.getStreamUrl(path)
+    return fs.url(path)
   }
 
   const cached = objectUrls.get(path)
@@ -90,7 +90,7 @@ export async function resolveFileUrlAsync(path: string | null | undefined): Prom
     return ''
   }
   if (!isMountedPath(path)) {
-    return fsWebApi.getStreamUrl(path)
+    return fs.url(path)
   }
   const cached = objectUrls.get(path)
   if (cached) {
@@ -111,7 +111,7 @@ export function fileUrlError(path: string): string | undefined {
 
 async function readMountedObjectUrl(path: string) {
   const task = (async () => {
-    const { readMountedFile } = await import('@/views/FileManager/ExplorerUI/browser-fs')
+    const { readMountedFile } = await import('@/utils/fs/browser-backend')
     const file = await readMountedFile(path)
     const url = URL.createObjectURL(file)
     objectUrls.set(path, { url, refs: 0 })

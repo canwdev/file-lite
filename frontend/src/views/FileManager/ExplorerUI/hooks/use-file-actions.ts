@@ -8,13 +8,11 @@ import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
+import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
-import { createMountedDir, renameMountedEntry, writeMountedFile } from '../browser-fs'
-import { runMountedWrite } from '../mount-write'
-import { isMountedPath } from '../mounted-volumes'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
@@ -102,20 +100,15 @@ export function useFileActions({
           }))
       isLoading.value = true
       const file = generateTextFile(content, name)
-      const target = normalizePath(`${basePath.value}/${name}`)
-      if (isMountedPath(target)) {
-        // 挂载卷在浏览器里：写句柄而不是发上传请求（见 mount-write.ts 的只读守卫）
-        const written = await runMountedWrite(target, () =>
-          writeMountedFile(basePath.value, name, file))
-        if (!written) {
-          return
-        }
+      // 门面按路径分派到服务端或挂载卷，并统一过只读守卫
+      const written = await fs.writeText(basePath.value, name, content, { conflict: 'overwrite' })
+      if (!written.ok) {
+        window.$message?.warning(written.reason ?? 'This location is read-only')
+        return
       }
-      else {
-        await fsWebApi.uploadFile({ path: target, file })
-      }
-      onEntryCreated?.(name)
-      emit('patch', { added: [fileEntry(name, file)] })
+      const finalName = written.name ?? name
+      onEntryCreated?.(finalName)
+      emit('patch', { added: [fileEntry(finalName, file)] })
     }
     finally {
       isLoading.value = false
@@ -129,15 +122,12 @@ export function useFileActions({
       })
       isLoading.value = true
       const target = normalizePath(`${basePath.value}/${name}`)
-      if (isMountedPath(target)) {
-        const created = await runMountedWrite(target, () => createMountedDir(target))
-        if (!created) {
-          return
-        }
+      const guard = await fs.canWrite(target)
+      if (!guard.ok) {
+        window.$message?.warning(guard.reason ?? 'This location is read-only')
+        return
       }
-      else {
-        await fsWebApi.createDir({ path: target })
-      }
+      await fs.mkdir(target)
       onEntryCreated?.(name)
       emit('patch', { added: [dirEntry(name)] })
     }
@@ -172,13 +162,8 @@ export function useFileActions({
       isLoading.value = true
       const fromPath = normalizePath(`${basePath.value}/${item.name}`)
       const toPath = normalizePath(`${basePath.value}/${name}`)
-      if (isMountedPath(fromPath)) {
-        // 挂载卷的内容在浏览器里，后端解析不了这条路径
-        await runMountedWrite(fromPath, () => renameMountedEntry(fromPath, toPath))
-      }
-      else {
-        await fsWebApi.renameEntry({ fromPath, toPath })
-      }
+      // 门面按路径分派，并在挂载卷上先过只读守卫
+      await fs.rename(fromPath, toPath)
       const renamedItem: IEntry = {
         ...item,
         name,

@@ -1,6 +1,6 @@
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { resolveFileUrl } from '@/hooks/use-file-url'
+import { fileUrlVersion, useFileUrls } from '@/hooks/use-file-url'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -29,8 +29,28 @@ export function useMediaList(
   getAppParams: () => AppParams | undefined,
   pruneDirectory: (basePath: string, existingNames: Set<string>) => void,
 ) {
-  const items = ref<MediaFile[]>([])
+  const rawItems = ref<Omit<MediaFile, 'url'>[]>([])
   const currentIndex = ref(0)
+
+  /**
+   * 每项的绝对路径；地址与条目分开算，因为挂载卷的 objectURL 是异步解析的：
+   * 一次性 `resolveFileUrl` 只会拿到空串，之后再也不会重试。
+   */
+  const itemPaths = computed(() => {
+    const base = (getAppParams()?.basePath ?? '').replace(/\/+$/, '')
+    return rawItems.value.map(i => `${base}/${i.name}`)
+  })
+
+  const urlMap = useFileUrls(() => itemPaths.value)
+
+  const items = computed<MediaFile[]>(() => {
+    // 读一次版本号：objectURL 解析完成后重算
+    void fileUrlVersion.value
+    return rawItems.value.map((item, index) => ({
+      ...item,
+      url: urlMap.value.get(itemPaths.value[index] ?? '') ?? '',
+    }))
+  })
 
   const folderName = computed(() => {
     const parts = (getAppParams()?.basePath || '').split('/').filter(Boolean)
@@ -44,7 +64,7 @@ export function useMediaList(
       if (!appParams)
         return
       const { item, list, basePath } = appParams
-      const result: MediaFile[] = []
+      const result: Omit<MediaFile, 'url'>[] = []
       const nameSet = new Set<string>()
       for (const i of list) {
         if (i.isDirectory)
@@ -52,11 +72,11 @@ export function useMediaList(
         const type = getMediaType(i.name)
         if (!type)
           continue
-        result.push({ name: i.name, url: resolveFileUrl(`${basePath}/${i.name}`), type, entry: i })
+        result.push({ name: i.name, type, entry: i })
         nameSet.add(i.name)
       }
       pruneDirectory(basePath, nameSet)
-      items.value = result
+      rawItems.value = result
       const idx = result.findIndex(i => i.name === item.name)
       currentIndex.value = Math.max(0, idx)
     },

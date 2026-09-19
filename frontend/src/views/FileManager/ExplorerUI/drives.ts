@@ -24,13 +24,22 @@ function normalizeDrives(list: IDrive[] | null | undefined): IDrive[] {
   return (list ?? []).map(item => ({ ...item, path: normalizeListingPath(item.path) }))
 }
 
-/** 读取驱动器列表；已有缓存且未强制刷新时直接复用。 */
+/**
+ * 读取驱动器列表。
+ *
+ * - 已有缓存且未强制刷新：直接复用。
+ * - **正在请求中：无论如何都复用同一个 promise**（`force` 也不例外）。
+ *
+ * 最后这条是修一个真实问题：侧边栏与资源管理器面板的首次加载是同一帧发起的，
+ * 而侧边栏走的是 `force = true`（用户点刷新按钮也是）。过去 `force` 会无脑再发一次，
+ * 于是一次启动就有两条 `GET /api/files/drives`。
+ */
 export function loadDrives(force = false): Promise<IDrive[]> {
+  if (inflight) {
+    return inflight
+  }
   if (!force && driveList.value.length) {
     return Promise.resolve(driveList.value)
-  }
-  if (!force && inflight) {
-    return inflight
   }
 
   drivesLoading.value = true

@@ -17,6 +17,7 @@ import {
   taskList,
 } from '@/store/tasks'
 import { bytesToSize, downloadUrl } from '@/utils'
+import { isMountedPath } from '@/utils/fs/paths'
 import { TaskQueue } from '@/utils/task-queue'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
 import { registerTransferQueue, unregisterTransferQueue } from './ExplorerUI/transfer-queue-registry'
@@ -188,6 +189,11 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
   const { path, file, onConflict } = data
   if (!file) {
     throw new Error('File is required for upload')
+  }
+  // 上传队列只会把文件送往服务端。目标是挂载卷时不能走这里——那要由客户端任务
+  // 直接写句柄（见 client-tasks），发到后端只会得到一条解析不了的路径。
+  if (isMountedPath(path)) {
+    throw new Error('Cannot upload to a browser-mounted folder from the transfer queue')
   }
   // 记下服务端返回的最终路径 / 名字（keep-both 时可能被改名），
   // 供 allDone 后直接用条目级补丁改当前目录列表。

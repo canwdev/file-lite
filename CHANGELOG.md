@@ -49,6 +49,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A folder mounted with read-only access says so on its row and refuses writes with the reason, instead of failing when you try; the key button on its row asks for write access again (frontend).
 - Files in a mounted folder open in the browser, image viewer, video player, music player, Endless Gallery and the HTML viewer, read straight from the folder through a temporary browser URL instead of the server; video thumbnails and server-side downscaling are the two things that stay server-only, so a mounted folder shows those files with their type icon (frontend).
 - A mounted folder that also appears in the text editor can be opened and saved there, read and written through the folder itself rather than the server (frontend).
+- Music, images, video and files inside a mounted folder open and play in the built-in apps, read from the folder itself; the media player and the Endless Gallery subscribe to the file URL instead of resolving it once, so a mounted track actually gets a source (frontend).
+- The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
 - `allowedRoots` restricts the file manager to the folders you list — anything outside them is refused, and the sidebar only offers those folders and whatever is inside them — while leaving it empty (the default) keeps the whole file system reachable; listing several folders grants all of them, nested ones collapse into their parent, and every folder is checked at startup, so a path that does not exist stops the server instead of silently refusing every request (backend). This is the access-scope option; the name says what it is, namely the roots a path is allowed to be under.
 - The default stays what it was: with `allowedRoots` empty the file manager reaches every path the server process can, so a folder anywhere on the machine — including a network share such as `\\server\share` or a WSL distribution at `\\wsl.localhost\Debian` — can be opened by typing its path in the address bar (backend).
 - The `startPath` config option is gone: opening the app enters the first location in the drive list (normally Home) and you navigate from there, so a typo in the config can no longer leave the first tab pointing at a folder that does not open; the field is ignored if it is still in your config file (backend, frontend).
@@ -139,6 +141,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A folder listing no longer stays stale after a copy, move, delete or duplicate underneath a drive's root: the in-place update was computed against paths the file list could not match (backend).
 
 ### Engineering
+
+- File reads and writes now go through one shared facade (`utils/fs`) that picks the server or the browser-mounted backend from the path, so apps no longer import the file manager's internals or decide the backend themselves; an eslint boundary rule keeps it that way (frontend).
+- The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
 
 - A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
 - The README's feature screenshots are generated from a demonstration library by `cd e2e && bun run docs:screenshots`, so they follow the UI instead of being retaken by hand; the sample media is downloaded once into a gitignored cache.

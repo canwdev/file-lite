@@ -30,7 +30,7 @@
   - Network drives: SMB / UNC shares and WSL distributions are first-class locations, so mapped drive letters, shares added to This PC and installed WSL distros all show up in the sidebar, and any other path can be typed into the address bar
   - Cloud storage mounted as a folder (rclone, s3fs) is supported; on Windows mount it with `--network-mode` so it is recognized as a network drive and read at the lower concurrency instead of being treated as a local disk
   - Files & folders: create, rename, move, copy, duplicate, delete, properties, per-extension default app
-  - Mounted folders: a folder from the computer can be mounted as a location through the File System Access API (Chromium), where it is browsed and written to in place and files copy or move in either direction against the server
+  - Mounted folders: a folder from the computer can be mounted as a location through the File System Access API (Chromium), where it is browsed, written to and played from in place, and files copy or move in either direction against the server
   - Transfers: drag & drop upload (files or folders), download, download a folder as ZIP; copy, move and delete are cancellable background tasks over the WebSocket ([design notes](./docs/design/async-file-operations-ws-design.md)), with progress and retry
   - Conflicts: replace, skip or keep both — per item or for the whole batch — and folders merge the way Windows Explorer does it
   - Previews: server-generated thumbnails — image previews, video first frames via ffmpeg, audio cover art ([architecture](./docs/design/thumbnails.md)) — cached in the browser

@@ -2,6 +2,7 @@ import type { MessageBoxData } from 'element-plus'
 import type { IEntry } from '@/types/server'
 import { resolveFileUrl, resolveFileUrlAsync } from '@/hooks/use-file-url'
 import { bytesToSize } from '@/utils'
+import { isMountedPath } from '@/utils/fs/paths'
 import {
   regSupportedAudioFormat,
   regSupportedHtmlFormat,
@@ -12,7 +13,6 @@ import {
 import { appListByOpenWith, getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
-import { isMountedPath } from '../mounted-volumes'
 
 interface OpenAppInfo {
   name: string

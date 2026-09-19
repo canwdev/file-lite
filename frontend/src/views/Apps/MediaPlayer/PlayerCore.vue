@@ -2,7 +2,7 @@
 import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
-import { resolveFileUrl } from '@/hooks/use-file-url'
+import { useFileUrl } from '@/hooks/use-file-url'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { localSettingsStore } from '@/store/index'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
@@ -22,7 +22,15 @@ const audioRef = ref<HTMLAudioElement | null>(null)
 const videoHostRef = ref<InstanceType<typeof NativeOrArtVideo> | null>(null)
 
 const mSettingsStore = useMusicSettingsStore()
-const avSrc = ref<string | undefined>()
+/**
+ * 当前媒体的地址。
+ *
+ * 挂载卷的文件要读成 objectURL，而那是异步的：一次性调用
+ * `resolveFileUrl` 只会拿到空串，之后永远不再重试（过去就是这样，挂载卷里的
+ * 音乐因此完全没有 src）。所以走响应式的 `useFileUrl`，解析完成后自动重算。
+ */
+const resolvedMediaUrl = useFileUrl(() => mediaStore.mediaItem?.absPath ?? null)
+const avSrc = computed(() => resolvedMediaUrl.value || undefined)
 const recordLastOpenedMedia = createLastOpenedMediaRecorder()
 
 let mediaEventsAbort: AbortController | null = null
@@ -248,13 +256,11 @@ watch(
   () => mediaStore.mediaItem,
   async (item: MediaItem | null) => {
     if (!item) {
-      avSrc.value = undefined
       emit('setTitle', '')
       clearAudioMediaSessionMetadata()
       return
     }
     emit('setTitle', item.filename || '')
-    avSrc.value = resolveFileUrl(item.absPath) || undefined
     const playbackRate = mediaStore.playbackRate
     if (!mediaStore.isVideo) {
       audioRef.value?.load()

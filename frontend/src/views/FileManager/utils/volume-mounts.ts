@@ -8,8 +8,8 @@
  * 界面上「能不能再往上」、面包屑的第一段、拖拽时判断是否跨卷，全都以它为界
  * （见 docs/design/vfs-abstraction-design.md §3、§5.2）。
  */
-import { isWithinRoot, PathError, splitRoot } from './canonical-path'
-import { normalizePath } from './path-form'
+import { isWithinRoot, PathError, splitRoot } from '../../../utils/path/canonical-path'
+import { normalizePath } from '../../../utils/path/form'
 
 export interface BreadcrumbSegment {
   name: string

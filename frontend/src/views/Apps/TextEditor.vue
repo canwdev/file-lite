@@ -3,13 +3,10 @@ import type { MenuBarOptions } from '@imengyu/vue3-context-menu'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { useUnSavedChanges } from '@canwdev/vgo-ui'
 import { MenuBar } from '@imengyu/vue3-context-menu'
-import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { bytesToSize } from '@/utils'
-import { readMountedFile, writeMountedFile } from '@/views/FileManager/ExplorerUI/browser-fs'
-import { isMountedPath } from '@/views/FileManager/ExplorerUI/mounted-volumes'
-import { generateTextFile } from '@/views/FileManager/utils'
+import { fs } from '@/utils/fs'
 
 const props = withDefaults(
   defineProps<{
@@ -133,24 +130,12 @@ async function openFile() {
       return
     }
 
-    if (isMountedPath(absPath.value)) {
-      // 挂载卷的文件在浏览器里，后端那条 /stream 取不到它
-      const file = await readMountedFile(absPath.value)
-      if (controller.signal.aborted) {
-        return
-      }
-      editContent.value = await file.text()
+    // 门面按路径分派：服务端走 /stream，挂载卷读句柄
+    const text = await fs.readText(absPath.value, { signal: controller.signal })
+    if (controller.signal.aborted) {
+      return
     }
-    else {
-      const data = await fsWebApi.stream(absPath.value, {
-        responseType: 'text',
-        signal: controller.signal,
-      })
-      if (controller.signal.aborted) {
-        return
-      }
-      editContent.value = data as unknown as string
-    }
+    editContent.value = text
     setTimeout(() => {
       isChanged.value = false
     })
@@ -207,18 +192,13 @@ async function handleSaveFile() {
 
     const idx = absPath.value.lastIndexOf('/') + 1
     const filename = absPath.value.slice(idx)
-    if (isMountedPath(absPath.value)) {
-      // 挂载卷：直接写回句柄，不经过后端
-      await writeMountedFile(dirOf(absPath.value), filename, editContent.value)
-    }
-    else {
-      await fsWebApi.uploadFile({
-        path: absPath.value,
-        file: generateTextFile(editContent.value, filename),
-        // 保存就是覆盖打开的这个文件：不给策略时后端按缺省的 error 处理，
-        // 目标已存在就直接 409「Destination path already exists」。
-        onConflict: 'overwrite',
-      })
+    // 保存就是覆盖打开的这个文件，所以显式 overwrite；门面负责分派与只读守卫。
+    const written = await fs.writeText(dirOf(absPath.value), filename, editContent.value, {
+      conflict: 'overwrite',
+    })
+    if (!written.ok) {
+      window.$message?.warning(written.reason ?? 'This location is read-only')
+      return
     }
     setTimeout(() => {
       isChanged.value = false
@@ -316,7 +296,7 @@ useShortcut({
         <strong>{{ fileTooLarge.name }}</strong>
         is {{ bytesToSize(fileTooLarge.size) }} — limit is {{ bytesToSize(SIZE_LIMIT) }}
       </p>
-      <a class="vgo-button" :href="fsWebApi.getStreamUrl(absPath!)" target="_blank" rel="noopener">
+      <a class="vgo-button" :href="fs.url(absPath!)" target="_blank" rel="noopener">
         <i-mdi-open-in-new /> Open in Browser
       </a>
     </div>

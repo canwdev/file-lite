@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { needsClientExecution } from './mounted-volumes'
+import { needsClientExecution } from '../../../utils/fs/paths'
 
 /**
  * 任务 id 的前缀判定。

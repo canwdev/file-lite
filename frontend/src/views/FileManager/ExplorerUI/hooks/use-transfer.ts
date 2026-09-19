@@ -4,6 +4,7 @@ import { useFileDialog } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem'
 import { requestLocalConflict } from '@/store/tasks'
 import { downloadUrl } from '@/utils'
+import { fs } from '@/utils/fs'
 import { normalizePath } from '../../utils'
 import { isExternalFileDrag, registerExternalDropSink } from '../entry-drag'
 import { transferQueue } from '../transfer-queue-registry'
@@ -102,10 +103,8 @@ async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUp
   }
   if (entry.isDirectory) {
     const dir = entry as FileSystemDirectoryEntry
-    await fsWebApi.createDir({
-      path: normalizePath(targetDir + dir.fullPath),
-      ignoreExisted: true,
-    })
+    // 走门面：目标可能是挂载卷，服务端 create-dir 解析不了那条路径
+    await fs.mkdir(normalizePath(targetDir + dir.fullPath), { recursive: true })
     const children = await readAllDirectoryEntries(dir.createReader())
     for (const child of children) {
       await collectEntry(child, `${path}${dir.name}/`, out, targetDir)

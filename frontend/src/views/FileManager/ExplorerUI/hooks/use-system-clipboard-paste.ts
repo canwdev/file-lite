@@ -1,8 +1,8 @@
 import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
 import dayjs from 'dayjs'
-import { fsWebApi } from '@/api/filesystem'
 import { readSystemClipboard } from '@/utils/clipboard'
+import { fs } from '@/utils/fs'
 import { generateTextFile, normalizePath } from '../../utils'
 
 function appendCopySuffix(name: string, index?: number) {
@@ -48,6 +48,14 @@ export function useSystemClipboardPaste({
       const existingNames = new Set(entries.value.map(entry => entry.name))
       const filename = buildUniqueName(content.ext, existingNames)
       const path = normalizePath(`${basePath.value}/${filename}`)
+      const name = path.split('/').pop() ?? filename
+
+      // 只读的挂载卷要在这里就挡住并说明原因，而不是发一个必然失败的服务端请求
+      const guard = await fs.canWrite(path)
+      if (!guard.ok) {
+        window.$message.warning(guard.reason ?? 'This location is read-only')
+        return
+      }
 
       isLoading.value = true
 
@@ -61,7 +69,13 @@ export function useSystemClipboardPaste({
       else {
         file = generateTextFile(content.text, filename)
       }
-      await fsWebApi.uploadFile({ path, file })
+
+      // 门面按路径分派：服务端走上传、挂载卷写句柄
+      const written = await fs.writeFile(basePath.value, name, file)
+      if (!written.ok) {
+        window.$message.warning(written.reason ?? 'This location is read-only')
+        return
+      }
 
       window.$message.success(`Pasted ${filename}`)
       const mtime = file.lastModified || Date.now()

@@ -6,7 +6,7 @@ import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn, setMoun
 // 面包屑第一段要显示卷标而不是 `/@mounted/<id>`：把查询注入纯匹配模块
 setMountedLabelLookup(mountedVolumeLabelForPath)
 
-export { normalizeListingPath, normalizePath } from './path-form'
+export { normalizeListingPath, normalizePath } from '../../../utils/path/form'
 
 /**
  * 导航边界（挂载点根）列表：后端驱动器 + 浏览器挂载卷。

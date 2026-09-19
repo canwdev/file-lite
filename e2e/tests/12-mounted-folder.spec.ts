@@ -17,6 +17,14 @@ import { login, resetTargetDirs, row, screenshot, selectItem, sourceDir, targetD
  * 一个空目录。只做 `page.addInitScript`，生产代码里不掺任何测试开关。
  */
 
+/**
+ * 一段**真的** 1 秒 440Hz 单声道 MP3（ffmpeg 生成，约 4.5KB）。
+ *
+ * 音乐播放器要解出时长、封面与标签，用几个字节的假音频是测不出来的——浏览器会直接
+ * 报解码错误，用例就变成在测「假文件当然放不了」。所以这里内联一段真音频。
+ */
+const REAL_MP3_BASE64 = `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`
+
 const MOUNT_LABEL = 'fs-mount'
 
 /**
@@ -56,6 +64,12 @@ const opfsStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOU
     window.__opfsSeeded = true
     await put('hello.txt', 'mounted-hello')
     await put('notes.md', '# notes')
+    // 真音频：音乐播放器要能真的解码它，假字节测不出问题
+    const bytes = Uint8Array.from(atob(window.__REAL_MP3_BASE64), c => c.charCodeAt(0))
+    const audio = await dir.getFileHandle('tone.mp3', { create: true })
+    const audioWriter = await audio.createWritable()
+    await audioWriter.write(new Blob([bytes], { type: 'audio/mpeg' }))
+    await audioWriter.close()
   }
   // 显式按 mode 回答：只读卷只批读、拒绝写。读写能力由注入时的 access 决定，
   // 每个用例在 beforeEach 里定好后就不再变。
@@ -68,6 +82,8 @@ const opfsStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOU
 `
 
 async function stubOpfsMount(page: Page, access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOUNT_LABEL) {
+  // 真音频通过 window 传给种子脚本（addInitScript 的内容会内联进页面，不适合塞 6KB base64）
+  await page.addInitScript(`window.__REAL_MP3_BASE64 = ${JSON.stringify(REAL_MP3_BASE64)}`)
   await page.addInitScript(opfsStub(access, dirName))
 }
 
@@ -117,6 +133,41 @@ async function readOpfsFile(page: Page, file: string, dirName: string): Promise<
 }
 
 /**
+ * 记录本轮页面上的 API 请求与失败响应。
+ *
+ * 挂载卷的失败模式很隐蔽：某处忘了分流就会发一条
+ * `/api/files/list?path=/@mounted/...` 出去，界面上只表现为「列表空了」，
+ * 既没有报错也没有 toast。所以在 e2e 里把请求与 4xx/5xx 显式记下来并断言。
+ */
+let apiLog: { requests: { method: string, url: string }[], failures: { status: number, url: string }[] } = { requests: [], failures: [] }
+
+function trackApi(page: Page) {
+  const requests: { method: string, url: string }[] = []
+  const failures: { status: number, url: string }[] = []
+  apiLog = { requests, failures }
+  page.on('request', (request) => {
+    const url = request.url()
+    if (!url.includes('/api/')) {
+      return
+    }
+    requests.push({ method: request.method(), url: url.replace(/^https?:\/\/[^/]+/, '') })
+  })
+  page.on('response', (response) => {
+    const url = response.url()
+    if (url.includes('/api/') && response.status() >= 400) {
+      failures.push({ status: response.status(), url: url.replace(/^https?:\/\/[^/]+/, '') })
+    }
+  })
+  return { requests, failures }
+}
+
+/** 有没有把挂载路径发给服务端（那就是分流漏了一处）。 */
+function mountedLeaks(requests: { method: string, url: string }[]) {
+  return requests.filter(item => item.url.includes('%40mounted') || item.url.includes('/@mounted'))
+}
+
+
+/**
  * 回到服务端夹具根（侧边栏第一项 = helpers 打桩出来的 Files 盘）。
  *
  * 选择器用 `.drive-list` 而非行上的类名：行上的 `sidebar-list__item` 与挂载区共用，
@@ -150,6 +201,8 @@ test.describe('浏览器挂载文件夹', () => {
 
   test.beforeEach(async ({ page }, testInfo) => {
     resetTargetDirs()
+    // 从第一次导航就开始记录，否则登录那一跳里的请求会漏掉
+    trackApi(page)
     mountDir = nextMountDir()
     mountAccess = testInfo.title === READ_ONLY_CASE ? 'read-only' : 'readwrite'
     await stubOpfsMount(page, mountAccess, mountDir)
@@ -317,5 +370,60 @@ test.describe('浏览器挂载文件夹', () => {
     await expect(page.locator('.el-message').last()).toContainText('read-only')
     await expect(row(page, 'should-not-exist.txt')).toBeHidden()
     await expect.poll(async () => (await readOpfsDir(page, dirName)).includes('should-not-exist.txt')).toBe(false)
+  })
+
+  test('音乐播放器能播挂载卷里的音乐', async ({ page }) => {
+    const dirName = mountDir
+    await mountOpfs(page, dirName)
+
+    // tone.mp3 由默认 app 关联到 Media Player；双击打开
+    await row(page, 'tone.mp3').dblclick()
+
+    // 播放器把挂载卷里的音频读成 objectURL——而不是去请求服务端。
+    // 注意 `<audio>` 是 `v-show="false"` 的功能性元素，不能断言「可见」。
+    const audio = page.locator('audio').first()
+    await expect.poll(async () => await audio.getAttribute('src'), { timeout: 15_000 }).toContain('blob:')
+
+    // 真音频必须能被解码：readyState >= HAVE_CURRENT_DATA 且时长 > 0。
+    // 这一步是这条用例的重点——用假字节的话 duration 永远是 NaN。
+    await expect.poll(async () => await audio.evaluate((el: HTMLAudioElement) => el.readyState), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2)
+    const duration = await audio.evaluate((el: HTMLAudioElement) => el.duration)
+    expect(duration).toBeGreaterThan(0.5)
+
+    // 能真正开始播放（headless 下 Chromium 用静音策略放行）
+    await audio.evaluate(async (el: HTMLAudioElement) => {
+      el.muted = true
+      await el.play()
+    })
+    await expect.poll(async () => await audio.evaluate((el: HTMLAudioElement) => el.paused || el.currentTime > 0))
+      .toBe(true)
+
+    await screenshot(page, '12-mounted-music')
+  })
+
+  test('接口请求：不发挂载路径、不重复拉盘、无失败响应', async ({ page }) => {
+    const dirName = mountDir
+    const { requests, failures } = apiLog
+
+    await mountOpfs(page, dirName)
+    await expect(row(page, 'tone.mp3')).toBeVisible()
+    // 离开再回来，覆盖面包屑 / 导航带来的请求
+    await goToFixtureRoot(page)
+    await page.locator('.mounted-list__item').click()
+    await expect(row(page, 'hello.txt')).toBeVisible()
+    await page.waitForTimeout(1200)
+
+    // 1) 一条挂载路径都不该发给服务端（漏了分流就会漂到这里）
+    expect(mountedLeaks(requests)).toEqual([])
+
+    // 2) 不该有失败响应（尤其是曾经出现过的
+    //    `/api/files/list?path=%2F%40mounted%2F` 那种 404/400）
+    expect(failures).toEqual([])
+
+    // 3) 盘列表只该拉一次：drives.ts 有缓存 + 并发去重，而侧边栏与资源管理器面板
+    //    是在同一帧各自发起加载的（过去因此稳定发出两条 GET /api/files/drives）
+    const driveCalls = requests.filter(item => item.url.startsWith('/api/files/drives'))
+    expect(driveCalls.length).toBe(1)
   })
 })

@@ -6,13 +6,13 @@ import { fsWebApi } from '@/api/filesystem.ts'
 import { fileUrlVersion, resolveFileUrl } from '@/hooks/use-file-url'
 import { serverCapabilities } from '@/store/capabilities'
 import { localSettingsStore } from '@/store/index.ts'
+import { isMountedPath } from '@/utils/fs/paths'
 import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
 import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedAudioFormat, regSupportedImageFormat, regSupportedVideoFormat } from '@/utils/is.ts'
 import { normalizeListingPath } from '../utils'
 import { getFileIconClass } from './file-icons'
 import { applyFolderListSort, readFolderRawList } from './folder-listing'
 import { useFolderImagePreviews, useImagePreview } from './hooks/use-image-preview'
-import { isMountedPath } from './mounted-volumes'
 
 const props = withDefaults(
   defineProps<{

@@ -5,23 +5,21 @@ import type { FileSelectResult } from './types'
 import type { FsDirChange, IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
-import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { bytesToSize } from '@/utils'
+import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
-import { MountedFsError, readMountedDir } from './ExplorerUI/browser-fs'
 import { driveList, loadDrives } from './ExplorerUI/drives'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
-import { isMountedPath } from './ExplorerUI/mounted-volumes'
 import { normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
@@ -105,31 +103,13 @@ const {
 } = useNavigation({
   basePath,
   getListFn: async ({ signal } = {}) => {
-    // 浏览器挂载卷的内容在客户端，走后端只会拿到一条它解析不了的路径。
-    // 两条分支返回同一个 IEntry[]，所以下游（排序 / 过滤 / 预览 / 打开）不必区分。
-    if (isMountedPath(basePath.value)) {
-      if (signal?.aborted) {
-        return []
-      }
-      try {
-        return await readMountedDir(basePath.value, { showHidden: localSettingsStore.value.showHidden })
-      }
-      catch (error) {
-        console.error('[mounted-volumes] failed to list', basePath.value, error)
-        window.$message?.error(error instanceof MountedFsError && error.code === 'permission'
-          ? 'Access to this mounted folder was denied'
-          : 'Failed to read the mounted folder')
-        return []
-      }
+    // 门面按路径分派（服务端 / 挂载卷）；两条路返回同一个 IEntry[]，
+    // 所以下游（排序 / 过滤 / 预览 / 打开）不必区分。失败一律抛出，
+    // 由 use-navigation 统一转成列表区的错误状态。
+    if (signal?.aborted) {
+      return []
     }
-
-    const res = await fsWebApi.getList({
-      path: basePath.value,
-    }, {
-      signal,
-    })
-
-    return (res || [])
+    return await fs.list(basePath.value, { showHidden: localSettingsStore.value.showHidden })
   },
 })
 

@@ -18,7 +18,6 @@ import type { TaskEntry } from '@/store/task-state'
  *    由流标准提供背压，不会把大文件缓冲进内存。
  */
 import type { ConflictPolicy, TaskItemResult, TaskItemStatus, TaskSnapshot, TaskState, TaskStats } from '@/types/server'
-import { fsWebApi } from '@/api/filesystem'
 import { authToken } from '@/store/auth'
 import {
   fireTaskDone,
@@ -26,17 +25,11 @@ import {
   requestLocalConflict,
   taskList,
 } from '@/store/task-state'
+import { browserBackend, createMountedDir, mountedEntryExists, readMountedDir, readMountedFile, removeMountedEntry, writeMountedFileFromStream } from '../../../utils/fs/browser-backend'
+import { isMountedPath, needsClientExecution } from '../../../utils/fs/paths'
+import { serverBackend } from '../../../utils/fs/server-backend'
 import explorerBus, { ExplorerEvents } from '../utils/bus'
-import {
-  createMountedDir,
-  mountedEntryExists,
-  readMountedDir,
-  readMountedFile,
-  removeMountedEntry,
-  writeMountedFileFromStream,
-} from './browser-fs'
 import { mountedWriteGuard } from './mount-write'
-import { isMountedPath, needsClientExecution } from './mounted-volumes'
 
 /** 客户端任务的 id 前缀：与服务端分配的 id 不可能相撞，也便于识别。 */
 export const CLIENT_TASK_PREFIX = 'clienttask_'
@@ -296,8 +289,7 @@ async function resolvePolicy(
 
 async function serverEntryExists(path: string): Promise<boolean> {
   try {
-    const { existing } = await fsWebApi.checkExists([path])
-    return existing.includes(path)
+    return await serverBackend.exists(path)
   }
   catch {
     // 预检失败不该阻断操作：交给真正的写入去报错
@@ -313,7 +305,7 @@ async function readDirForTask(path: string) {
   if (isMountedPath(path)) {
     return readMountedDir(path, { showHidden: true })
   }
-  const list = await fsWebApi.getList({ path }, { isToast: false })
+  const list = await serverBackend.list(path)
   return Array.isArray(list) ? list : []
 }
 
@@ -382,7 +374,7 @@ async function downloadToBrowser(
   filename: string,
   ctx: RunContext,
 ): Promise<void> {
-  const response = await fetch(fsWebApi.getStreamUrl(srcPath), {
+  const response = await fetch(serverBackend.url(srcPath), {
     headers: { Authorization: authToken.value },
     signal: ctx.abort.signal,
   })
@@ -409,12 +401,14 @@ async function uploadToServer(
   item: PendingItem,
 ): Promise<void> {
   const file = await readMountedFile(srcPath)
-  await fsWebApi.uploadFile(
-    { path: destPath, file, onConflict: uploadPolicyOf(ctx.policy) },
+  await serverBackend.writeFile(
+    parentDirOf(destPath),
+    lastSegment(destPath),
+    file,
     {
+      conflict: uploadPolicyOf(ctx.policy),
       signal: ctx.abort.signal,
-      onUploadProgress(event: { loaded?: number }) {
-        const loaded = event.loaded ?? 0
+      onProgress(loaded) {
         ctx.bytesDone += Math.max(loaded - (item.uploadedBytes ?? 0), 0)
         item.uploadedBytes = loaded
         publish(ctx)
@@ -687,19 +681,18 @@ function statusFor(isMove: boolean): TaskItemStatus {
   return isMove ? 'moved' : 'copied'
 }
 
+// 这里刻意**不用**门面 `@/utils/fs`：门面要 import 本模块做派发，反过来再 import
+// 会成环。执行器本来就该知道两侧差别，直接用两个后端实现更直白。
 async function createDirAt(path: string): Promise<void> {
   if (isMountedPath(path)) {
-    await createMountedDir(path)
+    await browserBackend.mkdir(path)
     return
   }
-  await fsWebApi.createDir({ path, ignoreExisted: true })
+  await serverBackend.mkdir(path)
 }
 
 async function existsAt(path: string): Promise<boolean> {
-  if (isMountedPath(path)) {
-    return mountedEntryExists(parentDirOf(path), lastSegment(path))
-  }
-  return serverEntryExists(path)
+  return isMountedPath(path) ? browserBackend.exists(path) : serverBackend.exists(path)
 }
 
 /** 取消一个客户端任务：中止在途请求，已完成的条目保留。 */

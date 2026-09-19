@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isMountedPath, MOUNTED_PATH_PREFIX, mountIdFromPath, mountRootOfPath, mountRootPath, relativePathInMount } from '../ExplorerUI/mounted-volumes'
+import { isMountedPath, MOUNTED_PATH_PREFIX, mountIdFromPath, mountRootOfPath, mountRootPath, relativePathInMount } from '../../../utils/fs/paths'
 
 /**
  * 挂载卷的路径命名空间。
