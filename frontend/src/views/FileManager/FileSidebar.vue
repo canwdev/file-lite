@@ -46,7 +46,10 @@ const mountedList = computed(() => mountedVolumes.value)
 const grantingIds = ref<Set<string>>(new Set())
 const mounting = ref(false)
 
-const pendingCount = computed(() => mountedList.value.filter(volume => volume.access === 'prompt').length)
+/** 需要用户点一下的卷：没授权的、被拒的、以及只读但也许能给写的 */
+const pendingCount = computed(() =>
+  mountedList.value.filter(volume => volume.access !== 'granted').length,
+)
 /** 空态只在恢复完成后出现，否则每次刷新都会闪一下「没有挂载」 */
 const showEmptyState = computed(() =>
   canMount.value && mountedVolumesLoaded.value && !mountedList.value.length,
@@ -105,9 +108,14 @@ function openDrive(item: IDrive) {
 /* 浏览器挂载的本地文件夹                                              */
 /* ------------------------------------------------------------------ */
 
-/** 需要重新授权时用「文件夹 + 锁」，和「已经能用」的卷区分开 */
+/**
+ * 需要授权（或被拒）时用「文件夹 + 锁」，和能用的卷区分开。
+ * 只读仍然是可浏览的位置，所以保留普通图标，靠副标题说明。
+ */
 function getMountedIcon(volume: MountedVolume) {
-  return volume.access === 'granted' ? 'mdi-folder-arrow-up-down-outline' : 'mdi-folder-lock-outline'
+  return volume.access === 'granted' || volume.access === 'read-only'
+    ? 'mdi-folder-arrow-up-down-outline'
+    : 'mdi-folder-lock-outline'
 }
 
 function isActiveMounted(volume: MountedVolume) {
@@ -116,7 +124,10 @@ function isActiveMounted(volume: MountedVolume) {
 
 function getMountedTitle(volume: MountedVolume) {
   if (volume.access === 'granted') {
-    return `${volume.label}\nLocal folder mounted from this browser`
+    return `${volume.label}\nLocal folder mounted from this browser (read and write)`
+  }
+  if (volume.access === 'read-only') {
+    return `${volume.label}\nOpen with read-only access — click to grant write access`
   }
   if (volume.access === 'denied') {
     return `${volume.label}\nAccess denied — unmount and pick the folder again`
@@ -136,22 +147,23 @@ function setGranting(id: string, value: boolean) {
 }
 
 function openMountedVolume(volume: MountedVolume) {
-  if (volume.access === 'granted') {
+  // 只读是可用的（能浏览），直接进；只有还没授权时才需要先问
+  if (volume.access === 'granted' || volume.access === 'read-only') {
     emit('openMountedVolume', volume)
     return
   }
-  void grantAndOpen(volume)
+  void grantAccess(volume)
 }
 
-/** 授权必须在用户手势里发起，所以这一步由点击驱动；授权成功再导航进去。 */
-async function grantAndOpen(volume: MountedVolume) {
+/** 在用户手势里补授权（只读 → 读写，或未授权 → 可用），成功后进目录。 */
+async function grantAccess(volume: MountedVolume) {
   if (grantingIds.value.has(volume.id)) {
     return
   }
   setGranting(volume.id, true)
   try {
     const access = await grantMountedVolume(volume.id)
-    if (access === 'granted') {
+    if (access === 'granted' || access === 'read-only') {
       emit('openMountedVolume', volume)
     }
     else if (access === null) {
@@ -176,7 +188,7 @@ async function requestAllAccess() {
   await requestAllMountedVolumes()
   const stillPending = mountedVolumes.value.filter(volume => volume.access !== 'granted').length
   if (stillPending) {
-    window.$message?.info(`${stillPending} mounted folder(s) still need access`)
+    window.$message?.info(`${stillPending} mounted folder(s) still do not have write access`)
   }
 }
 
@@ -211,7 +223,9 @@ async function unmount(volume: MountedVolume, event?: MouseEvent) {
 function showMountedMenu(volume: MountedVolume, event: MouseEvent) {
   const items: MenuItem[] = []
 
-  if (volume.access === 'granted') {
+  // 只读也能进去看，所以「打开」类动作只看能不能浏览
+  const canBrowse = volume.access === 'granted' || volume.access === 'read-only'
+  if (canBrowse) {
     items.push({
       label: 'Open',
       icon: 'mdi mdi-folder-open-outline',
@@ -223,11 +237,13 @@ function showMountedMenu(volume: MountedVolume, event: MouseEvent) {
       onClick: () => emit('openPathInNewTab', mountedVolumeListingPath(volume.id)),
     })
   }
-  else {
+
+  if (volume.access !== 'granted') {
     items.push({
-      label: 'Restore Access',
+      label: volume.access === 'read-only' ? 'Grant Write Access' : 'Restore Access',
       icon: 'mdi mdi-key-outline',
-      onClick: () => void grantAndOpen(volume),
+      divided: !canBrowse,
+      onClick: () => void grantAccess(volume),
     })
   }
 
@@ -385,6 +401,7 @@ defineExpose({
           <span class="sidebar-list__title vgo-u-text-overflow">{{ volume.label }}</span>
           <span v-if="volume.access === 'prompt'" class="mounted-list__hint vgo-u-text-overflow">Remount</span>
           <span v-else-if="volume.access === 'denied'" class="mounted-list__hint vgo-u-text-overflow">Access denied</span>
+          <span v-else-if="volume.access === 'read-only'" class="mounted-list__hint vgo-u-text-overflow">Read-only</span>
         </span>
         <span v-if="grantingIds.has(volume.id)" class="mounted-list__busy">
           <i-mdi-loading class="vgo-u-icon-sm" />
@@ -419,7 +436,7 @@ defineExpose({
       <button
         v-for="(item, index) in driveList"
         :key="index"
-        class="vgo-u-button-reset vgo-list-item sidebar-list__item"
+        class="vgo-u-button-reset vgo-list-item sidebar-list__item drive-list__item"
         :title="getTitle(item)"
         :class="{ 'is-active': item.path === currentPath, 'is-drop-target': dragOverPath === item.path }"
         @click="openDrive(item)"
@@ -428,7 +445,8 @@ defineExpose({
         @dragleave="onDriveDragLeave(item, $event)"
         @drop="onDriveDrop(item, $event)"
       >
-        <span class="sidebar-list__icon">
+        <!-- `drive-list__icon` 与 `drive-list__item` 一样是既有选择器契约（e2e 与样式都用它） -->
+        <span class="sidebar-list__icon drive-list__icon">
           <MdiIcon :name="getIcon(item)" class="vgo-u-icon-md" />
         </span>
         <span class="sidebar-list__content">

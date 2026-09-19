@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem'
+import { resolveFileUrl } from '@/hooks/use-file-url'
 import { ThemeMode } from '@/hooks/use-global-theme'
 import { settingsStore } from '@/store'
 import dynamicLoadScript from '@/utils/dynamic-load-script'
@@ -48,7 +48,7 @@ watch(() => props.appParams, () => {
     return
   }
   emit('setTitle', appParams.item.name)
-  src.value = fsWebApi.getStreamUrl(appParams.absPath)
+  src.value = resolveFileUrl(appParams.absPath)
   filename.value = appParams.item.name
 }, { immediate: true })
 

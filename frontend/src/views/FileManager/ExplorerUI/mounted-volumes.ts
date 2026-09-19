@@ -32,8 +32,17 @@ export interface MountedVolumeMeta {
  *
  * `prompt` 是正常态而非错误：句柄能跨刷新恢复，但权限要在用户手势里再确认一次。
  * `denied` 单独分出来是因为它需要不同的出路（重新挂载 / 卸载），而不是再弹一次。
+ *
+ * `read-only` 与 `granted`（= 读写）分开，是因为浏览器完全允许「只读重连」：
+ * 用户可能只批了读、或当初就是只读挂载的。这类卷能浏览但写不了，界面必须
+ * 提前说清楚，而不是等用户点了新建才弹一个「权限不足」。
  */
-export type MountedVolumeAccess = 'granted' | 'prompt' | 'denied'
+export type MountedVolumeAccess = 'granted' | 'read-only' | 'prompt' | 'denied'
+
+/** 该访问状态能不能写。 */
+export function canWriteVolume(access: MountedVolumeAccess): boolean {
+  return access === 'granted'
+}
 
 export interface MountedVolume extends MountedVolumeMeta {
   access: MountedVolumeAccess
@@ -237,7 +246,11 @@ interface PermissionCapableHandle {
 }
 
 /**
- * 读权限状态；拿不到 API 时按 `granted` 处理。
+ * 查询当前的访问状态。
+ *
+ * 先问 `readwrite` 再退回 `read`：**必须按写的权限去问**，否则一个只批了读的句柄
+ * 会被判成「可用」，用户点新建/重命名时才失败。反过来，重连时只拿到读权限是
+ * 正常结果（用户只批了读），按 `read-only` 如实上报，界面据此降级。
  *
  * 有些实现不带 `queryPermission`，此时谎报 `prompt` 会让每次刷新都要求用户再点一次，
  * 反而不如直接放行、让真正的读写去失败。
@@ -248,7 +261,13 @@ export async function queryVolumePermission(handle: FileSystemDirectoryHandle): 
     return 'granted'
   }
   try {
-    return await capable.queryPermission({ mode: 'read' }) as MountedVolumeAccess
+    if (await capable.queryPermission({ mode: 'readwrite' }) === 'granted') {
+      return 'granted'
+    }
+    if (await capable.queryPermission({ mode: 'read' }) === 'granted') {
+      return 'read-only'
+    }
+    return 'prompt'
   }
   catch (error) {
     console.error('[mounted-volumes] queryPermission failed', error)
@@ -256,19 +275,43 @@ export async function queryVolumePermission(handle: FileSystemDirectoryHandle): 
   }
 }
 
-/** 在用户手势里申请读权限。 */
+/**
+ * 在用户手势里申请读写权限。
+ *
+ * 写操作需要 `readwrite`，所以这里直接要它；被拒时**退回只读**而不是整块判死——
+ * 用户可能只是不想给写权限，浏览仍然应该可用。
+ */
 export async function requestVolumePermission(handle: FileSystemDirectoryHandle): Promise<MountedVolumeAccess> {
   const capable = handle as unknown as PermissionCapableHandle
   if (typeof capable.requestPermission !== 'function') {
     return 'granted'
   }
   try {
-    return await capable.requestPermission({ mode: 'read' }) as MountedVolumeAccess
+    if (await capable.requestPermission({ mode: 'readwrite' }) === 'granted') {
+      return 'granted'
+    }
+    if (await capable.queryPermission?.({ mode: 'read' }) === 'granted') {
+      return 'read-only'
+    }
+    return 'prompt'
   }
   catch (error) {
     console.error('[mounted-volumes] requestPermission failed', error)
     return 'denied'
   }
+}
+
+/**
+ * 写操作被浏览器拒绝后，把卷的状态降级。
+ *
+ * 权限可能在挂载之后被用户在浏览器设置里收回，或只读目录（如系统目录）根本
+ * 写不进去；此时把状态改成 `read-only`，界面下一帧就会提示需要重新授权，
+ * 而不是每次写都弹一次失败。
+ */
+export function downgradeVolumeToReadOnly(id: string): void {
+  mountedVolumes.value = mountedVolumes.value.map(volume =>
+    volume.id === id && volume.access === 'granted' ? { ...volume, access: 'read-only' } : volume,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -321,12 +364,14 @@ export async function loadMountedVolumes(): Promise<MountedVolume[]> {
 /**
  * 一次性恢复全部待授权卷。
  *
- * 只对**已经指向 `prompt` 的卷**发起 `requestPermission`，而且在同一个 tick 里
- * 全部发起、之后才 `await`：弹窗必须落在用户手势的有效期内，逐个 await 会让
- * 后面的调用失去手势。任何一次拒绝都只会让那一个卷保持 `prompt`，不影响其他卷。
+ * 只对**还没拿到读写权限的卷**（`prompt` 与 `read-only`）发起 `requestPermission`，
+ * 而且在同一个 tick 里全部发起、之后才 `await`：弹窗必须落在用户手势的有效期内，
+ * 逐个 await 会让后面的调用失去手势。任何一次拒绝都只会让那一个卷保持原状，
+ * 不影响其他卷。
  */
 export async function requestAllMountedVolumes(): Promise<void> {
-  const pending = mountedVolumes.value.filter(volume => volume.access === 'prompt')
+  // `read-only` 也算「可以再问一次」：用户当时可能只批了读，点这里就是补写权限
+  const pending = mountedVolumes.value.filter(volume => volume.access === 'prompt' || volume.access === 'read-only')
   if (!pending.length) {
     return
   }
@@ -391,8 +436,9 @@ export async function mountBrowserFolder(): Promise<MountedVolume | null> {
   await handleStore.write(record)
   handleCache.set(record.meta.id, handle)
 
-  // 刚拿到手的句柄必然是可读的，不用再查一次
-  const volume: MountedVolume = { ...record.meta, access: 'granted' }
+  // 选择框是按读写申请的，但用户完全可能只批了读（或选中的是只读目录）。
+  // 必须真查一次，否则界面会把一个写不了的卷显示成可写，等到用户新建文件才失败。
+  const volume: MountedVolume = { ...record.meta, access: await queryVolumePermission(handle) }
   mountedVolumes.value = [...mountedVolumes.value, volume]
   mountedVolumesLoaded.value = true
   return volume
@@ -408,6 +454,21 @@ export async function unmountBrowserFolder(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // 侧边栏接入
 // ---------------------------------------------------------------------------
+
+/**
+ * 一条挂载卷路径对应的显示名（卷标）。
+ *
+ * 面包屑第一段拿的是**导航边界**的路径字符串；对挂载卷来说那就是
+ * `/@mounted/<id>/`，直接显示出来毫无意义。所以那个位置需要回头查一次卷标。
+ * 找不到（卷已被卸载）时返回 null，调用方退回原字符串。
+ */
+export function mountedVolumeLabelForPath(path: string | null | undefined): string | null {
+  const id = mountIdFromPath(path)
+  if (!id) {
+    return null
+  }
+  return mountedVolumes.value.find(volume => volume.id === id)?.label ?? null
+}
 
 /** 卷根路径（listing 形态），侧边栏高亮与导航都用它。 */
 export function mountedVolumeListingPath(id: string): string {

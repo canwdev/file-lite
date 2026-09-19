@@ -1,6 +1,6 @@
 import type { MessageBoxData } from 'element-plus'
 import type { IEntry } from '@/types/server'
-import { fsWebApi } from '@/api/filesystem'
+import { resolveFileUrl, resolveFileUrlAsync } from '@/hooks/use-file-url'
 import { bytesToSize } from '@/utils'
 import {
   regSupportedAudioFormat,
@@ -12,6 +12,7 @@ import {
 import { appListByOpenWith, getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
+import { isMountedPath } from '../mounted-volumes'
 
 interface OpenAppInfo {
   name: string
@@ -105,8 +106,15 @@ const FILE_SIZE_LIMITS: Partial<Record<OpenWithEnum, number>> = {
 }
 
 export function useOpener(basePath: { value: string }) {
+  /**
+   * 打开用的地址：服务端文件给 HTTP 地址，挂载卷文件给 objectURL。
+   *
+   * 服务端那条是同步的，挂载卷要读一次文件，所以这里可能返回空串——
+   * 两个调用点（新标签打开、navigator.share）都在用户手势的同步路径上，
+   * 拿不到地址时应该直接放弃而不是 `await` 掉手势。
+   */
   const getStreamUrl = (item: IEntry) => {
-    return fsWebApi.getStreamUrl(normalizePath(`${basePath.value}/${item.name}`))
+    return resolveFileUrl(normalizePath(`${basePath.value}/${item.name}`))
   }
 
   const openFile = async (
@@ -130,7 +138,19 @@ export function useOpener(basePath: { value: string }) {
         })
       }
       const openInBrowser = () => {
-        window.open(getStreamUrl(item), '_blank', 'noopener,noreferrer')
+        const url = getStreamUrl(item)
+        if (url) {
+          window.open(url, '_blank', 'noopener,noreferrer')
+          return
+        }
+        // 挂载卷文件要先读出来：读完再开（仍在同一次点击的异步链上）
+        if (isMountedPath(absPath)) {
+          void resolveFileUrlAsync(absPath).then((ready) => {
+            if (ready) {
+              window.open(ready, '_blank', 'noopener,noreferrer')
+            }
+          })
+        }
       }
       const openSpecialApp = async (appName: OpenWithEnum) => {
         if (appName === OpenWithEnum.Browser) {
@@ -140,10 +160,14 @@ export function useOpener(basePath: { value: string }) {
         if (appName === OpenWithEnum.Share) {
           // 用户取消、或浏览器不支持 share 都算处理完毕，避免未捕获的 rejection
           try {
+            const url = getStreamUrl(item) || await resolveFileUrlAsync(absPath)
+            if (!url) {
+              return true
+            }
             await navigator.share({
               title: item.name,
               text: '',
-              url: getStreamUrl(item),
+              url,
             })
           }
           catch {

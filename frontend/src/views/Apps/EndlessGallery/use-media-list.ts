@@ -1,6 +1,6 @@
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem.ts'
+import { resolveFileUrl } from '@/hooks/use-file-url'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -52,7 +52,7 @@ export function useMediaList(
         const type = getMediaType(i.name)
         if (!type)
           continue
-        result.push({ name: i.name, url: fsWebApi.getStreamUrl(`${basePath}/${i.name}`), type, entry: i })
+        result.push({ name: i.name, url: resolveFileUrl(`${basePath}/${i.name}`), type, entry: i })
         nameSet.add(i.name)
       }
       pruneDirectory(basePath, nameSet)

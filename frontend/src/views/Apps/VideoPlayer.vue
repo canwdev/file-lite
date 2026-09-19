@@ -1,6 +1,6 @@
 <script lang="ts" setup="">
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem.ts'
+import { useFileUrl } from '@/hooks/use-file-url'
 import NativeOrArtVideo from './components/NativeOrArtVideo.vue'
 
 const props = withDefaults(
@@ -16,9 +16,8 @@ const props = withDefaults(
 )
 const emit = defineEmits(['setTitle'])
 const { appParams } = toRefs(props)
-const mediaSrc = computed(() => {
-  return fsWebApi.getStreamUrl(appParams.value?.absPath)
-})
+// 挂载卷里的文件没有服务端地址，解析层会给一个 objectURL
+const mediaSrc = useFileUrl(() => appParams.value?.absPath)
 watch(
   () => props.appParams,
   () => {

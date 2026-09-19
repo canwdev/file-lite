@@ -35,6 +35,7 @@ import {
   removeMountedEntry,
   writeMountedFileFromStream,
 } from './browser-fs'
+import { mountedWriteGuard } from './mount-write'
 import { isMountedPath, needsClientExecution } from './mounted-volumes'
 
 /** 客户端任务的 id 前缀：与服务端分配的 id 不可能相撞，也便于识别。 */
@@ -192,7 +193,10 @@ function finishTask(ctx: RunContext, crash?: unknown) {
     return
   }
 
-  const results = importantResults(ctx.results)
+  // 任务记录里只留问题项（几百条成功记录没必要常驻内存），但**完成回调必须拿到全部
+  // 条目**：删除与移动的源目录要靠成功的 `deleted` / `moved` 才能重读列表，
+  // 只给失败项会让「删掉了但列表还显示着」。
+  const allResults = [...ctx.results]
   const failed = stats.failed + stats.conflict
 
   // 收尾延后一个宏任务再发。
@@ -204,8 +208,8 @@ function finishTask(ctx: RunContext, crash?: unknown) {
   setTimeout(() => {
     cancelledTasks.delete(ctx.taskId)
     // 通知落在同样目录里的列表刷新：这类任务没有服务端的 fs changed 推送
-    explorerBus.emit(ExplorerEvents.CLIENT_TASK_DONE, { task, results })
-    fireTaskDone(task, results, false)
+    explorerBus.emit(ExplorerEvents.CLIENT_TASK_DONE, { task, results: allResults })
+    fireTaskDone(task, allResults, false)
     if (failed > 0 && locallyCreatedTaskIds.has(ctx.taskId)) {
       openFailureDialog(ctx.taskId)
     }
@@ -531,6 +535,15 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
   const isMove = kind === 'move'
 
   try {
+    // ---- 0. 只读 / 未授权：先问清楚，别等到写了一半才失败 ----
+    const guardPaths = isDelete ? fromPaths : [...fromPaths, toPath]
+    const blocked = guardPaths.map(path => (isMountedPath(path) ? mountedWriteGuard(path).reason : undefined)).find(Boolean)
+    if (blocked) {
+      window.$message?.warning(blocked)
+      taskList.value = taskList.value.filter(task => task.id !== ctx.taskId)
+      return
+    }
+
     // ---- 删除：逐条递归删，不需要展开（服务端也是这个语义） ----
     if (isDelete) {
       ctx.itemsTotal = fromPaths.length

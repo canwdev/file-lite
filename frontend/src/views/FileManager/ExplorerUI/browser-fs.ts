@@ -9,7 +9,7 @@
  * 写操作（create / rename / remove / write）在后续阶段补在这里，不新开抽象层。
  */
 import type { IEntry } from '@/types/server'
-import { getMountedHandle, mountIdFromPath, relativePathInMount } from './mounted-volumes'
+import { getMountedHandle, MOUNTED_PATH_PREFIX, mountIdFromPath, relativePathInMount } from './mounted-volumes'
 
 export type MountedFsErrorCode
   = | 'not-mounted-path' // 根本不属于挂载命名空间
@@ -135,10 +135,27 @@ export async function resolveMountedFileHandle(path: string): Promise<FileSystem
   }
 }
 
-/** 去掉路径最后一段，得到父目录路径。 */
+/**
+ * 去掉路径最后一段，得到父目录路径。
+ *
+ * 到挂载根为止：`/@mounted/<id>/a.txt` 的父目录是卷根 `/@mounted/<id>/`，
+ * **不能**继续剥成 `/@mounted`——那不是一条合法挂载路径，后续解析会直接失败。
+ * 这个边界在「往卷根里直接写文件」时必现，是客户端执行器最常见的入口。
+ */
 function parentPathOf(path: string, lastSegment: string): string {
   const cut = path.length - lastSegment.length - 1
-  return cut > 0 ? path.slice(0, cut) : path
+  const parent = cut > 0 ? path.slice(0, cut) : path
+  // 卷根自身不能再往上
+  if (mountIdFromPath(parent) === null && mountIdFromPath(path) !== null) {
+    return mountRootOfListingPath(path)
+  }
+  return parent
+}
+
+/** 取一条挂载路径所属的卷根（listing 形态）。 */
+function mountRootOfListingPath(path: string): string {
+  const id = mountIdFromPath(path)
+  return id ? `${MOUNTED_PATH_PREFIX}/${id}/` : path
 }
 
 function toMountedFsError(error: unknown, label: string): MountedFsError {

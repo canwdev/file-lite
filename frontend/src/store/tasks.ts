@@ -18,6 +18,7 @@ import {
   sendResolveConflict,
   sendRetryTask,
 } from '@/api/tasks-ws'
+import { authToken } from '@/store/auth'
 import {
   cancelClientTask,
   createClientTask,
@@ -419,7 +420,17 @@ watch(sharedWsStatus, (status) => {
   }
 }, { immediate: true })
 
-void ensureSharedWsConnected().catch(() => {})
+// 连接时机必须挂在**拿到 token 之后**，不能在模块求值时就连。
+//
+// `store/tasks.ts` 会被挂在挂载卷执行器（`client-tasks.ts`）的依赖链上，于是可能在
+// 登录页的模块图里就被求值；那时 `store/auth.ts` 还没把 cookie 里的 token 读出来，
+// 提前连接会得到一个必然失败的「No auth token」，而 `shared-ws` 的失败路径会顺带
+// 把 token 清掉 —— 表现就是「刷新一下就被踢回登录页」。
+watch(authToken, (token) => {
+  if (token) {
+    void ensureSharedWsConnected().catch(() => {})
+  }
+}, { immediate: true })
 
 // 冲突弹窗的两个出边：取消走执行器，决策下发给服务端。
 // 由这里注入，`task-state.ts` 因而不必认识任何执行器。

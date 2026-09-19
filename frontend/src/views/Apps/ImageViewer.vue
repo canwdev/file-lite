@@ -1,7 +1,7 @@
 <script lang="ts" setup="">
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem.ts'
+import { fileUrlVersion, useFileUrls } from '@/hooks/use-file-url'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
 const props = withDefaults(
@@ -15,32 +15,43 @@ const props = withDefaults(
   },
 )
 const emit = defineEmits(['setTitle', 'exit'])
-// const { appParams } = toRefs(props)
-// const mediaSrc = computed(() => {
-//   return fsWebApi.getStreamUrl(appParams.value?.absPath)
-// })
 
 const initialIndex = ref(0)
-const urlList = ref<string[]>([])
 const filteredList = ref<IEntry[]>([])
 const viewerKey = ref(0)
+
+/** 当前这批图片的绝对路径（列表总是来自同一个 basePath）。 */
+const imagePaths = computed(() => {
+  const base = (props.appParams?.basePath ?? '').replace(/\/+$/, '')
+  return filteredList.value.map(item => `${base}/${item.name}`)
+})
+
+/**
+ * 图片地址。挂载卷里的图是 objectURL，必须按路径成对保留 / 释放；
+ * 换一批图（切换目录、切换应用参数）时由 useFileUrls 自动收尾。
+ */
+const urlMap = useFileUrls(() => imagePaths.value)
+const urlList = computed(() => {
+  // 读一次版本号：objectURL 解析完成后重算
+  void fileUrlVersion.value
+  return imagePaths.value.map(path => urlMap.value.get(path) ?? '')
+})
+
 // 应用启动传参
 watch(
   () => props.appParams,
   () => {
-    urlList.value = []
     filteredList.value = []
     initialIndex.value = 0
     if (!props.appParams) {
       return
     }
-    const { item, list, basePath } = props.appParams
+    const { item, list } = props.appParams
     filteredList.value = list
       .filter((i) => {
         return (regSupportedImageFormat.test(i.name) && !i.isDirectory) || i.name === item.name
       })
 
-    urlList.value = filteredList.value.map(i => fsWebApi.getStreamUrl(`${basePath}/${i.name}`))
     initialIndex.value = Math.max(0, filteredList.value.findIndex(i => i.name === item.name))
     viewerKey.value += 1
   },

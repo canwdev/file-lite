@@ -12,7 +12,8 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
-import { renameMountedEntry } from '../browser-fs'
+import { createMountedDir, renameMountedEntry, writeMountedFile } from '../browser-fs'
+import { runMountedWrite } from '../mount-write'
 import { isMountedPath } from '../mounted-volumes'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
@@ -101,10 +102,18 @@ export function useFileActions({
           }))
       isLoading.value = true
       const file = generateTextFile(content, name)
-      await fsWebApi.uploadFile({
-        path: normalizePath(`${basePath.value}/${name}`),
-        file,
-      })
+      const target = normalizePath(`${basePath.value}/${name}`)
+      if (isMountedPath(target)) {
+        // 挂载卷在浏览器里：写句柄而不是发上传请求（见 mount-write.ts 的只读守卫）
+        const written = await runMountedWrite(target, () =>
+          writeMountedFile(basePath.value, name, file))
+        if (!written) {
+          return
+        }
+      }
+      else {
+        await fsWebApi.uploadFile({ path: target, file })
+      }
       onEntryCreated?.(name)
       emit('patch', { added: [fileEntry(name, file)] })
     }
@@ -119,7 +128,16 @@ export function useFileActions({
         value: `${dayjs().format('YYYYMMDD_HHmmss')}`,
       })
       isLoading.value = true
-      await fsWebApi.createDir({ path: normalizePath(`${basePath.value}/${name}`) })
+      const target = normalizePath(`${basePath.value}/${name}`)
+      if (isMountedPath(target)) {
+        const created = await runMountedWrite(target, () => createMountedDir(target))
+        if (!created) {
+          return
+        }
+      }
+      else {
+        await fsWebApi.createDir({ path: target })
+      }
       onEntryCreated?.(name)
       emit('patch', { added: [dirEntry(name)] })
     }
@@ -156,7 +174,7 @@ export function useFileActions({
       const toPath = normalizePath(`${basePath.value}/${name}`)
       if (isMountedPath(fromPath)) {
         // 挂载卷的内容在浏览器里，后端解析不了这条路径
-        await renameMountedEntry(fromPath, toPath)
+        await runMountedWrite(fromPath, () => renameMountedEntry(fromPath, toPath))
       }
       else {
         await fsWebApi.renameEntry({ fromPath, toPath })

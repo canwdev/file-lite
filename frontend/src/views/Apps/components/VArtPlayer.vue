@@ -6,8 +6,8 @@ import type { FileSelectResult } from '@/views/FileManager/types'
 import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { fsWebApi } from '@/api/filesystem'
 import { LsKeys } from '@/enum'
+import { resolveFileUrlAsync } from '@/hooks/use-file-url'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
 import FileSelector from '@/views/FileManager/FileSelector.vue'
 
@@ -328,23 +328,32 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
   if (!inst)
     return
   revokeBlobRef(videoObjectUrl)
-  const url = fsWebApi.getStreamUrl(`${val.basePath}/${item.name}`)
   videoObjectUrl.value = null
-  void inst.switchUrl(url).catch(console.error)
+  // 挂载卷里的文件是 objectURL，解析是异步的：等到地址就绪再切
+  void resolveFileUrlAsync(`${val.basePath}/${item.name}`).then((url) => {
+    if (url) {
+      void inst.switchUrl(url).catch(console.error)
+    }
+  })
 }
 
 function handleFileSelect(val: FileSelectResult) {
   const inst = artInstance.value
-  if (!inst || !val.item)
+  const item = val.item
+  if (!inst || !item)
     return
   if (fileSelectorType.value === 'video') {
-    handleVideoSelect(val, val.item)
+    handleVideoSelect(val, item)
     return
   }
-  const url = fsWebApi.getStreamUrl(`${val.basePath}/${val.item.name}`)
-  inst.subtitle.switch(url, {
-    name: val.item.name,
-    type: inferSubtitleType(val.item.name),
+  void resolveFileUrlAsync(`${val.basePath}/${item.name}`).then((url) => {
+    if (!url) {
+      return
+    }
+    inst.subtitle.switch(url, {
+      name: item.name,
+      type: inferSubtitleType(item.name),
+    })
   })
 }
 /**

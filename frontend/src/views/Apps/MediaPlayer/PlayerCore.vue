@@ -2,7 +2,7 @@
 import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
-import { fsWebApi } from '@/api/filesystem'
+import { resolveFileUrl } from '@/hooks/use-file-url'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { localSettingsStore } from '@/store/index'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
@@ -254,7 +254,7 @@ watch(
       return
     }
     emit('setTitle', item.filename || '')
-    avSrc.value = fsWebApi.getStreamUrl(item.absPath)
+    avSrc.value = resolveFileUrl(item.absPath) || undefined
     const playbackRate = mediaStore.playbackRate
     if (!mediaStore.isVideo) {
       audioRef.value?.load()

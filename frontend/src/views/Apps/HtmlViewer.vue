@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fsWebApi } from '@/api/filesystem'
+import { useFileUrl } from '@/hooks/use-file-url'
 
 const props = defineProps<{
   appParams: AppParams
@@ -8,18 +8,15 @@ const props = defineProps<{
 
 const emit = defineEmits(['setTitle'])
 
-const src = ref('')
+/** 挂载卷里的文件没有服务端地址，解析层会给一个 objectURL */
+const src = useFileUrl(() => props.appParams?.absPath)
 
 watch(() => props.appParams, () => {
   const { appParams } = props
   if (!appParams?.absPath) {
     return
   }
-
-  const { item, absPath } = appParams
-  emit('setTitle', item.name)
-
-  src.value = fsWebApi.getStreamUrl(absPath)
+  emit('setTitle', appParams.item.name)
 }, { immediate: true })
 </script>
 

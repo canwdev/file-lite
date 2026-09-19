@@ -7,6 +7,8 @@ import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { bytesToSize } from '@/utils'
+import { readMountedFile, writeMountedFile } from '@/views/FileManager/ExplorerUI/browser-fs'
+import { isMountedPath } from '@/views/FileManager/ExplorerUI/mounted-volumes'
 import { generateTextFile } from '@/views/FileManager/utils'
 
 const props = withDefaults(
@@ -131,14 +133,24 @@ async function openFile() {
       return
     }
 
-    const data = await fsWebApi.stream(absPath.value, {
-      responseType: 'text',
-      signal: controller.signal,
-    })
-    if (controller.signal.aborted) {
-      return
+    if (isMountedPath(absPath.value)) {
+      // 挂载卷的文件在浏览器里，后端那条 /stream 取不到它
+      const file = await readMountedFile(absPath.value)
+      if (controller.signal.aborted) {
+        return
+      }
+      editContent.value = await file.text()
     }
-    editContent.value = data as unknown as string
+    else {
+      const data = await fsWebApi.stream(absPath.value, {
+        responseType: 'text',
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) {
+        return
+      }
+      editContent.value = data as unknown as string
+    }
     setTimeout(() => {
       isChanged.value = false
     })
@@ -175,6 +187,12 @@ onBeforeUnmount(() => {
   openController?.abort()
 })
 
+/** 某个路径的父目录 */
+function dirOf(path: string) {
+  const cut = path.replace(/\/+$/, '').lastIndexOf('/')
+  return cut > 0 ? path.slice(0, cut) : path
+}
+
 const isSaving = ref(false)
 async function handleSaveFile() {
   if (isSaving.value) {
@@ -189,13 +207,19 @@ async function handleSaveFile() {
 
     const idx = absPath.value.lastIndexOf('/') + 1
     const filename = absPath.value.slice(idx)
-    await fsWebApi.uploadFile({
-      path: absPath.value,
-      file: generateTextFile(editContent.value, filename),
-      // 保存就是覆盖打开的这个文件：不给策略时后端按缺省的 error 处理，
-      // 目标已存在就直接 409「Destination path already exists」。
-      onConflict: 'overwrite',
-    })
+    if (isMountedPath(absPath.value)) {
+      // 挂载卷：直接写回句柄，不经过后端
+      await writeMountedFile(dirOf(absPath.value), filename, editContent.value)
+    }
+    else {
+      await fsWebApi.uploadFile({
+        path: absPath.value,
+        file: generateTextFile(editContent.value, filename),
+        // 保存就是覆盖打开的这个文件：不给策略时后端按缺省的 error 处理，
+        // 目标已存在就直接 409「Destination path already exists」。
+        onConflict: 'overwrite',
+      })
+    }
     setTimeout(() => {
       isChanged.value = false
     })

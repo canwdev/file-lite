@@ -1,7 +1,10 @@
 import type { BreadcrumbSegment } from './volume-mounts'
 import { mountPaths } from '../ExplorerUI/drives'
-import { mountedVolumeBoundaryPaths } from '../ExplorerUI/mounted-volumes'
-import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn } from './volume-mounts'
+import { mountedVolumeBoundaryPaths, mountedVolumeLabelForPath } from '../ExplorerUI/mounted-volumes'
+import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn, setMountedLabelLookup } from './volume-mounts'
+
+// 面包屑第一段要显示卷标而不是 `/@mounted/<id>`：把查询注入纯匹配模块
+setMountedLabelLookup(mountedVolumeLabelForPath)
 
 export { normalizeListingPath, normalizePath } from './path-form'
 
