@@ -6,8 +6,8 @@
  * 整理（见 applyFolderListSort / sortEntries）。
  */
 import type { IEntry } from '@/types/server'
-import { fsWebApi } from '@/api/filesystem'
 import { localSettingsStore } from '@/store'
+import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
 import { sortEntries } from '../utils/sort'
 import { getPathSortMode } from './explorer-state'
@@ -40,8 +40,10 @@ function finishRead() {
 
 async function fetchRawList(path: string): Promise<IEntry[]> {
   try {
-    const list = await fsWebApi.getList({ path }, { isToast: false })
-    return Array.isArray(list) ? (list as IEntry[]) : []
+    // 必须走门面：这里既服务端目录也可能挂着浏览器挂载卷的目录。直接调
+    // `/api/files/list` 会把 `/@mounted/<id>/…` 发给后端，得到 404，
+    // 表现成「挂载卷里每个文件夹的预览与面包屑下拉都报错」。
+    return await fs.list(path)
   }
   catch {
     // 无权限等读取失败按空目录处理，与 EndlessGallery 的 tree-walk 一致

@@ -4,7 +4,6 @@ import type { IBatchFile, ITransferItem, TransferTab, TransferTabCounts } from '
 import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
 import { useStorage } from '@vueuse/core'
-import { fsWebApi } from '@/api/filesystem'
 import { LsKeys } from '@/enum'
 import { authToken } from '@/store/auth'
 import {
@@ -17,6 +16,7 @@ import {
   taskList,
 } from '@/store/tasks'
 import { bytesToSize, downloadUrl } from '@/utils'
+import { fs } from '@/utils/fs'
 import { isMountedPath } from '@/utils/fs/paths'
 import { TaskQueue } from '@/utils/task-queue'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
@@ -197,20 +197,17 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
   }
   // 记下服务端返回的最终路径 / 名字（keep-both 时可能被改名），
   // 供 allDone 后直接用条目级补丁改当前目录列表。
-  data.result = await fsWebApi.uploadFile(
-    { path, file, onConflict },
-    {
-      onUploadProgress(event: any) {
-        reportProgress(data, {
-          loaded: event.loaded,
-          total: event.total,
-          rate: event.rate,
-          bytes: event.bytes,
-        })
-      },
-      signal: abortController.signal,
+  data.result = await fs.upload(path, file, onConflict, {
+    signal: abortController.signal,
+    onProgress(loaded) {
+      reportProgress(data, {
+        loaded,
+        total: file.size,
+        rate: 0,
+        bytes: loaded,
+      })
     },
-  )
+  })
 }
 
 async function handleDownload(data: ITransferItem, abortController: AbortController) {
@@ -221,7 +218,7 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
 
   // 文件下载逻辑：用 pipeTo 连接网络读与磁盘写，由流标准实现背压，避免读远快于写导致
   // 大量缓冲在浏览器内、到 100% 后 close() 才集中刷盘。
-  const response = await fetch(fsWebApi.getStreamUrl(path), {
+  const response = await fetch(fs.url(path), {
     headers: {
       Authorization: authToken.value,
     },
@@ -622,7 +619,7 @@ function clearSuccess() {
 }
 
 function handleManualDownload(item: ITransferItem) {
-  downloadUrl(fsWebApi.getDownloadUrl([item.path]), item.filename)
+  downloadUrl(fs.downloadUrl([item.path]), item.filename)
 }
 
 function cancelTransfers() {

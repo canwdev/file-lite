@@ -1,4 +1,4 @@
-import type { FsBackend, FsWriteOptions, FsWriteResult } from './backend'
+import type { FsBackend, FsConflictPolicy, FsWriteOptions, FsWriteResult } from './backend'
 /**
  * 统一的文件门面。
  *
@@ -17,7 +17,7 @@ import type { IEntry } from '@/types/server'
 import { getBrowserBackend, hasBrowserBackend, registerBrowserBackend } from './backend'
 import { browserBackend } from './browser-backend'
 import { isMountedPath, mountIdFromPath, mountRootPath, needsClientExecution, relativePathInMount } from './paths'
-import { serverBackend } from './server-backend'
+import { serverDownloadUrl as downloadUrlOf, serverBackend, serverDrives, serverOpenInHostExplorer, serverUpload } from './server-backend'
 
 export type { FsBackend, FsConflictPolicy, FsWriteOptions, FsWriteResult } from './backend'
 export { MountedFsError } from './browser-backend'
@@ -108,9 +108,70 @@ export async function remove(path: string): Promise<void> {
   await backendFor(path).remove(path)
 }
 
+/**
+ * 批量判断路径是否存在（上传 / 复制前的冲突预检）。
+ *
+ * 按后端分组再问：把一组里混着的服务端路径发给挂载卷后端（或反过来）都是错的，
+ * 而这正是「预检漏了挂载卷」那类 bug 的来源。
+ */
+export async function existingPaths(paths: string[]): Promise<string[]> {
+  const groups = new Map<FsBackend, string[]>()
+  for (const path of paths) {
+    const backend = backendFor(path)
+    const group = groups.get(backend)
+    if (group) {
+      group.push(path)
+    }
+    else {
+      groups.set(backend, [path])
+    }
+  }
+
+  const results = await Promise.all([...groups.entries()].map(async ([backend, group]) => {
+    // 后端没有批量接口就逐条问；两个实现目前都是逐条，分组本身已经避免发错后端
+    const flags = await Promise.all(group.map(path => backend.exists(path)))
+    return group.filter((_, index) => flags[index])
+  }))
+  return results.flat()
+}
+
 /** 该路径是否已存在。 */
 export function exists(path: string): Promise<boolean> {
   return backendFor(path).exists(path)
+}
+
+/**
+ * 下载地址。只对服务端有意义（挂载卷的文件已经在本地，没有「下载」这回事），
+ * 但放在门面里是为了让调用点不必自己判断。
+ */
+export function downloadUrl(paths: string[]): string {
+  return downloadUrlOf(paths)
+}
+
+/** 在宿主机资源管理器里打开若干路径（服务端能力）。 */
+export async function openInHostExplorer(paths: string[]) {
+  await serverOpenInHostExplorer(paths)
+}
+
+/** 驱动器 / 挂载点列表（侧边栏与跨卷判定用）。 */
+export const drives: FsBackend['list'] extends never ? never : () => ReturnType<typeof serverDrives> = serverDrives
+
+/**
+ * 上传一个 `File` 到服务端。
+ *
+ * 上传队列专用：它需要服务端返回的最终路径（keep-both 会改名）与上传进度。
+ * 目标是挂载卷时**必须**走客户端任务，所以这里显式拒绝，避免又一条 404。
+ */
+export async function upload(
+  path: string,
+  file: File,
+  onConflict: FsConflictPolicy = 'error',
+  options: { signal?: AbortSignal, onProgress?: (loaded: number) => void } = {},
+) {
+  if (isMountedPath(path)) {
+    throw new Error('Cannot upload to a browser-mounted folder: use a client task instead')
+  }
+  return await serverUpload(path, file, onConflict, options)
 }
 
 /** 在 `dirPath` 下取一个没被占用的 `keep-both` 名字。 */
@@ -145,6 +206,11 @@ export const fs = {
   rename,
   remove,
   exists,
+  existingPaths,
+  drives,
+  upload,
+  openInHostExplorer,
+  downloadUrl,
   uniqueName,
 }
 

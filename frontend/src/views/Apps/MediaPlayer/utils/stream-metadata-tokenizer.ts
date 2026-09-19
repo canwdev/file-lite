@@ -59,6 +59,63 @@ function rangeResponseToInfo(res: Response): IRangeRequestResponse {
 }
 
 /**
+ * 浏览器挂载卷里的文件以 `blob:` 地址暴露。
+ *
+ * **`fetch(blobUrl, { method: 'HEAD' })` 会直接失败**（Chromium 报
+ * `net::ERR_METHOD_NOT_SUPPORTED`），而 range tokenizer 的第一步就是 HEAD ——
+ * 所以挂载卷里的音乐既解析不出内嵌封面，也读不到标签。blob 本来就在内存里，
+ * 元数据（大小 / MIME）直接问 Blob 对象即可，Range 用 `slice` 取，一次网络请求都不需要。
+ */
+class BlobRangeClient implements IRangeRequestClient {
+  private size = 0
+  private mimeType?: string
+
+  constructor(private readonly url: string) {}
+
+  private async blob(): Promise<Blob> {
+    const res = await fetch(this.url)
+    if (!res.ok) {
+      throw new TypeError(`Failed to read blob url: ${res.status}`)
+    }
+    return await res.blob()
+  }
+
+  async getHeadInfo(): Promise<IHeadRequestInfo> {
+    const blob = await this.blob()
+    this.size = blob.size
+    this.mimeType = blob.type || undefined
+    return {
+      size: this.size,
+      mimeType: this.mimeType,
+      // 本地对象支持任意切片
+      acceptPartialRequests: true,
+      url: this.url,
+    }
+  }
+
+  async getResponse(method: string, range?: [number, number]): Promise<IRangeRequestResponse> {
+    const blob = await this.blob()
+    this.size = blob.size
+    const sliced = range ? blob.slice(range[0], range[1] + 1) : blob
+    const contentRange = range
+      ? { start: range[0], end: range[1], instanceLength: this.size }
+      : undefined
+    return {
+      url: this.url,
+      size: this.size,
+      mimeType: this.mimeType,
+      acceptPartialRequests: true,
+      contentRange,
+      arrayBuffer: () => sliced.arrayBuffer().then(b => new Uint8Array(b)),
+    }
+  }
+
+  abort() {
+    // blob 读取没有在途请求可中断
+  }
+}
+
+/**
  * Same idea as `@tokenizer/http` HttpClient, but sends cookies (`credentials: 'include'`)
  * for session auth while using Range requests.
  */
@@ -125,6 +182,9 @@ export async function makeStreamMetadataTokenizer(
   httpClientConfig?: HttpClientConfig,
   signal?: AbortSignal,
 ): Promise<IRandomAccessTokenizer> {
-  const client = new CookieRangeHttpClient(streamUrl, httpClientConfig, signal)
+  // 挂载卷给的是 objectURL：HEAD 不支持，走本地切片；服务端才需要 Range + cookie
+  const client = streamUrl.startsWith('blob:')
+    ? new BlobRangeClient(streamUrl)
+    : new CookieRangeHttpClient(streamUrl, httpClientConfig, signal)
   return tokenizer(client, tokenizerConfig)
 }

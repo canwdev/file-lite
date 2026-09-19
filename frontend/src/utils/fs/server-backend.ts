@@ -1,4 +1,4 @@
-import type { FsBackend, FsWriteOptions } from './backend'
+import type { FsBackend, FsConflictPolicy, FsWriteOptions } from './backend'
 /**
  * 服务端后端：`/api/files/*`。
  *
@@ -99,6 +99,46 @@ export const serverBackend: FsBackend = {
     }
     return `${base} (${Date.now()})${ext}`
   },
+}
+
+/** 在宿主机（服务器所在机器）的资源管理器里打开。跨端能力，挂载卷没有对应物。 */
+export async function serverOpenInHostExplorer(paths: string[]) {
+  return await fsWebApi.openInHostExplorer({ paths })
+}
+
+/** 驱动器（挂载点）列表。不是路径作用域的操作，只属于服务端。 */
+export async function serverDrives() {
+  return await fsWebApi.getDrives()
+}
+
+/**
+ * 直接上传一个 `File`（上传队列用）。
+ *
+ * 与 `writeFile` 的差别：这里要拿到服务端返回的最终路径 / 名字（keep-both 可能改名），
+ * 并允许调用方接进度回调；`writeFile` 只表达「写成功了吗」。
+ */
+export async function serverUpload(
+  path: string,
+  file: File,
+  onConflict: FsConflictPolicy = 'error',
+  options: { signal?: AbortSignal, onProgress?: (loaded: number) => void } = {},
+) {
+  // 服务端上传接口没有 skip（跳过由调用方自己判断），这里映射掉
+  const policy = onConflict === 'skip' ? 'error' : onConflict
+  return await fsWebApi.uploadFile(
+    { path, file, onConflict: policy },
+    {
+      signal: options.signal,
+      onUploadProgress: options.onProgress
+        ? (event: { loaded?: number }) => options.onProgress?.(event.loaded ?? 0)
+        : undefined,
+    },
+  )
+}
+
+/** 下载地址（多路径会打包成 zip，由后端决定）。 */
+export function serverDownloadUrl(paths: string[]): string {
+  return fsWebApi.getDownloadUrl(paths)
 }
 
 /** 供 `writeText` 之外的上传路径复用（上传队列仍直接走 API）。 */

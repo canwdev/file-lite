@@ -1,7 +1,6 @@
 import type { UploadConflictPolicy } from '@/api/filesystem'
 import type { IEntry } from '@/types/server'
 import { useFileDialog } from '@vueuse/core'
-import { fsWebApi } from '@/api/filesystem'
 import { requestLocalConflict } from '@/store/tasks'
 import { downloadUrl } from '@/utils'
 import { fs } from '@/utils/fs'
@@ -42,7 +41,8 @@ async function enqueueUploads(items: PendingUpload[], targetDir: string) {
   let pending = items
 
   try {
-    const { existing } = await fsWebApi.checkExists(items.map(item => item.path))
+    // 走门面：目标可能是挂载卷，那一侧由浏览器后端回答「有没有同名」
+    const existing = await fs.existingPaths(items.map(item => item.path))
     if (existing.length) {
       const existingSet = new Set(existing)
       const conflictItems = items
@@ -234,7 +234,7 @@ export function useTransfer({
         }
       }
 
-      const url = fsWebApi.getDownloadUrl(paths)
+      const url = fs.downloadUrl(paths)
       downloadUrl(url)
     }
     finally {
@@ -281,7 +281,7 @@ export function useTransfer({
       if (selectedItems.value.length === 0) {
         const currentFolderName = basePath.value.split('/').filter(Boolean).pop() || 'root'
         const dirHandle = await handle.getDirectoryHandle(currentFolderName, { create: true })
-        const children = await fsWebApi.getList({ path: basePath.value })
+        const children = await fs.list(basePath.value)
         initialStack = children.map(item => ({
           entry: item,
           parentHandle: dirHandle,
@@ -313,7 +313,7 @@ export function useTransfer({
 
         if (entry.isDirectory) {
           const dirHandle = await parentHandle.getDirectoryHandle(entry.name, { create: true })
-          const children = await fsWebApi.getList({ path: itemPath })
+          const children = await fs.list(itemPath)
           for (let i = children.length - 1; i >= 0; i--) {
             stack.push({
               entry: children[i],

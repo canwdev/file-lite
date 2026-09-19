@@ -10,7 +10,7 @@
  */
 import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
-import { fsWebApi } from '@/api/filesystem'
+import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
 import { findMountRoot } from '../utils/volume-mounts'
 
@@ -45,7 +45,7 @@ export function loadDrives(force = false): Promise<IDrive[]> {
   drivesLoading.value = true
   inflight = (async () => {
     try {
-      driveList.value = normalizeDrives(await fsWebApi.getDrives())
+      driveList.value = normalizeDrives(await fs.drives())
     }
     catch (error) {
       console.error('[drives]', error)

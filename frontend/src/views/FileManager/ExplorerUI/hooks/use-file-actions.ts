@@ -4,7 +4,6 @@ import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import dayjs from 'dayjs'
 import { computed } from 'vue'
-import { fsWebApi } from '@/api/filesystem'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
@@ -228,7 +227,7 @@ export function useFileActions({
   const handleOpenInHostExplorer = async () => {
     if (!selectedPaths.value.length)
       return
-    await fsWebApi.openInHostExplorer({ paths: selectedPaths.value })
+    await fs.openInHostExplorer([...selectedPaths.value])
   }
 
   const confirmDelete = () => {

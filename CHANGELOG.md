@@ -51,6 +51,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A mounted folder that also appears in the text editor can be opened and saved there, read and written through the folder itself rather than the server (frontend).
 - Music, images, video and files inside a mounted folder open and play in the built-in apps, read from the folder itself; the media player and the Endless Gallery subscribe to the file URL instead of resolving it once, so a mounted track actually gets a source (frontend).
 - The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
+- Folder previews and the breadcrumb dropdown inside a mounted folder no longer ask the server to list it, which returned 404 for every nested folder (frontend).
+- Music in a mounted folder shows its embedded cover: the metadata reader no longer sends an HTTP HEAD request to a local browser URL, which browsers reject outright (frontend).
+- The conflict check before an upload, drag or paste, and "download to folder", now understand mounted folders instead of only asking the server (frontend).
 - `allowedRoots` restricts the file manager to the folders you list — anything outside them is refused, and the sidebar only offers those folders and whatever is inside them — while leaving it empty (the default) keeps the whole file system reachable; listing several folders grants all of them, nested ones collapse into their parent, and every folder is checked at startup, so a path that does not exist stops the server instead of silently refusing every request (backend). This is the access-scope option; the name says what it is, namely the roots a path is allowed to be under.
 - The default stays what it was: with `allowedRoots` empty the file manager reaches every path the server process can, so a folder anywhere on the machine — including a network share such as `\\server\share` or a WSL distribution at `\\wsl.localhost\Debian` — can be opened by typing its path in the address bar (backend).
 - The `startPath` config option is gone: opening the app enters the first location in the drive list (normally Home) and you navigate from there, so a typo in the config can no longer leave the first tab pointing at a folder that does not open; the field is ignored if it is still in your config file (backend, frontend).
@@ -142,7 +145,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Engineering
 
-- File reads and writes now go through one shared facade (`utils/fs`) that picks the server or the browser-mounted backend from the path, so apps no longer import the file manager's internals or decide the backend themselves; an eslint boundary rule keeps it that way (frontend).
+- File reads and writes now go through one shared facade (`utils/fs`) that picks the server or the browser-mounted backend from the path, so apps no longer import the file manager's internals or decide the backend themselves (frontend).
+- Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site sends a mounted path to the server and only shows up as an empty preview (frontend).
 - The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
 
 - A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.

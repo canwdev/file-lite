@@ -1,6 +1,6 @@
 import type { IEntry } from '@/types/server'
-import { fsWebApi } from '@/api/filesystem'
 import { localSettingsStore } from '@/store'
+import { fs } from '@/utils/fs'
 import { getPathSortMode } from '@/views/FileManager/ExplorerUI/explorer-state'
 import { canGoUp, getLastDirName, getParentPath, normalizeListingPath } from '@/views/FileManager/utils'
 import { sortEntries } from '@/views/FileManager/utils/sort'
@@ -50,7 +50,7 @@ async function readDir(ctx: WalkContext, path: string): Promise<IEntry[]> {
   ctx.reads += 1
   let list: IEntry[] = []
   try {
-    list = (await fsWebApi.getList({ path: key }, { signal: ctx.signal, isToast: false })) || []
+    list = await fs.list(key)
   }
   catch {
     if (ctx.signal.aborted) {
