@@ -227,3 +227,101 @@ export async function mountedStreamUrl(path: string): Promise<string> {
   const file = await readMountedFile(path)
   return URL.createObjectURL(file)
 }
+
+/**
+ * 创建（或复用）卷内目录。
+ *
+ * 与 `create-dir?ignoreExisted` 的后端语义对齐：已存在时按成功处理，
+ * 因为复制一个目录树会反复声明同一个中间目录。
+ */
+export async function createMountedDir(path: string): Promise<void> {
+  const name = lastPathSegment(path)
+  if (!name) {
+    return
+  }
+  const parent = await resolveMountedDirHandle(parentPathOf(path, name))
+  // create 对已存在的目录是幂等的，不需要先探测一次
+  await parent.getDirectoryHandle(name, { create: true })
+}
+
+/**
+ * 在卷内某个目录下写一个文件，写入流由调用方提供。
+ *
+ * 返回最终使用的文件名：`keep-both` 冲突策略下会被改成 `name (1).ext`，
+ * 调用方需要知道实际落点。
+ */
+export async function writeMountedFileFromStream(
+  dirPath: string,
+  filename: string,
+  body: ReadableStream<Uint8Array>,
+  options: { keepExistingData?: boolean } = {},
+): Promise<void> {
+  const dir = await resolveMountedDirHandle(dirPath)
+  const writable = await (await dir.getFileHandle(filename, { create: true }))
+    .createWritable({ keepExistingData: options.keepExistingData ?? false })
+
+  try {
+    await body.pipeTo(writable)
+  }
+  catch (error) {
+    await writable.abort().catch(() => {})
+    throw toMountedFsError(error, filename)
+  }
+}
+
+/** 在卷内某个目录下创建（或覆盖）一个文件，内容由调用方提供。 */
+export async function writeMountedFile(dirPath: string, filename: string, data: BlobPart): Promise<void> {
+  const dir = await resolveMountedDirHandle(dirPath)
+  const writable = await (await dir.getFileHandle(filename, { create: true }))
+    .createWritable({ keepExistingData: false })
+  try {
+    await writable.write(data)
+    await writable.close()
+  }
+  catch (error) {
+    await writable.abort().catch(() => {})
+    throw toMountedFsError(error, filename)
+  }
+}
+
+/**
+ * 删除卷内的一个文件或目录（目录递归删除）。
+ *
+ * 挂载根的删除会被浏览器拒绝（`removeEntry` 只能删子项），这里不做特殊兜底：
+ * 失败会如实返回错误，比静默什么都不做更好。
+ */
+export async function removeMountedEntry(path: string): Promise<void> {
+  const parent = await resolveMountedDirHandle(parentPathOf(path, lastPathSegment(path)))
+  const name = lastPathSegment(path)
+  if (!name) {
+    throw new MountedFsError('not-found', 'refusing to remove the mounted root')
+  }
+  try {
+    await parent.removeEntry(name, { recursive: true })
+  }
+  catch (error) {
+    throw toMountedFsError(error, path)
+  }
+}
+
+/** 卷内某个名字是否已被占用（冲突预检用）。 */
+export async function mountedEntryExists(dirPath: string, name: string): Promise<boolean> {
+  const dir = await resolveMountedDirHandle(dirPath)
+  try {
+    await dir.getFileHandle(name)
+    return true
+  }
+  catch {
+    try {
+      await dir.getDirectoryHandle(name)
+      return true
+    }
+    catch {
+      return false
+    }
+  }
+}
+
+function lastPathSegment(path: string): string {
+  return path.replace(/\/+$/, '').split('/').pop() ?? ''
+}

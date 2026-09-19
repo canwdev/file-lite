@@ -71,6 +71,18 @@ function segmentsOf(path: string): string {
   return normalized === '/' ? '' : normalized.replace(/\/+$/, '')
 }
 
+/**
+ * 这次操作是否必须由前端执行（任一参与路径属于挂载卷）。
+ *
+ * 复制 / 移动 / 删除的派发规则就靠它：后端只认识「路径 → os.*」，一条
+ * `/@mounted/...` 发过去必定失败（`Source path does not exist` /
+ * `no such file or directory`）。反过来也必须保持精确——普通的服务端操作不能被
+ * 误判成客户端任务，否则会绕过服务端的冲突处理与跨卷回退。
+ */
+export function needsClientExecution(fromPaths: string[], toPath?: string): boolean {
+  return fromPaths.some(isMountedPath) || (Boolean(toPath) && isMountedPath(toPath))
+}
+
 /** 该路径是否属于浏览器挂载命名空间。 */
 export function isMountedPath(path: string | null | undefined): boolean {
   if (!path) {

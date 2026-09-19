@@ -398,6 +398,10 @@ defineExpose({
           <i-mdi-eject class="vgo-u-icon-sm" />
         </button>
       </div>
+
+      <div v-if="showEmptyState" class="mounted-list__empty vgo-u-text-overflow">
+        No folder mounted
+      </div>
     </div>
 
     <div class="sidebar-list drive-list">
@@ -569,6 +573,11 @@ defineExpose({
       }
     }
 
+    &__empty {
+      padding: var(--vgo-space-2);
+      font-size: var(--vgo-font-sm);
+      color: var(--vgo-text-secondary);
+    }
   }
 }
 
