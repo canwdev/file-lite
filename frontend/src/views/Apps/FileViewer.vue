@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { resolveFileUrl } from '@/hooks/use-file-url'
+import { useFileUrl } from '@/hooks/use-file-url'
 import { ThemeMode } from '@/hooks/use-global-theme'
 import { settingsStore } from '@/store'
 import dynamicLoadScript from '@/utils/dynamic-load-script'
@@ -13,7 +13,13 @@ const emit = defineEmits(['setTitle'])
 
 const FILE_VIEWER_SCRIPT_URL = 'https://unpkg.com/@file-viewer/web-full@latest/dist/flyfish-file-viewer-web-full.iife.js'
 
-const src = ref('')
+/**
+ * 文件地址。
+ *
+ * **不能一次性解析**：挂载卷里的文件要读成 objectURL，那是异步的，一次性调用只会
+ * 拿到空串，之后再也没有第二次机会（查看器会一直空白）。所以走响应式的 `useFileUrl`。
+ */
+const src = useFileUrl(() => props.appParams?.absPath)
 const filename = ref('')
 const isLoading = ref(true)
 const error = ref('')
@@ -48,7 +54,6 @@ watch(() => props.appParams, () => {
     return
   }
   emit('setTitle', appParams.item.name)
-  src.value = resolveFileUrl(appParams.absPath)
   filename.value = appParams.item.name
 }, { immediate: true })
 
