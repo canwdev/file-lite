@@ -251,13 +251,22 @@ func Resolve(p string) (Resolved, error) {
 	return res, nil
 }
 
-// HasMountFor 判断一条 canonical 路径是否落在挂载表里的某个挂载点之下。
+// HasMountRootFor 判断一条 canonical 路径是否**正好**是挂载表里的某个根。
 //
-// 与 Resolved.ViaMount 的区别是它不需要先有一份解析结果：调用方（例如按访问范围
-// 收窄盘列表的地方）手里只有路径本身。
-func HasMountFor(canonical string) bool {
-	_, ok := LongestMount(canonical, GetMounts())
-	return ok
+// 「正好是根」与「落在某个根之下」必须分开：挂载表里的 `D:` 覆盖 `D:/a/b`，
+// 但只有 `D:` 自己是根。判断访问范围要不要为基目录合成一个根时必须用前者——
+// 用后者会把「落在盘符根之下」当成「已经是根」，合成被跳过，收窄后列表变空。
+//
+// 同时也别拿它去问「这个位置有挂载点吗」：那要用 LongestMount。曾经这里叫
+// HasMountFor（前缀语义）并被当成「正好」用，结果 `D:` 让基目录看起来已经有根，
+// 侧边栏把 D: 原样留了下来。
+func HasMountRootFor(canonical string) bool {
+	for _, m := range GetMounts() {
+		if m.IsRoot(canonical) {
+			return true
+		}
+	}
+	return false
 }
 
 // SamePath 判断两条 canonical 路径是否指向同一个位置。

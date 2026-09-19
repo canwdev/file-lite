@@ -126,46 +126,57 @@ func getDrives(c echo.Context) error {
 	return c.JSON(http.StatusOK, visibleDrives())
 }
 
+// enumerateDrivesFn 间接一层，便于测试注入固定的位置列表：`visibleDrives` 的输入
+// 就是「枚举结果」，只注入挂载表的话构造不出它真正要处理的那份输入。
+// 生产路径上恒为 enumerateDrives。
+var enumerateDrivesFn = enumerateDrives
+
 // visibleDrives 返回配置的访问范围之内可以暴露的位置。
 //
 // 未配 safeBaseDir 时就是 enumerateDrives() 的原样结果。
 //
-// 配了之后必须收窄，理由有两个，缺一不可：
+// 配了之后，**基目录本身就是唯一的根**：
 //
-//  1. **列表就是枚举面**。照报全盘等于继续告诉调用方「这台机器上有什么」，
-//     而访问控制刚刚才决定不让他看。
-//  2. **导航边界**。挂载点同时是「上一级能到哪」的停点。范围之外的挂载点留在表里，
-//     用户就会看到点不进去的盘（点进去 403），而原因在界面上完全看不出来。
+//   - 范围之外的挂载点全部去掉——列表就是枚举面，照报全盘等于继续告诉调用方
+//     「这台机器上有什么」，而访问控制刚刚才决定不让他看；
+//   - **包含基目录的挂载点也要去掉**。这处最容易写错：`D:` 包含
+//     `D:/Projects/app/bin`，按「包含基目录就保留」的判据会留下 D: 根，于是侧边栏
+//     仍然显示 D:，点进去就被 403。挂载点同时是「上一级」的停点，留着它等于把出口
+//     留在了范围之外。这个例子来自实际反馈。
 //
-// 收窄规则：保留**包含基目录的挂载点**（用户要能到达那里），以及**落在基目录之内
-// 的挂载点**（那是范围内的其他地方）；其余全部去掉。
+// 于是收窄后只剩「基目录本身」这一个位置：用户从它进入，「上一级」也停在它上面。
+//
+// **必须是幂等的**：挂载表由本函数的结果建立，而本函数又被 /drives 反复调用。
+// 判断「基目录是不是已经有自己的挂载点」不能去问挂载表——第一次调用把合成的基目录
+// 项写进表里之后，第二次就会答「已经有」，于是原样返回全盘列表。这一条是实测踩出来的。
 func visibleDrives() []types.Drive {
 	base := fileops.BaseDir()
+	all := enumerateDrivesFn()
 	if base == "" {
-		return enumerateDrives()
+		return all
 	}
 
-	out := make([]types.Drive, 0, len(enumerateDrives())+1)
-	for _, d := range enumerateDrives() {
+	// 基目录本来就在枚举结果里（例如它就是某个盘符根）时，它自己就是那个根，
+	// 不需要补充；它之下更深的挂载点是范围内的位置，保留。
+	out := make([]types.Drive, 0, len(all)+1)
+	for _, d := range all {
 		root, err := fileops.CanonicalizePath(d.Path)
-		if err != nil {
+		if err != nil || !fileops.IsWithinRoot(root, base) {
 			continue
 		}
-		if fileops.IsWithinRoot(base, root) || fileops.IsWithinRoot(root, base) {
-			out = append(out, d)
-		}
+		out = append(out, d)
+	}
+	if len(out) > 0 && fileops.HasMountRootFor(base) {
+		return out
 	}
 
-	// 基目录本身不必是一个挂载点（Linux 上往往只有 /）。没有覆盖它的挂载点时补一个：
-	// 否则「上一级」会停在基目录之外，用户按一下就拿到 403。
-	if !fileops.HasMountFor(base) {
-		kind := types.DriveKindVolume
-		if fileops.IsNetworkTarget(base) {
-			kind = types.DriveKindNetwork
-		}
-		out = append(out, types.Drive{Label: fileops.BaseName(base), Path: base, Kind: kind})
+	// 否则合成一个：基目录要成为那个根。判据只看**枚举结果**（上面的循环），
+	// 不看挂载表，理由见函数注释里的幂等说明。
+	kind := types.DriveKindVolume
+	if fileops.IsNetworkTarget(base) {
+		kind = types.DriveKindNetwork
 	}
-	return out
+	return append([]types.Drive{{Label: fileops.BaseName(base), Path: base, Kind: kind}}, out...)
 }
 
 // enumerateDrives 枚举可导航的位置：Home + 本机卷 / 网络位置。

@@ -135,6 +135,157 @@ func TestVisibleDrivesNarrowedToBase(t *testing.T) {
 	}
 }
 
+// 基目录是某个卷**内部**的目录时，那个卷的根必须从列表里消失。
+//
+// 这是实际反馈的问题：`D:` 包含 `D:/Projects/app/bin`，按「包含基目录就算在范围内」
+// 的直觉会把它留下，于是侧边栏仍然显示 D: 根，点进去就是 403。挂载点同时是
+// 「上一级」的停点，留着它等于把出口留在了范围之外。
+func TestVisibleDrivesDropsContainingVolume(t *testing.T) {
+	volumeRoot := t.TempDir() // 充当一个卷根
+	base := filepath.Join(volumeRoot, "inner", "bin")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	volumeCanonical, err := fileops.CanonicalizePath(filepath.ToSlash(volumeRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 用一个只含这个卷的枚举结果，模拟「基目录落在某个卷内部」。
+	withDrives(t, []types.Drive{{Label: "VOL", Path: volumeCanonical, Kind: types.DriveKindVolume}})
+	if err := fileops.SetBaseDir(base); err != nil {
+		t.Fatal(err)
+	}
+
+	baseCanonical := fileops.BaseDir()
+	got := visibleDrives()
+
+	for _, d := range got {
+		root, err := fileops.CanonicalizePath(d.Path)
+		if err != nil {
+			t.Fatalf("返回了无法解析的路径 %q", d.Path)
+		}
+		if root == volumeCanonical {
+			t.Errorf("包含基目录的卷根 %q 不该出现在列表里（点进去会 403）", d.Path)
+		}
+	}
+	// 基目录本身必须在，而且要是可用的那一项。
+	found := false
+	for _, d := range got {
+		if d.Path == baseCanonical {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("列表里应当有基目录 %q，得到 %+v", baseCanonical, got)
+	}
+}
+
+// 注意恢复顺序：必须在 defer 里把注入还原，**再**让 cleanup 重建挂载表。
+// 反过来（cleanup 里先算 `fileops.SetMounts(enumerateDrives())`）会在注入还生效时
+// 就把那个函数值算出来，于是挂载表里留下测试用的假位置——实测就是这样多出一项。
+func withDrives(t *testing.T, drives []types.Drive) {
+	t.Helper()
+	origEnumerate := enumerateDrivesFn
+	enumerateDrivesFn = func() []types.Drive { return drives }
+	fileops.SetMounts(drives)
+	t.Cleanup(func() {
+		// 先还原枚举函数，再重建挂载表——顺序反过来会把测试用的假位置留在表里。
+		enumerateDrivesFn = origEnumerate
+		fileops.SetMounts(enumerateDrives())
+		fileops.ClearBaseDir()
+	})
+}
+
+// 基目录**正好**是挂载表的某个根时，它就是根：不补、也不动它下面的其他位置。
+//
+// 这条与上一条互补。判据必须是「正好是根」而不是「落在某个根之下」——
+// 后者会让这个分支永远走不到，因为任何绝对路径都落在某个根之下（Windows 上至少
+// 落在盘符根之下），于是合成被跳过、列表变空。
+func TestVisibleDrivesKeepsBaseThatIsItselfAMountRoot(t *testing.T) {
+	base := t.TempDir()
+	baseCanonical, err := fileops.CanonicalizePath(filepath.ToSlash(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nested := baseCanonical + "/nested"
+
+	withDrives(t, []types.Drive{
+		{Label: "BASE", Path: baseCanonical, Kind: types.DriveKindVolume},
+		{Label: "NESTED", Path: nested, Kind: types.DriveKindVolume},
+	})
+	if err := fileops.SetBaseDir(base); err != nil {
+		t.Fatal(err)
+	}
+
+	got := visibleDrives()
+	labels := make([]string, 0, len(got))
+	for _, d := range got {
+		labels = append(labels, d.Label)
+	}
+
+	// 基目录自己保留，它之下更深的挂载点也是范围内的位置，同样保留。
+	for _, want := range []string{"BASE", "NESTED"} {
+		found := false
+		for _, d := range got {
+			if d.Label == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("应当保留 %s，得到 %v", want, labels)
+		}
+	}
+	// 不该再多补一个合成项。
+	if len(got) != 2 {
+		t.Errorf("基目录已经是挂载根时不该补充合成项，得到 %v", labels)
+	}
+}
+
+// visibleDrives 必须**幂等**：挂载表由它的结果建立，而它又被 /drives 反复调用。
+//
+// 这是实际反馈的那个 bug：判据去问了挂载表「基目录是不是已经有自己的根」。第一次
+// 调用把合成的基目录项写进表里（registerFiles 就是这么做的），第二次就答「已经有」，
+// 于是 /drives 原样返回全盘列表——侧边栏又出现 D:，点进去 403。
+// 单看一次调用是发现不了的，必须连调两次。
+func TestVisibleDrivesIsIdempotent(t *testing.T) {
+	volumeRoot := t.TempDir()
+	base := filepath.Join(volumeRoot, "app", "bin")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	volumeCanonical, err := fileops.CanonicalizePath(filepath.ToSlash(volumeRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	withDrives(t, []types.Drive{{Label: "VOL", Path: volumeCanonical, Kind: types.DriveKindVolume}})
+	if err := fileops.SetBaseDir(base); err != nil {
+		t.Fatal(err)
+	}
+
+	first := visibleDrives()
+	// 模拟 registerFiles：把第一次的结果装进挂载表，再问第二次。
+	fileops.SetMounts(first)
+	second := visibleDrives()
+
+	if len(first) != len(second) {
+		t.Fatalf("两次调用结果不同：第一次 %+v，第二次 %+v", first, second)
+	}
+	for i := range first {
+		if first[i].Path != second[i].Path {
+			t.Fatalf("两次调用结果不同：第一次 %+v，第二次 %+v", first, second)
+		}
+	}
+
+	// 而且不能包含那个卷根——那正是用户点进去会 403 的入口。
+	for _, d := range second {
+		if root, err := fileops.CanonicalizePath(d.Path); err == nil && root == volumeCanonical {
+			t.Errorf("第二次调用又漏出了卷根 %q", d.Path)
+		}
+	}
+}
+
 // 基目录不在任何挂载点之下时（Linux 上常见：只枚举了 /），要补一个合成挂载点。
 //
 // 没有它，「上一级」会停在基目录之外，用户按一下就拿到 403。
@@ -150,8 +301,8 @@ func TestVisibleDrivesSynthesizesBaseMount(t *testing.T) {
 	t.Cleanup(fileops.ClearBaseDir)
 
 	baseCanonical := fileops.BaseDir()
-	if fileops.HasMountFor(baseCanonical) {
-		t.Fatal("前置条件不成立：挂载表为空时不应当已有匹配")
+	if fileops.HasMountRootFor(baseCanonical) {
+		t.Fatal("前置条件不成立：挂载表为空时不应当已有匹配的根")
 	}
 
 	found := false
