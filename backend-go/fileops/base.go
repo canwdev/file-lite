@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"file-lite-go/types"
 )
 
 // caseInsensitivePaths 表示本机文件系统的路径比较是否忽略大小写。
@@ -16,29 +18,32 @@ import (
 // （canonical 永远原样保留大小写，见决策 8）。
 var caseInsensitivePaths = runtime.GOOS == "windows" || runtime.GOOS == "darwin"
 
-// ErrPathOutsideBase 表示路径形态合法，但落在配置的基目录之外。
+// ErrPathOutsideBase 表示路径形态合法，但不在任何一个允许的基目录之内。
 //
 // 它与另外两类错误必须分开：
 //   - 形态错误（ErrPathNotAbsolute / ErrPathMalformed / ErrPathNeedsShare）是 400，
 //     说的是「这条路径本身不合法」；
 //   - 这条是**范围**问题，路径完全合法，只是服务端只开放了一部分给你。调用方应当
 //     映射成 403 而不是 404——装成「不存在」会让用户永远找不到原因。
-var ErrPathOutsideBase = errors.New("path is outside the configured base directory")
+var ErrPathOutsideBase = errors.New("path is outside the configured base directories")
 
-// baseDir 保存「文件访问范围」的基目录（canonical 形态）。
+// baseDirs 保存「文件访问范围」的基目录（canonical 形态，已去重、已折叠冗余项）。
 //
 // 与挂载表一样是**启动时写一次、之后只读**的配置，所以用 RWMutex 而不是原子值：
-// 读路径不能互相阻塞。空串表示不限制——这是默认值，也是绝大多数部署的取值。
-var baseDir = struct {
+// 读路径不能互相阻塞。空切片表示不限制——这是默认值，也是绝大多数部署的取值。
+var baseDirs = struct {
 	sync.RWMutex
-	canonical string
+	paths []string
 }{}
 
-// SetBaseDir 设置文件访问范围的基目录；空串表示不限制。
+// SetBaseDirs 设置文件访问范围的基目录；空切片表示不限制。
 //
-// 由启动路径调用一次（见 routes.registerFiles）。之所以要求目录**必须存在**：
+// 由启动路径调用一次（见 main.go 的 applySafeBaseDirs）。之所以要求目录**必须存在**：
 // 一个拼错的基目录会让所有请求变成 403，而用户完全不知道发生了什么；启动时直接
 // 失败，错误里带着那条路径，一眼就能改对。
+//
+// 多条基目录是**并集**语义：落在任意一条之内都放行。嵌套的（`/srv` 与 `/srv/files`）
+// 会被折叠成外层那一条——内层不会让任何新路径变得可访问，留着只会让侧边栏出现重复项。
 //
 // 关于符号链接：这里**不解析**它（与决策 10 一致，见 vfs-abstraction-design.md）。
 // 由此产生的取舍是——如果基目录自己是个软链（`/srv/files -> /mnt/pool/files`），
@@ -46,43 +51,137 @@ var baseDir = struct {
 // 可解释的行为；反过来若在这里解析，就会引入「基目录必须先存在」之外的另一层
 // 启动期依赖，而基目录**内部**的软链无论哪种做法都挡不住（要挡得住得解析每一次
 // 请求的路径，那既有 TOCTOU 窗口、又会让不存在的路径无法判断）。
-func SetBaseDir(dir string) error {
-	if dir == "" {
-		setBaseDirFrom("")
-		return nil
+func SetBaseDirs(dirs []string) error {
+	canonical := make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		// 空串与空白项当作「没写」，直接跳过：配置里留一个 "" 不该变成
+		// 「整条规则失效」，也不该报错。
+		if strings.TrimSpace(dir) == "" {
+			continue
+		}
+		c, err := CanonicalizePath(dir)
+		if err != nil {
+			return fmt.Errorf("safeBaseDirs %q: %w", dir, err)
+		}
+		st, err := os.Stat(filepath.FromSlash(c))
+		if err != nil {
+			return fmt.Errorf("safeBaseDirs %q is not accessible: %w", c, err)
+		}
+		if !st.IsDir() {
+			return fmt.Errorf("safeBaseDirs %q is not a directory", c)
+		}
+		canonical = append(canonical, c)
 	}
-
-	canonical, err := CanonicalizePath(dir)
-	if err != nil {
-		return fmt.Errorf("safeBaseDir %q: %w", dir, err)
-	}
-
-	st, err := os.Stat(filepath.FromSlash(canonical))
-	if err != nil {
-		return fmt.Errorf("safeBaseDir %q is not accessible: %w", canonical, err)
-	}
-	if !st.IsDir() {
-		return fmt.Errorf("safeBaseDir %q is not a directory", canonical)
-	}
-
-	setBaseDirFrom(canonical)
+	setBaseDirsFrom(canonical)
 	return nil
 }
 
-// ClearBaseDir 清空基目录（回到「不限制」）。给测试用。
-func ClearBaseDir() { setBaseDirFrom("") }
+// ClearBaseDirs 清空基目录（回到「不限制」）。给测试用。
+func ClearBaseDirs() { setBaseDirsFrom(nil) }
 
-func setBaseDirFrom(canonical string) {
-	baseDir.Lock()
-	baseDir.canonical = canonical
-	baseDir.Unlock()
+func setBaseDirsFrom(paths []string) {
+	baseDirs.Lock()
+	baseDirs.paths = dedupeBases(paths)
+	baseDirs.Unlock()
 }
 
-// BaseDir 返回当前基目录的 canonical 形态；空串表示不限制。
-func BaseDir() string {
-	baseDir.RLock()
-	defer baseDir.RUnlock()
-	return baseDir.canonical
+// BaseDirs 返回当前的基目录（canonical 形态）；空切片表示不限制。
+//
+// 返回的是副本：调用方拿到之后不会因为后续 SetBaseDirs 而看到半新半旧的内容。
+func BaseDirs() []string {
+	baseDirs.RLock()
+	defer baseDirs.RUnlock()
+	out := make([]string, len(baseDirs.paths))
+	copy(out, baseDirs.paths)
+	return out
+}
+
+// dedupeBases 去掉重复项与被别的基目录包含的项。
+//
+// `/srv` 已经放行 `/srv/files` 下的一切，所以后者是冗余的。折叠之后侧边栏也不会
+// 出现「同一个位置列两次」。比较用范围判定的同一套折叠规则（见 foldForBase），
+// 否则 Windows 上 `C:/a` 与 `c:/a` 会被当成两条。
+func dedupeBases(paths []string) []string {
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		covered := false
+		for _, kept := range out {
+			if IsWithinRoot(foldForBase(p), foldForBase(kept)) {
+				covered = true
+				break
+			}
+		}
+		if covered {
+			continue
+		}
+		// 新来的这条也可能覆盖掉之前留下的项（配置顺序无关）。
+		kept := out[:0]
+		for _, existing := range out {
+			if !IsWithinRoot(foldForBase(existing), foldForBase(p)) {
+				kept = append(kept, existing)
+			}
+		}
+		out = append(kept, p)
+	}
+	return out
+}
+
+// TopLevelBaseDirs 返回不与任何其他基目录重叠的那些基目录。
+//
+// 用于「把配置的位置本身当作侧边栏的根」：即便配置里既写了 `/srv` 又写了
+// `/srv/files`（dedupeBases 已折叠），这里也只会列一次。
+func TopLevelBaseDirs() []string {
+	paths := BaseDirs()
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		covered := false
+		for _, other := range paths {
+			if other == p {
+				continue
+			}
+			if IsWithinRoot(foldForBase(p), foldForBase(other)) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// IsWithinAnyRoot 判断 canonical 路径是否落在给定的某个根之内（含根自身）。
+//
+// 交给它之前不用先折叠大小写：它自己按范围比较的规则折（见 foldForBase）。
+// 空 roots 返回 false——「没有根」不等于「哪里都在范围内」，那个语义由调用方判断
+// （见 pathWithinBase：空 = 不限制）。
+func IsWithinAnyRoot(canonical string, roots []string) bool {
+	if canonical == "" || len(roots) == 0 {
+		return false
+	}
+	folded := foldForBase(canonical)
+	for _, root := range roots {
+		if IsWithinRoot(folded, foldForBase(root)) {
+			return true
+		}
+	}
+	return false
+}
+
+// InDrives 判断某个盘符根是否**恰好**就是枚举结果里的某一项。
+//
+// 用于「这个位置是不是已经列出来了」这类判断：必须是相等，不能是前缀包含
+// （`D:` 覆盖 `D:/a/b`，但两者不是同一个位置）。比较按范围判定的折叠规则，
+// 所以 Windows 上 `C:/a` 与 `c:/a` 视为同一个。
+func InDrives(drives []types.Drive, path string) bool {
+	folded := foldForBase(path)
+	for _, d := range drives {
+		if foldForBase(d.Path) == folded {
+			return true
+		}
+	}
+	return false
 }
 
 // pathWithinBase 判断 canonical 路径是否在文件访问范围之内。
@@ -101,11 +200,11 @@ func BaseDir() string {
 // Windows 上用户完全可能用 `C:/Users/Me` 去访问基目录 `C:/Users/me`，
 // 那不是越权，是同一个目录。
 func pathWithinBase(canonical string) bool {
-	base := BaseDir()
-	if base == "" {
+	paths := BaseDirs()
+	if len(paths) == 0 {
 		return true
 	}
-	return IsWithinRoot(foldForBase(canonical), foldForBase(base))
+	return IsWithinAnyRoot(canonical, paths)
 }
 
 // foldForBase 把路径折成「用于范围比较」的形态。

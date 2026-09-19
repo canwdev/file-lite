@@ -48,19 +48,22 @@ type Cfg struct {
 	// 关闭时这两条路由根本不注册，请求得到的是 404。
 	AllowSelfUpdate bool `json:"allowSelfUpdate"`
 
-	// SafeBaseDir 把文件访问范围限制在一棵子树内；空串（默认）表示不限制。
+	// SafeBaseDirs 把文件访问范围限制在若干棵子树内；空（默认）表示不限制。
 	//
 	// 这是纵深防御，不是沙箱：进程仍以服务账户的权限运行，任何绕过路径解析层的
 	// 操作都不受它约束。它拦的是「认证之后的横向移动」——签名有效期长、cookie
 	// 持久化，一个泄露的 token 否则等于整台机器。
 	//
-	// 值必须是绝对路径的 canonical 形态（C:/Users/me、//server/share、/home/me）。
-	// 启动时校验（见 main.go 的 applySafeBaseDir）：形态非法、不存在、不是目录，
+	// 多条是**并集**：落在任意一条之内都放行。嵌套的（`/srv` 与 `/srv/files`）会被
+	// 折叠成外层那一条——内层不会让任何新路径变得可访问。
+	//
+	// 每一项都必须是绝对路径的 canonical 形态（C:/Users/me、//server/share、/home/me）。
+	// 启动时校验（见 main.go 的 applySafeBaseDirs）：形态非法、不存在、不是目录，
 	// 都直接启动失败——配错一个路径会让所有请求 403，而用户在界面上看不出原因。
 	//
 	// 注意这个字段由**启动路径**读取并生效，不在本包里：fileops 依赖 utils、
 	// utils 依赖 config，config 再引用 fileops 就成环了。
-	SafeBaseDir string `json:"safeBaseDir"`
+	SafeBaseDirs []string `json:"safeBaseDirs"`
 }
 
 const PkgName = "file-lite-go"

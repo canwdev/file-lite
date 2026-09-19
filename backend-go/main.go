@@ -283,7 +283,7 @@ func bootServer(createConfig bool, overrides cli.Overrides) (*cli.ServerResult, 
 	// 文件访问范围必须在任何路径解析之前就位（挂载表按它收窄，见 routes.visibleDrives）。
 	// 校验放在这里而不是 config 包里：fileops 依赖 utils，而 utils 依赖 config，
 	// config 再引用 fileops 就成环了；启动路径引用三者都没有这个问题。
-	if err := applySafeBaseDir(); err != nil {
+	if err := applySafeBaseDirs(); err != nil {
 		return nil, err
 	}
 	cli.ApplyCliOverrides(overrides)
@@ -295,21 +295,20 @@ func bootServer(createConfig bool, overrides cli.Overrides) (*cli.ServerResult, 
 	return res, nil
 }
 
-// applySafeBaseDir 把配置里的 safeBaseDir 装进 fileops，并把生效范围打印出来。
+// applySafeBaseDirs 把配置里的 safeBaseDirs 装进 fileops，并把生效范围打印出来。
 //
 // 失败即启动失败：配错一个路径就让所有请求 403，而用户在界面上完全看不出原因，
 // 不如直接不启动并把那条路径写进错误里。
-func applySafeBaseDir() error {
-	raw := config.Config().SafeBaseDir
-	if err := fileops.SetBaseDir(raw); err != nil {
-		// SetBaseDir 的错误里已经带了字段名与那条路径，这里不再重复包一层。
+func applySafeBaseDirs() error {
+	if err := fileops.SetBaseDirs(config.Config().SafeBaseDirs); err != nil {
+		// SetBaseDirs 的错误里已经带了字段名与那条路径，这里不再重复包一层。
 		return err
 	}
 	// 明确告知访问范围：这是告知，不是兜底（见 vfs-abstraction-design.md §8.1）。
-	if base := fileops.BaseDir(); base != "" {
-		fmt.Printf("file access scope: %s (safeBaseDir)\n", base)
+	if bases := fileops.BaseDirs(); len(bases) > 0 {
+		fmt.Printf("file access scope: %s (safeBaseDirs)\n", strings.Join(bases, ", "))
 	} else {
-		fmt.Println("file access scope: the whole file system (no safeBaseDir)")
+		fmt.Println("file access scope: the whole file system (no safeBaseDirs)")
 	}
 	return nil
 }

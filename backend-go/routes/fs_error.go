@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/labstack/echo/v4"
@@ -39,10 +40,10 @@ func resolvePath(raw string) (fileops.Resolved, *echo.HTTPError) {
 	res, err := fileops.Resolve(raw)
 	if err != nil {
 		if errors.Is(err, fileops.ErrPathOutsideBase) {
-			// 消息里带上基目录（用户自己的配置），但**不回显请求的那条路径**：
+			// 消息里带上允许的范围（用户自己的配置），但**不回显请求的那条路径**：
 			// 那等于把服务端目录结构写进响应，而这个响应本身就是在拒绝他。
 			return fileops.Resolved{}, echo.NewHTTPError(http.StatusForbidden,
-				"Path is outside the configured base directory: "+fileops.BaseDir())
+				"Path is outside the configured base directories: "+strings.Join(fileops.BaseDirs(), ", "))
 		}
 		// 不回显整条路径：错误信息里只有规则，没有用户输入。
 		return fileops.Resolved{}, echo.NewHTTPError(http.StatusBadRequest, err.Error())

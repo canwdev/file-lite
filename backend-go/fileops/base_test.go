@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"file-lite-go/types"
 )
 
 // 不限制是默认值，而且必须是**真的**不限制：这条路径上的每一次 Resolve 都会走到它，
 // 任何一个「配了基目录才正常」的假设都会让默认部署出问题。
 func TestBaseDirUnsetAllowsEverything(t *testing.T) {
-	ClearBaseDir()
-	t.Cleanup(ClearBaseDir)
+	ClearBaseDirs()
+	t.Cleanup(ClearBaseDirs)
 
 	for _, p := range []string{"/", "/srv/files", "C:/Users/me", "//server/share/docs", "/etc/shadow"} {
 		if _, err := Resolve(p); err != nil {
@@ -26,8 +28,8 @@ func TestBaseDirUnsetAllowsEverything(t *testing.T) {
 // 这是裸 strings.HasPrefix 的经典漏洞，也是这个特性最容易写错的一处：
 // 同级目录被放进来，等于「限制」只挡住了拼写完全相同的路径。
 func TestBaseDirRespectsSegmentBoundary(t *testing.T) {
-	setBaseDirFrom("/srv/files")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"/srv/files"})
+	t.Cleanup(ClearBaseDirs)
 
 	inside := []string{
 		"/srv/files",
@@ -62,8 +64,8 @@ func TestBaseDirRespectsSegmentBoundary(t *testing.T) {
 // 而路径**部分**的大小写按平台处理，见 TestBaseDirFolderCaseByPlatform。
 func TestBaseDirComparisonKeySemantics(t *testing.T) {
 	t.Run("盘符大小写不敏感", func(t *testing.T) {
-		setBaseDirFrom("C:/Users/me")
-		t.Cleanup(ClearBaseDir)
+		setBaseDirsFrom([]string{"C:/Users/me"})
+		t.Cleanup(ClearBaseDirs)
 
 		if _, err := Resolve("c:/Users/me/a.txt"); err != nil {
 			t.Errorf("盘符大小写不该影响判定，得到 %v", err)
@@ -74,8 +76,8 @@ func TestBaseDirComparisonKeySemantics(t *testing.T) {
 	})
 
 	t.Run("UNC 主机名大小写不敏感", func(t *testing.T) {
-		setBaseDirFrom("//Server/Share")
-		t.Cleanup(ClearBaseDir)
+		setBaseDirsFrom([]string{"//Server/Share"})
+		t.Cleanup(ClearBaseDirs)
 
 		if _, err := Resolve("//server/Share/docs/a.txt"); err != nil {
 			t.Errorf("主机名大小写不该影响判定，得到 %v", err)
@@ -94,8 +96,8 @@ func TestBaseDirComparisonKeySemantics(t *testing.T) {
 // 判断错（并发档位、错误映射），而访问控制判错的后果是**把一个合法路径挡在门外**：
 // Windows 上 `C:/Users/Me` 与基目录 `C:/Users/me` 是同一个目录，不是越权。
 func TestBaseDirFolderCaseByPlatform(t *testing.T) {
-	setBaseDirFrom("C:/Users/me")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"C:/Users/me"})
+	t.Cleanup(ClearBaseDirs)
 
 	_, err := Resolve("C:/Users/ME/nested/a.txt")
 	if caseInsensitivePaths {
@@ -115,15 +117,15 @@ func TestBaseDirFolderCaseByPlatform(t *testing.T) {
 
 // UNC 是独立命名空间：基目录是 Unix 根下的目录时，UNC 路径不该被判成「在范围之内」。
 func TestBaseDirDoesNotLeakAcrossNamespaces(t *testing.T) {
-	setBaseDirFrom("/srv/files")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"/srv/files"})
+	t.Cleanup(ClearBaseDirs)
 
 	if _, err := Resolve("//server/share/docs"); err != ErrPathOutsideBase {
 		t.Errorf("UNC 路径不应被判成落在 Unix 基目录之内，得到 %v", err)
 	}
 
 	// 反向：基目录是 UNC 时，本机路径也不能被放进来。
-	setBaseDirFrom("//server/share")
+	setBaseDirsFrom([]string{"//server/share"})
 	if _, err := Resolve("/srv/files"); err != ErrPathOutsideBase {
 		t.Errorf("本机路径不应被判成落在 UNC 基目录之内，得到 %v", err)
 	}
@@ -132,8 +134,8 @@ func TestBaseDirDoesNotLeakAcrossNamespaces(t *testing.T) {
 // 形态错误优先于范围错误：一条相对路径应当报「不合法」（400），而不是「超出范围」（403）。
 // 后者会让用户去翻配置，而真正的问题是他少写了一个斜杠。
 func TestBaseDirShapeErrorsTakePrecedence(t *testing.T) {
-	setBaseDirFrom("/srv/files")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"/srv/files"})
+	t.Cleanup(ClearBaseDirs)
 
 	for _, p := range []string{"relative/dir", "/a/../../b", "C:relative", "//onlyhost", ""} {
 		_, err := Resolve(p)
@@ -150,8 +152,8 @@ func TestBaseDirShapeErrorsTakePrecedence(t *testing.T) {
 // `..` 穿越由 canonical 化负责，与基目录无关：越出根就已经是形态错误。
 // 在基目录之内用 `..` 回到基目录本身是合法的（那是同一个位置）。
 func TestBaseDirTraversalHandling(t *testing.T) {
-	setBaseDirFrom("/srv/files")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"/srv/files"})
+	t.Cleanup(ClearBaseDirs)
 
 	// 用 .. 从子目录回到基目录：结果是基目录本身，在范围内。
 	if _, err := Resolve("/srv/files/a/../b.txt"); err != nil {
@@ -165,8 +167,8 @@ func TestBaseDirTraversalHandling(t *testing.T) {
 
 // 基目录本身的所有写法都应当被接受（尾斜杠、反斜杠、"." 段）。
 func TestBaseDirAcceptsEquivalentSpellings(t *testing.T) {
-	setBaseDirFrom("/srv/files")
-	t.Cleanup(ClearBaseDir)
+	setBaseDirsFrom([]string{"/srv/files"})
+	t.Cleanup(ClearBaseDirs)
 
 	for _, p := range []string{"/srv/files", "/srv/files/", "/srv/./files", `/srv\files`, "/srv//files"} {
 		if _, err := Resolve(p); err != nil {
@@ -175,39 +177,150 @@ func TestBaseDirAcceptsEquivalentSpellings(t *testing.T) {
 	}
 }
 
-// SetBaseDir 的启动期校验：空串合法（不限制），非绝对路径与不存在的目录必须报错。
-func TestSetBaseDirValidation(t *testing.T) {
-	t.Cleanup(ClearBaseDir)
+// SetBaseDirs 的启动期校验：空合法（不限制），非绝对路径与不存在的目录必须报错。
+func TestSetBaseDirsValidation(t *testing.T) {
+	t.Cleanup(ClearBaseDirs)
 
-	if err := SetBaseDir(""); err != nil {
-		t.Fatalf("空串应当合法（表示不限制），得到 %v", err)
+	if err := SetBaseDirs(nil); err != nil {
+		t.Fatalf("空应当合法（表示不限制），得到 %v", err)
 	}
-	if got := BaseDir(); got != "" {
-		t.Fatalf("空串之后 BaseDir() = %q，期望空串", got)
+	if got := BaseDirs(); len(got) != 0 {
+		t.Fatalf("空之后 BaseDirs() = %v，期望空", got)
+	}
+	// 只写了空串的项当作「没写」，不该报错也不该让整条规则失效。
+	if err := SetBaseDirs([]string{"", "   "}); err != nil {
+		t.Fatalf("空白项应当被忽略，得到 %v", err)
+	}
+	if got := BaseDirs(); len(got) != 0 {
+		t.Fatalf("空白项之后 BaseDirs() = %v，期望空", got)
 	}
 
-	if err := SetBaseDir("relative/dir"); err == nil {
+	if err := SetBaseDirs([]string{"relative/dir"}); err == nil {
 		t.Error("相对路径应当报错（canonical 化会拒绝）")
 	}
-	if err := SetBaseDir(filepath.Join(t.TempDir(), "nope")); err == nil {
+	if err := SetBaseDirs([]string{filepath.Join(t.TempDir(), "nope")}); err == nil {
 		t.Error("不存在的目录应当报错")
 	}
-	// 配置错了不能留下「半个生效」的状态：失败的 SetBaseDir 必须保持不限制。
-	if got := BaseDir(); got != "" {
-		t.Errorf("SetBaseDir 失败后 BaseDir() = %q，期望保持空串", got)
+	// 其中一项有问题就不能「半个生效」：整体保持不限制。
+	if got := BaseDirs(); len(got) != 0 {
+		t.Errorf("SetBaseDirs 失败后 BaseDirs() = %v，期望保持空", got)
 	}
 
 	// 存在的目录：接受，并归一化成 canonical 形态（Windows 上会把反斜杠变成正斜杠）。
-	dir := t.TempDir()
-	if err := SetBaseDir(dir); err != nil {
+	dirA, dirB := t.TempDir(), t.TempDir()
+	if err := SetBaseDirs([]string{dirA, dirB}); err != nil {
 		t.Fatalf("存在的目录应当被接受，得到 %v", err)
 	}
-	want, err := CanonicalizePath(filepath.ToSlash(dir))
+	wantA, err := CanonicalizePath(filepath.ToSlash(dirA))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := BaseDir(); got != want {
-		t.Errorf("BaseDir() = %q，期望 %q", got, want)
+	wantB, err := CanonicalizePath(filepath.ToSlash(dirB))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := BaseDirs()
+	if len(got) != 2 || got[0] != wantA || got[1] != wantB {
+		t.Errorf("BaseDirs() = %v，期望 [%q %q]", got, wantA, wantB)
+	}
+}
+
+// 多条基目录是**并集**：落在任意一条之内都放行。
+func TestMultipleBasesAreUnion(t *testing.T) {
+	t.Cleanup(ClearBaseDirs)
+
+	dirA, dirB := t.TempDir(), t.TempDir()
+	if err := SetBaseDirs([]string{dirA, dirB}); err != nil {
+		t.Fatal(err)
+	}
+	canonA, _ := CanonicalizePath(filepath.ToSlash(dirA))
+	canonB, _ := CanonicalizePath(filepath.ToSlash(dirB))
+
+	for _, p := range []string{canonA, canonA + "/x", canonB, canonB + "/y/z"} {
+		if _, err := Resolve(p); err != nil {
+			t.Errorf("Resolve(%q) 应当在并集之内，得到 %v", p, err)
+		}
+	}
+	// 两条之外的第三个目录仍然被拒。
+	other, _ := CanonicalizePath(filepath.ToSlash(t.TempDir()))
+	if _, err := Resolve(other); err != ErrPathOutsideBase {
+		t.Errorf("第三条路径应当在范围外，得到 %v", err)
+	}
+}
+
+// 嵌套的基目录被折叠成外层那一条：内层不会让任何新路径变得可访问。
+func TestNestedBasesAreDeduped(t *testing.T) {
+	parent := t.TempDir()
+	child := filepath.Join(parent, "inner")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	canonParent, _ := CanonicalizePath(filepath.ToSlash(parent))
+	canonChild, _ := CanonicalizePath(filepath.ToSlash(child))
+
+	cases := [][]string{
+		{canonParent, canonChild}, // 外在前
+		{canonChild, canonParent}, // 内在前——顺序无关
+	}
+	for _, in := range cases {
+		t.Cleanup(ClearBaseDirs)
+		if err := SetBaseDirs(in); err != nil {
+			t.Fatal(err)
+		}
+		got := BaseDirs()
+		if len(got) != 1 || got[0] != canonParent {
+			t.Errorf("SetBaseDirs(%v) 之后 BaseDirs() = %v，期望只剩外层 [%q]", in, got, canonParent)
+		}
+	}
+}
+
+// TopLevelBaseDirs 只给不与别的基目录重叠的那些，且已折叠（两者都保证了不重复）。
+func TestTopLevelBaseDirs(t *testing.T) {
+	t.Cleanup(ClearBaseDirs)
+
+	parent := t.TempDir()
+	child := filepath.Join(parent, "inner")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	other := t.TempDir()
+
+	if err := SetBaseDirs([]string{parent, child, other}); err != nil {
+		t.Fatal(err)
+	}
+	got := TopLevelBaseDirs()
+	if len(got) != 2 {
+		t.Fatalf("TopLevelBaseDirs() = %v，期望 2 项（嵌套的那个被折叠）", got)
+	}
+	canonParent, _ := CanonicalizePath(filepath.ToSlash(parent))
+	canonOther, _ := CanonicalizePath(filepath.ToSlash(other))
+	seen := map[string]bool{}
+	for _, p := range got {
+		seen[p] = true
+	}
+	if !seen[canonParent] || !seen[canonOther] {
+		t.Errorf("TopLevelBaseDirs() = %v，期望包含 %q 与 %q", got, canonParent, canonOther)
+	}
+}
+
+// InDrives 判「恰好是某一项」，不是「落在其下」：这个区别曾经害我留下过 D: 根。
+func TestInDrivesIsExactMatch(t *testing.T) {
+	drives := []types.Drive{
+		{Label: "C:", Path: "C:"},
+		{Label: "base", Path: "C:/work/bin"},
+	}
+	if !InDrives(drives, "C:/work/bin") {
+		t.Error("完全相同应当匹配")
+	}
+	if InDrives(drives, "C:/work/bin/sub") {
+		t.Error("落在其下不算「已经是列表里的一项」")
+	}
+	if InDrives(drives, "C:") != true {
+		t.Error("盘符根应当匹配")
+	}
+	// 盘符大小写不敏感（同一套折叠规则）。
+	if !InDrives(drives, "c:") {
+		t.Error("盘符大小写不该影响相等判定")
 	}
 }
 
@@ -283,13 +396,13 @@ func pathWithinBaseIn(path, base string) bool {
 
 // 文件不是目录：明确拒绝，而不是等到请求时才出现一堆莫名其妙的失败。
 func TestSetBaseDirRejectsFile(t *testing.T) {
-	t.Cleanup(ClearBaseDir)
+	t.Cleanup(ClearBaseDirs)
 
 	file := filepath.Join(t.TempDir(), "a.txt")
 	if err := os.WriteFile(file, []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetBaseDir(file); err == nil {
+	if err := SetBaseDirs([]string{file}); err == nil {
 		t.Error("基目录指向一个文件时应当报错")
 	}
 }
