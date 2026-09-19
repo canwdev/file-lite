@@ -55,6 +55,29 @@ function canWriteMounted(path: string): { ok: boolean, reason?: string } {
   return writeGuard ? writeGuard(path) : { ok: true }
 }
 
+/**
+ * 写失败的上报通道。由 `mounted-volumes.ts` 注入，和守卫同一处。
+ *
+ * 权限可能在挂载之后被浏览器收回，或者选中的目录本身就写不进去（只读目录、
+ * 系统目录）。那时把它降级成只读并提示一次，比每次写都弹一次失败要好。
+ */
+let writeFailureReporter: ((path: string, error: unknown) => void) | null = null
+
+export function setMountedWriteFailureReporter(reporter: (path: string, error: unknown) => void) {
+  writeFailureReporter = reporter
+}
+
+/** 包一层写入：失败时上报，然后照常抛出，让调用方拿到原因。 */
+async function writeGuarded(path: string, action: () => Promise<void>): Promise<void> {
+  try {
+    await action()
+  }
+  catch (error) {
+    writeFailureReporter?.(path, error)
+    throw error
+  }
+}
+
 async function rootHandle(id: string): Promise<FileSystemDirectoryHandle> {
   const handle = handleResolver ? await handleResolver(id) : null
   if (!handle) {
@@ -341,6 +364,47 @@ export async function mountedEntryExists(dirPath: string, name: string): Promise
 }
 
 /**
+ * 把卷内一个**文件**挪到目标目录。
+ *
+ * 用浏览器原生的 `FileSystemFileHandle.move()`：同卷内它是零拷贝的，所以
+ * 「同卷移动」不必读一遍再写一遍——大文件从「和体积成正比的时间」变成瞬间。
+ * 不支持 / 失败时返回 false，调用方退回流式复制。
+ *
+ * 只处理文件：目录句柄没有 `move()`，跨目录搬目录树仍走复制。
+ */
+export async function moveMountedFileEntry(fromPath: string, toDirPath: string, toName: string): Promise<boolean> {
+  const fromName = lastPathSegment(fromPath)
+  if (!fromName) {
+    return false
+  }
+
+  const fromDir = await resolveMountedDirHandle(parentPathOf(fromPath, fromName))
+  const entry = await fromDir.getFileHandle(fromName).catch(() => null)
+  if (!entry) {
+    return false
+  }
+
+  const move = (entry as FileSystemHandle & {
+    move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>
+  }).move
+  if (typeof move !== 'function') {
+    return false
+  }
+
+  const toDir = await resolveMountedDirHandle(toDirPath)
+  try {
+    // overwrite 语义：目标已存在时先删掉，否则 move 会直接抛错
+    await toDir.removeEntry(toName, { recursive: true }).catch(() => {})
+    await move.call(entry, toDir, toName)
+    return true
+  }
+  catch (error) {
+    console.warn('[mounted] move() failed, falling back to copy', error)
+    return false
+  }
+}
+
+/**
  * 卷内重命名。
  *
  * 优先用 `FileSystemFileHandle.move()`——同卷内它是**零拷贝**的，浏览器直接改目录项。
@@ -430,7 +494,7 @@ export const browserBackend: FsBackend = {
       return { ok: false, reason: 'skipped' }
     }
     const finalName = conflict === 'keep-both' ? await browserBackend.uniqueName(dirPath, name) : name
-    await writeMountedFile(dirPath, finalName, content)
+    await writeGuarded(joinPath(dirPath, finalName), () => writeMountedFile(dirPath, finalName, content))
     return { ok: true, path: `${dirPath.replace(/\/+$/, '')}/${finalName}`, name: finalName }
   },
 
@@ -444,7 +508,7 @@ export const browserBackend: FsBackend = {
       return { ok: false, reason: 'skipped' }
     }
     const finalName = conflict === 'keep-both' ? await browserBackend.uniqueName(dirPath, name) : name
-    await writeMountedFile(dirPath, finalName, data)
+    await writeGuarded(joinPath(dirPath, finalName), () => writeMountedFile(dirPath, finalName, data))
     return { ok: true, path: `${dirPath.replace(/\/+$/, '')}/${finalName}`, name: finalName }
   },
 

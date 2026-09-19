@@ -1,10 +1,13 @@
 import { mountIdFromPath } from '../../../utils/fs/paths'
 /**
- * 对挂载卷做写操作时的统一守卫。
+ * 挂载卷的**写权限守卫**。
  *
  * 「只读」在挂载卷上是很正常的状态（用户只批了读、或当初就是只读挂载），所以写操作
- * 必须先问一次状态，再决定是执行、提示重新授权，还是如实报权限错误。把它收在一个
- * 地方，新建 / 重命名 / 删除 / 粘贴就不必各自重复这套判断。
+ * 必须先问一次状态，再决定是执行、提示重新授权，还是如实报权限错误。
+ *
+ * 这个函数由 `mounted-volumes.ts` 注入给共享层的浏览器后端（`setMountedWriteGuard`），
+ * 因此**调用点不必自己判断**——门面在写之前会问一次。这里不再提供「检查 + 执行」的
+ * 包装函数：那会让同一条规则出现两个入口。
  */
 import { MountedFsError } from './browser-fs'
 import { canWriteVolume, downgradeVolumeToReadOnly, mountedVolumes } from './mounted-volumes'
@@ -13,8 +16,6 @@ export interface MountedWriteGuard {
   /** 该卷能不能写；不能写时 `reason` 是要展示给用户的一句话。 */
   ok: boolean
   reason?: string
-  /** 写失败后调用：把卷降级为只读并提示，避免每次写都弹一次失败。 */
-  onFailure: (error: unknown) => void
 }
 
 /**
@@ -29,11 +30,11 @@ export function mountedWriteGuard(path: string): MountedWriteGuard {
   const volume = id ? mountedVolumes.value.find(item => item.id === id) : undefined
 
   if (!volume) {
-    return { ok: false, reason: 'This folder is no longer mounted', onFailure: () => {} }
+    return { ok: false, reason: 'This folder is no longer mounted' }
   }
 
   if (canWriteVolume(volume.access)) {
-    return { ok: true, onFailure: error => reportWriteFailure(volume.id, error) }
+    return { ok: true }
   }
 
   const reason = volume.access === 'read-only'
@@ -42,40 +43,24 @@ export function mountedWriteGuard(path: string): MountedWriteGuard {
       ? `"${volume.label}" needs access again — click it in the sidebar to allow writing`
       : `Access to "${volume.label}" was denied — mount the folder again`
 
-  return { ok: false, reason, onFailure: () => {} }
+  return { ok: false, reason }
 }
 
 /** 写失败：若是权限问题就把卷降级到只读，其它原因交给调用方。 */
-function reportWriteFailure(id: string, error: unknown) {
-  if (error instanceof MountedFsError && error.code === 'permission') {
-    downgradeVolumeToReadOnly(id)
-    window.$message?.warning('This mounted folder is read-only — grant write access to change it')
+export function reportMountedWriteFailure(path: string, error: unknown): void {
+  const id = mountIdFromPath(path)
+  if (!id) {
     return
   }
-  if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
-    downgradeVolumeToReadOnly(id)
+  const denied = (error instanceof MountedFsError && error.code === 'permission')
+    || (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError'))
+  if (!denied) {
+    return
+  }
+  // 只有在「原本以为可写」时才提示：已经从只读的卷再失败一次不值得再弹
+  const volume = mountedVolumes.value.find(item => item.id === id)
+  if (volume && canWriteVolume(volume.access)) {
     window.$message?.warning('This mounted folder is read-only — grant write access to change it')
   }
-}
-
-/**
- * 写操作入口：检查状态 → 执行 → 失败时按权限问题降级。
- * 返回 false 表示没有执行（状态不允许），此时已经给过提示。
- */
-export async function runMountedWrite(path: string, action: () => Promise<void>): Promise<boolean> {
-  const guard = mountedWriteGuard(path)
-  if (!guard.ok) {
-    if (guard.reason) {
-      window.$message?.warning(guard.reason)
-    }
-    return false
-  }
-  try {
-    await action()
-    return true
-  }
-  catch (error) {
-    guard.onFailure(error)
-    throw error
-  }
+  downgradeVolumeToReadOnly(id)
 }

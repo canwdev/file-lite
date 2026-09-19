@@ -508,4 +508,52 @@ test.describe('浏览器挂载文件夹', () => {
       expect(await lyricsToggle.first().isVisible()).toBe(true)
     }
   })
+
+  test('同卷移动走零拷贝的 move()，而不是读一遍再写一遍', async ({ page }) => {
+    const dirName = mountDir
+    await mountOpfs(page, dirName)
+
+    // 通过 UI 建文件，这样列表会立刻刷新（外部往 OPFS 里写不会触发应用的重新列目录）
+    await page.locator('.explorer-main:visible button[title="Create Document"]').click()
+    await submitInputPrompt(page, 'to-move.txt')
+    await expect(row(page, 'to-move.txt')).toBeVisible()
+
+    // 记录 move() 是否被调用：这是「移动」与「读出来再写一遍」的分水岭。
+    // 断言调用过而不是断言「很快」——时间在 CI 上不可靠。
+    await page.evaluate(() => {
+      const w = window as unknown as { __moveCalls: number }
+      w.__moveCalls = 0
+      const proto = FileSystemFileHandle.prototype as unknown as {
+        move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>
+      }
+      if (typeof proto.move === 'function') {
+        const original = proto.move
+        proto.move = function (this: FileSystemFileHandle, dir, name) {
+          w.__moveCalls += 1
+          return original.call(this, dir, name)
+        }
+      }
+    })
+
+    // 剪切 → 进子目录 → 粘贴 = 同卷移动
+    await selectItem(page, 'to-move.txt')
+    await page.locator('.explorer-main:visible button[title^="Cut (ctrl+x)"]').click()
+    await row(page, 'sub folder').dblclick()
+    await expect(currentCrumb(page)).toHaveText('sub folder')
+    await page.locator('.explorer-main:visible button[title^="Paste (ctrl+v)"]').click()
+
+    await expect(row(page, 'to-move.txt')).toBeVisible({ timeout: 15_000 })
+    expect(await page.evaluate(() => (window as unknown as { __moveCalls: number }).__moveCalls)).toBeGreaterThan(0)
+
+    // 源目录里不再有它（移动而不是复制），内容仍然在
+    const stillThere = await page.evaluate(async (dir) => {
+      const root = await navigator.storage.getDirectory()
+      const handle = await root.getDirectoryHandle(dir)
+      const names: string[] = []
+      for await (const [n] of (handle as any).entries()) names.push(n)
+      return names
+    }, dirName)
+    expect(stillThere).toContain('sub folder')
+    expect(stillThere).not.toContain('to-move.txt')
+  })
 })

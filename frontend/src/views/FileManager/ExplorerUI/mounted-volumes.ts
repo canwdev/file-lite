@@ -10,9 +10,9 @@
  */
 import { openDB } from 'idb'
 import { ref } from 'vue'
-import { setMountedHandleResolver, setMountedWriteGuard } from '../../../utils/fs/browser-backend'
+import { setMountedHandleResolver, setMountedWriteFailureReporter, setMountedWriteGuard } from '../../../utils/fs/browser-backend'
 import { mountIdFromPath, mountRootPath, normalizeListingPath } from '../../../utils/fs/paths'
-import { mountedWriteGuard } from './mount-write'
+import { mountedWriteGuard, reportMountedWriteFailure } from './mount-write'
 
 /** 句柄持久化用的 IndexedDB；与缩略图缓存分开，避免互相升级阻塞。 */
 const DB_NAME = 'file-lite-browser-mounts'
@@ -169,6 +169,7 @@ const handleCache = new Map<string, FileSystemDirectoryHandle>()
 // （挂载表才是句柄缓存与授权状态的持有者）
 setMountedHandleResolver(getMountedHandle)
 setMountedWriteGuard(mountedWriteGuard)
+setMountedWriteFailureReporter(reportMountedWriteFailure)
 
 export async function getMountedHandle(id: string): Promise<FileSystemDirectoryHandle | null> {
   const cached = handleCache.get(id)

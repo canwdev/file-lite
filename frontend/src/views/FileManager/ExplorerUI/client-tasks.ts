@@ -25,7 +25,7 @@ import {
   requestLocalConflict,
   taskList,
 } from '@/store/task-state'
-import { browserBackend, createMountedDir, mountedEntryExists, readMountedDir, readMountedFile, removeMountedEntry, writeMountedFileFromStream } from '../../../utils/fs/browser-backend'
+import { browserBackend, createMountedDir, mountedEntryExists, moveMountedFileEntry, readMountedDir, readMountedFile, removeMountedEntry, writeMountedFileFromStream } from '../../../utils/fs/browser-backend'
 import { isMountedPath, needsClientExecution } from '../../../utils/fs/paths'
 import { serverBackend } from '../../../utils/fs/server-backend'
 import explorerBus, { ExplorerEvents } from '../utils/bus'
@@ -612,6 +612,18 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
             : await uniqueServerName(destDir, lastSegment(destPath)))
         : lastSegment(destPath)
       const finalPath = joinPath(destDir, destName)
+
+      // 同卷「移动」可以走浏览器原生的 move()：零拷贝，大文件不再和体积成正比。
+      // 跨卷（源在服务端）或目标已有内容时仍走下面的流式搬运。
+      if (isMove && isMountedPath(item.fromPath) && isMountedPath(destPath)
+        && await moveMountedFileEntry(item.fromPath, destDir, destName)) {
+        ctx.itemsDone += 1
+        ctx.itemsSucceeded += 1
+        ctx.bytesDone += item.size
+        ctx.results.push({ fromPath: item.fromPath, toPath: joinPath(destDir, destName), status: 'moved' })
+        publish(ctx)
+        continue
+      }
 
       try {
         const sourceIsBrowser = isMountedPath(item.fromPath)
