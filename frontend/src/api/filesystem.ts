@@ -34,10 +34,13 @@ export const fsWebApi = {
   async getDrives() {
     return (await service.get(`${baseURL}/drives`)) as unknown as IDrive[]
   },
-  async getList(params: any = {}, config: ServiceRequestConfig = {}) {
-    const { path } = params
+  async getList(params: { path: string, recursive?: boolean, showHidden?: boolean } = { path: '' }, config: ServiceRequestConfig = {}) {
+    const { path, recursive, showHidden } = params
     return await service.get(`${baseURL}/list`, {
-      params: { path },
+      params: {
+        path,
+        ...(recursive ? { recursive: 1, showHidden: showHidden ? 1 : 0 } : {}),
+      },
       ...config,
     }) as unknown as IEntry[]
   },

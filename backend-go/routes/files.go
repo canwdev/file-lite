@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -224,6 +225,19 @@ func getFiles(c echo.Context) error {
 	if !st.IsDir() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Path is not a directory"})
 	}
+
+	if queryTruthy(c, "recursive") {
+		entries, walkErr := listFilesRecursive(dir, queryTruthy(c, "showHidden"))
+		if walkErr != nil {
+			if errors.Is(walkErr, errFlattenLimit) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"message": walkErr.Error()})
+			}
+			status, message := fsErrorStatus(walkErr, res.Network())
+			return jsonFSError(c, status, message)
+		}
+		return c.JSON(http.StatusOK, entries)
+	}
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		status, message := fsErrorStatus(err, res.Network())
@@ -278,6 +292,97 @@ func getFiles(c echo.Context) error {
 	wg.Wait()
 
 	return c.JSON(http.StatusOK, res2)
+}
+
+func queryTruthy(c echo.Context, key string) bool {
+	v := strings.ToLower(strings.TrimSpace(c.QueryParam(key)))
+	return v == "1" || v == "true" || v == "yes"
+}
+
+const flattenListLimit = 1000000
+
+var errFlattenLimit = errors.New("this folder has too many files to flatten")
+
+// listFilesRecursive 把 root 下每一层的文件摊成一份列表，Name 是相对 root 的路径
+// （正斜杠）。目录本身不出现——平铺视图要的是跨文件夹的文件，不是再列一遍树。
+// 不跟随指向目录的符号链接，避免环。showHidden 为 false 时跳过名字以点开头的项。
+func listFilesRecursive(root string, showHidden bool) ([]types.Entry, error) {
+	out := make([]types.Entry, 0)
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if p == root {
+				return walkErr
+			}
+			return nil
+		}
+		if p == root {
+			return nil
+		}
+		name := d.Name()
+		if utils.IsReservedTempName(name) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		hidden := strings.HasPrefix(name, ".")
+		if !showHidden && hidden {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		isSymlink := d.Type()&os.ModeSymlink != 0
+		if d.IsDir() {
+			if isSymlink {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." || strings.HasPrefix(rel, "../") {
+			return nil
+		}
+
+		st, statErr := d.Info()
+		if isSymlink {
+			st, statErr = os.Stat(p)
+			if statErr != nil {
+				return nil
+			}
+			if st.IsDir() {
+				return nil
+			}
+		}
+		if statErr != nil {
+			return nil
+		}
+		if len(out) >= flattenListLimit {
+			return errFlattenLimit
+		}
+		entry := entryFromStat(rel, st, p, isSymlink)
+		entry.Hidden = entryHiddenRel(rel)
+		out = append(out, entry)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func entryHiddenRel(rel string) bool {
+	for _, part := range strings.Split(rel, "/") {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	return false
 }
 
 func createDirectory(c echo.Context) error {

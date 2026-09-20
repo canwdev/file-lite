@@ -15,6 +15,13 @@ import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
+function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
+  const slash = name.lastIndexOf('/')
+  if (slash < 0)
+    return { dirPrefix: '', baseName: name }
+  return { dirPrefix: name.slice(0, slash + 1), baseName: name.slice(slash + 1) }
+}
+
 function getEntryExt(name: string) {
   const dotIndex = name.lastIndexOf('.')
   return dotIndex > 0 ? name.slice(dotIndex) : ''
@@ -73,6 +80,8 @@ export function useFileActions({
   downloadToFolder,
   emit,
   onEntryCreated,
+  isBranchView,
+  onOpenContainingFolder,
 }: {
   isLoading: Ref<boolean>
   selectedPaths: Ref<string[]>
@@ -88,7 +97,15 @@ export function useFileActions({
   downloadToFolder: () => Promise<void>
   emit: any
   onEntryCreated?: (name: string) => void
+  isBranchView?: Ref<boolean>
+  onOpenContainingFolder?: (path: string) => void
 }) {
+  function containingFolderOf(item: IEntry): string {
+    const { dirPrefix } = splitEntryName(item.name)
+    if (!dirPrefix)
+      return normalizePath(basePath.value)
+    return normalizePath(`${basePath.value}/${dirPrefix.replace(/\/$/, '')}`)
+  }
   const handleCreateFile = async (name = '', content = '') => {
     try {
       name
@@ -141,11 +158,12 @@ export function useFileActions({
     }
 
     const item = selectedItems.value[0]
+    const { dirPrefix, baseName } = splitEntryName(item.name)
     let name: string
     try {
       name = (await showInputPrompt({
         title: 'Rename',
-        value: item.name,
+        value: baseName,
         selectNameOnly: true,
       })).trim()
     }
@@ -153,19 +171,24 @@ export function useFileActions({
       return
     }
 
-    if (!name || name === item.name) {
+    if (!name || name === baseName) {
+      return
+    }
+    if (name.includes('/') || name.includes('\\')) {
+      window.$message?.error('Name cannot contain a path')
       return
     }
 
     try {
       isLoading.value = true
+      const nextName = `${dirPrefix}${name}`
       const fromPath = normalizePath(`${basePath.value}/${item.name}`)
-      const toPath = normalizePath(`${basePath.value}/${name}`)
+      const toPath = normalizePath(`${basePath.value}/${nextName}`)
       // 走门面重命名（写之前统一过只读守卫）
       await fs.rename(fromPath, toPath)
       const renamedItem: IEntry = {
         ...item,
-        name,
+        name: nextName,
         ext: item.isDirectory ? '' : getEntryExt(name),
       }
       selectedItemsSet.value = new Set(
@@ -297,7 +320,16 @@ export function useFileActions({
     const isFile = isSingle && !selectedItem.isDirectory
     const isDirectory = isSingle && selectedItem.isDirectory
     const openActionMeta = getOpenActionMeta(selectedItem)
+    const branchOpenContaining = isBranchView?.value && selectedItem
+      ? {
+          label: 'Open Containing Folder',
+          icon: 'mdi mdi-folder-open-outline',
+          onClick: () => onOpenContainingFolder?.(containingFolderOf(selectedItem)),
+          divided: true,
+        }
+      : null
     return [
+      branchOpenContaining,
       isSingle && {
         label: openActionMeta.label,
         icon: openActionMeta.icon,

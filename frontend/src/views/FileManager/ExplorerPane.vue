@@ -85,6 +85,31 @@ const basePath = computed({
   },
 })
 
+/**
+ * 平铺列表的开关必须是面板内同步可读的 ref：切目录时要立刻关掉，
+ * 否则紧跟着的 `getListFn` 还会读到旧的 `props.view.branch`，把新目录又平铺一遍。
+ */
+const branchListing = ref(Boolean(props.view?.branch) && !props.selectFileMode)
+
+function syncBranchViewProp(enabled: boolean) {
+  if (Boolean(props.view?.branch) === enabled)
+    return
+  const base = props.view ?? {
+    grid: localSettingsStore.value.isGridView,
+    iconSizeList: localSettingsStore.value.iconSizeList,
+    iconSizeGrid: localSettingsStore.value.iconSizeGrid,
+  }
+  emit('update:view', { ...base, branch: enabled })
+}
+
+function disableBranchListing() {
+  if (!branchListing.value)
+    return false
+  branchListing.value = false
+  syncBranchViewProp(false)
+  return true
+}
+
 const {
   isLoading,
   loadError,
@@ -102,12 +127,24 @@ const {
   highlightFolderName,
 } = useNavigation({
   basePath,
+  flatListing: branchListing,
+  beforeOpenPath: ({ sameDir }) => {
+    if (!disableBranchListing())
+      return
+    // 仍在同一目录：关掉平铺后要强制重拉普通列表
+    if (sameDir)
+      return { forceRefresh: true }
+  },
   getListFn: async ({ signal } = {}) => {
     // 列表读取走门面；失败一律抛出，由 use-navigation 统一转成列表区的错误状态。
     if (signal?.aborted) {
       return []
     }
-    return await fs.list(basePath.value, { showHidden: localSettingsStore.value.showHidden })
+    return await fs.list(basePath.value, {
+      showHidden: localSettingsStore.value.showHidden,
+      recursive: branchListing.value,
+      signal,
+    })
   },
 })
 
@@ -125,8 +162,24 @@ watch(() => props.path, (path) => {
   if (path === currentPath.value) {
     return
   }
+  disableBranchListing()
   currentPath.value = path
   void handleRefresh()
+})
+
+watch(() => props.view?.branch, (branch) => {
+  if (props.selectFileMode)
+    return
+  const next = Boolean(branch)
+  if (next === branchListing.value)
+    return
+  branchListing.value = next
+  void handleRefresh()
+})
+
+watch(() => localSettingsStore.value.showHidden, () => {
+  if (branchListing.value)
+    void handleRefresh()
 })
 
 /**
@@ -558,6 +611,7 @@ defineExpose({
           :view="view"
           @update:view="$emit('update:view', $event)"
           @open="handleFileListOpen"
+          @open-path="(path: string) => handleOpenPath(path)"
           @select="handleSelectFromMenu"
           @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
           @clear-filter="clearFilter"

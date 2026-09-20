@@ -170,10 +170,10 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .text-sync-wrap {
   height: 100%;
-  padding: var(--vgo-space-2);
+  padding: var(--vgo-space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--vgo-space-2);
+  gap: var(--vgo-space-3);
 }
 
 .text-sync-channels {

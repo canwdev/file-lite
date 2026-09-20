@@ -38,13 +38,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - In a split view the draggable area beside the divider is 4px wide instead of 16px, so it no longer takes clicks on the panes next to it; the divider itself looks the same (frontend).
 - File icons are outline glyphs, and PDFs, Word, Excel, PowerPoint and Windows binaries each have their own icon (frontend).
 - In the filter bar the case-sensitive toggle sits before the regular-expression one (frontend).
-- The folder menu opens with View, Sort and Group by; View switches list and grid and can expand or collapse every group, and creating a file or folder sits under New (frontend).
+- The folder menu opens with View, Sort and Group by; View switches list and grid, can flatten every subdirectory into one file list (Ctrl+B), and can expand or collapse every group, and creating a file or folder sits under New (frontend).
 - The transfer panel sits below floating windows so it no longer covers them (frontend).
 - Config → App Settings has a "Show folders first" switch that decides whether folders stay grouped above files after sorting; it is on by default (frontend).
 - The folder Sort menu lists the sort field and the direction as two groups, so you pick Name / Size / date separately from Ascending / Descending (frontend).
 
 ### Features
 
+- Branch view (Ctrl+B) lists every file under the current folder, ignoring directory nesting, so copy, delete and other batch actions can run across subfolders; leaving the folder turns it off, and a right-click can open the file's containing folder. A folder with too many files to flatten shows an error instead of a partial list. It is an explorer view only and does not apply inside apps (frontend, backend).
 - Folders can be grouped like Explorer — by name, type, size or date, in either direction — in both the list and the grid; the group's heading stays pinned while you scroll it, size groups show their range in brackets, the chevron collapses the group, and clicking the rest of the heading selects every file in it (frontend).
 - The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
 - `allowedRoots` restricts the file manager to the folders you list — anything outside them is refused, and the sidebar only offers those folders and whatever is inside them — while leaving it empty (the default) keeps the whole file system reachable; listing several folders grants all of them, nested ones collapse into their parent, and every folder is checked at startup, so a path that does not exist stops the server instead of silently refusing every request (backend). This is the access-scope option; the name says what it is, namely the roots a path is allowed to be under.

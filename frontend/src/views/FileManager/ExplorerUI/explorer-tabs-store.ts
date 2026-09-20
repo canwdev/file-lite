@@ -24,6 +24,8 @@ export interface ExplorerPaneView {
   grid: boolean
   iconSizeList: number
   iconSizeGrid: number
+  /** 平铺子目录中的全部文件（Total Commander Ctrl+B） */
+  branch?: boolean
 }
 
 export interface ExplorerTab {

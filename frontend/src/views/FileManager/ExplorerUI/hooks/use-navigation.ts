@@ -1,4 +1,4 @@
-import type { WritableComputedRef } from 'vue'
+import type { Ref, WritableComputedRef } from 'vue'
 import type { FsDirChange, IEntry } from '@/types/server'
 import type { OpenWithEnum } from '@/views/Apps/apps'
 import { subscribeFsChanged } from '@/store/tasks'
@@ -8,9 +8,16 @@ import { seedFolderListing } from '../folder-listing'
 import { useFavourites } from './use-favourites'
 import { useOpener } from './use-opener'
 
-export function useNavigation({ basePath, getListFn }: {
+export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath }: {
   basePath: WritableComputedRef<string>
   getListFn: (options?: { signal?: AbortSignal }) => Promise<IEntry[]>
+  /** 平铺视图下列出的是整棵子树，不能写进「这一层的子项」缓存，补丁也必须整表重拉。 */
+  flatListing?: Ref<boolean>
+  /**
+   * 即将切到 `path` 时调用（含后退 / 上一级）。可同步关掉 Branch view；
+   * 返回 `{ forceRefresh: true }` 时即使目录未变也重拉列表。
+   */
+  beforeOpenPath?: (ctx: { path: string, sameDir: boolean }) => void | { forceRefresh?: boolean }
 }) {
   const files = ref<IEntry[]>([])
 
@@ -67,11 +74,13 @@ export function useNavigation({ basePath, getListFn }: {
       if (!sameDir || !sameListing(files.value, list)) {
         files.value = list
         // 当前目录列表是最新鲜的，写入目录子项缓存供预览/下拉复用
-        seedFolderListing(basePath.value, list)
+        if (!flatListing?.value)
+          seedFolderListing(basePath.value, list)
       }
       else {
         // 内容一致：继续用同一份数组（含对象引用），只确认缓存可用
-        seedFolderListing(basePath.value, files.value)
+        if (!flatListing?.value)
+          seedFolderListing(basePath.value, files.value)
       }
       loadedPath.value = target
 
@@ -89,9 +98,13 @@ export function useNavigation({ basePath, getListFn }: {
       console.error(e)
       // 错误同时进列表区的空状态（见 loadError）：toast 会消失，空状态不会。
       loadError.value = readErrorMessage(e)
-      // 同目录重载失败时保留旧列表，别因为一次瞬时错误把它清空
-      if (!sameDir) {
+      // 同目录重载失败时保留旧列表，别因为一次瞬时错误把它清空。
+      // 平铺失败例外：旧列表是「这一层」的，不是平铺结果，留着会让人以为 Branch view 成功了。
+      if (!sameDir || flatListing?.value) {
         files.value = []
+      }
+      if (flatListing?.value && loadError.value) {
+        window.$message?.error(loadError.value)
       }
     }
     finally {
@@ -114,6 +127,16 @@ export function useNavigation({ basePath, getListFn }: {
       return
     }
     const current = basePathNormalized.value
+    const listingUnderCurrent = (path: string) => {
+      const normalized = normalizeListingPath(path)
+      return normalized === current || normalized.startsWith(`${current}/`)
+    }
+    // 平铺视图的名字是相对路径，条目级补丁对不上；子目录里的改动也要反映进来。
+    if (flatListing?.value) {
+      if (paths.some(listingUnderCurrent) || changes.some(item => listingUnderCurrent(item.dir)))
+        void handleRefresh(false)
+      return
+    }
     const change = changes.find(item => normalizeListingPath(item.dir) === current)
     // 正在整目录刷新时不打补丁（列表可能是空的 / 旧的），让刷新自己收尾
     if (change && !isLoading.value) {
@@ -150,8 +173,8 @@ export function useNavigation({ basePath, getListFn }: {
       return
     }
     files.value = next
-    // 目录预览 / 面包屑下拉共享同一份原始列表缓存，补丁要同步写回
-    seedFolderListing(basePath.value, next)
+    if (!flatListing?.value)
+      seedFolderListing(basePath.value, next)
   }
 
   /* 历史记录功能 START */
@@ -192,7 +215,11 @@ export function useNavigation({ basePath, getListFn }: {
     await handleOpenPath(getParentPath(basePath.value), true)
   }
   const handleOpenPath = async (path: string, isUpdateHistory: boolean = true, forceRefresh: boolean = false) => {
-    if (normalizeListingPath(path) === basePathNormalized.value && !forceRefresh) {
+    const sameDir = normalizeListingPath(path) === basePathNormalized.value
+    const hint = beforeOpenPath?.({ path, sameDir })
+    if (hint?.forceRefresh)
+      forceRefresh = true
+    if (sameDir && !forceRefresh) {
       return
     }
     basePath.value = path

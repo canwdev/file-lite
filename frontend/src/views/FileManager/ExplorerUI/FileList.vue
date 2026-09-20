@@ -79,7 +79,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'update:isLoading', 'update:view', 'refresh', 'clearFilter', 'patch'])
+const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'openPath', 'update:isLoading', 'update:view', 'refresh', 'clearFilter', 'patch'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
@@ -119,6 +119,14 @@ function updatePaneView(patch: Partial<ExplorerPaneView>) {
 const isGridView = computed({
   get: () => paneView.value.grid,
   set: (val: boolean) => updatePaneView({ grid: val }),
+})
+const isBranchView = computed({
+  get: () => Boolean(paneView.value.branch) && !selectFileMode.value,
+  set: (val: boolean) => {
+    if (selectFileMode.value)
+      return
+    updatePaneView({ branch: val })
+  },
 })
 const iconSizeList = computed({
   get: () => paneView.value.iconSizeList,
@@ -189,10 +197,10 @@ const emptyState = computed(() => {
   //
   // 但只在**没有内容可展示**时才顶掉列表：同目录刷新失败会保留旧列表
   // （见 use-navigation 的 sameDir 分支），那份内容仍然有效，不该被错误卡片盖住。
-  if (props.loadError && !props.files.length) {
+  if (props.loadError && (!props.files.length || isBranchView.value)) {
     return {
       icon: 'alert-circle-outline',
-      title: 'Can\'t open this folder',
+      title: isBranchView.value ? 'Can\'t flatten this folder' : 'Can\'t open this folder',
       description: props.loadError,
       showClear: false,
       showRetry: true,
@@ -203,7 +211,9 @@ const emptyState = computed(() => {
     return {
       icon: 'folder-open-outline',
       title: 'No files',
-      description: 'This folder is empty.',
+      description: isBranchView.value
+        ? 'No files in this folder or its subfolders.'
+        : 'This folder is empty.',
       showClear: false,
       showRetry: false,
     }
@@ -1069,6 +1079,10 @@ const {
   handleDownload,
   downloadToFolder,
   emit,
+  isBranchView,
+  onOpenContainingFolder: (path) => {
+    emit('openPath', path)
+  },
   onEntryCreated: (name) => {
     pendingRevealName.value = name
   },
@@ -1103,9 +1117,18 @@ function viewMenuItems(): MenuItem[] {
     {
       label: 'Grid',
       icon: isGridView.value ? 'mdi mdi-check' : '',
-      divided: isGrouping.value,
+      divided: true,
       onClick: () => {
         isGridView.value = true
+      },
+    },
+    {
+      label: 'Branch view',
+      icon: isBranchView.value ? 'mdi mdi-check' : '',
+      shortcut: 'Ctrl+B',
+      divided: isGrouping.value,
+      onClick: () => {
+        isBranchView.value = !isBranchView.value
       },
     },
   ]
@@ -1267,6 +1290,15 @@ useShortcut({
   scope: shortcutScope,
   combo: ['ctrl+a', 'meta+a'],
   handler: toggleSelectAll,
+})
+
+useShortcut({
+  disabled: shortcutsDisabled,
+  scope: shortcutScope,
+  combo: ['ctrl+b', 'meta+b'],
+  handler: () => {
+    isBranchView.value = !isBranchView.value
+  },
 })
 
 useShortcut({
@@ -1702,14 +1734,6 @@ defineExpose({
           >
             <i-mdi-filter-remove-outline />
             Clear filter
-          </button>
-          <button
-            v-if="emptyState.showRetry && !selectFileMode"
-            class="vgo-button"
-            @click.stop="emit('refresh')"
-          >
-            <i-mdi-reload />
-            Try again
           </button>
         </div>
         <div v-else-if="!isGridMode" class="explorer-list-view">

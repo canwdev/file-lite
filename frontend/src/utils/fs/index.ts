@@ -98,10 +98,17 @@ export async function writeFile(
   return { ok: true, path, name }
 }
 
-/** 列目录。 */
-export async function list(path: string, options?: { showHidden?: boolean }): Promise<IEntry[]> {
-  void options
-  const result = await fsWebApi.getList({ path }, { isToast: false })
+/** 列目录。`recursive` 把子目录里的文件摊成一份列表（Name 为相对路径），供资源管理器的平铺视图使用。 */
+export async function list(path: string, options?: {
+  showHidden?: boolean
+  recursive?: boolean
+  signal?: AbortSignal
+}): Promise<IEntry[]> {
+  const result = await fsWebApi.getList({
+    path,
+    recursive: options?.recursive,
+    showHidden: options?.showHidden,
+  }, { isToast: false, signal: options?.signal })
   return Array.isArray(result) ? (result as IEntry[]) : []
 }
 
