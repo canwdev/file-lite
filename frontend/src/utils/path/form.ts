@@ -1,9 +1,8 @@
 /**
  * canonical 路径的两种形态转换。
  *
- * 单独成文件是为了打断一处循环依赖：`utils/index.ts` 需要读挂载卷作为导航边界
- * （导入 `mounted-volumes.ts`），而挂载卷那条路径又要用这里归一化路径。把这两个
- * 纯函数抽出来，两边都从这里取，模块图就没有环了。
+ * 这些是纯路径规则，导航（`FileManager/utils/index.ts`）与盘列表缓存（`drives.ts`）
+ * 都要用，单独成文件让两边直接取用，不互相依赖。
  */
 import { canonicalizePath, PathError } from './canonical-path'
 

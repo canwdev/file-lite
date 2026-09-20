@@ -25,9 +25,7 @@ const mSettingsStore = useMusicSettingsStore()
 /**
  * 当前媒体的地址。
  *
- * 挂载卷的文件要读成 objectURL，而那是异步的：一次性调用
- * `resolveFileUrl` 只会拿到空串，之后永远不再重试（过去就是这样，挂载卷里的
- * 音乐因此完全没有 src）。所以走响应式的 `useFileUrl`，解析完成后自动重算。
+ * 走响应式的 `useFileUrl`：路径变化时地址跟着变，调用点不必自己重算。
  */
 const resolvedMediaUrl = useFileUrl(() => mediaStore.mediaItem?.absPath ?? null)
 const avSrc = computed(() => resolvedMediaUrl.value || undefined)
@@ -285,13 +283,8 @@ watch(
 /**
  * 标签（封面 / 歌词 / 标题）的加载时机。
  *
- * **必须盯地址，而不是盯媒体条目。** 挂载卷里的文件地址是异步解析出来的
- * objectURL：切歌那一帧 `avSrc` 还是空的。过去只在 `mediaItem` 变化时读一次标签，
- * 那一刻拿到空地址就 `return`，而且**再也没有第二次机会**——封面与歌词就随机消失。
- * 是「偶现」还是「稳定丢」取决于歌词解析器是不是已经就绪（第一次打开时已经 await 过，
- * 之后的切歌就可能抢在地址解析完成之前）。
- *
- * 盯 `avSrc` 之后，地址一到就加载；同时用 watcher cleanup 中止上一首的在途解析。
+ * **盯地址，而不是盯媒体条目**：地址变了（切歌、路径更新）才是重新解析标签的信号；
+ * 同时用 watcher cleanup 中止上一首的在途解析。
  */
 watch(
   resolvedMediaUrl,

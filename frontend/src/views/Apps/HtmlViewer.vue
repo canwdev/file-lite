@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['setTitle'])
 
-/** 挂载卷里的文件没有服务端地址，解析层会给一个 objectURL */
+/** 文件地址 */
 const src = useFileUrl(() => props.appParams?.absPath)
 
 watch(() => props.appParams, () => {

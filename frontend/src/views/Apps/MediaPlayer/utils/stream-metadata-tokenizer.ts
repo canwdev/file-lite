@@ -59,12 +59,12 @@ function rangeResponseToInfo(res: Response): IRangeRequestResponse {
 }
 
 /**
- * 浏览器挂载卷里的文件以 `blob:` 地址暴露。
+ * `blob:` 地址的 range 客户端。
  *
  * **`fetch(blobUrl, { method: 'HEAD' })` 会直接失败**（Chromium 报
- * `net::ERR_METHOD_NOT_SUPPORTED`），而 range tokenizer 的第一步就是 HEAD ——
- * 所以挂载卷里的音乐既解析不出内嵌封面，也读不到标签。blob 本来就在内存里，
- * 元数据（大小 / MIME）直接问 Blob 对象即可，Range 用 `slice` 取，一次网络请求都不需要。
+ * `net::ERR_METHOD_NOT_SUPPORTED`），而 range tokenizer 的第一步就是 HEAD。
+ * blob 本来就在内存里，元数据（大小 / MIME）直接问 Blob 对象即可，Range 用
+ * `slice` 取，一次网络请求都不需要。
  */
 class BlobRangeClient implements IRangeRequestClient {
   private size = 0
@@ -182,7 +182,7 @@ export async function makeStreamMetadataTokenizer(
   httpClientConfig?: HttpClientConfig,
   signal?: AbortSignal,
 ): Promise<IRandomAccessTokenizer> {
-  // 挂载卷给的是 objectURL：HEAD 不支持，走本地切片；服务端才需要 Range + cookie
+  // blob 地址不支持 HEAD，走本地切片；HTTP 地址才需要 Range + cookie
   const client = streamUrl.startsWith('blob:')
     ? new BlobRangeClient(streamUrl)
     : new CookieRangeHttpClient(streamUrl, httpClientConfig, signal)

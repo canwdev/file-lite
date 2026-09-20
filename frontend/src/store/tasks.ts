@@ -20,14 +20,6 @@ import {
 } from '@/api/tasks-ws'
 import { authToken } from '@/store/auth'
 import {
-  cancelClientTask,
-  createClientTask,
-  dismissClientTask,
-  isClientTaskId,
-  markLocallyCreated,
-  needsClientExecution,
-} from '@/views/FileManager/ExplorerUI/client-tasks'
-import {
   conflictDialogVisible,
   conflictQueue,
   dropConflictRequestByTask,
@@ -97,12 +89,7 @@ async function awaitTaskAck(send: (requestId: string) => Promise<void>): Promise
 /**
  * 提交一个异步文件操作任务，解析出任务 id。
  *
- * **派发规则**：只要这次操作碰到浏览器挂载卷（`/@mounted/...`），就交给前端执行器
- * （`client-tasks.ts`），因为后端只认识「路径 → os.*」，解析不了那条路径——过去会
- * 把它当真实路径发过去，得到「Source path does not exist」这类必然失败的结果。
- * 其余情况仍走服务端任务。
- *
- * 两个执行器产出同一套 `TaskSnapshot`，调用方不需要区分。
+ * 任务在服务端执行（`backend-go/fileops`），产出 `TaskSnapshot` 进任务列表。
  */
 export async function createTask(payload: {
   kind: TaskSnapshot['kind']
@@ -110,18 +97,6 @@ export async function createTask(payload: {
   toPath?: string
   onConflict?: ConflictPolicy
 }): Promise<string> {
-  if (needsClientExecution(payload.fromPaths, payload.toPath)) {
-    const taskId = createClientTask({
-      kind: payload.kind,
-      fromPaths: payload.fromPaths,
-      toPath: payload.toPath ?? '',
-      onConflict: payload.onConflict,
-    })
-    locallyCreatedTasks.add(taskId)
-    markLocallyCreated(taskId)
-    return taskId
-  }
-
   const taskId = await awaitTaskAck(requestId => sendCreateTask(requestId, payload))
   locallyCreatedTasks.add(taskId)
   return taskId
@@ -130,28 +105,11 @@ export async function createTask(payload: {
 /**
  * 用失败 / 冲突的条目重试。
  *
- * 服务端任务的路径由服务端保存的结果里取（失败项上限 500），比 done 事件的 200 条
- * 上限更全；客户端任务没有服务端记录，用它自己保留的失败条目重新提交一次。
+ * 失败项的路径由服务端保存的结果里取（失败项上限 500），比 done 事件的 200 条上限更全。
  */
 export async function retryTask(taskId: string): Promise<string> {
   if (isDebugTask(taskId)) {
     throw new Error('This is a debug task: "Try Again" is not sent to the server')
-  }
-
-  if (isClientTask(taskId)) {
-    const task = taskList.value.find(item => item.id === taskId)
-    const fromPaths = (task?.results ?? [])
-      .filter(item => item.status === 'failed' || item.status === 'conflict')
-      .map(item => item.fromPath)
-    if (!task || !fromPaths.length) {
-      throw new Error('This task cannot be retried')
-    }
-    return await createTask({
-      kind: task.kind,
-      fromPaths,
-      toPath: task.toPath,
-      onConflict: 'overwrite',
-    })
   }
 
   const newTaskId = await awaitTaskAck(requestId => sendRetryTask(requestId, taskId))
@@ -162,11 +120,6 @@ export async function retryTask(taskId: string): Promise<string> {
 /** 该任务是不是调试视图注入的假数据。 */
 export function isDebugTask(taskId: string) {
   return Boolean(taskList.value.find(task => task.id === taskId)?.debug)
-}
-
-/** 该任务是不是由前端执行的挂载卷任务。 */
-export function isClientTask(taskId: string) {
-  return isClientTaskId(taskId)
 }
 
 /**
@@ -191,16 +144,10 @@ function removeTaskLocally(taskId: string) {
 
 /**
  * 取消任务并直接移除：取消是唯一控制手段，所以不保留一条「已取消」的记录。
- * 服务端任务行先本地消失，等 done 到达后再请服务端 dismiss；客户端任务没有
- * 服务端可通知，直接停掉本地执行器。
+ * 任务行先本地消失，等 done 到达后再请服务端 dismiss。
  */
 export function cancelTask(taskId: string) {
   if (isDebugTask(taskId)) {
-    removeTaskLocally(taskId)
-    return
-  }
-  if (isClientTask(taskId)) {
-    cancelClientTask(taskId)
     removeTaskLocally(taskId)
     return
   }
@@ -216,10 +163,6 @@ export function cancelTask(taskId: string) {
 export function dismissTask(taskId: string) {
   if (isDebugTask(taskId)) {
     taskList.value = taskList.value.filter(task => task.id !== taskId)
-    return
-  }
-  if (isClientTask(taskId)) {
-    dismissClientTask(taskId)
     return
   }
   return sendDismissTask(taskId)
@@ -322,12 +265,7 @@ function handleTasksMessage(msg: TasksServerMessage) {
           void dismissTask(task.id)?.catch(() => {})
         }
       }
-      // 客户端任务不在服务端快照里，对账不能把它们抹掉
-      const clientTasks = taskList.value.filter(task => isClientTask(task.id))
-      taskList.value = [
-        ...tasks.filter(task => !tasksPendingRemoval.has(task.id)),
-        ...clientTasks,
-      ]
+      taskList.value = tasks.filter(task => !tasksPendingRemoval.has(task.id))
       // 对账：已经不在等待决策的任务，把残留的冲突弹窗丢掉
       const awaiting = new Set(
         taskList.value.filter(task => task.state === 'awaiting-conflict').map(task => task.id),
@@ -420,12 +358,10 @@ watch(sharedWsStatus, (status) => {
   }
 }, { immediate: true })
 
-// 连接时机必须挂在**拿到 token 之后**，不能在模块求值时就连。
-//
-// `store/tasks.ts` 会被挂在挂载卷执行器（`client-tasks.ts`）的依赖链上，于是可能在
-// 登录页的模块图里就被求值；那时 `store/auth.ts` 还没把 cookie 里的 token 读出来，
-// 提前连接会得到一个必然失败的「No auth token」，而 `shared-ws` 的失败路径会顺带
-// 把 token 清掉 —— 表现就是「刷新一下就被踢回登录页」。
+// 连接时机必须挂在**拿到 token 之后**，不能在模块求值时就连：
+// 本模块可能随登录页的模块图一起被求值，那时 `store/auth.ts` 还没把 cookie 里的
+// token 读出来，提前连接会得到一个必然失败的「No auth token」，而 `shared-ws` 的
+// 失败路径会顺带把 token 清掉 —— 表现就是「刷新一下就被踢回登录页」。
 watch(authToken, (token) => {
   if (token) {
     void ensureSharedWsConnected().catch(() => {})

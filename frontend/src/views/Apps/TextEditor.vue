@@ -130,7 +130,7 @@ async function openFile() {
       return
     }
 
-    // 门面按路径分派：服务端走 /stream，挂载卷读句柄
+    // 走门面读取文本
     const text = await fs.readText(absPath.value, { signal: controller.signal })
     if (controller.signal.aborted) {
       return

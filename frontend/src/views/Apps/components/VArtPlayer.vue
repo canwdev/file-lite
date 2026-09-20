@@ -329,7 +329,7 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
     return
   revokeBlobRef(videoObjectUrl)
   videoObjectUrl.value = null
-  // 挂载卷里的文件是 objectURL，解析是异步的：等到地址就绪再切
+  // 取到地址再切换，避免把空串交给播放器
   void resolveFileUrlAsync(`${val.basePath}/${item.name}`).then((url) => {
     if (url) {
       void inst.switchUrl(url).catch(console.error)

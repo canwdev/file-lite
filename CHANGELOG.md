@@ -42,21 +42,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
-- The sidebar has a Local area below Storage, where a folder from the computer can be mounted as a location and browsed in place; it only appears in browsers that support the File System Access API, and the mount survives a reload — a folder still allowed opens straight away, the others ask for access again with a click (frontend).
-- A mounted folder has an unmount button on its row, which removes the location from the sidebar without touching anything on disk (frontend).
-- Files and folders can be copied or moved between a mounted folder and the server in either direction, and between two mounted folders, with the same conflict prompt, progress and cancel as any other copy: these run in the browser, so they keep working when the server cannot see the mounted folder at all (frontend).
-- A mounted folder can be written to: create a file or folder, rename, delete, save from the text editor, and paste into it, all of which also run in the browser (frontend).
-- A folder mounted with read-only access says so on its row and refuses writes with the reason, instead of failing when you try; the key button on its row asks for write access again (frontend).
-- Files in a mounted folder open in the browser, image viewer, video player, music player, Endless Gallery and the HTML viewer, read straight from the folder through a temporary browser URL instead of the server; video thumbnails and server-side downscaling are the two things that stay server-only, so a mounted folder shows those files with their type icon (frontend).
-- A mounted folder that also appears in the text editor can be opened and saved there, read and written through the folder itself rather than the server (frontend).
-- Music, images, video and files inside a mounted folder open and play in the built-in apps, read from the folder itself; the media player and the Endless Gallery subscribe to the file URL instead of resolving it once, so a mounted track actually gets a source (frontend).
 - The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
-- Folder previews and the breadcrumb dropdown inside a mounted folder no longer ask the server to list it, which returned 404 for every nested folder (frontend).
-- Music in a mounted folder shows its embedded cover: the metadata reader no longer sends an HTTP HEAD request to a local browser URL, which browsers reject outright (frontend).
-- Cover art and lyrics no longer disappear when switching tracks in the player: the tags were read once, and for a mounted file that read happened before its browser URL existed, so nothing was ever applied (frontend).
-- The file viewer opens files from a mounted folder: it resolved the file URL once too, which for a mounted file is empty at first (frontend).
-- Moving a file between folders of the same mounted folder is instant now: it uses the browser's own move instead of copying the bytes and deleting the original (frontend).
-- The conflict check before an upload, drag or paste, and "download to folder", now understand mounted folders instead of only asking the server (frontend).
 - `allowedRoots` restricts the file manager to the folders you list — anything outside them is refused, and the sidebar only offers those folders and whatever is inside them — while leaving it empty (the default) keeps the whole file system reachable; listing several folders grants all of them, nested ones collapse into their parent, and every folder is checked at startup, so a path that does not exist stops the server instead of silently refusing every request (backend). This is the access-scope option; the name says what it is, namely the roots a path is allowed to be under.
 - The default stays what it was: with `allowedRoots` empty the file manager reaches every path the server process can, so a folder anywhere on the machine — including a network share such as `\\server\share` or a WSL distribution at `\\wsl.localhost\Debian` — can be opened by typing its path in the address bar (backend).
 - The `startPath` config option is gone: opening the app enters the first location in the drive list (normally Home) and you navigate from there, so a typo in the config can no longer leave the first tab pointing at a folder that does not open; the field is ignored if it is still in your config file (backend, frontend).
@@ -145,15 +131,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The Properties window now counts a folder's size and shows its creation time on a network share or a mapped drive, where it used to fail to read the folder at all (backend).
 - Copying, moving, deleting and duplicating a folder that sits deeper than a drive's root now works on Windows, where the operation used to be refused with "Source path does not exist" (backend).
 - A folder listing no longer stays stale after a copy, move, delete or duplicate underneath a drive's root: the in-place update was computed against paths the file list could not match (backend).
-- Moving a file or folder inside a mounted folder no longer ends with a false "the source could not be removed" failure after the move already succeeded, which happened when the browser's own zero-copy move had already taken the source away (frontend).
-- Renaming a folder inside a mounted folder works now: where the browser offers no folder-level move, its contents are copied to the new name and the old folder is removed, instead of refusing with "renaming a folder is not supported" (frontend).
-- Moving a folder out of a mounted folder now removes the source folder once its contents have moved, instead of leaving an empty folder behind (frontend).
-- Copying or moving a folder that contains only subfolders (no files directly inside it) into a mounted folder no longer fails with "not found": the folder itself was never created, so the first subfolder had nowhere to land (frontend).
 
 ### Engineering
 
-- File reads and writes now go through one shared facade (`utils/fs`) that picks the server or the browser-mounted backend from the path, so apps no longer import the file manager's internals or decide the backend themselves (frontend).
-- Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site sends a mounted path to the server and only shows up as an empty preview (frontend).
+- File reads and writes now go through one shared facade (`utils/fs`), so apps no longer import the file manager's internals or call the file API directly (frontend).
+- Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).
 - The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
 
 - A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.

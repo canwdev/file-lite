@@ -4,9 +4,6 @@
  * 侧边栏要展示它，拖拽还要用它判断「源与目标是否在同一个卷」来决定默认是移动还是复制
  * （与资源管理器一致：同卷移动、跨卷复制）。所以两边共用同一份缓存，避免各拉一次
  * `/api/drives`，也避免两份数据不一致。
- *
- * **只放后端驱动器**：浏览器挂载卷（`mounted-volumes.ts`）不进这里——后端解析不了
- * 它们的路径，混进来会让拖拽的跨卷判定选错模式。
  */
 import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
@@ -88,10 +85,8 @@ export function mountPaths(): readonly string[] {
 
 /**
  * 归一化一份驱动器列表为挂载点路径，源数组引用不变时复用上次结果。
- *
- * 导出给 `mounted-volumes.ts` 复用：两处都需要「按源缓存」的同一件事，只是源不同。
  */
-export function cachedPathsOf(source: IDrive[]): readonly string[] {
+function cachedPathsOf(source: IDrive[]): readonly string[] {
   if (source === cachedMountSource) {
     return cachedMountPaths
   }

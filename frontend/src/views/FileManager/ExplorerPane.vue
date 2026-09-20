@@ -103,9 +103,7 @@ const {
 } = useNavigation({
   basePath,
   getListFn: async ({ signal } = {}) => {
-    // 门面按路径分派（服务端 / 挂载卷）；两条路返回同一个 IEntry[]，
-    // 所以下游（排序 / 过滤 / 预览 / 打开）不必区分。失败一律抛出，
-    // 由 use-navigation 统一转成列表区的错误状态。
+    // 列表读取走门面；失败一律抛出，由 use-navigation 统一转成列表区的错误状态。
     if (signal?.aborted) {
       return []
     }

@@ -50,7 +50,7 @@ export function useSystemClipboardPaste({
       const path = normalizePath(`${basePath.value}/${filename}`)
       const name = path.split('/').pop() ?? filename
 
-      // 只读的挂载卷要在这里就挡住并说明原因，而不是发一个必然失败的服务端请求
+      // 从门面问一次能不能写，不能写就当场说明原因
       const guard = await fs.canWrite(path)
       if (!guard.ok) {
         window.$message.warning(guard.reason ?? 'This location is read-only')
@@ -70,7 +70,7 @@ export function useSystemClipboardPaste({
         file = generateTextFile(content.text, filename)
       }
 
-      // 门面按路径分派：服务端走上传、挂载卷写句柄
+      // 走门面写文件
       const written = await fs.writeFile(basePath.value, name, file)
       if (!written.ok) {
         window.$message.warning(written.reason ?? 'This location is read-only')

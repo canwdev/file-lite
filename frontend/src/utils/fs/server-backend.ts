@@ -101,7 +101,7 @@ export const serverBackend: FsBackend = {
   },
 }
 
-/** 在宿主机（服务器所在机器）的资源管理器里打开。跨端能力，挂载卷没有对应物。 */
+/** 在宿主机（服务器所在机器）的资源管理器里打开。 */
 export async function serverOpenInHostExplorer(paths: string[]) {
   return await fsWebApi.openInHostExplorer({ paths })
 }

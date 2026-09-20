@@ -127,22 +127,6 @@ export function getParentPathIn(path: string, mounts: readonly string[]): string
  * 前导 `//` 必须活着（UNC），所以不能按 `split('/')` 拼接后再 `replace(/\/+/g,'/')`
  * ——那一步会把 `//server/share` 塌成 `/server/share`。
  */
-/**
- * 挂载卷的显示名。
- *
- * 这里只做一次「路径 → 卷标」的查询：`utils/volume-mounts.ts` 保持纯匹配逻辑，
- * 卷表由调用点（`utils/index.ts`）注入，避免这个模块反过来依赖 ExplorerUI。
- */
-let mountedLabelLookup: (path: string) => string | null = () => null
-
-export function setMountedLabelLookup(lookup: (path: string) => string | null) {
-  mountedLabelLookup = lookup
-}
-
-function mountedLabelOf(path: string): string | null {
-  return mountedLabelLookup(path)
-}
-
 export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): BreadcrumbSegment[] {
   const raw = (path || '').trim()
   if (!raw) {
@@ -156,7 +140,7 @@ export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): 
   const rest = target.root === root.root ? target.segments.slice(root.segments.length) : []
   const rootName = boundary.replace(/\/+$/, '') || '/'
 
-  const out: BreadcrumbSegment[] = [{ name: mountedLabelOf(boundary) ?? rootName, path: boundary }]
+  const out: BreadcrumbSegment[] = [{ name: rootName, path: boundary }]
   for (let i = 0; i < rest.length; i++) {
     out.push({ name: rest[i], path: joinListing(boundary, rest.slice(0, i + 1)) })
   }

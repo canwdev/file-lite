@@ -1,22 +1,17 @@
 import type { BreadcrumbSegment } from './volume-mounts'
 import { mountPaths } from '../ExplorerUI/drives'
-import { mountedVolumeBoundaryPaths, mountedVolumeLabelForPath } from '../ExplorerUI/mounted-volumes'
-import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn, setMountedLabelLookup } from './volume-mounts'
-
-// 面包屑第一段要显示卷标而不是 `/@mounted/<id>`：把查询注入纯匹配模块
-setMountedLabelLookup(mountedVolumeLabelForPath)
+import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn } from './volume-mounts'
 
 export { normalizeListingPath, normalizePath } from '../../../utils/path/form'
 
 /**
- * 导航边界（挂载点根）列表：后端驱动器 + 浏览器挂载卷。
+ * 导航边界（挂载点根）列表。
  *
- * 挂载卷必须在这里出现，否则「上一级」会从卷根继续爬到 `/@mounted/` 这个并不存在
- * 的位置；而它又不能进 `drives.ts` 的 `driveList`（那份列表是后端跨卷判定的输入）。
- * 所以两边各取所需：跨卷判定只看后端卷，导航边界两个都看。
+ * 停点是**挂载点根**，不是「段数为 1」：`D:/` 不能再上，`//server/share/` 不能上到
+ * `//server/`。列表就是后端盘列表，跨卷判定与导航边界共用它。
  */
 function navigationBoundaryPaths(): readonly string[] {
-  return [...mountPaths(), ...mountedVolumeBoundaryPaths()]
+  return mountPaths()
 }
 
 /**

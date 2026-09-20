@@ -65,9 +65,8 @@ bun run report       # 打开上一次的 HTML 报告
 | `09-file-selector.spec.ts` | 选择器模式（打开服务器视频）：单面板、没有标签栏，选中后能返回 | — |
 | `10-split-view.spec.ts` | 标签拆分视图：吸收右邻标签合并且只留一个关闭按钮；没有邻接时新建同路径面板；子菜单的交换视图 / 切换方向 / 取消拆分；总关闭按钮关掉两个面板；拆分随刷新保留；两个面板的 list/grid 与图标大小互不影响；跨面板拖文件；拖动分隔线调整大小 | — |
 | `11-path-contract.spec.ts` | VFS 路径契约：面包屑第一段 = 挂载点根；下拉打开时高亮并滚动到当前目录；「上一级」在挂载点根停住；地址栏里各种写法（尾分隔符 / 连续斜杠 / 点段 / 父目录段 / 反斜杠）落到同一个目录；UNC 前导 `//` 不被折叠；加密未解锁的卷（BitLocker）显示锁图标并报系统原话；列目录失败时列表区显示原因 + Try again，404 与 503 不互相冒充；同目录刷新失败不顶掉已有列表 | `11-mount-breadcrumb`、`11-list-error` |
-| `12-mounted-folder.spec.ts` | 浏览器挂载的本地文件夹：挂载 / 浏览 / 取消挂载；在卷内新建文件与文件夹、重命名、删除都真的落到目录里；服务端 ⇄ 挂载卷双向复制与移动（源被真的删掉）；只读卷在行上标注并挡住写操作、给出原因；**真 MP3（带内嵌封面）**能解出时长、显示封面并播放；**切歌后**封面与歌词仍然加载；**同卷移动**走 `move()` 零拷贝路径；**嵌套子目录**的文件夹预览与面包屑下拉不把挂载路径发给服务端；**接口审计**：不发挂载路径给服务端、无 4xx/5xx、盘列表只拉一次。目录选择框用 OPFS 桩目录打桩（生产走的是 File System Access API，不是 OPFS），断言一路验到真实文件 | `12-mounted-folder` |
 
-合计 69 个用例（另有 1 个跳过，见下），单次运行约 145 秒。
+合计 56 个用例，单次运行约 2 分钟。
 
 ## 截图
 
@@ -155,19 +154,6 @@ pkill -x file-lite-go
 于是每个阶段量到的宽度完全相同，看起来像「拖动无效」）。
 `el-splitter` 监听的就是 dragger 上的 `mousedown` + window 上的 `mousemove` / `mouseup`，
 所以用例改成直接按事件派发，既确定又不需要命中 4px 的目标。
-
-**音乐播放器用例需要真音频（还要带封面）**
-`tone.mp3` 内联在 `12-mounted-folder.spec.ts` 里（ffmpeg 生成的 1 秒 440Hz + 内嵌
-封面，约 4.9KB base64）。用几个字节的假音频测不出解码问题：浏览器直接报错，用例就变成
-在测「假文件当然放不了」。带封面是必须的：封面解析走 Range 元数据，那条路对 `blob:`
-地址过去会发 HEAD 而失败（`net::ERR_METHOD_NOT_SUPPORTED`），没有封面就覆盖不到这个
-回归。
-
-**挂载卷用例里 `page.reload()` 之后页面直接消失**
-Chromium 从 IndexedDB 读回 `FileSystemDirectoryHandle` 时会把渲染进程打崩（本机 3/3 稳定
-复现，与本应用无关）。这里读回的是 File System Access API 的句柄，和 OPFS 无关。所以
-`12-mounted-folder.spec.ts` 里「刷新后自动恢复挂载」那条用例被 `test.skip` 掉，恢复代码
-只能人工在真实浏览器里确认。
 
 **构建阶段报 `spawn EINVAL` / `Executable doesn't exist`**
 前者是 Windows 上 `spawn` 无法直接执行 `.cmd` 垫片——`run-tests.mjs` 与

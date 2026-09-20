@@ -99,7 +99,7 @@ export function useFileActions({
           }))
       isLoading.value = true
       const file = generateTextFile(content, name)
-      // 门面按路径分派到服务端或挂载卷，并统一过只读守卫
+      // 走门面写文件，并在写之前统一过只读守卫
       const written = await fs.writeText(basePath.value, name, content, { conflict: 'overwrite' })
       if (!written.ok) {
         window.$message?.warning(written.reason ?? 'This location is read-only')
@@ -161,7 +161,7 @@ export function useFileActions({
       isLoading.value = true
       const fromPath = normalizePath(`${basePath.value}/${item.name}`)
       const toPath = normalizePath(`${basePath.value}/${name}`)
-      // 门面按路径分派，并在挂载卷上先过只读守卫
+      // 走门面重命名（写之前统一过只读守卫）
       await fs.rename(fromPath, toPath)
       const renamedItem: IEntry = {
         ...item,
@@ -176,7 +176,7 @@ export function useFileActions({
       emit('patch', { removed: [item.name], added: [renamedItem] })
     }
     catch (error) {
-      // 挂载卷上的重命名可能被浏览器拒绝（只读、目标被占用…）：如实提示，别静默失败
+      // 重命名可能被服务端拒绝（只读、目标被占用…）：如实提示，别静默失败
       window.$message?.error(error instanceof Error ? error.message : 'Rename failed')
     }
     finally {

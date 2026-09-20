@@ -1,13 +1,8 @@
 /**
  * 任务列表的共享状态与完成回调登记。
  *
- * 单独成模块是为了让**两个执行器**都能用它而互不依赖：
- * 服务端任务由 `store/tasks.ts` 通过 WebSocket 驱动，挂载卷任务由
- * `ExplorerUI/client-tasks.ts` 在浏览器里执行；两者产出的都是同一份
- * `TaskSnapshot`，进同一个列表、同一套完成回调。
- *
- * 把这份状态放在这里（而不是 `store/tasks.ts`）之后，依赖是单向的：
- * 两个执行器都只 import 本模块，谁也不必 import 谁。
+ * 单独成模块，让任务列表与完成回调不依赖 WebSocket 传输层（`store/tasks.ts`）：
+ * 上传冲突弹窗这类本地调用方也能直接用它，不必把整套 WS 依赖拉进来。
  */
 import type { ConflictPolicy, FsDirChange, TaskItemResult, TaskSnapshot, TaskState } from '@/types/server'
 import { ref } from 'vue'
@@ -25,7 +20,7 @@ export interface TaskEntry extends TaskSnapshot {
   debug?: boolean
 }
 
-/** 任务列表。服务端任务与客户端（挂载卷）任务共用它。 */
+/** 任务列表。 */
 export const taskList = ref<TaskEntry[]>([])
 
 /** 任务完成回调：用于在任务结束后处理剪贴板等调用方状态。 */
@@ -40,8 +35,7 @@ export function onTaskDone(taskId: string, handler: DoneHandler) {
 /**
  * 触发一个任务的完成回调并注销它。
  *
- * 服务端任务由 WS 的 done 消息调用（见 `store/tasks.ts`），客户端任务由
- * `client-tasks.ts` 在自己的收尾处调用；两边都走这里，调用方无从区分。
+ * 服务端任务的 done 消息到达时由 `store/tasks.ts` 调用。
  */
 export function fireTaskDone(task: TaskSnapshot, results: TaskItemResult[], resultsTruncated: boolean) {
   const handler = doneHandlers.get(task.id)
@@ -66,7 +60,7 @@ export interface ConflictResolution {
 
 /**
  * 一次待决策的冲突。既可能来自服务端任务（copy / move），
- * 也可能来自本地上传或客户端（挂载卷）任务——三者共用同一个弹窗。
+ * 也可能来自本地上传——两者共用同一个弹窗。
  */
 export interface ConflictRequest {
   /** 任务请求用任务 id，本地请求用生成的 id。 */
@@ -114,7 +108,7 @@ export function setConflictResolver(resolver: typeof conflictResolver) {
 let localConflictSequence = 0
 
 /**
- * 请求一次本地冲突决策（上传与挂载卷复制用）。
+ * 请求一次本地冲突决策（上传前的同名冲突用）。
  * 解析为决策结果；用户取消时解析为 null（调用方应放弃这次操作）。
  */
 export function requestLocalConflict(

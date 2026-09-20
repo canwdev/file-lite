@@ -41,7 +41,7 @@ async function enqueueUploads(items: PendingUpload[], targetDir: string) {
   let pending = items
 
   try {
-    // 走门面：目标可能是挂载卷，那一侧由浏览器后端回答「有没有同名」
+    // 走门面做冲突预检
     const existing = await fs.existingPaths(items.map(item => item.path))
     if (existing.length) {
       const existingSet = new Set(existing)
@@ -103,7 +103,7 @@ async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUp
   }
   if (entry.isDirectory) {
     const dir = entry as FileSystemDirectoryEntry
-    // 走门面：目标可能是挂载卷，服务端 create-dir 解析不了那条路径
+    // 走门面创建目录
     await fs.mkdir(normalizePath(targetDir + dir.fullPath), { recursive: true })
     const children = await readAllDirectoryEntries(dir.createReader())
     for (const child of children) {

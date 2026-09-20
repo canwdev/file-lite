@@ -40,9 +40,7 @@ function finishRead() {
 
 async function fetchRawList(path: string): Promise<IEntry[]> {
   try {
-    // 必须走门面：这里既服务端目录也可能挂着浏览器挂载卷的目录。直接调
-    // `/api/files/list` 会把 `/@mounted/<id>/…` 发给后端，得到 404，
-    // 表现成「挂载卷里每个文件夹的预览与面包屑下拉都报错」。
+    // 走门面而不是直接调 `/api/files/list`：列表读取只有一个入口。
     return await fs.list(path)
   }
   catch {

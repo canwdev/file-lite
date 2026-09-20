@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
-import type { ClientTaskDonePayload } from '../utils/bus'
 import type { ExplorerPaneView } from './explorer-tabs-store'
 import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
@@ -20,7 +19,7 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import { getParentPath, normalizeListingPath, normalizePath } from '../utils'
+import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
 import { explorerStateMap, pathStateRef } from './explorer-state'
@@ -753,30 +752,6 @@ function handleTransferAllDone(items: Array<Parameters<typeof uploadEntries>[0][
 
 // 传输面板全局唯一，跑完一批后广播；uploadEntries 自己按 basePath 过滤，只补丁落在本目录的
 useExplorerBusOn(ExplorerEvents.TRANSFER_DONE, items => handleTransferAllDone(items))
-
-/**
- * 浏览器挂载卷上的复制 / 移动 / 删除跑完了。
- *
- * 这类操作没有服务器校验过的条目数据可用来打补丁，所以直接整目录重读——
- * 搬进本目录、或从本目录搬走（移动的源）都要重读，只看 `toPath` 会漏掉后者。
- */
-function handleClientTaskDone({ task, results }: ClientTaskDonePayload) {
-  const current = normalizeListingPath(basePath.value)
-  const dirs = new Set<string>()
-  if (task.toPath) {
-    dirs.add(normalizeListingPath(task.toPath))
-  }
-  for (const item of results) {
-    if (item.status === 'moved' || item.status === 'deleted') {
-      dirs.add(normalizeListingPath(getParentPath(item.fromPath)))
-    }
-  }
-  if (dirs.has(current)) {
-    emit('refresh')
-  }
-}
-
-useExplorerBusOn(ExplorerEvents.CLIENT_TASK_DONE, payload => handleClientTaskDone(payload))
 
 watch(isLoading, (val) => {
   // 聚焦的面板才抢焦点：拆分视图里另一个面板加载完不该把活动面板抢过去

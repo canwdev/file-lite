@@ -3,10 +3,8 @@ import type { ImagePreviewCandidate } from './hooks/use-image-preview'
 import type { IEntry } from '@/types/server.ts'
 import { useElementVisibility } from '@vueuse/core'
 import { fsWebApi } from '@/api/filesystem.ts'
-import { fileUrlVersion, resolveFileUrl } from '@/hooks/use-file-url'
 import { serverCapabilities } from '@/store/capabilities'
 import { localSettingsStore } from '@/store/index.ts'
-import { isMountedPath } from '@/utils/fs/paths'
 import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
 import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedAudioFormat, regSupportedImageFormat, regSupportedVideoFormat } from '@/utils/is.ts'
 import { normalizeListingPath } from '../utils'
@@ -99,13 +97,7 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
 
   const size = Number(item.size ?? 0)
   const lastModified = item.lastModified ?? 0
-  const mounted = isMountedPath(absPath)
-  // 挂载卷的文件没有服务端地址；第一次调用返回空串，objectURL 就绪后
-  // `fileUrlVersion` 变化会让 previewCandidate 重算（见下面的 watch）。
-  const streamUrl = mounted ? resolveFileUrl(absPath) : fsWebApi.getStreamUrl(absPath)
-  if (mounted) {
-    return buildMountedCandidate(item, absPath, name, size, lastModified, streamUrl)
-  }
+  const streamUrl = fsWebApi.getStreamUrl(absPath)
   // 指纹必须有 lastModified：没有它就没法判断文件变没变，不值得入缓存
   const fingerprintable = lastModified > 0
   const smallImage = size <= IMAGE_THUMB_SMALL_DIRECT_MAX || !fingerprintable
@@ -161,49 +153,7 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
   return null
 }
 
-/**
- * 挂载卷里的文件的预览。
- *
- * 与服务器那套的区别在于**能力边界**：服务端能出 ffmpeg 视频封面与降采样缩略图，
- * 浏览器这边只有「读整个文件」和 canvas。所以：
- *
- * - 图片：走 `direct`（用 objectURL 直连），让 `image-thumb-cache` 去做降采样与缓存，
- *   不做 `server` 模式；
- * - 音频：走 `audio`，内嵌封面由前端解析，与后端无关；
- * - 视频：**不出封面**。真做就得把整部影片读进内存，代价远大于一个网格格子；
- * - 超出 `IMAGE_PREVIEW_RAW_MAX_BYTES` 的图片同样不出预览，理由同上。
- */
-function buildMountedCandidate(
-  item: IEntry,
-  absPath: string,
-  name: string,
-  size: number,
-  lastModified: number,
-  streamUrl: string,
-): ImagePreviewCandidate | null {
-  // 指纹必须有 lastModified：没有它就没法判断文件变没变，不值得入缓存
-  if (lastModified <= 0) {
-    return null
-  }
-
-  if (regSupportedImageFormat.test(item.name)) {
-    if (size > IMAGE_PREVIEW_RAW_MAX_BYTES) {
-      return null
-    }
-    return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
-  }
-
-  if (regSupportedAudioFormat.test(item.name)) {
-    return { name, key: absPath, mode: 'audio', url: streamUrl, size, lastModified }
-  }
-
-  // 视频封面需要 ffmpeg，浏览器侧没有对应能力
-  return null
-}
-
 const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
-  // 读一次版本号：挂载卷的 objectURL 解析完成后重算
-  void fileUrlVersion.value
   const { item, absPath } = props
   if (!absPath || !item || item.isDirectory || !isPreviewableName(item.name))
     return null

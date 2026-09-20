@@ -1,7 +1,7 @@
 <script lang="ts" setup="">
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fileUrlVersion, useFileUrls } from '@/hooks/use-file-url'
+import { useFileUrls } from '@/hooks/use-file-url'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
 const props = withDefaults(
@@ -27,13 +27,10 @@ const imagePaths = computed(() => {
 })
 
 /**
- * 图片地址。挂载卷里的图是 objectURL，必须按路径成对保留 / 释放；
- * 换一批图（切换目录、切换应用参数）时由 useFileUrls 自动收尾。
+ * 图片地址，按路径取；换一批图（切换目录、切换应用参数）时自动跟随。
  */
 const urlMap = useFileUrls(() => imagePaths.value)
 const urlList = computed(() => {
-  // 读一次版本号：objectURL 解析完成后重算
-  void fileUrlVersion.value
   return imagePaths.value.map(path => urlMap.value.get(path) ?? '')
 })
 

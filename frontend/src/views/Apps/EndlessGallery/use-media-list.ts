@@ -1,6 +1,6 @@
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fileUrlVersion, useFileUrls } from '@/hooks/use-file-url'
+import { useFileUrls } from '@/hooks/use-file-url'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -33,8 +33,7 @@ export function useMediaList(
   const currentIndex = ref(0)
 
   /**
-   * 每项的绝对路径；地址与条目分开算，因为挂载卷的 objectURL 是异步解析的：
-   * 一次性 `resolveFileUrl` 只会拿到空串，之后再也不会重试。
+   * 每项的绝对路径；地址与条目分开算，路径变化时由 `useFileUrls` 重新取一遍。
    */
   const itemPaths = computed(() => {
     const base = (getAppParams()?.basePath ?? '').replace(/\/+$/, '')
@@ -44,8 +43,6 @@ export function useMediaList(
   const urlMap = useFileUrls(() => itemPaths.value)
 
   const items = computed<MediaFile[]>(() => {
-    // 读一次版本号：objectURL 解析完成后重算
-    void fileUrlVersion.value
     return rawItems.value.map((item, index) => ({
       ...item,
       url: urlMap.value.get(itemPaths.value[index] ?? '') ?? '',
