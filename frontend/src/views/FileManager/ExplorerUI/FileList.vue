@@ -2038,7 +2038,7 @@ defineExpose({
     justify-content: space-between;
     border-bottom: 1px solid var(--vgo-border);
 
-    @media screen and (max-width: $mq_mobile_width) {
+    @include when-panel-narrow {
       justify-content: flex-end;
     }
 
@@ -2132,7 +2132,7 @@ defineExpose({
     padding: var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-1) var(--vgo-space-2);
     font-size: var(--vgo-font-sm);
 
-    @media screen and (max-width: $mq_mobile_width) {
+    @include when-panel-narrow {
       justify-content: flex-end;
     }
 

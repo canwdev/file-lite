@@ -345,7 +345,7 @@ onBeforeUnmount(() => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    @media screen and (max-width: $mq_mobile_width) {
+    @include when-panel-narrow {
       padding: 10px var(--vgo-space-2);
     }
   }
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
   .checkbox-auto-hidden {
     visibility: hidden;
     vertical-align: middle;
-    @media screen and (max-width: $mq_mobile_width) {
+    @include when-panel-narrow {
       visibility: visible;
     }
   }

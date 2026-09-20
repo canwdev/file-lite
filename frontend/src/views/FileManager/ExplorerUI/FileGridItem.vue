@@ -104,7 +104,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     left: var(--vgo-space-1);
     visibility: hidden;
     cursor: pointer;
-    @media screen and (max-width: $mq_mobile_width) {
+    @include when-panel-narrow {
       visibility: visible;
     }
   }

@@ -1,2 +1,9 @@
-$mq_mobile_width: 567px;
+// 窄面板阈值：explorer 面板用容器查询（拆分后各看各的宽），不要按视口
+$mq_panel_narrow: 567px;
 
+// @container 条件里必须 #{$var}，否则会原样进 CSS、整条规则失效
+@mixin when-panel-narrow {
+  @container explorer-pane (max-width: #{$mq_panel_narrow}) {
+    @content;
+  }
+}

@@ -609,7 +609,7 @@ defineExpose({
   flex-wrap: nowrap;
   overflow: hidden;
 
-  @media screen and (max-width: $mq_mobile_width) {
+  @include when-panel-narrow {
     min-width: 120px;
   }
   padding: 0 var(--vgo-space-1);

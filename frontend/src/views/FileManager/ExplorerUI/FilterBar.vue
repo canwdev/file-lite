@@ -133,7 +133,7 @@ defineExpose({
   border-radius: var(--vgo-radius);
   outline: 1px solid transparent;
 
-  @media screen and (max-width: $mq_mobile_width) {
+  @include when-panel-narrow {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;

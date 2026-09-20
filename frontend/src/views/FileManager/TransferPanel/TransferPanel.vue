@@ -118,8 +118,8 @@ function badge(counts: TransferTabCounts) {
   overflow: hidden;
   font-size: var(--vgo-font-md);
 
-  @media screen and (max-width: $mq_mobile_width) {
-    // 窄屏整宽，仍然贴在顶栏下面
+  // Teleport 到 body，跟不到 explorer 面板容器；浮层仍按视口收窄
+  @media screen and (max-width: $mq_panel_narrow) {
     right: 0;
     left: 0;
     width: 100%;

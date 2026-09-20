@@ -650,6 +650,10 @@ defineExpose({
 
 <style lang="scss" scoped>
 .explorer-main {
+  // 工具栏 / 列表的窄布局看本面板宽度，不是整窗视口（拆分时尤其重要）
+  container-type: inline-size;
+  container-name: explorer-pane;
+
   .explorer-header {
     padding: var(--vgo-space-1) var(--vgo-space-1);
     border-bottom: 1px solid var(--vgo-border);
@@ -677,7 +681,7 @@ defineExpose({
         gap: var(--vgo-space-1);
         font-size: var(--vgo-font-md);
 
-        @media screen and (max-width: $mq_mobile_width) {
+        @include when-panel-narrow {
           display: flex;
           flex-direction: column;
           align-items: stretch;
@@ -692,7 +696,7 @@ defineExpose({
         overflow: hidden;
         gap: var(--vgo-space-1);
 
-        @media screen and (max-width: $mq_mobile_width) {
+        @include when-panel-narrow {
           width: 100%;
         }
       }
@@ -704,7 +708,7 @@ defineExpose({
         min-width: 0;
         gap: var(--vgo-space-1);
 
-        @media screen and (max-width: $mq_mobile_width) {
+        @include when-panel-narrow {
           width: 100%;
         }
       }
