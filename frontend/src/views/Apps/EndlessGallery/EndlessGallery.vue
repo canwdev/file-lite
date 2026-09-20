@@ -111,12 +111,11 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
     items,
     currentIndex,
     zoom,
-    onExit: () => emit('exit'),
     onAfterNavigate,
     onAfterJump,
   })
 
-// 方向键 / Esc 由 use-swipe 注册；收藏键在这里补上（与收藏按钮同一个 handler）
+// 方向键 / Esc（关 overlay）由 use-swipe 注册；收藏键在这里补上
 useShortcut({
   scope: injectShortcutScope(),
   combo: 'c',

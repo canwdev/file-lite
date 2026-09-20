@@ -356,7 +356,7 @@ export function listRegisteredShortcuts(): ListedShortcut[] {
   const seen = new Set<string>()
   for (const reg of allRegistrations.values()) {
     const combos = reg.comboLabels.map(formatShortcutCombo)
-    // 同 scope 同键只留先注册的（App 专属 Esc 优先于外壳默认关窗）
+    // 同 scope 同键只留先注册的（App 专属绑定优先于外壳默认）
     const dedupeKey = `${reg.scope}\0${combos.join('\0')}`
     if (seen.has(dedupeKey))
       continue

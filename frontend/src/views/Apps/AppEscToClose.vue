@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 挂在 App 内容之后：同 scope 里先注册的 Esc（编辑器 / 图库等）优先；
- * 没有自己绑 Esc 的 App 则落到这里关窗。
+ * App 窗口统一关窗：Alt+W（与标签关闭同键；有活动 App 时外壳标签键会让路）。
+ * 挂在内容之后；各 App 不要再拦截 Alt+W。
  */
 import { useShortcut } from '@/hooks/use-shortcut'
 
@@ -19,7 +19,7 @@ function isMessageBoxOpen() {
 
 useShortcut({
   scope: props.scope,
-  combo: 'escape',
+  combo: 'alt+w',
   description: 'Close window',
   allowInInput: true,
   preventDefault: false,

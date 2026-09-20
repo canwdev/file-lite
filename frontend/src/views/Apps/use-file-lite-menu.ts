@@ -467,7 +467,6 @@ export function useFileLiteMenu() {
           onClick: () => {
             toggleKeyboardShortcutsApp()
           },
-          divided: true,
         },
         {
           label: `${PKG_NAME} v${VERSION}`,

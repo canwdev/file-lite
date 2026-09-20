@@ -62,25 +62,6 @@ async function focusEditor() {
   }
 }
 
-function isMessageBoxOpen() {
-  return !!document.querySelector('.el-message-box')
-}
-
-function shouldHandleEditorEscape() {
-  const wrap = wrapRef.value
-  if (!wrap?.isConnected) {
-    return false
-  }
-
-  const active = document.activeElement
-  if (active && wrap.contains(active)) {
-    return true
-  }
-
-  // MessageBox closes with focus on body; keep Esc working in this editor.
-  return active === document.body || active === document.documentElement
-}
-
 async function confirmUnsavedChanges(message: string) {
   try {
     await window.$dialog.confirm(message, 'Unsaved Changes', {
@@ -258,21 +239,6 @@ useShortcut({
   description: 'Save',
   handler: handleSaveFile,
   allowInInput: true,
-})
-
-useShortcut({
-  scope: shortcutScope,
-  combo: 'escape',
-  description: 'Close editor / cancel',
-  allowInInput: true,
-  preventDefault: false,
-  handler: (event) => {
-    if (isMessageBoxOpen() || !shouldHandleEditorEscape()) {
-      return
-    }
-    event.preventDefault()
-    handleExit()
-  },
 })
 </script>
 

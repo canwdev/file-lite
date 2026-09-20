@@ -18,7 +18,6 @@ interface UseSwipeOptions {
   items: Ref<MediaFile[]>
   currentIndex: Ref<number>
   zoom: ZoomAPI
-  onExit: () => void
   /** Called synchronously in the same reactive batch as currentIndex/dragOffset reset. */
   onAfterNavigate?: (isNext: boolean) => void
   /** Called synchronously after jumpToOpposite changes currentIndex. */
@@ -33,7 +32,7 @@ interface NavigateOptions {
   instant?: boolean
 }
 
-export function useSwipe({ items, currentIndex, zoom, onExit, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
+export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJump }: UseSwipeOptions) {
   const shortcutScope = injectShortcutScope()
   const wrapperRef = ref<HTMLElement | null>(null)
   const swipeContainerRef = ref<HTMLElement | null>(null)
@@ -367,13 +366,10 @@ export function useSwipe({ items, currentIndex, zoom, onExit, onAfterNavigate, o
   useShortcut({
     scope: shortcutScope,
     combo: 'escape',
-    description: 'Close overlay / exit gallery',
+    description: 'Close overlay',
     handler: () => {
-      if (edgeOverlay.value) {
+      if (edgeOverlay.value)
         edgeOverlay.value = null
-        return
-      }
-      onExit()
     },
   })
 
