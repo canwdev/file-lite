@@ -125,6 +125,10 @@ body,
   --mx-menu-shadow-color: rgba(0, 0, 0, 0.277);
 }
 
+.mx-shortcut {
+  border-radius: var(--vgo-radius);
+}
+
 // element 样式覆盖
 .el-image-viewer__prev {
   left: var(--vgo-space-3) !important;

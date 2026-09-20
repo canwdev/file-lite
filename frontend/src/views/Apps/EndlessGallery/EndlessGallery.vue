@@ -120,6 +120,7 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
 useShortcut({
   scope: injectShortcutScope(),
   combo: 'c',
+  description: 'Toggle favourite',
   handler: () => {
     if (!edgeOverlay.value)
       handleToggleCollect()

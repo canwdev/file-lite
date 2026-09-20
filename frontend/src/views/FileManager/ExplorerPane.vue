@@ -450,6 +450,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+a',
+  description: 'Focus address bar',
   handler: () => addressBarRef.value?.focus(),
 })
 
@@ -457,6 +458,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+f',
+  description: 'Focus filter bar',
   handler: () => filterBarRef.value?.focus(),
 })
 
@@ -464,6 +466,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+d',
+  description: 'Star / unstar folder',
   handler: () => toggleStar(basePathNormalized.value),
 })
 
@@ -471,6 +474,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowup',
+  description: 'Go up',
   handler: goUp,
 })
 
@@ -478,6 +482,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowleft',
+  description: 'Go back',
   handler: goBack,
 })
 
@@ -485,6 +490,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+arrowright',
+  description: 'Go forward',
   handler: goForward,
 })
 
@@ -492,6 +498,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'backspace',
+  description: 'Go up',
   handler: goUp,
 })
 
@@ -553,7 +560,7 @@ defineExpose({
             />
             <button
               class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-              title="Toggle Star (alt+s)"
+              title="Toggle Star (alt+d)"
               @click="toggleStar(basePathNormalized)"
             >
               <MdiIcon :name="isStared(basePathNormalized) ? 'star' : 'star-outline'" />

@@ -8,9 +8,10 @@ import { useEventListener, useStorage } from '@vueuse/core'
 import { provide } from 'vue'
 import { LsKeys } from '@/enum'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { resolveMenuIcons } from '@/utils/icons'
-import { appsStoreState } from '@/views/Apps/apps-store'
+import { appsStoreState, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
@@ -73,6 +74,8 @@ const {
   addTab,
   openTab,
   closeTab,
+  splitTab,
+  unsplit,
   activateItem,
   activateTab,
   setTabPath,
@@ -162,48 +165,74 @@ function onPanePathUpdate(id: string, path: string) {
 }
 
 /**
- * 标签快捷键。
+ * 标签与指南快捷键（外壳级）。
  *
- * 不走 `useShortcut`：那套按 scope 路由，而标签操作属于外壳、要作用于当前活动标签，
- * 注册到某一个固定 scope 上都不对。这里直接听 keydown，并排除输入框与 App 窗口。
+ * 走 `SHELL_SHORTCUT_SCOPE`：分发层始终先匹配外壳；标签键在有活动 App 时
+ * 用 disabled 让路，F1 / `?` 则始终可开关对应 App。
  *
  * 不用 Ctrl+T / Ctrl+W / Ctrl+Tab：Chrome 把这几个保留给浏览器自身，页面拿不到。
  */
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false
-  }
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
+const shellTabShortcutsDisabled = computed(() => !props.tabsMode || Boolean(appsStoreState.activeId))
+const shellAppToggleDisabled = computed(() => !props.tabsMode)
 
-useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-  if (!props.tabsMode || event.defaultPrevented || appsStoreState.activeId || isEditableTarget(event.target)) {
-    return
-  }
-  const mod = event.ctrlKey || event.metaKey
-  const alt = event.altKey
-  if (!alt || mod || event.shiftKey) {
-    return
-  }
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: 'alt+t',
+  description: 'New tab',
+  disabled: shellTabShortcutsDisabled,
+  handler: () => addTab(),
+})
 
-  const key = event.key.toLowerCase()
-  if (key === 't') {
-    event.preventDefault()
-    addTab()
-    return
-  }
-  if (key === 'w') {
-    event.preventDefault()
-    closeTab(activeItemId.value)
-    return
-  }
-  if (/^[1-9]$/.test(key)) {
-    const item = items.value[Number(key) - 1]
-    if (item) {
-      event.preventDefault()
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: 'alt+w',
+  description: 'Close active tab',
+  disabled: shellTabShortcutsDisabled,
+  handler: () => closeTab(activeItemId.value),
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: ['alt+1', 'alt+2', 'alt+3', 'alt+4', 'alt+5', 'alt+6', 'alt+7', 'alt+8', 'alt+9'],
+  description: 'Switch to tab 1–9',
+  disabled: shellTabShortcutsDisabled,
+  handler: (event) => {
+    const item = items.value[Number(event.key) - 1]
+    if (item)
       activateItem(item.id)
-    }
-  }
+  },
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: 'f1',
+  description: 'Open / close Text Sync',
+  disabled: shellAppToggleDisabled,
+  handler: () => toggleTextSyncApp(),
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: '?',
+  description: 'Open / close keyboard shortcuts',
+  disabled: shellAppToggleDisabled,
+  handler: () => toggleKeyboardShortcutsApp(),
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: ['ctrl+\\', 'meta+\\'],
+  description: 'Split / unsplit view',
+  disabled: shellTabShortcutsDisabled,
+  handler: () => {
+    const item = items.value.find(entry => entry.id === activeItemId.value)
+    if (!item)
+      return
+    if (isSplitItem(item))
+      unsplit(item.id)
+    else
+      splitTab(item.id)
+  },
 })
 
 /** 侧边栏磁盘 / 收藏项：只改活动面板的路径，面板会自己刷新 */

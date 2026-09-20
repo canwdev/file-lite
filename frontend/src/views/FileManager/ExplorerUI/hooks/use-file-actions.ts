@@ -287,10 +287,11 @@ export function useFileActions({
   const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
-        { label: 'Refresh', icon: 'mdi mdi-refresh', onClick: () => emit('refresh') },
+        { label: 'Refresh', icon: 'mdi mdi-refresh', shortcut: 'Ctrl+R', onClick: () => emit('refresh') },
         {
           label: 'Paste',
           icon: 'mdi mdi-content-paste',
+          shortcut: 'Ctrl+V',
           onClick: () => handlePaste(),
           disabled: !enablePaste.value,
           divided: true,
@@ -333,6 +334,7 @@ export function useFileActions({
       isSingle && {
         label: openActionMeta.label,
         icon: openActionMeta.icon,
+        shortcut: 'Enter',
         onClick: () => {
           handleOpen()
         },
@@ -412,8 +414,8 @@ export function useFileActions({
       },
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
       { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
-      { label: 'Cut', icon: 'mdi mdi-content-cut', onClick: handleCut },
-      { label: 'Copy', icon: 'mdi mdi-content-copy', onClick: handleCopy },
+      { label: 'Cut', icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
+      { label: 'Copy', icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: 'More', icon: '', divided: true, children: [
 
         {
@@ -428,10 +430,11 @@ export function useFileActions({
         },
         { label: 'Duplicate', icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
       ] },
-      isSingle && { label: 'Rename', icon: 'mdi mdi-rename', onClick: handleRename },
+      isSingle && { label: 'Rename', icon: 'mdi mdi-rename', shortcut: 'F2', onClick: handleRename },
       {
         label: 'Delete',
         icon: 'mdi mdi-delete-forever-outline',
+        shortcut: 'Del',
         onClick: confirmDelete,
         divided: true,
       },

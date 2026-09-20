@@ -14,7 +14,7 @@ import { enableDebug } from '@/utils/debug'
 import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
-import { openAppWindow } from '@/views/Apps/apps-store'
+import { openAppWindow, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
@@ -32,17 +32,6 @@ async function handleSetTitle() {
   catch {
     // cancelled
   }
-}
-
-const internalTextSyncEntry: IEntry = {
-  name: 'TextSync',
-  ext: '',
-  isDirectory: false,
-  hidden: false,
-  lastModified: 0,
-  birthtime: 0,
-  size: 0,
-  error: null,
 }
 
 const internalSpeedTestEntry: IEntry = {
@@ -235,19 +224,23 @@ export function useFileLiteMenu() {
     })
   }
 
-  async function showMenu(event: MouseEvent) {
+  async function showMenu(event?: MouseEvent) {
     const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
     const imageCacheLabel = !cacheAvailable
       ? 'Image Cache: unavailable'
       : cacheEntries > 0
         ? `Image Cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
         : 'Image Cache: empty'
-    const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
+    const fromEvent = event?.target instanceof Element
+      ? event.target.closest('button') as HTMLElement | null
+      : null
+    const button = fromEvent
+      ?? document.querySelector<HTMLElement>('[data-file-lite-menu]')
     const rect = button?.getBoundingClientRect()
 
     ContextMenu.showContextMenu({
-      x: rect?.right || event.x,
-      y: rect?.top || event.y,
+      x: rect?.right || event?.x || 0,
+      y: rect?.top || event?.y || 0,
       ...menuThemeOptions,
       items: resolveMenuIcons([
         {
@@ -428,13 +421,9 @@ export function useFileLiteMenu() {
         {
           label: 'Text Sync',
           icon: 'mdi mdi-clipboard',
+          shortcut: 'F1',
           onClick: () => {
-            openAppWindow(InternalAppEnum.TextSync, {
-              absPath: '',
-              item: internalTextSyncEntry,
-              basePath: '',
-              list: [],
-            })
+            toggleTextSyncApp()
           },
         },
         {
@@ -468,6 +457,15 @@ export function useFileLiteMenu() {
           disabled: !isFullscreenSupported.value,
           onClick: () => {
             toggleFullscreen()
+          },
+          divided: true,
+        },
+        {
+          label: 'Keyboard Shortcuts',
+          icon: 'mdi mdi-keyboard-outline',
+          shortcut: '?',
+          onClick: () => {
+            toggleKeyboardShortcutsApp()
           },
           divided: true,
         },

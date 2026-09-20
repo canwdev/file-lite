@@ -367,6 +367,7 @@ export function useSwipe({ items, currentIndex, zoom, onExit, onAfterNavigate, o
   useShortcut({
     scope: shortcutScope,
     combo: 'escape',
+    description: 'Close overlay / exit gallery',
     handler: () => {
       if (edgeOverlay.value) {
         edgeOverlay.value = null
@@ -379,12 +380,14 @@ export function useSwipe({ items, currentIndex, zoom, onExit, onAfterNavigate, o
   useShortcut({
     scope: shortcutScope,
     combo: ['arrowdown', 'arrowright', 'pagedown', 'j'],
+    description: 'Next image',
     handler: () => navigate(true, { instant: true }),
   })
 
   useShortcut({
     scope: shortcutScope,
     combo: ['arrowup', 'arrowleft', 'pageup', 'k'],
+    description: 'Previous image',
     handler: () => navigate(false, { instant: true }),
   })
 

@@ -255,6 +255,7 @@ const menuOptions = computed((): MenuBarOptions => {
 useShortcut({
   scope: shortcutScope,
   combo: ['ctrl+s', 'meta+s'],
+  description: 'Save',
   handler: handleSaveFile,
   allowInInput: true,
 })
@@ -262,6 +263,7 @@ useShortcut({
 useShortcut({
   scope: shortcutScope,
   combo: 'escape',
+  description: 'Close editor / cancel',
   allowInInput: true,
   preventDefault: false,
   handler: (event) => {

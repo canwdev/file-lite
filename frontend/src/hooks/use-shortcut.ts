@@ -1,5 +1,5 @@
 import type { InjectionKey, Ref } from 'vue'
-import { inject, onBeforeUnmount, unref } from 'vue'
+import { computed, inject, onBeforeUnmount, shallowRef, unref } from 'vue'
 import { appsStoreState } from '@/views/Apps/apps-store'
 
 export type ShortcutScope = string
@@ -31,6 +31,9 @@ interface ShortcutRegistration {
   id: symbol
   scope: ShortcutScope
   combos: NormalizedCombo[]
+  /** 原始 combo 字符串，供列表展示 */
+  comboLabels: string[]
+  description: string
   handler: (event: KeyboardEvent) => void
   allowInInput: boolean
   disabled?: boolean | Ref<boolean>
@@ -38,11 +41,29 @@ interface ShortcutRegistration {
   stopPropagation: boolean
 }
 
+/** 一条可供 UI 展示的快捷键（实时注册表快照） */
+export interface ListedShortcut {
+  scope: string
+  combos: string[]
+  description: string
+  disabled: boolean
+  allowInInput: boolean
+}
+
 export const shortcutScopeKey: InjectionKey<string> = Symbol('shortcut-scope')
+
+/** 外壳级 scope：先于面板 / App 的 scope 匹配，且在有活动 App 窗口时不触发 */
+export const SHELL_SHORTCUT_SCOPE = 'shell'
 
 const allRegistrations = new Map<symbol, ShortcutRegistration>()
 const registrationsByScope = new Map<ShortcutScope, Set<symbol>>()
+/** 注册表变更计数：列表 UI 靠它刷新 */
+const registryVersion = shallowRef(0)
 let listenerBound = false
+
+function bumpRegistry() {
+  registryVersion.value++
+}
 
 function normalizeEventKey(key: string): string {
   const normalized = key.toLowerCase()
@@ -105,6 +126,60 @@ function normalizeCombos(combo: ShortcutCombo): NormalizedCombo[] {
     .filter((item): item is NormalizedCombo => item !== null)
 }
 
+function comboLabelList(combo: ShortcutCombo): string[] {
+  return (Array.isArray(combo) ? combo : [combo]).map(item => item.trim()).filter(Boolean)
+}
+
+/** 把 `ctrl+r` / `arrowup` 之类格式化成菜单里那种 `Ctrl+R` */
+export function formatShortcutCombo(combo: string): string {
+  return combo
+    .split('+')
+    .map((part) => {
+      const p = part.trim().toLowerCase()
+      if (!p)
+        return ''
+      if (p === 'ctrl')
+        return 'Ctrl'
+      if (p === 'meta' || p === 'cmd')
+        return 'Cmd'
+      if (p === 'alt')
+        return 'Alt'
+      if (p === 'shift')
+        return 'Shift'
+      if (p === 'arrowup')
+        return '↑'
+      if (p === 'arrowdown')
+        return '↓'
+      if (p === 'arrowleft')
+        return '←'
+      if (p === 'arrowright')
+        return '→'
+      if (p === 'escape' || p === 'esc')
+        return 'Esc'
+      if (p === 'delete' || p === 'del')
+        return 'Del'
+      if (p === ' ')
+        return 'Space'
+      if (p === 'space')
+        return 'Space'
+      if (p === 'enter' || p === 'return')
+        return 'Enter'
+      if (p === 'backspace')
+        return 'Backspace'
+      if (p === 'pageup')
+        return 'PageUp'
+      if (p === 'pagedown')
+        return 'PageDown'
+      if (/^f\d{1,2}$/.test(p))
+        return p.toUpperCase()
+      if (p.length === 1)
+        return p.toUpperCase()
+      return p.replace(/^\w/, c => c.toUpperCase())
+    })
+    .filter(Boolean)
+    .join('+')
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement))
     return false
@@ -135,7 +210,20 @@ function resolveTargetScope(target: EventTarget | null): ShortcutScope | null {
 }
 
 function comboMatches(combo: NormalizedCombo, event: KeyboardEvent): boolean {
-  if (combo.key !== normalizeEventKey(event.key))
+  const eventKey = normalizeEventKey(event.key)
+
+  // `?` 在常见布局上就是 Shift+/，event.key 为 '?' 且 shiftKey 为 true；匹配时忽略 shift
+  if (combo.key === '?') {
+    if (eventKey !== '?')
+      return false
+    return (
+      combo.ctrl === event.ctrlKey
+      && combo.meta === event.metaKey
+      && combo.alt === event.altKey
+    )
+  }
+
+  if (combo.key !== eventKey)
     return false
 
   return (
@@ -146,16 +234,11 @@ function comboMatches(combo: NormalizedCombo, event: KeyboardEvent): boolean {
   )
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  const scope = resolveTargetScope(event.target)
-  if (!scope)
-    return
-
+/** @returns 是否已命中并执行 */
+function dispatchScope(scope: ShortcutScope, event: KeyboardEvent, editable: boolean): boolean {
   const ids = registrationsByScope.get(scope)
   if (!ids)
-    return
-
-  const editable = isEditableTarget(event.target)
+    return false
 
   for (const id of ids) {
     const registration = allRegistrations.get(id)
@@ -178,8 +261,27 @@ function handleKeydown(event: KeyboardEvent) {
       event.stopPropagation()
 
     registration.handler(event)
-    return
+    return true
   }
+
+  return false
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented)
+    return
+
+  const editable = isEditableTarget(event.target)
+
+  // 外壳级始终先试：具体快捷键用 disabled 自己避开 App / 选择器
+  if (dispatchScope(SHELL_SHORTCUT_SCOPE, event, editable))
+    return
+
+  const scope = resolveTargetScope(event.target)
+  if (!scope || scope === SHELL_SHORTCUT_SCOPE)
+    return
+
+  dispatchScope(scope, event, editable)
 }
 
 function ensureListener() {
@@ -201,6 +303,7 @@ function register(id: symbol, scope: ShortcutScope, registration: ShortcutRegist
   ids.add(id)
 
   ensureListener()
+  bumpRegistry()
 }
 
 function unregister(id: symbol) {
@@ -214,6 +317,8 @@ function unregister(id: symbol) {
 
   if (ids && ids.size === 0)
     registrationsByScope.delete(registration.scope)
+
+  bumpRegistry()
 }
 
 export function injectShortcutScope(defaultScope?: ShortcutScope): ShortcutScope {
@@ -232,6 +337,8 @@ export function useShortcut(options: UseShortcutOptions) {
     id,
     scope: options.scope,
     combos: normalizeCombos(options.combo),
+    comboLabels: comboLabelList(options.combo),
+    description: options.description?.trim() ?? '',
     handler: options.handler,
     allowInInput: options.allowInInput ?? false,
     disabled: options.disabled,
@@ -241,4 +348,39 @@ export function useShortcut(options: UseShortcutOptions) {
 
   register(id, registration.scope, registration)
   onBeforeUnmount(() => unregister(id))
+}
+
+/** 当前已通过 `useShortcut` 注册的快捷键快照（按 scope、combo 排序） */
+export function listRegisteredShortcuts(): ListedShortcut[] {
+  const items: ListedShortcut[] = []
+  const seen = new Set<string>()
+  for (const reg of allRegistrations.values()) {
+    const combos = reg.comboLabels.map(formatShortcutCombo)
+    // 同 scope 同键只留先注册的（App 专属 Esc 优先于外壳默认关窗）
+    const dedupeKey = `${reg.scope}\0${combos.join('\0')}`
+    if (seen.has(dedupeKey))
+      continue
+    seen.add(dedupeKey)
+    items.push({
+      scope: reg.scope,
+      combos,
+      description: reg.description,
+      disabled: Boolean(reg.disabled && unref(reg.disabled)),
+      allowInInput: reg.allowInInput,
+    })
+  }
+  return items.sort((a, b) => {
+    const scopeCmp = a.scope.localeCompare(b.scope)
+    if (scopeCmp !== 0)
+      return scopeCmp
+    return a.combos.join(' ').localeCompare(b.combos.join(' '))
+  })
+}
+
+/** 响应式列表：注册 / 卸载时自动更新 */
+export function useShortcutRegistry() {
+  return computed(() => {
+    void registryVersion.value
+    return listRegisteredShortcuts()
+  })
 }

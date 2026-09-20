@@ -175,6 +175,7 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   return [
     {
       label: 'Unsplit',
+      shortcut: 'Ctrl+\\',
       onClick: () => unsplit(item.id),
     },
     vertical
@@ -207,6 +208,7 @@ function closeSubmenu(item: ExplorerTabItem, index: number): MenuItem[] {
     {
       label: 'Close',
       icon: 'mdi mdi-close',
+      shortcut: 'Alt+W',
       disabled: !canCloseTabs.value,
       onClick: () => closeTab(item.id),
     },
@@ -244,6 +246,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     : {
         label: 'Split view',
         icon: 'mdi mdi-arrow-split-vertical',
+        shortcut: 'Ctrl+\\',
         divided: true,
         onClick: () => splitTab(item.id),
       }
@@ -316,7 +319,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     <button
       type="button"
       class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__add"
-      title="New tab"
+      title="New tab (Alt+T)"
       @click="addTab()"
     >
       <i-mdi-plus />
@@ -468,18 +471,6 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     flex-shrink: 0;
     font-size: var(--vgo-icon-sm);
     margin-inline-start: var(--vgo-space-1);
-  }
-
-  // + 左边也要有分隔线，规则与标签之间的一致（紧邻的活动标签旁边不画）
-  .explorer-tabs__item:not(.is-active) + .explorer-tabs__add::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 1px;
-    height: var(--vgo-font-lg);
-    transform: translateY(-50%);
-    background-color: var(--vgo-border);
   }
 }
 </style>

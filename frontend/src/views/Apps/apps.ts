@@ -18,6 +18,7 @@ export enum OpenWithEnum {
 export enum InternalAppEnum {
   SpeedTest = 'SpeedTest',
   TextSync = 'TextSync',
+  KeyboardShortcuts = 'KeyboardShortcuts',
 }
 
 export type AppName = OpenWithEnum | InternalAppEnum
@@ -109,6 +110,13 @@ export const InternalAppList: InternalAppListItem[] = [
     appName: InternalAppEnum.SpeedTest,
     icon: 'mdi mdi-speedometer',
     component: defineAsyncComponent(() => import('./SpeedTest.vue')),
+    singleInstance: true,
+  },
+  {
+    name: 'Keyboard Shortcuts',
+    appName: InternalAppEnum.KeyboardShortcuts,
+    icon: 'mdi mdi-keyboard-outline',
+    component: defineAsyncComponent(() => import('./KeyboardShortcuts.vue')),
     singleInstance: true,
   },
 ]

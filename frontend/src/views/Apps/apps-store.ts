@@ -1,7 +1,8 @@
 import type { AppName, AppParams } from './apps'
+import type { IEntry } from '@/types/server'
 import { localSettingsStore } from '@/store'
 import { guid } from '@/utils'
-import { appMetaByName } from './apps'
+import { appMetaByName, InternalAppEnum } from './apps'
 
 /** ViewPortWindow 实例暴露（用于置顶、聚焦） */
 export type AppWindowViewRef = {
@@ -24,6 +25,17 @@ export const appsStoreState = reactive({
   windows: [] as AppWindowState[],
   activeId: '',
 })
+
+const emptyInternalEntry: IEntry = {
+  name: '',
+  ext: '',
+  isDirectory: false,
+  hidden: false,
+  lastModified: 0,
+  birthtime: 0,
+  size: 0,
+  error: null,
+}
 
 function createWindowState(appName: AppName, appParams: AppParams): AppWindowState {
   return {
@@ -65,6 +77,33 @@ export function openAppWindow(appName: AppName, appParams: AppParams) {
   const win = createWindowState(appName, appParams)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id
+}
+
+/** 打开或关闭指定单例内部 App（F1 / `?` / 主菜单共用） */
+function toggleInternalApp(appName: InternalAppEnum, entryName: string) {
+  const existing = appsStoreState.windows.find(
+    w => w.appName === appName && !w.isClosing,
+  )
+  if (existing) {
+    closeAppWindow(existing.id)
+    return
+  }
+  openAppWindow(appName, {
+    absPath: '',
+    item: { ...emptyInternalEntry, name: entryName },
+    basePath: '',
+    list: [],
+  })
+}
+
+/** 打开或关闭 Text Sync（F1） */
+export function toggleTextSyncApp() {
+  toggleInternalApp(InternalAppEnum.TextSync, 'TextSync')
+}
+
+/** 打开或关闭 Keyboard Shortcuts 指南（`?`） */
+export function toggleKeyboardShortcutsApp() {
+  toggleInternalApp(InternalAppEnum.KeyboardShortcuts, 'KeyboardShortcuts')
 }
 
 /**

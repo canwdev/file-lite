@@ -170,6 +170,7 @@ const controlsDisabled = computed(() => !props.showControls)
 useShortcut({
   scope: shortcutScope,
   combo: 'space',
+  description: 'Play / pause',
   handler: togglePlay,
   disabled: controlsDisabled,
 })
@@ -177,6 +178,7 @@ useShortcut({
 useShortcut({
   scope: shortcutScope,
   combo: ['left', 'pageup', 'k', 'l'],
+  description: 'Previous track',
   handler: previous,
   disabled: controlsDisabled,
 })
@@ -184,6 +186,7 @@ useShortcut({
 useShortcut({
   scope: shortcutScope,
   combo: ['right', 'pagedown', 'h', 'j'],
+  description: 'Next track',
   handler: next,
   disabled: controlsDisabled,
 })
@@ -191,6 +194,7 @@ useShortcut({
 useShortcut({
   scope: shortcutScope,
   combo: 'up',
+  description: 'Volume up',
   handler: volumeUpFn,
   disabled: controlsDisabled,
 })
@@ -198,6 +202,7 @@ useShortcut({
 useShortcut({
   scope: shortcutScope,
   combo: 'down',
+  description: 'Volume down',
   handler: volumeDownFn,
   disabled: controlsDisabled,
 })

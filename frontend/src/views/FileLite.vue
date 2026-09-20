@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore, settingsStore } from '@/store'
 import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
 import ExplorerTabBar from '@/views/FileManager/ExplorerTabBar.vue'
@@ -15,6 +16,22 @@ const sidebarVisible = computed(() => localSettingsStore.value.sidebarVisible)
 function toggleSidebar() {
   localSettingsStore.value.sidebarVisible = !localSettingsStore.value.sidebarVisible
 }
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: ['ctrl+`', 'meta+`'],
+  description: 'Show / hide navigation',
+  handler: toggleSidebar,
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
+  combo: 'alt+m',
+  description: 'Open global menu',
+  handler: () => {
+    void showMenu()
+  },
+})
 
 // 传输面板全局唯一，注册表里的 ref 在它挂载前是 null，所以取值都走 computed
 const transferVisible = computed(() => transferQueue.value?.isVisible.value === true)
@@ -61,6 +78,7 @@ function toggleTransferPanel() {
           </span>
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+            data-file-lite-menu
             title="Menu"
             @click="showMenu"
           >

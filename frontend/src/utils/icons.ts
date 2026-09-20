@@ -99,6 +99,7 @@ import MdiImageSearch from '~icons/mdi/image-search'
 import MdiInformationOutline from '~icons/mdi/information-outline'
 import MdiIpNetwork from '~icons/mdi/ip-network'
 import MdiKeyOutline from '~icons/mdi/key-outline'
+import MdiKeyboardOutline from '~icons/mdi/keyboard-outline'
 import MdiLanguageCss3 from '~icons/mdi/language-css3'
 import MdiLanguageHtml5 from '~icons/mdi/language-html5'
 import MdiLanguageJavascript from '~icons/mdi/language-javascript'
@@ -317,6 +318,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'ip-network': MdiIpNetwork,
   'home': MdiHome,
   'wifi': MdiWifi,
+  'keyboard-outline': MdiKeyboardOutline,
   'key-outline': MdiKeyOutline,
   // 加密但未解锁的卷（Windows 的 BitLocker）：仍是个位置，所以是文件夹 + 锁
   'folder-lock-outline': MdiFolderLockOutline,

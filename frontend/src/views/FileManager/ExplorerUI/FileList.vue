@@ -1205,6 +1205,7 @@ function getMenuOptions() {
         {
           label: 'Folder',
           icon: 'mdi mdi-folder-plus-outline',
+          shortcut: 'F7',
           onClick() {
             handleCreateFolder()
           },
@@ -1264,6 +1265,12 @@ function selectKeyboardItem(index: number) {
   nextTick(() => scrollToFile(nextItem.name))
 }
 
+function selectKeyboardItemByName(name: string) {
+  const index = keyboardFiles.value.findIndex(item => item.name === name)
+  if (index >= 0)
+    selectKeyboardItem(index)
+}
+
 function moveKeyboardSelection(offset: number) {
   const items = keyboardFiles.value
   if (!items.length) {
@@ -1278,10 +1285,106 @@ function moveKeyboardSelection(offset: number) {
   selectKeyboardItem((currentIndex === -1 ? fallbackIndex : currentIndex) + offset)
 }
 
+/** 网格二维导航：左右 ±1，上下按列跨行；分组时在组间按同列衔接 */
+function moveKeyboardSelectionGrid(dx: number, dy: number) {
+  const cols = Math.max(virtualGrid.columns.value, 1)
+  const groups = groupedFiles.value
+  const visibleGroups = groups
+    ? groups.filter(g => !collapsedGroupSet.value.has(g.id) && g.items.length > 0)
+    : null
+
+  const segments: IEntry[][] = visibleGroups
+    ? visibleGroups.map(g => g.items)
+    : keyboardFiles.value.length
+      ? [keyboardFiles.value]
+      : []
+
+  if (!segments.length)
+    return
+
+  const currentName = selectedItems.value[0]?.name
+  if (!currentName) {
+    const first = segments[0][0]
+    const lastSeg = segments[segments.length - 1]
+    const last = lastSeg[lastSeg.length - 1]
+    selectKeyboardItemByName((dx > 0 || dy > 0) ? first.name : last.name)
+    return
+  }
+
+  let segIdx = -1
+  let localIdx = -1
+  for (let i = 0; i < segments.length; i++) {
+    const found = segments[i].findIndex(item => item.name === currentName)
+    if (found !== -1) {
+      segIdx = i
+      localIdx = found
+      break
+    }
+  }
+  if (segIdx === -1) {
+    selectKeyboardItemByName(segments[0][0].name)
+    return
+  }
+
+  const items = segments[segIdx]
+
+  if (dx !== 0) {
+    const next = localIdx + dx
+    if (next >= 0 && next < items.length) {
+      selectKeyboardItemByName(items[next].name)
+      return
+    }
+    if (dx < 0 && segIdx > 0) {
+      const prev = segments[segIdx - 1]
+      selectKeyboardItemByName(prev[prev.length - 1].name)
+      return
+    }
+    if (dx > 0 && segIdx < segments.length - 1) {
+      selectKeyboardItemByName(segments[segIdx + 1][0].name)
+    }
+    return
+  }
+
+  const col = localIdx % cols
+  const nextLocal = localIdx + dy * cols
+  if (nextLocal >= 0 && nextLocal < items.length) {
+    selectKeyboardItemByName(items[nextLocal].name)
+    return
+  }
+
+  if (dy < 0) {
+    if (segIdx <= 0) {
+      selectKeyboardItemByName(items[col].name)
+      return
+    }
+    const prev = segments[segIdx - 1]
+    let target = Math.min(col, prev.length - 1)
+    for (let i = col; i < prev.length; i += cols)
+      target = i
+    selectKeyboardItemByName(prev[target].name)
+    return
+  }
+
+  if (dy > 0) {
+    if (segIdx >= segments.length - 1) {
+      let target = col
+      for (let i = col; i < items.length; i += cols)
+        target = i
+      selectKeyboardItemByName(items[target].name)
+      return
+    }
+    const nextSeg = segments[segIdx + 1]
+    selectKeyboardItemByName(nextSeg[Math.min(col, nextSeg.length - 1)].name)
+  }
+}
+
+const gridArrowDisabled = computed(() => shortcutsDisabled.value || !isGridMode.value)
+
 useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+r', 'meta+r'],
+  description: 'Refresh',
   handler: () => emit('refresh'),
 })
 
@@ -1289,6 +1392,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+a', 'meta+a'],
+  description: 'Select all / clear selection',
   handler: toggleSelectAll,
 })
 
@@ -1296,6 +1400,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+b', 'meta+b'],
+  description: 'Toggle branch view',
   handler: () => {
     isBranchView.value = !isBranchView.value
   },
@@ -1305,6 +1410,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+x', 'meta+x'],
+  description: 'Cut',
   handler: handleCut,
 })
 
@@ -1312,6 +1418,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+c', 'meta+c'],
+  description: 'Copy',
   handler: handleCopy,
 })
 
@@ -1319,6 +1426,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+v', 'meta+v'],
+  description: 'Paste',
   handler: handlePaste,
 })
 
@@ -1326,6 +1434,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+h', 'meta+h'],
+  description: 'Toggle hidden files',
   handler: () => {
     showHidden.value = !showHidden.value
   },
@@ -1335,6 +1444,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: ['ctrl+m', 'meta+m'],
+  description: 'Open context menu',
   handler: event => updateMenuOptions(null, event),
 })
 
@@ -1342,6 +1452,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'delete',
+  description: 'Delete',
   handler: confirmDelete,
 })
 
@@ -1349,6 +1460,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f2',
+  description: 'Rename',
   handler: handleRename,
 })
 
@@ -1356,6 +1468,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f3',
+  description: 'Open',
   handler: handleOpen,
 })
 
@@ -1363,6 +1476,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'enter',
+  description: 'Open',
   handler: handleOpen,
 })
 
@@ -1370,6 +1484,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'f7',
+  description: 'New folder',
   handler: handleCreateFolder,
 })
 
@@ -1377,20 +1492,49 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'arrowup',
-  handler: () => moveKeyboardSelection(-1),
+  description: 'Select previous item',
+  handler: () => {
+    if (isGridMode.value)
+      moveKeyboardSelectionGrid(0, -1)
+    else
+      moveKeyboardSelection(-1)
+  },
 })
 
 useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'arrowdown',
-  handler: () => moveKeyboardSelection(1),
+  description: 'Select next item',
+  handler: () => {
+    if (isGridMode.value)
+      moveKeyboardSelectionGrid(0, 1)
+    else
+      moveKeyboardSelection(1)
+  },
+})
+
+useShortcut({
+  disabled: gridArrowDisabled,
+  scope: shortcutScope,
+  combo: 'arrowleft',
+  description: 'Select left (grid)',
+  handler: () => moveKeyboardSelectionGrid(-1, 0),
+})
+
+useShortcut({
+  disabled: gridArrowDisabled,
+  scope: shortcutScope,
+  combo: 'arrowright',
+  description: 'Select right (grid)',
+  handler: () => moveKeyboardSelectionGrid(1, 0),
 })
 
 useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'home',
+  description: 'Select first item',
   handler: () => selectKeyboardItem(0),
 })
 
@@ -1398,6 +1542,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'end',
+  description: 'Select last item',
   handler: () => selectKeyboardItem(keyboardFiles.value.length - 1),
 })
 
@@ -1516,6 +1661,29 @@ const debounceHandleScroll = useDebounceFn(() => {
   // console.log('save', basePath.value, position)
 }, 500)
 useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
+
+function snapIconSize(value: number, min: number, max: number, step: number) {
+  const snapped = Math.round(value / step) * step
+  return Math.min(max, Math.max(min, snapped))
+}
+
+function onContentWheel(event: WheelEvent) {
+  if (!(event.ctrlKey || event.metaKey))
+    return
+  // 拦住浏览器页级缩放；passive: false 才能 preventDefault
+  event.preventDefault()
+  const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX
+  if (!delta)
+    return
+  const direction = delta > 0 ? -1 : 1
+  if (isGridMode.value) {
+    iconSizeGrid.value = snapIconSize(iconSizeGrid.value + direction * 8, 48, 512, 8)
+  }
+  else {
+    iconSizeList.value = snapIconSize(iconSizeList.value + direction * 2, 16, 128, 2)
+  }
+}
+useEventListener(() => explorerContentRef.value, 'wheel', onContentWheel, { passive: false })
 
 defineExpose({
   selectedItems,

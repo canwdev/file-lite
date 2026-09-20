@@ -42,6 +42,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The transfer panel sits below floating windows so it no longer covers them (frontend).
 - Config → App Settings has a "Show folders first" switch that decides whether folders stay grouped above files after sorting; it is on by default (frontend).
 - The folder Sort menu lists the sort field and the direction as two groups, so you pick Name / Size / date separately from Ascending / Descending (frontend).
+- Ctrl+scroll (Cmd+scroll on Mac) over the file list moves the icon-size slider, matching list and grid ranges (frontend).
+- In grid view the arrow keys move selection in two dimensions — left/right along the row, up/down by column — including across groups (frontend).
+- Context menus show the shortcuts that are already bound — Refresh, Paste, Cut, Copy, Delete, Rename, Open, New Folder, Branch view and Close tab (frontend).
+- The main menu has a Keyboard Shortcuts entry (also `?`) that opens a live list of every currently registered binding; press `?` again or Esc to close it. Esc closes other app windows too, unless the app handles it first. F1 opens or closes Text Sync; Ctrl+\ splits or unsplits the active tab; Ctrl+` shows or hides the navigation sidebar; Alt+M opens the global menu (frontend).
 
 ### Features
 

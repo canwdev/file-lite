@@ -4,6 +4,7 @@ import type { AppWindowState } from './apps-store'
 import { ViewPortWindow } from '@canwdev/vgo-ui'
 import ShortcutScopeProvider from '@/components/ShortcutScopeProvider.vue'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
+import AppEscToClose from './AppEscToClose.vue'
 import { appMetaByName, Apps } from './apps'
 import {
   appsStoreState,
@@ -153,6 +154,7 @@ watch(
           @locate-item="(name: string) => handleLocateItem(win, name)"
           @update-app-params="(params: AppParams) => { win.appParams = params }"
         />
+        <AppEscToClose :scope="`app:${win.id}`" @close="handleClose(win)" />
       </div>
     </ShortcutScopeProvider>
   </ViewPortWindow>
