@@ -8,9 +8,14 @@ import { login, resetTargetDirs, row, screenshot, selectItem, sourceDir, targetD
  * 浏览器挂载的本地文件夹。
  *
  * 被测对象是「浏览器里的文件系统」这半边：挂载、浏览、写入，以及与服务器之间的
- * 双向复制与移动。真实场景里 `showDirectoryPicker()` 会弹系统目录选择框；测试把它
- * 打桩成 **OPFS** —— 它返回的同样是 `FileSystemDirectoryHandle`，而且能被测试代码
- * 直接读写，所以断言可以一路验到「文件真的落到了那个目录里」，而不只是看界面。
+ * 双向复制与移动。真实场景里 `showDirectoryPicker()`（**File System Access API**）
+ * 会弹系统目录选择框，让用户挑一个磁盘上真实的文件夹；测试把那一步打桩掉，用
+ * **OPFS**（`navigator.storage.getDirectory()`）的目录当替身——两者返回的都是
+ * `FileSystemDirectoryHandle`，而 OPFS 能被测试代码直接读写，所以断言可以一路验到
+ * 「文件真的落到了那个目录里」，而不只是看界面。
+ *
+ * 注意区分：生产代码走的是 File System Access API，**不是 OPFS**。OPFS 只是这个测试
+ * 为了拿到一个可读写句柄而借用的后端，与应用行为无关。
  *
  * 打桩的关键点：`navigator.storage.getDirectory()` 被替换成「挂载目录句柄」本身，
  * 并把种子写入挂在它前面（应用一调就必须等到种子写完），否则挂载列表可能先渲染出
@@ -32,7 +37,7 @@ const REAL_MP3_SECOND_BASE64 = `SUQzAwAAAAADb1RJVDIAAAANAAAAT1BGUyBUb25lIDIAVFNT
 const MOUNT_LABEL = 'fs-mount'
 
 /**
- * 每个用例一个独立的 OPFS 目录。
+ * 每个用例一个独立的 OPFS 桩目录。
  *
  * OPFS 是**按 profile 持久**的，同一个 worker 里的用例共用一份存储；如果都挂同一个
  * 目录，前一个用例写进去的文件会留在里面，后一个用例的「目录里只有这两个文件」这种
@@ -46,13 +51,15 @@ function nextMountDir() {
 }
 
 /**
- * 目录选择框返回的句柄，同时也是 `navigator.storage.getDirectory()` 的返回值。
+ * 目录选择框（生产里是 File System Access API 的 `showDirectoryPicker`）返回的句柄，
+ * 同时也是 `navigator.storage.getDirectory()`（OPFS）的返回值——桩把两者指向同一个
+ * 句柄，测试才能绕开系统弹窗又直接读写它。
  *
  * `access` 决定这个卷以什么权限落地：`readwrite` 一路放行，`read-only` 只批读、
  * 拒绝写。权限函数挂在**应用真正拿到的那一个目录句柄**上，不要在其中再做一层
  * `getDirectoryHandle` —— 应用不会去解析那一层，桩就会静默失效。
  */
-const opfsStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOUNT_LABEL) => `
+const directoryPickerStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOUNT_LABEL) => `
 ;(async () => {
   const root = await navigator.storage.getDirectory()
   // 应用挂载的是 getDirectory() 解析出来的那个句柄，权限函数必须挂在它身上
@@ -64,8 +71,8 @@ const opfsStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOU
     await writable.close()
   }
   // 只在第一次 seed：刷新后用例自己写进去的文件不能被重新 seed 冲掉
-  if (!window.__opfsSeeded) {
-    window.__opfsSeeded = true
+  if (!window.__stubSeeded) {
+    window.__stubSeeded = true
     await put('hello.txt', 'mounted-hello')
     await put('notes.md', '# notes')
     // 真音频：音乐播放器要能真的解码它，假字节测不出问题
@@ -98,15 +105,15 @@ const opfsStub = (access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOU
 })()
 `
 
-async function stubOpfsMount(page: Page, access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOUNT_LABEL) {
+async function stubDirectoryPicker(page: Page, access: 'readwrite' | 'read-only' = 'readwrite', dirName = MOUNT_LABEL) {
   // 真音频通过 window 传给种子脚本（addInitScript 的内容会内联进页面，不适合塞 6KB base64）
   await page.addInitScript(`window.__REAL_MP3_BASE64 = ${JSON.stringify(REAL_MP3_BASE64)}`)
   await page.addInitScript(`window.__REAL_MP3_SECOND_BASE64 = ${JSON.stringify(REAL_MP3_SECOND_BASE64)}`)
-  await page.addInitScript(opfsStub(access, dirName))
+  await page.addInitScript(directoryPickerStub(access, dirName))
 }
 
-/** 挂载 OPFS 目录并进入它。 */
-async function mountOpfs(page: Page, dirName: string) {
+/** 挂载桩目录并进入它。 */
+async function mountVolume(page: Page, dirName: string) {
   await page.locator('.mounted-list .sidebar-list__header button[title="Mount a local folder"]').click()
   const item = page.locator('.mounted-list__item')
   await expect(item).toHaveCount(1)
@@ -124,7 +131,7 @@ function currentCrumb(page: Page) {
  *
  * 打桩把 `getDirectory()` 换成了挂载目录句柄，所以这里直接对它 `entries()`。
  */
-async function readOpfsDir(page: Page, dirName: string): Promise<string[]> {
+async function readStubDir(page: Page, dirName: string): Promise<string[]> {
   return await page.evaluate(async (name) => {
     const root: any = await navigator.storage.getDirectory()
     const dir: any = await root.getDirectoryHandle(name)
@@ -136,7 +143,7 @@ async function readOpfsDir(page: Page, dirName: string): Promise<string[]> {
   }, dirName)
 }
 
-async function readOpfsFile(page: Page, file: string, dirName: string): Promise<string | null> {
+async function readStubFile(page: Page, file: string, dirName: string): Promise<string | null> {
   return await page.evaluate(async ({ dirName, file }) => {
     try {
       const root: any = await navigator.storage.getDirectory()
@@ -206,7 +213,7 @@ async function submitInputPrompt(page: Page, value: string) {
 
 test.describe('浏览器挂载文件夹', () => {
   /**
-   * 本用例使用的 OPFS 目录名。
+   * 本用例使用的桩目录名（OPFS）。
    *
    * 桩必须在**首次导航之前**注入（`addInitScript` 只影响之后的导航），所以只能放在
    * `beforeEach` 里；目录名由这里生成后传给用例，保证每个用例一份干净的存储。
@@ -223,7 +230,7 @@ test.describe('浏览器挂载文件夹', () => {
     trackApi(page)
     mountDir = nextMountDir()
     mountAccess = testInfo.title === READ_ONLY_CASE ? 'read-only' : 'readwrite'
-    await stubOpfsMount(page, mountAccess, mountDir)
+    await stubDirectoryPicker(page, mountAccess, mountDir)
     await login(page)
   })
 
@@ -232,7 +239,7 @@ test.describe('浏览器挂载文件夹', () => {
     // 未挂载时只有空态
     await expect(page.locator('.mounted-list__empty')).toContainText('No folder mounted')
 
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     // 挂载卷里的文件列出来了
     await expect(row(page, 'hello.txt')).toBeVisible()
@@ -246,7 +253,7 @@ test.describe('浏览器挂载文件夹', () => {
     // 取消挂载只删本地记录：卷从侧边栏消失，磁盘上的文件一个不动
     await page.locator('.mounted-list__item .mounted-list__remove').click()
     await expect(page.locator('.mounted-list__item')).toHaveCount(0)
-    expect(await readOpfsDir(page, dirName)).toContain('hello.txt')
+    expect(await readStubDir(page, dirName)).toContain('hello.txt')
 
     await screenshot(page, '12-mounted-folder')
   })
@@ -256,15 +263,15 @@ test.describe('浏览器挂载文件夹', () => {
   // 与本应用无关）。恢复代码本身（`loadMountedVolumes` 读回句柄并静默查权限）
   // 因此只能靠人工在真实浏览器里验证，不能写成会稳定崩页的用例。
   test.skip('刷新后自动恢复挂载（本环境 Chromium 读回句柄会崩溃，跳过）', async ({ page }) => {
-    await mountOpfs(page, mountDir)
+    await mountVolume(page, mountDir)
     await page.reload()
     await expect(page.locator('.mounted-list__item')).toBeVisible()
   })
 
   test('新建文件与新建文件夹都落到真实目录里', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
-    const before = await readOpfsDir(page, dirName)
+    await mountVolume(page, dirName)
+    const before = await readStubDir(page, dirName)
 
     await page.locator('.explorer-main:visible button[title="Create Folder"]').click()
     await submitInputPrompt(page, 'made-in-browser')
@@ -274,22 +281,22 @@ test.describe('浏览器挂载文件夹', () => {
     await submitInputPrompt(page, 'written.txt')
     await expect(row(page, 'written.txt')).toBeVisible()
 
-    // 两个名字都真的出现在 OPFS 目录里
-    await expect.poll(async () => (await readOpfsDir(page, dirName)).filter(n => !before.includes(n)).sort())
+    // 两个名字都真的出现在桩目录里（OPFS）
+    await expect.poll(async () => (await readStubDir(page, dirName)).filter(n => !before.includes(n)).sort())
       .toEqual(['made-in-browser', 'written.txt'])
   })
 
   test('重命名与删除作用于真实目录', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     await row(page, 'notes.md').click()
     await page.locator('.explorer-main:visible button[title="Rename"]').click()
     await submitInputPrompt(page, 'renamed.md')
 
     await expect(row(page, 'renamed.md')).toBeVisible()
-    await expect.poll(async () => (await readOpfsDir(page, dirName)).includes('renamed.md')).toBe(true)
-    expect(await readOpfsFile(page, 'renamed.md', dirName)).toBe('# notes')
+    await expect.poll(async () => (await readStubDir(page, dirName)).includes('renamed.md')).toBe(true)
+    expect(await readStubFile(page, 'renamed.md', dirName)).toBe('# notes')
 
     // 删除：确认弹窗后从目录里消失
     await row(page, 'renamed.md').click()
@@ -300,13 +307,13 @@ test.describe('浏览器挂载文件夹', () => {
     await expect(confirm).toBeVisible()
     // 确认键是页脚的主操作按钮（element-plus 文案是 OK）
     await confirm.locator('.el-message-box__btns button').last().click()
-    await expect.poll(async () => (await readOpfsDir(page, dirName)).includes('renamed.md')).toBe(false)
+    await expect.poll(async () => (await readStubDir(page, dirName)).includes('renamed.md')).toBe(false)
     await expect(row(page, 'renamed.md')).toBeHidden()
   })
 
   test('服务器 → 挂载卷：复制过去并落到真实目录', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     await goToFixtureRoot(page)
     await row(page, 'source').dblclick()
@@ -319,12 +326,12 @@ test.describe('浏览器挂载文件夹', () => {
     await page.locator('.explorer-main:visible button[title^="Paste (ctrl+v)"]').click()
 
     await expect(row(page, 'a.txt')).toBeVisible()
-    await expect.poll(async () => await readOpfsFile(page, 'a.txt', dirName)).toBe('alpha')
+    await expect.poll(async () => await readStubFile(page, 'a.txt', dirName)).toBe('alpha')
   })
 
   test('挂载卷 → 服务器：复制过去并落到磁盘', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     await selectItem(page, 'hello.txt')
     await page.locator('.explorer-main:visible button[title^="Copy (ctrl+c)"]').click()
@@ -346,7 +353,7 @@ test.describe('浏览器挂载文件夹', () => {
 
   test('移动：从挂载卷搬到服务器，源被删掉', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     // 造一个只给这条用例用的文件，免得影响别的用例
     await page.locator('.explorer-main:visible button[title="Create Document"]').click()
@@ -363,7 +370,7 @@ test.describe('浏览器挂载文件夹', () => {
     await expect(row(page, 'to-move.txt')).toBeVisible()
     await expect.poll(() => fs.existsSync(path.join(targetDir, 'to-move.txt'))).toBe(true)
     // 源必须被删掉，否则「移动」等于复制
-    await expect.poll(async () => (await readOpfsDir(page, dirName)).includes('to-move.txt')).toBe(false)
+    await expect.poll(async () => (await readStubDir(page, dirName)).includes('to-move.txt')).toBe(false)
     // 顺带确认没把夹具搞脏
     expect(fs.readFileSync(path.join(sourceDir, 'a.txt'), 'utf8')).toBe('alpha')
   })
@@ -387,12 +394,12 @@ test.describe('浏览器挂载文件夹', () => {
 
     await expect(page.locator('.el-message').last()).toContainText('read-only')
     await expect(row(page, 'should-not-exist.txt')).toBeHidden()
-    await expect.poll(async () => (await readOpfsDir(page, dirName)).includes('should-not-exist.txt')).toBe(false)
+    await expect.poll(async () => (await readStubDir(page, dirName)).includes('should-not-exist.txt')).toBe(false)
   })
 
   test('音乐播放器能播挂载卷里的音乐', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     // tone.mp3 由默认 app 关联到 Media Player；双击打开
     await row(page, 'tone.mp3').dblclick()
@@ -432,7 +439,7 @@ test.describe('浏览器挂载文件夹', () => {
     const dirName = mountDir
     const { requests, failures } = apiLog
 
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
     await expect(row(page, 'tone.mp3')).toBeVisible()
     // 离开再回来，覆盖面包屑 / 导航带来的请求
     await goToFixtureRoot(page)
@@ -457,7 +464,7 @@ test.describe('浏览器挂载文件夹', () => {
     const dirName = mountDir
     const { requests, failures } = apiLog
 
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     // 挂载卷里有一个带空格与日文的嵌套子目录：文件夹预览会去列它，
     // 面包屑下拉也会。这条路径过去被直接发给 `/api/files/list` → 404。
@@ -484,7 +491,7 @@ test.describe('浏览器挂载文件夹', () => {
 
   test('切歌后封面与歌词仍然加载（回归）', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
     const cover = page.locator('.media-player-wrap img').first()
     const lyricsToggle = page.locator('.media-player-wrap button[title*="yric" i]')
@@ -511,9 +518,9 @@ test.describe('浏览器挂载文件夹', () => {
 
   test('同卷移动走零拷贝的 move()，而不是读一遍再写一遍', async ({ page }) => {
     const dirName = mountDir
-    await mountOpfs(page, dirName)
+    await mountVolume(page, dirName)
 
-    // 通过 UI 建文件，这样列表会立刻刷新（外部往 OPFS 里写不会触发应用的重新列目录）
+    // 通过 UI 建文件，这样列表会立刻刷新（外部往桩目录里写不会触发应用的重新列目录）
     await page.locator('.explorer-main:visible button[title="Create Document"]').click()
     await submitInputPrompt(page, 'to-move.txt')
     await expect(row(page, 'to-move.txt')).toBeVisible()

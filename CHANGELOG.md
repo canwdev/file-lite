@@ -42,7 +42,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
-- The sidebar has a Mounted Folders area below Storage, where a folder from the computer can be mounted as a location and browsed in place; it only appears in browsers that support the File System Access API, and the mount survives a reload — a folder still allowed opens straight away, the others ask for access again with a click (frontend).
+- The sidebar has a Local area below Storage, where a folder from the computer can be mounted as a location and browsed in place; it only appears in browsers that support the File System Access API, and the mount survives a reload — a folder still allowed opens straight away, the others ask for access again with a click (frontend).
 - A mounted folder has an unmount button on its row, which removes the location from the sidebar without touching anything on disk (frontend).
 - Files and folders can be copied or moved between a mounted folder and the server in either direction, and between two mounted folders, with the same conflict prompt, progress and cancel as any other copy: these run in the browser, so they keep working when the server cannot see the mounted folder at all (frontend).
 - A mounted folder can be written to: create a file or folder, rename, delete, save from the text editor, and paste into it, all of which also run in the browser (frontend).
@@ -145,6 +145,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - The Properties window now counts a folder's size and shows its creation time on a network share or a mapped drive, where it used to fail to read the folder at all (backend).
 - Copying, moving, deleting and duplicating a folder that sits deeper than a drive's root now works on Windows, where the operation used to be refused with "Source path does not exist" (backend).
 - A folder listing no longer stays stale after a copy, move, delete or duplicate underneath a drive's root: the in-place update was computed against paths the file list could not match (backend).
+- Moving a file or folder inside a mounted folder no longer ends with a false "the source could not be removed" failure after the move already succeeded, which happened when the browser's own zero-copy move had already taken the source away (frontend).
+- Renaming a folder inside a mounted folder works now: where the browser offers no folder-level move, its contents are copied to the new name and the old folder is removed, instead of refusing with "renaming a folder is not supported" (frontend).
+- Moving a folder out of a mounted folder now removes the source folder once its contents have moved, instead of leaving an empty folder behind (frontend).
+- Copying or moving a folder that contains only subfolders (no files directly inside it) into a mounted folder no longer fails with "not found": the folder itself was never created, so the first subfolder had nowhere to land (frontend).
 
 ### Engineering
 

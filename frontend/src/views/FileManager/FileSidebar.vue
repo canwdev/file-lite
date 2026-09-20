@@ -35,8 +35,9 @@ const { currentPath } = toRefs(props)
 const isLoading = drivesLoading
 
 /**
- * 浏览器挂载区。
+ * 浏览器挂载区（File System Access API）。
  *
+ * 挂的是用户用系统选择框挑出来的**磁盘文件夹**；OPFS 是另一回事，本功能不用它。
  * `canMount` 为假（Firefox / Safari）时整块不渲染——在那里给一个点了没反应的
  * 入口比没有更糟。
  */
@@ -351,11 +352,11 @@ defineExpose({
 <template>
   <div class="explorer-sidebar">
     <slot />
-    <!-- 挂载本地文件夹：按规范复用 Storage 列表的全部视觉语言，只有标题栏的
-         加号按钮与每项右侧的取消挂载是自己的一层 -->
+    <!-- 挂载本地文件夹（File System Access API，不是 OPFS）：按规范复用 Storage 列表
+         的全部视觉语言，只有标题栏的加号按钮与每项右侧的取消挂载是自己的一层 -->
     <div v-if="canMount" class="sidebar-list mounted-list">
       <div class="sidebar-list__header">
-        <span>OPFS</span>
+        <span>Local</span>
         <span class="mounted-list__actions">
           <button
             v-if="pendingCount"
@@ -472,7 +473,7 @@ defineExpose({
   flex-direction: column;
   background-color: var(--vgo-surface-raised);
 
-  // 两段列表（Storage / Mounted Folders）共用：同一层视觉，只有动作按钮不同
+  // 两段列表（Storage / Local）共用：同一层视觉，只有动作按钮不同
   .sidebar-list {
     overflow: auto;
 

@@ -335,8 +335,11 @@ async function walkDirectory(path: string, prefix = ''): Promise<WalkedEntry[]> 
 }
 
 /** 把若干源路径展开成待搬运条目：先确定总量，进度才不会边跑边变。 */
-async function collectItems(fromPaths: string[]): Promise<PendingItem[]> {
+async function collectItems(fromPaths: string[]): Promise<{ items: PendingItem[], dirRoots: string[] }> {
   const items: PendingItem[] = []
+  // 目录源本身不在 items 里（摊平的是它的内容），但移动收尾要把源目录整个删掉，
+  // 所以单独记一份根路径。
+  const dirRoots: string[] = []
   for (const fromPath of fromPaths) {
     const parent = parentDirOf(fromPath)
     const name = lastSegment(fromPath)
@@ -350,6 +353,7 @@ async function collectItems(fromPaths: string[]): Promise<PendingItem[]> {
       continue
     }
 
+    dirRoots.push(fromPath)
     // 目录本身要落到目标下（复制文件夹 = 把它的内容装进同名目录）
     for (const child of await walkDirectory(fromPath, name)) {
       items.push({
@@ -360,7 +364,7 @@ async function collectItems(fromPaths: string[]): Promise<PendingItem[]> {
       })
     }
   }
-  return items
+  return { items, dirRoots }
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +568,7 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
     }
 
     // ---- 1. 展开源 ----
-    const items = await collectItems(fromPaths)
+    const { items, dirRoots } = await collectItems(fromPaths)
     ctx.itemsTotal = items.filter(item => !item.isDirectory).length
     ctx.bytesTotal = items.reduce((sum, item) => sum + item.size, 0)
     ctx.state = 'running'
@@ -580,6 +584,8 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
     ctx.policy = policy
 
     // ---- 3. 逐条搬运 ----
+    // 走原生 move() 成功的源已经不在原处了，收尾时不能再删一次（否则是一个假的失败）
+    const movedByHandle = new Set<string>()
     const targetRoot = toPath.replace(/\/+$/, '')
     for (const item of items) {
       if (isCancelled(ctx)) {
@@ -617,6 +623,7 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
       // 跨卷（源在服务端）或目标已有内容时仍走下面的流式搬运。
       if (isMove && isMountedPath(item.fromPath) && isMountedPath(destPath)
         && await moveMountedFileEntry(item.fromPath, destDir, destName)) {
+        movedByHandle.add(item.fromPath)
         ctx.itemsDone += 1
         ctx.itemsSucceeded += 1
         ctx.bytesDone += item.size
@@ -656,7 +663,7 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
 
     // ---- 4. 移动：只删真正搬成功的源，避免「搬丢了」 ----
     if (isMove && !isCancelled(ctx)) {
-      await removeMovedSources(ctx)
+      await removeMovedSources(ctx, movedByHandle, dirRoots)
     }
 
     finishTask(ctx)
@@ -666,7 +673,11 @@ async function run(request: ClientTaskRequest, ctx: RunContext): Promise<void> {
   }
 }
 
-async function removeMovedSources(ctx: RunContext): Promise<void> {
+async function removeMovedSources(
+  ctx: RunContext,
+  movedByHandle: Set<string>,
+  dirRoots: string[],
+): Promise<void> {
   const moved = ctx.results.filter(item => item.status === 'moved')
   for (const item of moved) {
     if (isCancelled(ctx)) {
@@ -674,6 +685,10 @@ async function removeMovedSources(ctx: RunContext): Promise<void> {
     }
     if (!isMountedPath(item.fromPath)) {
       // 服务端任务不会走到这里；真走到说明源应该在服务端删，那不该由前端做
+      continue
+    }
+    // 原生 move() 已经把源搬走了，再删一次只会得到「源不存在」这种假失败
+    if (movedByHandle.has(item.fromPath)) {
       continue
     }
     try {
@@ -684,6 +699,33 @@ async function removeMovedSources(ctx: RunContext): Promise<void> {
         fromPath: item.fromPath,
         status: 'failed',
         message: `moved, but the source could not be removed: ${messageOf(error)}`,
+      })
+    }
+  }
+
+  // 目录源本身不在 items 里，内容搬完后要单独删根目录。
+  // 只有「它下面没有失败项」时才删——否则会把没搬走的残余一起删掉。
+  for (const root of dirRoots) {
+    if (isCancelled(ctx)) {
+      return
+    }
+    if (!isMountedPath(root)) {
+      continue
+    }
+    const hasFailure = ctx.results.some(item =>
+      item.status === 'failed' && (item.fromPath === root || item.fromPath.startsWith(`${root}/`)),
+    )
+    if (hasFailure) {
+      continue
+    }
+    try {
+      await removeMountedEntry(root)
+    }
+    catch (error) {
+      ctx.results.push({
+        fromPath: root,
+        status: 'failed',
+        message: `moved, but the source folder could not be removed: ${messageOf(error)}`,
       })
     }
   }

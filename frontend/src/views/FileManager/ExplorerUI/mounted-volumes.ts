@@ -1,9 +1,14 @@
 /**
  * 浏览器挂载的本地文件夹（虚拟驱动器）。
  *
+ * 挂载走的是 **File System Access API**：`showDirectoryPicker()` 让用户挑一个磁盘上
+ * 真实的文件夹，交回 `FileSystemDirectoryHandle`。它与 **OPFS**
+ * （`navigator.storage.getDirectory()`）只是共用句柄类型，并不是一回事——OPFS 是源私有、
+ * 用户看不见的沙箱存储，本功能不使用它；项目里只有 e2e 拿 OPFS 给目录选择框打桩。
+ *
  * 与后端驱动器（`drives.ts`）的关键区别：它的内容在**浏览器里**，后端只看到一条
  * 它解析不了的路径。所以这里只做三件事——保存句柄、维护侧边栏列表、给出路径前缀；
- * 真正的读写由 `browser-fs.ts` 负责。
+ * 真正的读写由 `utils/fs/browser-backend.ts` 负责。
  *
  * 路径命名空间是 `/@mounted/<id>`：字符串化，后端永远不该收到它（收到就是没被
  * `isMountedPath` 拦下，会得到一次明确的 400/403，而不是静默操作错位置）。

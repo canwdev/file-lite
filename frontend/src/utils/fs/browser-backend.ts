@@ -2,6 +2,10 @@ import type { FsBackend, FsWriteOptions, FsWriteResult } from './backend'
 /**
  * 浏览器挂载的本地文件夹（File System Access API）。
  *
+ * 句柄来自 `showDirectoryPicker()`，指向磁盘上真实的目录——**不是 OPFS**。两者只是
+ * 共用 `FileSystemDirectoryHandle` 类型：OPFS 是源私有的沙箱存储，这个功能不用它，
+ * 只有 e2e 会拿 OPFS 给目录选择框打桩。
+ *
  * 这里只做**读写原语**，不含挂载表与权限状态——那些是 `mounted-volumes.ts`
  * （idb + vue）的事，句柄由它通过注入提供。这样本模块没有 vue / idb 依赖，
  * 可以被 app 层直接使用，也可以单独测。
@@ -9,7 +13,7 @@ import type { FsBackend, FsWriteOptions, FsWriteResult } from './backend'
  * 它实现的正是 `FsBackend`：调用方面向 `fs`（`./index`），不必知道路径属于哪一侧。
  */
 import type { IEntry } from '@/types/server'
-import { mountIdFromPath, mountRootPath, relativePathInMount } from './paths'
+import { mountIdFromPath, mountRootPath, normalizeListingPath, relativePathInMount, stripTrailingSlash } from './paths'
 
 export type MountedFsErrorCode
   = | 'not-mounted-path' // 根本不属于挂载命名空间
@@ -286,14 +290,32 @@ export async function readMountedText(path: string): Promise<string> {
   return await (await readMountedFile(path)).text()
 }
 
-/** 创建（或复用）卷内目录。 */
+/**
+ * 创建（或复用）卷内目录，**逐段创建**。
+ *
+ * 不能只对最后一段 `create`：复制 / 移动一棵目录树时，目录项可能先于任何文件出现
+ * （源目录只有子目录、没有直接的文件时就是这样），那时它的父级还没被创建，只 create
+ * 最后一段会直接失败，整个任务跟着崩掉。
+ */
 export async function createMountedDir(path: string): Promise<void> {
-  const name = lastPathSegment(path)
-  if (!name) {
+  const id = mountIdFromPath(path)
+  const relative = id ? relativePathInMount(path, id) : null
+  if (!id || relative === null) {
+    throw new MountedFsError('not-mounted-path', `not a mounted path: ${path}`)
+  }
+  if (!relative) {
     return
   }
-  const parent = await resolveMountedDirHandle(parentPathOf(path, name))
-  await parent.getDirectoryHandle(name, { create: true })
+
+  let current = await rootHandle(id)
+  for (const segment of relative.split('/').filter(Boolean)) {
+    try {
+      current = await current.getDirectoryHandle(segment, { create: true })
+    }
+    catch (error) {
+      throw toMountedFsError(error, segment)
+    }
+  }
 }
 
 /** 在卷内写一个文件，写入流由调用方提供（复制时用，自带背压）。 */
@@ -364,37 +386,35 @@ export async function mountedEntryExists(dirPath: string, name: string): Promise
 }
 
 /**
- * 把卷内一个**文件**挪到目标目录。
+ * 把浏览器文件句柄的 `move()` 拿来用。同卷内它是零拷贝的，所以「同卷移动」不必读
+ * 一遍再写一遍——大文件从「和体积成正比的时间」变成瞬间。
  *
- * 用浏览器原生的 `FileSystemFileHandle.move()`：同卷内它是零拷贝的，所以
- * 「同卷移动」不必读一遍再写一遍——大文件从「和体积成正比的时间」变成瞬间。
- * 不支持 / 失败时返回 false，调用方退回流式复制。
- *
- * 只处理文件：目录句柄没有 `move()`，跨目录搬目录树仍走复制。
+ * 这条快路径**不可靠**：`move()` 是 Chromium 的扩展，主要实现在 OPFS 上，用户挑选的
+ * 本地文件夹未必可用，也可能因目标已存在等原因失败。所以它只在成功时返回 `true`，
+ * 任何失败都返回 `false`，调用方退回流式复制。这里绝不抛错，也**不提前删除目标**
+ * ——否则快路径失败时目标已经被删掉了。
  */
 export async function moveMountedFileEntry(fromPath: string, toDirPath: string, toName: string): Promise<boolean> {
-  const fromName = lastPathSegment(fromPath)
-  if (!fromName) {
-    return false
-  }
-
-  const fromDir = await resolveMountedDirHandle(parentPathOf(fromPath, fromName))
-  const entry = await fromDir.getFileHandle(fromName).catch(() => null)
-  if (!entry) {
-    return false
-  }
-
-  const move = (entry as FileSystemHandle & {
-    move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>
-  }).move
-  if (typeof move !== 'function') {
-    return false
-  }
-
-  const toDir = await resolveMountedDirHandle(toDirPath)
   try {
-    // overwrite 语义：目标已存在时先删掉，否则 move 会直接抛错
-    await toDir.removeEntry(toName, { recursive: true }).catch(() => {})
+    const fromName = lastPathSegment(fromPath)
+    if (!fromName) {
+      return false
+    }
+
+    const fromDir = await resolveMountedDirHandle(parentPathOf(fromPath, fromName))
+    const entry = await fromDir.getFileHandle(fromName).catch(() => null)
+    if (!entry) {
+      return false
+    }
+
+    const move = (entry as FileSystemHandle & {
+      move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>
+    }).move
+    if (typeof move !== 'function') {
+      return false
+    }
+
+    const toDir = await resolveMountedDirHandle(toDirPath)
     await move.call(entry, toDir, toName)
     return true
   }
@@ -404,47 +424,100 @@ export async function moveMountedFileEntry(fromPath: string, toDirPath: string, 
   }
 }
 
+/** 递归把一个目录句柄的内容复制进另一个目录句柄。 */
+async function copyDirHandle(source: FileSystemDirectoryHandle, target: FileSystemDirectoryHandle): Promise<void> {
+  for await (const child of source.values()) {
+    if (child.kind === 'directory') {
+      const sub = await target.getDirectoryHandle(child.name, { create: true })
+      await copyDirHandle(child as FileSystemDirectoryHandle, sub)
+      continue
+    }
+
+    const file = await (child as FileSystemFileHandle).getFile()
+    const writable = await (await target.getFileHandle(child.name, { create: true }))
+      .createWritable({ keepExistingData: false })
+    try {
+      await file.stream().pipeTo(writable)
+    }
+    catch (error) {
+      await writable.abort().catch(() => {})
+      throw toMountedFsError(error, child.name)
+    }
+  }
+}
+
 /**
- * 卷内重命名。
+ * 目录重命名 / 移动的兜底：整棵目录树复制到新位置，再删掉源目录。
  *
- * 优先用 `FileSystemFileHandle.move()`——同卷内它是**零拷贝**的，浏览器直接改目录项。
- * 它没有跨目录保证、也未必在所有实现里可用，所以拿不到 `move` 时退回
- * 「读出来 + 写新名 + 删旧名」。
+ * `FileSystemDirectoryHandle` 通常没有 `move()`（Chromium 目前只给文件句柄实现），
+ * 所以「复制 + 删源」就是目录重命名与同卷移动的常规路径。
+ */
+async function copyMountedDirectoryTo(fromDirPath: string, toParentDirPath: string, toName: string): Promise<void> {
+  const source = await resolveMountedDirHandle(fromDirPath)
+  const target = await (await resolveMountedDirHandle(toParentDirPath)).getDirectoryHandle(toName, { create: true })
+  await copyDirHandle(source, target)
+}
+
+/** `child` 是否就是 `parent`，或位于它内部（canonical / listing 形态都能比）。 */
+function isInsideOrSame(child: string, parent: string): boolean {
+  const childPath = stripTrailingSlash(normalizeListingPath(child))
+  const parentPath = stripTrailingSlash(normalizeListingPath(parent))
+  return childPath === parentPath || childPath.startsWith(`${parentPath}/`)
+}
+
+/**
+ * 卷内重命名 / 移动。
+ *
+ * 文件优先用原生 `move()`（同卷零拷贝）；目录一般没有 `move()`，退回「整树复制 +
+ * 删源」，并防止把目录搬进它自己内部（那会边复制边递归，删源时再把刚写的内容删掉）。
  */
 export async function renameMountedEntry(fromPath: string, toPath: string): Promise<void> {
   const fromName = lastPathSegment(fromPath)
   const toName = lastPathSegment(toPath)
-  const fromDir = await resolveMountedDirHandle(parentPathOf(fromPath, fromName))
-  const toDir = await resolveMountedDirHandle(parentPathOf(toPath, toName))
+  const fromDirPath = parentPathOf(fromPath, fromName)
+  const toDirPath = parentPathOf(toPath, toName)
 
-  const sameDir = parentPathOf(fromPath, fromName) === parentPathOf(toPath, toName)
+  if (!fromName || !toName) {
+    throw new MountedFsError('not-found', `invalid path: ${fromPath} -> ${toPath}`)
+  }
+  const sameDir = fromDirPath === toDirPath
   if (sameDir && fromName === toName) {
     return
   }
+  if (isInsideOrSame(toPath, fromPath)) {
+    throw new MountedFsError('permission', 'cannot move a folder into itself')
+  }
 
+  const fromDir = await resolveMountedDirHandle(fromDirPath)
   const entry = await findEntry(fromDir, fromName)
   if (!entry) {
     throw new MountedFsError('not-found', `not found in mounted folder: ${fromName}`)
   }
 
-  const move = (entry as FileSystemHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> }).move
+  const move = (entry as FileSystemHandle & {
+    move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void>
+  }).move
   if (typeof move === 'function') {
     try {
+      const toDir = await resolveMountedDirHandle(toDirPath)
       await move.call(entry, toDir, toName)
       return
     }
     catch (error) {
-      // 只读目录、跨文件系统等：退回下面的复制方案，而不是直接失败
+      // 只读目录、跨文件系统、实现不支持：退回复制方案，而不是直接失败
       console.warn('[mounted] move() failed, falling back to copy', error)
     }
   }
 
   if (entry.kind === 'directory') {
-    throw new MountedFsError('permission', `renaming a folder is not supported: ${fromName}`)
+    await copyMountedDirectoryTo(fromPath, toDirPath, toName)
+    await removeMountedEntry(fromPath)
+    return
   }
+
   const fileHandle = entry as FileSystemFileHandle
   const body = (await fileHandle.getFile()).stream()
-  await writeMountedFileFromStream(parentPathOf(toPath, toName), toName, body)
+  await writeMountedFileFromStream(toDirPath, toName, body)
   await fromDir.removeEntry(fromName, { recursive: false })
 }
 

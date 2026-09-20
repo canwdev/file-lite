@@ -175,6 +175,10 @@ export function useFileActions({
       )
       emit('patch', { removed: [item.name], added: [renamedItem] })
     }
+    catch (error) {
+      // 挂载卷上的重命名可能被浏览器拒绝（只读、目标被占用…）：如实提示，别静默失败
+      window.$message?.error(error instanceof Error ? error.message : 'Rename failed')
+    }
     finally {
       isLoading.value = false
     }

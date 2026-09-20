@@ -39,5 +39,12 @@ declare module 'bun:test' {
 }
 
 interface Window {
+  /**
+   * File System Access API 的目录选择框（Chromium）。
+   *
+   * 它选的是磁盘上真实的文件夹，返回的 `FileSystemDirectoryHandle` 与 OPFS 的
+   * `navigator.storage.getDirectory()` 是同一个句柄类型，但两者不是一回事；
+   * 本项目的生产代码只用前者，OPFS 仅在 e2e 里给这个选择框打桩。
+   */
   showDirectoryPicker?: (options?: { id?: string, mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>
 }
