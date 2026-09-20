@@ -195,6 +195,118 @@ export function useVirtualGrid<T>({
   }
 }
 
+export interface VirtualBlock<T> {
+  key: string
+  height: number
+  data: T
+}
+
+export interface PositionedBlock<T> extends VirtualBlock<T> {
+  top: number
+  index: number
+}
+
+export interface VirtualBlocksState<T> {
+  visibleBlocks: ComputedRef<PositionedBlock<T>[]>
+  positioned: ComputedRef<PositionedBlock<T>[]>
+  beforeHeight: ComputedRef<number>
+  afterHeight: ComputedRef<number>
+  totalHeight: ComputedRef<number>
+  scrollTop: Ref<number>
+  refresh: () => void
+}
+
+export function useVirtualBlocks<T>({
+  blocks,
+  containerRef,
+  overscan = 8,
+}: {
+  blocks: Ref<VirtualBlock<T>[]> | ComputedRef<VirtualBlock<T>[]>
+  containerRef: Ref<HTMLElement | null>
+  overscan?: number
+}): VirtualBlocksState<T> {
+  const scrollTop = ref(0)
+  const viewportHeight = ref(0)
+
+  function refresh() {
+    const el = containerRef.value
+    if (!el)
+      return
+    scrollTop.value = el.scrollTop
+    viewportHeight.value = el.clientHeight
+  }
+
+  const positioned = computed(() => {
+    let top = 0
+    return blocks.value.map((block, index) => {
+      const row: PositionedBlock<T> = { ...block, top, index }
+      top += block.height
+      return row
+    })
+  })
+
+  const totalHeight = computed(() => {
+    const list = positioned.value
+    if (!list.length)
+      return 0
+    const last = list[list.length - 1]
+    return last.top + last.height
+  })
+
+  const startIndex = computed(() => {
+    const list = positioned.value
+    if (!list.length)
+      return 0
+    const y = scrollTop.value
+    let lo = 0
+    let hi = list.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (list[mid].top + list[mid].height <= y)
+        lo = mid + 1
+      else
+        hi = mid
+    }
+    return clamp(lo - overscan, 0, list.length)
+  })
+
+  const endIndex = computed(() => {
+    const list = positioned.value
+    if (!list.length)
+      return 0
+    const y = scrollTop.value + viewportHeight.value
+    let lo = 0
+    let hi = list.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (list[mid].top < y)
+        lo = mid + 1
+      else
+        hi = mid
+    }
+    return clamp(lo + overscan, startIndex.value, list.length)
+  })
+
+  const visibleBlocks = computed(() => positioned.value.slice(startIndex.value, endIndex.value))
+  const beforeHeight = computed(() => positioned.value[startIndex.value]?.top ?? 0)
+  const afterHeight = computed(() => {
+    return Math.max(totalHeight.value - beforeHeight.value - visibleBlocks.value.reduce((sum, block) => sum + block.height, 0), 0)
+  })
+
+  setupVirtualMeasurement(containerRef, refresh)
+  watch(blocks, () => nextTick(refresh), { flush: 'post' })
+
+  return {
+    visibleBlocks,
+    positioned,
+    beforeHeight,
+    afterHeight,
+    totalHeight,
+    scrollTop,
+    refresh,
+  }
+}
+
 function setupVirtualMeasurement(containerRef: Ref<HTMLElement | null>, refresh: () => void) {
   let resizeObserver: ResizeObserver | undefined
 

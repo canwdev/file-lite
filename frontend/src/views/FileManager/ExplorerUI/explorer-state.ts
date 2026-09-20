@@ -1,3 +1,4 @@
+import type { SortField } from '../utils/sort'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { SortType } from '@/types/server'
@@ -6,6 +7,9 @@ import { normalizeListingPath } from '../utils'
 export interface PathState {
   position?: number
   sortMode?: SortType
+  groupField?: SortField | 'none'
+  groupDesc?: boolean
+  collapsedGroups?: string[]
 }
 
 /**

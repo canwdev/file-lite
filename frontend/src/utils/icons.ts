@@ -84,6 +84,7 @@ import MdiFolderOutline from '~icons/mdi/folder-outline'
 import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
 import MdiFolderPoundOutline from '~icons/mdi/folder-pound-outline'
 import MdiFolderUploadOutline from '~icons/mdi/folder-upload-outline'
+import MdiFormatListGroup from '~icons/mdi/format-list-group'
 import MdiFormatTitle from '~icons/mdi/format-title'
 import MdiFullscreen from '~icons/mdi/fullscreen'
 import MdiFullscreenExit from '~icons/mdi/fullscreen-exit'
@@ -152,6 +153,8 @@ import MdiTestTube from '~icons/mdi/test-tube'
 import MdiTextBoxEdit from '~icons/mdi/text-box-edit'
 import MdiTextBoxOutline from '~icons/mdi/text-box-outline'
 import MdiThemeLightDark from '~icons/mdi/theme-light-dark'
+import MdiUnfoldLessHorizontal from '~icons/mdi/unfold-less-horizontal'
+import MdiUnfoldMoreHorizontal from '~icons/mdi/unfold-more-horizontal'
 import MdiUpload from '~icons/mdi/upload'
 import MdiUploadOutline from '~icons/mdi/upload-outline'
 import MdiVideoOutline from '~icons/mdi/video-outline'
@@ -248,11 +251,14 @@ export const mdiIconRegistry: Record<string, Component> = {
   'clipboard': MdiClipboard,
   'speedometer': MdiSpeedometer,
   'theme-light-dark': MdiThemeLightDark,
+  'unfold-less-horizontal': MdiUnfoldLessHorizontal,
+  'unfold-more-horizontal': MdiUnfoldMoreHorizontal,
   'cog': MdiCog,
   'image-search': MdiImageSearch,
   'information-outline': MdiInformationOutline,
   'filter-check-outline': MdiFilterCheckOutline,
   'filter-off-outline': MdiFilterOffOutline,
+  'format-list-group': MdiFormatListGroup,
   'format-title': MdiFormatTitle,
   'image-multiple-outline': MdiImageMultipleOutline,
   'broom': MdiBroom,

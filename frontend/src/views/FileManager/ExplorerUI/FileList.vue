@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { GroupField } from '../utils/group'
 import type { ExplorerPaneView } from './explorer-tabs-store'
 import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
-import type { Column } from '@/views/FileManager/ExplorerUI/FileTable.vue'
+import type { Column, FileTableVirtualRow } from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, inject, nextTick, onBeforeUnmount, ref, toRefs, watch } from 'vue'
@@ -21,17 +22,21 @@ import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.t
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
+import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
+import { composeSortMode, parseSortMode } from '../utils/sort'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
 import { explorerStateMap, pathStateRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
+import { getEntryTypeLabel } from './file-type'
 import FileGridItem from './FileGridItem.vue'
+import FileGroupHeader from './FileGroupHeader.vue'
 import { useCopyPaste } from './hooks/use-copy-paste'
 import { getOpenActionMeta, useFileActions } from './hooks/use-file-actions'
-import { useLayoutSort } from './hooks/use-layout-sort'
+import { useLayoutGroup, useLayoutSort } from './hooks/use-layout-sort'
 import { useSelection } from './hooks/use-selection'
 import { useSystemClipboardPaste } from './hooks/use-system-clipboard-paste'
 import { useTransfer } from './hooks/use-transfer'
-import { useVirtualGrid, useVirtualList } from './hooks/use-virtual-files'
+import { useVirtualBlocks, useVirtualGrid, useVirtualList } from './hooks/use-virtual-files'
 
 const props = withDefaults(
   defineProps<{
@@ -84,6 +89,15 @@ const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
 const sortMode = pathStateRef(basePath, 'sortMode', SortType.default)
+const groupField = pathStateRef(basePath, 'groupField', 'none' as GroupField)
+const groupDesc = pathStateRef(basePath, 'groupDesc', false)
+const isGrouping = computed(() => groupField.value !== 'none')
+
+function clearCollapsedGroups() {
+  const path = basePath.value
+  if (explorerStateMap.value[path])
+    explorerStateMap.value[path].collapsedGroups = []
+}
 
 /**
  * 视图偏好（list/grid、图标大小）属于**面板**：拆分视图里两个面板各看各的，
@@ -121,6 +135,7 @@ const showHidden = computed({
 const isGridMode = computed(() => isGridView.value || props.gridView)
 
 const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
+const { groupOptions } = useLayoutGroup(groupField, groupDesc, clearCollapsedGroups)
 
 const filteredFiles = computed(() => {
   const filterValue = filter.value
@@ -147,6 +162,20 @@ const filteredFiles = computed(() => {
   catch {
     return []
   }
+})
+
+const collapsedGroupSet = computed(() => new Set(explorerStateMap.value[basePath.value]?.collapsedGroups ?? []))
+const groupedFiles = computed(() => {
+  if (!isGrouping.value)
+    return null
+  return groupEntries(filteredFiles.value, groupField.value as Exclude<GroupField, 'none'>, groupDesc.value, {
+    typeLabel: getEntryTypeLabel,
+  })
+})
+const keyboardFiles = computed(() => {
+  if (!groupedFiles.value)
+    return filteredFiles.value
+  return groupedFiles.value.flatMap(g => collapsedGroupSet.value.has(g.id) ? [] : g.items)
 })
 
 const isFilterActive = computed(() => isFileFilterActive(filter.value))
@@ -223,14 +252,14 @@ const tableColumns = computed(() => {
           ),
         ])
       },
-      sortModes: [SortType.name, SortType.nameDesc],
+      sortField: 'name' as const,
     },
     {
       key: 'ext',
       label: 'Ext',
       width: 70,
       formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''),
-      sortModes: [SortType.extension, SortType.extensionDesc],
+      sortField: 'extension' as const,
     },
     {
       key: 'size',
@@ -238,43 +267,43 @@ const tableColumns = computed(() => {
       width: 80,
       formatter: (item: IEntry) =>
         item.size === null ? '-' : bytesToSize(item.size),
-      sortModes: [SortType.sizeDesc, SortType.size],
+      sortField: 'size' as const,
+      preferDesc: true,
     },
     {
       key: 'lastModified',
       label: 'Last Modified',
       width: 140,
       formatter: (item: IEntry) => formatDate(item.lastModified),
-      sortModes: [SortType.lastModifiedDesc, SortType.lastModified],
+      sortField: 'lastModified' as const,
+      preferDesc: true,
     },
     {
       key: 'birthtime',
       label: 'Created',
       width: 140,
       formatter: (item: IEntry) => formatDate(item.birthtime),
-      sortModes: [SortType.birthTimeDesc, SortType.birthTime],
+      sortField: 'birthTime' as const,
+      preferDesc: true,
     },
   ].map((item) => {
     return {
       ...item,
       columnClick: () => {
-        const idx = (item.sortModes || []).findIndex(
-          (m: SortType) => m === sortMode.value,
-        )
-        const nextMode = idx + 1
-        sortMode.value = item.sortModes[nextMode] || SortType.default
+        const current = parseSortMode(sortMode.value)
+        if (current.field === item.sortField) {
+          sortMode.value = composeSortMode(item.sortField, !current.desc)
+          return
+        }
+        sortMode.value = composeSortMode(item.sortField, Boolean(item.preferDesc))
       },
       columnRightRender: () => {
-        const idx = (item.sortModes || []).findIndex(
-          (m: SortType) => m === sortMode.value,
-        )
-        const active = idx > -1
-        const isDesc = /Desc$/i.test(sortMode.value)
-        if (active) {
-          return h(isDesc ? MdiMenuDown : MdiMenuUp, {
-            style: 'line-height: 1; transform: scale(1.4)',
-          })
-        }
+        const current = parseSortMode(sortMode.value)
+        if (current.field !== item.sortField)
+          return
+        return h(current.desc ? MdiMenuDown : MdiMenuUp, {
+          style: 'line-height: 1; transform: scale(1.4)',
+        })
       },
     }
   }) as Column[]
@@ -348,6 +377,217 @@ const virtualGridSpacerStyle = computed(() => ({
 }))
 const virtualGridItemsStyle = computed(() => virtualGrid.gridStyle.value)
 
+type ListGroupBlock
+  = | { kind: 'header', id: string, label: string, collapsed: boolean }
+    | { kind: 'file', item: IEntry, index: number }
+
+type GridGroupBlock
+  = | { kind: 'header', id: string, label: string, collapsed: boolean }
+    | { kind: 'row', items: IEntry[] }
+
+const listGroupBlocks = computed(() => {
+  const groups = groupedFiles.value
+  if (!groups)
+    return []
+  const rowH = listRowHeight.value
+  const collapsed = collapsedGroupSet.value
+  const blocks: { key: string, height: number, data: ListGroupBlock }[] = []
+  for (const group of groups) {
+    const isCollapsed = collapsed.has(group.id)
+    blocks.push({
+      key: `h:${group.id}`,
+      height: GROUP_HEADER_HEIGHT,
+      data: { kind: 'header', id: group.id, label: group.label, collapsed: isCollapsed },
+    })
+    if (isCollapsed)
+      continue
+    group.items.forEach((item, index) => {
+      blocks.push({
+        key: `f:${item.name}`,
+        height: rowH,
+        data: { kind: 'file', item, index },
+      })
+    })
+  }
+  return blocks
+})
+
+const gridGroupBlocks = computed(() => {
+  const groups = groupedFiles.value
+  if (!groups)
+    return []
+  const cols = virtualGrid.columns.value
+  const rowH = virtualGrid.rowHeight.value
+  const collapsed = collapsedGroupSet.value
+  const blocks: { key: string, height: number, data: GridGroupBlock }[] = []
+  for (const group of groups) {
+    const isCollapsed = collapsed.has(group.id)
+    blocks.push({
+      key: `h:${group.id}`,
+      height: GROUP_HEADER_HEIGHT,
+      data: { kind: 'header', id: group.id, label: group.label, collapsed: isCollapsed },
+    })
+    if (isCollapsed)
+      continue
+    for (let i = 0; i < group.items.length; i += cols) {
+      const items = group.items.slice(i, i + cols)
+      blocks.push({
+        key: `r:${group.id}:${i}`,
+        height: rowH,
+        data: { kind: 'row', items },
+      })
+    }
+  }
+  return blocks
+})
+
+const groupedListVirtual = useVirtualBlocks({
+  blocks: listGroupBlocks,
+  containerRef: explorerContentRef,
+  overscan: 12,
+})
+const groupedGridVirtual = useVirtualBlocks({
+  blocks: gridGroupBlocks,
+  containerRef: explorerContentRef,
+  overscan: 4,
+})
+
+const tableVirtualRows = computed((): FileTableVirtualRow[] => {
+  if (!isGrouping.value)
+    return virtualList.visibleItems.value as FileTableVirtualRow[]
+  return groupedListVirtual.visibleBlocks.value.map((block) => {
+    if (block.data.kind === 'header') {
+      return {
+        kind: 'header',
+        id: block.data.id,
+        label: block.data.label,
+        collapsed: block.data.collapsed,
+        height: block.height,
+      }
+    }
+    return {
+      kind: 'file',
+      item: block.data.item,
+      index: block.data.index,
+      height: block.height,
+    }
+  })
+})
+const tableBeforeHeight = computed(() =>
+  isGrouping.value ? groupedListVirtual.beforeHeight.value : virtualList.beforeHeight.value,
+)
+const tableAfterHeight = computed(() =>
+  isGrouping.value ? groupedListVirtual.afterHeight.value : virtualList.afterHeight.value,
+)
+const groupedGridStyle = computed(() => ({
+  height: `${groupedGridVirtual.totalHeight.value}px`,
+}))
+const groupedGridSpacerStyle = computed(() => ({
+  height: `${groupedGridVirtual.beforeHeight.value}px`,
+}))
+
+const groupStickyTop = ref(0)
+const stickySlotWidth = ref(0)
+let stickyMetricsObserver: ResizeObserver | undefined
+
+function updateGroupStickyMetrics() {
+  const el = explorerContentRef.value
+  stickySlotWidth.value = el?.clientWidth ?? 0
+  if (!el || !isGrouping.value || isGridMode.value || emptyState.value) {
+    groupStickyTop.value = 0
+    return
+  }
+  const thead = el.querySelector('.explorer-list-view thead')
+  groupStickyTop.value = thead instanceof HTMLElement ? thead.offsetHeight : 0
+}
+
+function bindStickyMetricsObserver() {
+  stickyMetricsObserver?.disconnect()
+  const el = explorerContentRef.value
+  if (!el) {
+    stickyMetricsObserver = undefined
+    return
+  }
+  stickyMetricsObserver = new ResizeObserver(() => updateGroupStickyMetrics())
+  stickyMetricsObserver.observe(el)
+}
+
+watch(
+  [isGrouping, isGridMode, emptyState],
+  () => {
+    nextTick(() => {
+      bindStickyMetricsObserver()
+      updateGroupStickyMetrics()
+    })
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => stickyMetricsObserver?.disconnect())
+
+const stickyGroupSlotStyle = computed(() => ({
+  top: `${groupStickyTop.value}px`,
+  width: stickySlotWidth.value ? `${stickySlotWidth.value}px` : '100%',
+}))
+
+const stickyGroup = computed(() => {
+  if (!isGrouping.value)
+    return null
+  const virtual = isGridMode.value ? groupedGridVirtual : groupedListVirtual
+  const y = virtual.scrollTop.value
+  let current: { id: string, label: string, collapsed: boolean } | null = null
+  for (const block of virtual.positioned.value) {
+    if (block.data.kind !== 'header')
+      continue
+    if (block.top <= y)
+      current = block.data
+    else
+      break
+  }
+  return current
+})
+
+function toggleGroup(id: string) {
+  const path = basePath.value
+  const current = explorerStateMap.value[path] ?? {}
+  const next = new Set(current.collapsedGroups ?? [])
+  if (next.has(id))
+    next.delete(id)
+  else
+    next.add(id)
+  explorerStateMap.value[path] = { ...current, collapsedGroups: [...next] }
+}
+
+function setAllGroupsCollapsed(collapsed: boolean) {
+  const path = basePath.value
+  const current = explorerStateMap.value[path] ?? {}
+  explorerStateMap.value[path] = {
+    ...current,
+    collapsedGroups: collapsed ? (groupedFiles.value ?? []).map(group => group.id) : [],
+  }
+}
+
+function selectGroup(id: string) {
+  const group = groupedFiles.value?.find(item => item.id === id)
+  if (!group?.items.length)
+    return
+  if (!allowMultipleSelection.value) {
+    selectByNames([group.items[0].name])
+    return
+  }
+  const allSelected = group.items.every(item => selectedItemsSet.value.has(item))
+  selectByNames(allSelected ? [] : group.items.map(item => item.name))
+}
+
+function expandGroupForName(name: string) {
+  const groups = groupedFiles.value
+  if (!groups)
+    return
+  const group = groups.find(g => g.items.some(item => item.name === name))
+  if (group && collapsedGroupSet.value.has(group.id))
+    toggleGroup(group.id)
+}
+
 function getItemsInSelectionRect(rect: {
   left: number
   top: number
@@ -370,11 +610,6 @@ function getListItemsInSelectionRect(rect: {
   const contentEl = explorerContentRef.value
   const tableEl = contentEl?.querySelector('.explorer-list-view table')
   const headerHeight = contentEl?.querySelector('thead')?.getBoundingClientRect().height || listRowHeight.value
-  const listBottom = headerHeight + filteredFiles.value.length * virtualList.itemHeight.value
-
-  if (rect.top > listBottom || rect.bottom < headerHeight) {
-    return []
-  }
 
   if (contentEl && tableEl) {
     const contentRect = contentEl.getBoundingClientRect()
@@ -385,6 +620,26 @@ function getListItemsInSelectionRect(rect: {
     if (rect.left > tableRight || rect.right < tableLeft) {
       return []
     }
+  }
+
+  if (isGrouping.value) {
+    const top = rect.top - headerHeight
+    const bottom = rect.bottom - headerHeight
+    const items: IEntry[] = []
+    for (const block of groupedListVirtual.positioned.value) {
+      if (block.data.kind !== 'file')
+        continue
+      if (block.top + block.height < top || block.top > bottom)
+        continue
+      items.push(block.data.item)
+    }
+    return items
+  }
+
+  const listBottom = headerHeight + filteredFiles.value.length * virtualList.itemHeight.value
+
+  if (rect.top > listBottom || rect.bottom < headerHeight) {
+    return []
   }
 
   const startIndex = clampIndex(Math.floor((rect.top - headerHeight) / virtualList.itemHeight.value))
@@ -405,6 +660,28 @@ function getGridItemsInSelectionRect(rect: {
   const itemHeight = virtualGrid.itemHeight.value
   const cellWidth = itemWidth + gap
   const cellHeight = itemHeight + gap
+
+  if (isGrouping.value) {
+    const items: IEntry[] = []
+    for (const block of groupedGridVirtual.positioned.value) {
+      if (block.data.kind !== 'row')
+        continue
+      if (block.top + block.height < rect.top || block.top > rect.bottom)
+        continue
+      block.data.items.forEach((item, column) => {
+        const itemRect = {
+          left: padding + column * cellWidth,
+          top: block.top,
+          right: padding + column * cellWidth + itemWidth,
+          bottom: block.top + itemHeight,
+        }
+        if (rectsIntersect(rect, itemRect))
+          items.push(item)
+      })
+    }
+    return items
+  }
+
   const columns = virtualGrid.columns.value
   const totalRows = Math.ceil(filteredFiles.value.length / columns)
   const startRow = Math.max(Math.floor((rect.top - padding) / cellHeight) - 1, 0)
@@ -814,6 +1091,41 @@ async function handleRename() {
   focusFileList()
 }
 
+function viewMenuItems(): MenuItem[] {
+  const items: MenuItem[] = [
+    {
+      label: 'List',
+      icon: isGridView.value ? '' : 'mdi mdi-check',
+      onClick: () => {
+        isGridView.value = false
+      },
+    },
+    {
+      label: 'Grid',
+      icon: isGridView.value ? 'mdi mdi-check' : '',
+      divided: isGrouping.value,
+      onClick: () => {
+        isGridView.value = true
+      },
+    },
+  ]
+  if (isGrouping.value) {
+    items.push(
+      {
+        label: 'Expand all groups',
+        icon: 'mdi mdi-unfold-more-horizontal',
+        onClick: () => setAllGroupsCollapsed(false),
+      },
+      {
+        label: 'Collapse all groups',
+        icon: 'mdi mdi-unfold-less-horizontal',
+        onClick: () => setAllGroupsCollapsed(true),
+      },
+    )
+  }
+  return items
+}
+
 function getMenuOptions() {
   // 选择器只负责挑条目：菜单里只有 Select，不提供打开 / 传输 / 删除等操作
   if (selectFileMode.value) {
@@ -836,52 +1148,63 @@ function getMenuOptions() {
     ]
   }
 
-  let contextMenuOptions: MenuItem[] = []
-  if (selectedItems.value.length) {
-    contextMenuOptions = ctxMenuOptions.value
-  }
-  else {
-    contextMenuOptions = [
-      {
-        label: 'Create File',
-        icon: 'mdi mdi-file-document-plus-outline',
-        onClick() {
-          handleCreateFile()
+  if (selectedItems.value.length)
+    return ctxMenuOptions.value
+
+  return [
+    {
+      label: 'View',
+      icon: 'mdi mdi-eye-outline',
+      children: viewMenuItems(),
+    },
+    {
+      label: 'Sort',
+      icon: 'mdi mdi-sort-alphabetical-variant',
+      children: sortOptions.value,
+    },
+    {
+      label: 'Group by',
+      icon: 'mdi mdi-format-list-group',
+      children: groupOptions.value,
+      divided: true,
+    },
+    {
+      label: 'New',
+      icon: 'mdi mdi-plus',
+      children: [
+        {
+          label: 'File',
+          icon: 'mdi mdi-file-document-plus-outline',
+          onClick() {
+            handleCreateFile()
+          },
         },
-      },
-      {
-        label: 'Create Folder',
-        icon: 'mdi mdi-folder-plus-outline',
-        onClick() {
-          handleCreateFolder()
+        {
+          label: 'Folder',
+          icon: 'mdi mdi-folder-plus-outline',
+          onClick() {
+            handleCreateFolder()
+          },
         },
-        divided: true,
+      ],
+    },
+    {
+      label: 'Upload Files...',
+      icon: 'mdi mdi-file-upload-outline',
+      onClick() {
+        selectUploadFiles()
       },
-      {
-        label: 'Upload Files...',
-        icon: 'mdi mdi-file-upload-outline',
-        onClick() {
-          selectUploadFiles()
-        },
+    },
+    {
+      label: 'Upload Folder...',
+      icon: 'mdi mdi-folder-upload-outline',
+      onClick() {
+        selectUploadFolder()
       },
-      {
-        label: 'Upload Folder...',
-        icon: 'mdi mdi-folder-upload-outline',
-        onClick() {
-          selectUploadFolder()
-        },
-        divided: true,
-      },
-      {
-        label: 'Sort',
-        icon: 'mdi mdi-sort-alphabetical-variant',
-        children: sortOptions.value,
-        divided: true,
-      },
-      ...ctxMenuOptions.value,
-    ]
-  }
-  return contextMenuOptions
+      divided: true,
+    },
+    ...ctxMenuOptions.value,
+  ]
 }
 
 function updateMenuOptions(item: IEntry | null, event: MouseEvent | KeyboardEvent) {
@@ -903,7 +1226,7 @@ function updateMenuOptions2(event: MouseEvent) {
 }
 
 function selectKeyboardItem(index: number) {
-  const items = filteredFiles.value
+  const items = keyboardFiles.value
   if (!items.length) {
     return
   }
@@ -915,11 +1238,11 @@ function selectKeyboardItem(index: number) {
   }
 
   selectByNames([nextItem.name])
-  nextTick(() => scrollToItemIndex(nextIndex))
+  nextTick(() => scrollToFile(nextItem.name))
 }
 
 function moveKeyboardSelection(offset: number) {
-  const items = filteredFiles.value
+  const items = keyboardFiles.value
   if (!items.length) {
     return
   }
@@ -1043,7 +1366,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
   combo: 'end',
-  handler: () => selectKeyboardItem(filteredFiles.value.length - 1),
+  handler: () => selectKeyboardItem(keyboardFiles.value.length - 1),
 })
 
 // 缓存滚动位置
@@ -1060,21 +1383,57 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0) {
   }
 }
 
-function scrollToItemIndex(index: number) {
+function scrollToFile(name: string) {
   const el = explorerContentRef.value
-  if (!el || index < 0) {
+  if (!el) {
     return
   }
 
-  const targetTop = isGridMode.value
-    ? 10 + Math.floor(index / virtualGrid.columns.value) * virtualGrid.rowHeight.value
-    : index * virtualList.itemHeight.value
-  const itemHeight = isGridMode.value ? virtualGrid.rowHeight.value : virtualList.itemHeight.value
-  const scrollTop = Math.max(targetTop - (el.clientHeight - itemHeight) / 2, 0)
+  expandGroupForName(name)
 
-  el.scrollTop = scrollTop
-  virtualList.refresh()
-  virtualGrid.refresh()
+  nextTick(() => {
+    let targetTop = 0
+    let itemHeight = virtualList.itemHeight.value
+
+    if (isGrouping.value && isGridMode.value) {
+      const block = groupedGridVirtual.positioned.value.find(b =>
+        b.data.kind === 'row' && b.data.items.some(item => item.name === name),
+      )
+      if (!block)
+        return
+      targetTop = block.top
+      itemHeight = block.height
+    }
+    else if (isGrouping.value) {
+      const block = groupedListVirtual.positioned.value.find(b =>
+        b.data.kind === 'file' && b.data.item.name === name,
+      )
+      if (!block)
+        return
+      const headerHeight = el.querySelector('thead')?.getBoundingClientRect().height || listRowHeight.value
+      targetTop = headerHeight + block.top
+      itemHeight = block.height
+    }
+    else if (isGridMode.value) {
+      const index = filteredFiles.value.findIndex(item => item.name === name)
+      if (index < 0)
+        return
+      targetTop = 10 + Math.floor(index / virtualGrid.columns.value) * virtualGrid.rowHeight.value
+      itemHeight = virtualGrid.rowHeight.value
+    }
+    else {
+      const index = filteredFiles.value.findIndex(item => item.name === name)
+      if (index < 0)
+        return
+      targetTop = index * virtualList.itemHeight.value
+    }
+
+    el.scrollTop = Math.max(targetTop - (el.clientHeight - itemHeight) / 2, 0)
+    virtualList.refresh()
+    virtualGrid.refresh()
+    groupedListVirtual.refresh()
+    groupedGridVirtual.refresh()
+  })
 }
 
 function selectAndReveal(name: string) {
@@ -1084,7 +1443,7 @@ function selectAndReveal(name: string) {
   }
 
   selectByNames([name])
-  nextTick(() => scrollToItemIndex(index))
+  nextTick(() => scrollToFile(name))
 }
 
 /**
@@ -1098,9 +1457,13 @@ function restoreViewport() {
   nextTick(() => {
     virtualList.refresh()
     virtualGrid.refresh()
+    groupedListVirtual.refresh()
+    groupedGridVirtual.refresh()
     getSetScrollPosition('set', position)
     virtualList.refresh()
     virtualGrid.refresh()
+    groupedListVirtual.refresh()
+    groupedGridVirtual.refresh()
   })
 }
 
@@ -1291,86 +1654,141 @@ defineExpose({
       </div>
     </div>
 
-    <div
-      ref="explorerContentRef"
-      class="explorer-content"
-      @click.capture="handleContentClickCapture"
-      @click="handleContentClick"
-      @mousedown="handleContentMouseDown"
-      @dragstart="onRowDragStart"
-      @dragover="onContentDragOver"
-      @dragleave="onContentDragLeave"
-      @drop="onContentDrop"
-      @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
-    >
+    <div class="explorer-body">
       <div
-        v-if="selectionBoxStyle"
-        class="explorer-selection-box"
-        :style="selectionBoxStyle"
-      />
-      <div v-if="emptyState" class="vgo-empty explorer-empty-state">
-        <MdiIcon class="vgo-empty__icon" :name="emptyState.icon" />
-        <div class="vgo-empty__title">
-          {{ emptyState.title }}
-        </div>
-        <div class="vgo-empty__desc">
-          {{ emptyState.description }}
-        </div>
-        <button
-          v-if="emptyState.showClear && !selectFileMode"
-          class="vgo-button"
-          @click.stop="emit('clearFilter')"
-        >
-          <i-mdi-filter-remove-outline />
-          Clear filter
-        </button>
-        <button
-          v-if="emptyState.showRetry && !selectFileMode"
-          class="vgo-button"
-          @click.stop="emit('refresh')"
-        >
-          <i-mdi-reload />
-          Try again
-        </button>
-      </div>
-      <div v-else-if="!isGridMode" class="explorer-list-view">
-        <FileTable
-          v-model:selected-rows="selectedItemsSet"
-          :columns="tableColumns"
-          :data="filteredFiles"
-          :virtual-rows="virtualList.visibleItems.value"
-          :virtual-before-height="virtualList.beforeHeight.value"
-          :virtual-after-height="virtualList.afterHeight.value"
-          :virtual-row-height="virtualList.itemHeight.value"
-          :get-tooltip="(row) => getTooltip(row)"
-          :cut-names="currentCutNames"
-          :draggable="dragEnabled"
-          :drop-target-name="dropTargetName"
-          :custom-toggle="toggleSelect"
-          :row-contextmenu="updateMenuOptions"
-          @open="(row) => emit('open', { item: row })"
-        />
-      </div>
-      <div v-else class="explorer-grid-view" :style="virtualGridStyle">
-        <div class="explorer-grid-spacer" :style="virtualGridSpacerStyle" aria-hidden="true" />
-        <div class="explorer-grid-items" :style="virtualGridItemsStyle">
-          <FileGridItem
-            v-for="{ item } in virtualGrid.visibleItems.value"
-            :key="item.name"
-            class="selectable"
-            :item="item"
-            :base-path="basePath"
-            :data-name="item.name"
-            :active="selectedItemsSet.has(item)"
-            :is-cut="currentCutNames.has(item.name)"
-            :draggable="dragEnabled"
-            :is-drop-target="dropTargetName === item.name"
-            :show-checkbox="allowMultipleSelection"
-            :icon-size="iconSizeGrid"
-            @open="(i) => emit('open', i)"
-            @select="toggleSelect"
-            @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
+        v-if="stickyGroup && (isGridMode || groupStickyTop > 0)"
+        class="explorer-sticky-group-slot"
+        :style="stickyGroupSlotStyle"
+      >
+        <div class="explorer-sticky-group-slot__bar">
+          <FileGroupHeader
+            :label="stickyGroup.label"
+            :collapsed="stickyGroup.collapsed"
+            @toggle="toggleGroup(stickyGroup.id)"
+            @select="selectGroup(stickyGroup.id)"
+            @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
           />
+        </div>
+      </div>
+      <div
+        ref="explorerContentRef"
+        class="explorer-content"
+        @click.capture="handleContentClickCapture"
+        @click="handleContentClick"
+        @mousedown="handleContentMouseDown"
+        @dragstart="onRowDragStart"
+        @dragover="onContentDragOver"
+        @dragleave="onContentDragLeave"
+        @drop="onContentDrop"
+        @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
+      >
+        <div
+          v-if="selectionBoxStyle"
+          class="explorer-selection-box"
+          :style="selectionBoxStyle"
+        />
+        <div v-if="emptyState" class="vgo-empty explorer-empty-state">
+          <MdiIcon class="vgo-empty__icon" :name="emptyState.icon" />
+          <div class="vgo-empty__title">
+            {{ emptyState.title }}
+          </div>
+          <div class="vgo-empty__desc">
+            {{ emptyState.description }}
+          </div>
+          <button
+            v-if="emptyState.showClear && !selectFileMode"
+            class="vgo-button"
+            @click.stop="emit('clearFilter')"
+          >
+            <i-mdi-filter-remove-outline />
+            Clear filter
+          </button>
+          <button
+            v-if="emptyState.showRetry && !selectFileMode"
+            class="vgo-button"
+            @click.stop="emit('refresh')"
+          >
+            <i-mdi-reload />
+            Try again
+          </button>
+        </div>
+        <div v-else-if="!isGridMode" class="explorer-list-view">
+          <FileTable
+            v-model:selected-rows="selectedItemsSet"
+            :columns="tableColumns"
+            :data="filteredFiles"
+            :virtual-rows="tableVirtualRows"
+            :virtual-before-height="tableBeforeHeight"
+            :virtual-after-height="tableAfterHeight"
+            :virtual-row-height="virtualList.itemHeight.value"
+            :get-tooltip="(row) => getTooltip(row)"
+            :cut-names="currentCutNames"
+            :draggable="dragEnabled"
+            :drop-target-name="dropTargetName"
+            :custom-toggle="toggleSelect"
+            :row-contextmenu="updateMenuOptions"
+            @open="(row) => emit('open', { item: row })"
+            @toggle-group="toggleGroup"
+            @select-group="selectGroup"
+          />
+        </div>
+        <div v-else-if="isGrouping" class="explorer-grid-view" :style="groupedGridStyle">
+          <div class="explorer-grid-spacer" :style="groupedGridSpacerStyle" aria-hidden="true" />
+          <template v-for="block in groupedGridVirtual.visibleBlocks.value" :key="block.key">
+            <FileGroupHeader
+              v-if="block.data.kind === 'header'"
+              :label="block.data.label"
+              :collapsed="block.data.collapsed"
+              @toggle="toggleGroup(block.data.id)"
+              @select="selectGroup(block.data.id)"
+              @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
+            />
+            <div
+              v-else
+              class="explorer-grid-items"
+              :style="{ ...virtualGridItemsStyle, height: `${block.height}px` }"
+            >
+              <FileGridItem
+                v-for="item in block.data.items"
+                :key="item.name"
+                class="selectable"
+                :item="item"
+                :base-path="basePath"
+                :data-name="item.name"
+                :active="selectedItemsSet.has(item)"
+                :is-cut="currentCutNames.has(item.name)"
+                :draggable="dragEnabled"
+                :is-drop-target="dropTargetName === item.name"
+                :show-checkbox="allowMultipleSelection"
+                :icon-size="iconSizeGrid"
+                @open="(i) => emit('open', i)"
+                @select="toggleSelect"
+                @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
+              />
+            </div>
+          </template>
+        </div>
+        <div v-else class="explorer-grid-view" :style="virtualGridStyle">
+          <div class="explorer-grid-spacer" :style="virtualGridSpacerStyle" aria-hidden="true" />
+          <div class="explorer-grid-items" :style="virtualGridItemsStyle">
+            <FileGridItem
+              v-for="{ item } in virtualGrid.visibleItems.value"
+              :key="item.name"
+              class="selectable"
+              :item="item"
+              :base-path="basePath"
+              :data-name="item.name"
+              :active="selectedItemsSet.has(item)"
+              :is-cut="currentCutNames.has(item.name)"
+              :draggable="dragEnabled"
+              :is-drop-target="dropTargetName === item.name"
+              :show-checkbox="allowMultipleSelection"
+              :icon-size="iconSizeGrid"
+              @open="(i) => emit('open', i)"
+              @select="toggleSelect"
+              @contextmenu.prevent.stop="updateMenuOptions(item, $event)"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -1444,12 +1862,38 @@ defineExpose({
     }
   }
 
+  .explorer-body {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .explorer-content {
     padding: 0 2px;
     flex: 1;
     overflow: auto;
     user-select: none;
     position: relative;
+  }
+
+  .explorer-sticky-group-slot {
+    position: absolute;
+    left: 0;
+    height: 0;
+    z-index: var(--vgo-z-sticky);
+    overflow: visible;
+    pointer-events: none;
+    :deep(.file-group-header) {
+      pointer-events: auto;
+    }
+  }
+
+  .explorer-sticky-group-slot__bar {
+    background-color: var(--vgo-surface);
+    pointer-events: auto;
   }
 
   .explorer-selection-box {

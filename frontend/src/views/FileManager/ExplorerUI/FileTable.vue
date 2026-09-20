@@ -2,6 +2,7 @@
 import type { IEntry } from '@/types/server.ts'
 import { VueRender } from '@canwdev/vgo-ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import FileGroupHeader from './FileGroupHeader.vue'
 
 // 表头列配置接口
 export interface Column {
@@ -16,16 +17,15 @@ export interface Column {
   sortModes?: any[]
 }
 
-interface VirtualRow {
-  item: any
-  index: number
-}
+export type FileTableVirtualRow
+  = | { kind?: 'file', item: any, index: number, height?: number }
+    | { kind: 'header', id: string, label: string, collapsed: boolean, height?: number }
 
 const props = withDefaults(
   defineProps<{
     columns: Column[]
     data: any[]
-    virtualRows?: VirtualRow[]
+    virtualRows?: FileTableVirtualRow[]
     virtualBeforeHeight?: number
     virtualAfterHeight?: number
     virtualRowHeight?: number
@@ -49,7 +49,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['update:selectedRows', 'open'])
+const emit = defineEmits(['update:selectedRows', 'open', 'toggleGroup', 'selectGroup'])
 
 const { selectedRows, data } = toRefs(props)
 const mSelectedRows = ref(new Set())
@@ -57,6 +57,18 @@ const renderedRows = computed(() => {
   return props.virtualRows ?? data.value.map((item, index) => ({ item, index }))
 })
 const columnSpan = computed(() => props.columns.length + 1)
+
+function isGroupHeader(row: any): row is Extract<FileTableVirtualRow, { kind: 'header' }> {
+  return row?.kind === 'header'
+}
+
+function fileOf(row: any) {
+  return row.item ?? row
+}
+
+function rowFileHeight(row: FileTableVirtualRow | { item: any, index: number, height?: number }) {
+  return 'height' in row ? row.height : undefined
+}
 
 watch(
   selectedRows,
@@ -248,51 +260,68 @@ onBeforeUnmount(() => {
         <tr v-if="virtualBeforeHeight" class="virtual-spacer" aria-hidden="true">
           <td :colspan="columnSpan" :style="{ height: `${virtualBeforeHeight}px` }" />
         </tr>
-        <tr
-          v-for="{ item: row, index } in renderedRows"
-          :key="row.id || row.name || index"
-          class="vgo-list-item table-row selectable"
-          :class="{
-            'is-active': mSelectedRows.has(row),
-            'is-cut': cutNames?.has(row.name),
-            'is-drop-target': dropTargetName === row.name,
-          }"
-          :draggable="draggable"
-          :style="virtualRowHeight ? { height: `${virtualRowHeight}px` } : undefined"
-          :title="getTooltip ? getTooltip(row) : ''"
-          :data-name="row.name"
-          @click.stop="toggleRowSelection(row, $event)"
-          @dblclick.stop="$emit('open', row)"
-          @contextmenu.prevent.stop="
-            rowContextmenu ? rowContextmenu(row, $event) : () => {}
-          "
-        >
-          <td
-            class="checkbox-col"
-            @click.stop="toggleRowSelection(row, $event, true)"
+        <template v-for="(row, index) in renderedRows" :key="isGroupHeader(row) ? row.id : (fileOf(row).name || index)">
+          <tr
+            v-if="isGroupHeader(row)"
+            class="group-header-row"
+            :style="row.height ? { height: `${row.height}px` } : undefined"
+            @contextmenu.prevent.stop="rowContextmenu ? rowContextmenu(null, $event) : () => {}"
+            @mousedown.stop
           >
-            <MdiIcon
-              :name="mSelectedRows.has(row) ? 'checkbox-marked' : 'checkbox-blank-outline'"
-              class="checkbox checkbox-auto-hidden"
-            />
-          </td>
-          <td
-            v-for="column in columns"
-            :key="column.key"
-            :style="getColumnStyle(column)"
-          >
-            <slot :name="`cell-${column.key}`" :row="row" :column="column">
-              <VueRender
-                v-if="column.render"
-                :render-fn="column.render"
-                :params="row"
+            <td :colspan="columnSpan" class="group-header-cell">
+              <FileGroupHeader
+                :label="row.label"
+                :collapsed="row.collapsed"
+                @toggle="$emit('toggleGroup', row.id)"
+                @select="$emit('selectGroup', row.id)"
               />
-              <template v-else>
-                {{ getRowValue(row, column) }}
-              </template>
-            </slot>
-          </td>
-        </tr>
+            </td>
+          </tr>
+          <tr
+            v-else
+            class="vgo-list-item table-row selectable"
+            :class="{
+              'is-active': mSelectedRows.has(fileOf(row)),
+              'is-cut': cutNames?.has(fileOf(row).name),
+              'is-drop-target': dropTargetName === fileOf(row).name,
+            }"
+            :draggable="draggable"
+            :style="(rowFileHeight(row) ?? virtualRowHeight) ? { height: `${rowFileHeight(row) ?? virtualRowHeight}px` } : undefined"
+            :title="getTooltip ? getTooltip(fileOf(row)) : ''"
+            :data-name="fileOf(row).name"
+            @click.stop="toggleRowSelection(fileOf(row), $event)"
+            @dblclick.stop="$emit('open', fileOf(row))"
+            @contextmenu.prevent.stop="
+              rowContextmenu ? rowContextmenu(fileOf(row), $event) : () => {}
+            "
+          >
+            <td
+              class="checkbox-col"
+              @click.stop="toggleRowSelection(fileOf(row), $event, true)"
+            >
+              <MdiIcon
+                :name="mSelectedRows.has(fileOf(row)) ? 'checkbox-marked' : 'checkbox-blank-outline'"
+                class="checkbox checkbox-auto-hidden"
+              />
+            </td>
+            <td
+              v-for="column in columns"
+              :key="column.key"
+              :style="getColumnStyle(column)"
+            >
+              <slot :name="`cell-${column.key}`" :row="fileOf(row)" :column="column">
+                <VueRender
+                  v-if="column.render"
+                  :render-fn="column.render"
+                  :params="fileOf(row)"
+                />
+                <template v-else>
+                  {{ getRowValue(fileOf(row), column) }}
+                </template>
+              </slot>
+            </td>
+          </tr>
+        </template>
         <tr v-if="virtualAfterHeight" class="virtual-spacer" aria-hidden="true">
           <td :colspan="columnSpan" :style="{ height: `${virtualAfterHeight}px` }" />
         </tr>
@@ -325,6 +354,9 @@ onBeforeUnmount(() => {
     position: sticky;
     top: 0;
     z-index: var(--vgo-z-sticky);
+    th {
+      background-color: var(--vgo-surface);
+    }
   }
 
   th {
@@ -364,6 +396,13 @@ onBeforeUnmount(() => {
     td {
       padding: 0;
       border: 0;
+    }
+  }
+
+  .group-header-row {
+    .group-header-cell {
+      padding: 0;
+      overflow: visible;
     }
   }
 

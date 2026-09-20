@@ -2,8 +2,38 @@
  * 修改自GAGU
  * gagu-front-end/src/utils/sorter.util.ts
  */
-import type { IEntry } from '@/types/server'
-import { SortType } from '@/types/server'
+import type { IEntry } from '../../../types/server'
+import { SortType } from '../../../types/server'
+
+/** 排序字段。方向是另一轴；分组按同一字段切桶。 */
+export const SORT_FIELDS = ['name', 'extension', 'size', 'lastModified', 'birthTime'] as const
+export type SortField = (typeof SORT_FIELDS)[number]
+
+export const SORT_FIELD_LABELS: Record<SortField, string> = {
+  name: 'Name',
+  extension: 'Extension',
+  size: 'Size',
+  lastModified: 'Last Modified',
+  birthTime: 'Created Time',
+}
+
+const SORT_FIELD_SET = new Set<string>(SORT_FIELDS)
+
+export function parseSortMode(mode: SortType): { field: SortField, desc: boolean } {
+  if (mode === SortType.default)
+    return { field: 'name', desc: false }
+
+  const desc = mode.endsWith('Desc')
+  const field = desc ? mode.slice(0, -4) : mode
+  if (!SORT_FIELD_SET.has(field))
+    return { field: 'name', desc: false }
+
+  return { field: field as SortField, desc }
+}
+
+export function composeSortMode(field: SortField, desc: boolean): SortType {
+  return (desc ? `${field}Desc` : field) as SortType
+}
 
 /** 「文件夹在前」的顺序层：目录始终排在文件前面，与具体排序方式叠加 */
 export function foldersFirstSorter(a: IEntry, b: IEntry) {
@@ -14,61 +44,33 @@ export function nameSorter(a: IEntry, b: IEntry) {
   return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-export function nameDescSorter(a: IEntry, b: IEntry) {
-  return -a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-}
-
 export function sizeSorter(a: IEntry, b: IEntry) {
   return (a.size || 0) - (b.size || 0)
-}
-
-export function sizeDescSorter(a: IEntry, b: IEntry) {
-  return -((a.size || 0) - (b.size || 0))
 }
 
 export function extensionSorter(a: IEntry, b: IEntry) {
   return a.ext.localeCompare(b.ext, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-export function extensionDescSorter(a: IEntry, b: IEntry) {
-  return -a.ext.localeCompare(b.ext, undefined, { numeric: true, sensitivity: 'base' })
-}
-
 export function lastModifiedSorter(a: IEntry, b: IEntry) {
   return a.lastModified - b.lastModified
-}
-
-export function lastModifiedDescSorter(a: IEntry, b: IEntry) {
-  return -(a.lastModified - b.lastModified)
 }
 
 export function birthTimeSorter(a: IEntry, b: IEntry) {
   return a.birthtime - b.birthtime
 }
 
-export function birthTimeDescSorter(a: IEntry, b: IEntry) {
-  return -(a.birthtime - b.birthtime)
-}
-
-export const sortMethodMap = {
-  // 默认排序的「文件夹在前」由 sortEntries 的 foldersFirst 决定，这里只提供名称顺序
-  [SortType.default]: nameSorter,
-  [SortType.name]: nameSorter,
-  [SortType.nameDesc]: nameDescSorter,
-  [SortType.size]: sizeSorter,
-  [SortType.sizeDesc]: sizeDescSorter,
-  [SortType.extension]: extensionSorter,
-  [SortType.extensionDesc]: extensionDescSorter,
-  [SortType.lastModified]: lastModifiedSorter,
-  [SortType.lastModifiedDesc]: lastModifiedDescSorter,
-  [SortType.birthTime]: birthTimeSorter,
-  [SortType.birthTimeDesc]: birthTimeDescSorter,
+const sortByField: Record<SortField, (a: IEntry, b: IEntry) => number> = {
+  name: nameSorter,
+  extension: extensionSorter,
+  size: sizeSorter,
+  lastModified: lastModifiedSorter,
+  birthTime: birthTimeSorter,
 }
 
 /**
  * 与资源管理器一致的列表处理：剔除隐藏/错误项后排序（返回新数组）。
- * `foldersFirst` 为真时先按「目录在前」分层，再套用具体排序方式；
- * 默认排序本身只按名称，所以文件夹在前完全由这个开关决定。
+ * `foldersFirst` 为真时先按「目录在前」分层，再套用字段比较；递减只是把比较结果取反。
  */
 export function sortEntries(
   files: IEntry[],
@@ -76,7 +78,8 @@ export function sortEntries(
   showHidden: boolean,
   foldersFirst = true,
 ) {
-  const sorter = sortMethodMap[sortMode]
+  const { field, desc } = parseSortMode(sortMode)
+  const sorter = sortByField[field]
   return files
     .filter(item => showHidden || (!item.hidden && !item.error))
     .sort((a, b) => {
@@ -85,6 +88,7 @@ export function sortEntries(
         if (typeDirection !== 0)
           return typeDirection
       }
-      return sorter(a, b)
+      const cmp = sorter(a, b)
+      return desc ? -cmp : cmp
     })
 }
