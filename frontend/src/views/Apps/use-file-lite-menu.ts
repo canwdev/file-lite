@@ -342,6 +342,13 @@ export function useFileLiteMenu() {
                     localSettingsStore.value.openAppWithFilteredList = !localSettingsStore.value.openAppWithFilteredList
                   },
                 },
+                {
+                  icon: localSettingsStore.value.sortFoldersFirst ? 'mdi mdi-check' : '',
+                  label: 'Show folders first',
+                  onClick: () => {
+                    localSettingsStore.value.sortFoldersFirst = !localSettingsStore.value.sortFoldersFirst
+                  },
+                },
               ],
               divided: true,
             },

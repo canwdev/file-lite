@@ -60,7 +60,12 @@ async function readDir(ctx: WalkContext, path: string): Promise<IEntry[]> {
     // 无权限等读取失败按空目录处理，继续扫描
   }
 
-  const entries = sortEntries(list, getPathSortMode(key), localSettingsStore.value.showHidden)
+  const entries = sortEntries(
+    list,
+    getPathSortMode(key),
+    localSettingsStore.value.showHidden,
+    localSettingsStore.value.sortFoldersFirst,
+  )
   ctx.cache.set(key, entries)
   return entries
 }

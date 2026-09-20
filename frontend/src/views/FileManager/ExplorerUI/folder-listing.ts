@@ -96,7 +96,12 @@ export function readFolderRawList(path: string, opts: { force?: boolean } = {}):
 /** 按目标目录自身的排序与隐藏文件设置整理一份原始列表 */
 export function applyFolderListSort(path: string, rawList: IEntry[]): IEntry[] {
   const key = normalizeListingPath(path)
-  return sortEntries(rawList, getPathSortMode(key), localSettingsStore.value.showHidden)
+  return sortEntries(
+    rawList,
+    getPathSortMode(key),
+    localSettingsStore.value.showHidden,
+    localSettingsStore.value.sortFoldersFirst,
+  )
 }
 
 /** 已缓存目录的排序结果；未缓存返回空数组且不会发起请求 */

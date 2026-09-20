@@ -39,6 +39,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - File icons are outline glyphs, and PDFs, Word, Excel, PowerPoint and Windows binaries each have their own icon (frontend).
 - In the filter bar the case-sensitive toggle sits before the regular-expression one (frontend).
 - The transfer panel sits below floating windows so it no longer covers them (frontend).
+- Config → App Settings has a "Show folders first" switch that decides whether folders stay grouped above files after sorting; it is on by default (frontend).
 
 ### Features
 

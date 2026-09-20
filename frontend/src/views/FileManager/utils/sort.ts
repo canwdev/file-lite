@@ -5,13 +5,9 @@
 import type { IEntry } from '@/types/server'
 import { SortType } from '@/types/server'
 
-export function defaultSorter(a: IEntry, b: IEntry) {
-  const aVal = a.isDirectory ? 1 : 2
-  const bVal = b.isDirectory ? 1 : 2
-  const typeDirection = aVal - bVal
-  if (typeDirection !== 0)
-    return typeDirection
-  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+/** 「文件夹在前」的顺序层：目录始终排在文件前面，与具体排序方式叠加 */
+export function foldersFirstSorter(a: IEntry, b: IEntry) {
+  return Number(b.isDirectory) - Number(a.isDirectory)
 }
 
 export function nameSorter(a: IEntry, b: IEntry) {
@@ -55,7 +51,8 @@ export function birthTimeDescSorter(a: IEntry, b: IEntry) {
 }
 
 export const sortMethodMap = {
-  [SortType.default]: defaultSorter,
+  // 默认排序的「文件夹在前」由 sortEntries 的 foldersFirst 决定，这里只提供名称顺序
+  [SortType.default]: nameSorter,
   [SortType.name]: nameSorter,
   [SortType.nameDesc]: nameDescSorter,
   [SortType.size]: sizeSorter,
@@ -68,9 +65,26 @@ export const sortMethodMap = {
   [SortType.birthTimeDesc]: birthTimeDescSorter,
 }
 
-/** 与资源管理器一致的列表处理：剔除隐藏/错误项后排序（返回新数组） */
-export function sortEntries(files: IEntry[], sortMode: SortType, showHidden: boolean) {
+/**
+ * 与资源管理器一致的列表处理：剔除隐藏/错误项后排序（返回新数组）。
+ * `foldersFirst` 为真时先按「目录在前」分层，再套用具体排序方式；
+ * 默认排序本身只按名称，所以文件夹在前完全由这个开关决定。
+ */
+export function sortEntries(
+  files: IEntry[],
+  sortMode: SortType,
+  showHidden: boolean,
+  foldersFirst = true,
+) {
+  const sorter = sortMethodMap[sortMode]
   return files
     .filter(item => showHidden || (!item.hidden && !item.error))
-    .sort(sortMethodMap[sortMode])
+    .sort((a, b) => {
+      if (foldersFirst) {
+        const typeDirection = foldersFirstSorter(a, b)
+        if (typeDirection !== 0)
+          return typeDirection
+      }
+      return sorter(a, b)
+    })
 }

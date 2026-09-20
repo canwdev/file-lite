@@ -54,6 +54,8 @@ function createDefaultLocalSettingsStore() {
     /** 左侧导航（explorer-sidebar）是否显示 */
     sidebarVisible: true,
     showHidden: false,
+    /** 排序后是否把文件夹排在文件前面 */
+    sortFoldersFirst: true,
     isGridView: false,
     iconSizeList: 16,
     iconSizeGrid: 48,

@@ -1,5 +1,6 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
+import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { sortEntries } from '../../utils/sort'
 
@@ -31,7 +32,9 @@ export function useLayoutSort(
       }
     })
   })
-  const sortedFiles = computed(() => sortEntries(files.value, sortMode.value, showHidden.value))
+  const sortedFiles = computed(() =>
+    sortEntries(files.value, sortMode.value, showHidden.value, localSettingsStore.value.sortFoldersFirst),
+  )
 
   return {
     sortOptions,
