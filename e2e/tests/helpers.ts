@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { createDragFixture, PASSWORD, PORT, filesDir, uploadDir } from '../scripts/fixture.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-export const screenshotsDir = path.resolve(here, '..', 'screenshots')
+const screenshotsDir = path.resolve(here, '..', 'screenshots')
 
 export const sourceDir = path.join(filesDir, 'source')
 export const targetDir = path.join(filesDir, 'target')
@@ -262,12 +262,6 @@ export function paneCrumb(page: Page, index: number) {
   return pane(page, index).locator('.address-bar__crumb-text').last()
 }
 
-/** 在指定的拆分面板里进入子目录。 */
-export async function openFolderInPane(page: Page, index: number, name: string) {
-  await paneRow(page, index, name).dblclick()
-  await expect(paneCrumb(page, index)).toHaveText(name)
-}
-
 /**
  * 进入子目录，并等到目录真的切过去。
  * 不能只等「旧行消失」：目标行本来就不在当前目录里，那个条件会立刻成立，
@@ -307,6 +301,43 @@ export async function paste(page: Page) {
 }
 
 /**
+ * 「把源目录里的一个条目复制到目标目录」的固定流程：
+ * 进入源目录 → 选中 → 复制 → 返回 →（可选夹具改动）→ 进入目标 → 粘贴。
+ *
+ * 02 / 04 / 05 里重复出现；抽出来让流程变化只改一处。
+ */
+export async function copyEntryInto(
+  page: Page,
+  options: {
+    from: string
+    name: string
+    to: string
+    /** 返回根目录之后、进入目标目录之前要做的夹具改动（失败用例用）。 */
+    beforeTarget?: () => void | Promise<void>
+  },
+) {
+  await openFolder(page, options.from)
+  await selectItem(page, options.name)
+  await copy(page)
+  await expectClipboardReady(page)
+  await goBack(page)
+  await options.beforeTarget?.()
+  await openFolder(page, options.to)
+  await paste(page)
+}
+
+/**
+ * 触发一次「上传文件」：点工具栏按钮并给系统文件选择框塞一个文件。
+ * 原生选择框无法操作，只能先等 `filechooser` 事件。
+ */
+export async function uploadFile(page: Page, filePath: string) {
+  const chooserPromise = page.waitForEvent('filechooser')
+  await page.locator('button[title^="Upload Files"]').click()
+  const chooser = await chooserPromise
+  await chooser.setFiles(filePath)
+}
+
+/**
  * 读文件内容；文件还不存在时返回 null。
  *
  * 给 `expect.poll` 用：poll 的回调一旦抛错就**立刻**失败、不会重试，
@@ -331,8 +362,6 @@ export const failureDialog = (page: Page) => page.locator('.failure-dialog')
 /** 服务端任务行（TransferQueue 里的进度条那一块）；最新创建的在最后。 */
 export const serverTaskRows = (page: Page) => page.locator('.server-task-item')
 export const lastServerTask = (page: Page) => serverTaskRows(page).last()
-/** 客户端任务行（上传 / 下载）。 */
-export const clientTaskRows = (page: Page) => page.locator('.transfer-list .transfer-item')
 
 /**
  * 生成大量小文件，让一次复制持续足够长的时间。

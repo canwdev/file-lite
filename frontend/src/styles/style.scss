@@ -146,7 +146,7 @@ body,
   background-color: rgba(0, 0, 0, 0.35) !important;
 }
 
-// ── 图标旋转（替代 @mdi/font 的 .mdi-spin） ──────────────────
+// ── 图标旋转 ──────────────────
 @keyframes icon-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

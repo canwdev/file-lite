@@ -3,7 +3,6 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -26,19 +25,6 @@ var (
 
 // GetDriveTypeW 的返回值（winbase.h）。
 const driveRemote = 4
-
-// bitLockerLockedErrno 是「卷被 BitLocker 锁住」时 Win32 调用返回的错误码
-// （STATUS_FVE_LOCKED_VOLUME = 0x80310000）。
-//
-// 它不是 Win32 错误码，syscall 里没有常量，只能写字面值。
-// GetVolumeInformationW / GetDiskFreeSpaceExW / os.Stat / os.ReadDir 在这个卷上
-// 都会返回它（见 utils 的 TestProbeBitLocker 实测）。
-const bitLockerLockedErrno = syscall.Errno(0x80310000)
-
-// isBitLockerLocked 判断一次 Win32 调用失败是不是因为卷被 BitLocker 锁住了。
-func isBitLockerLocked(err error) bool {
-	return err != nil && errors.Is(err, bitLockerLockedErrno)
-}
 
 // driveKind 判断一个盘符该归类成什么。
 //
@@ -128,7 +114,7 @@ func GetWindowsDrives() []types.Drive {
 		// BitLocker 未解锁的卷：读不到卷标也读不到容量，两个调用都返回
 		// STATUS_FVE_LOCKED_VOLUME。标成 locked，前端据此显示锁图标——
 		// 否则它就是一个「有盘符、没容量、点进去报错」的普通本地盘，用户看不出原因。
-		if vr == 0 && isBitLockerLocked(vErr) {
+		if vr == 0 && IsBitLockerLocked(vErr) {
 			kind = types.DriveKindLocked
 			label = fmt.Sprintf("BitLocker (%s:)", letter)
 		}

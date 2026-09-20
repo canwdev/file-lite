@@ -117,15 +117,3 @@ export function seedFolderListing(path: string, entries: IEntry[]): void {
   readOk.set(key, true)
   trimRawCache()
 }
-
-/** 失效缓存；不带参数清空全部 */
-export function clearFolderListingCache(path?: string): void {
-  if (path === undefined) {
-    rawCache.clear()
-    readOk.clear()
-    return
-  }
-  const key = normalizeListingPath(path)
-  rawCache.delete(key)
-  readOk.delete(key)
-}

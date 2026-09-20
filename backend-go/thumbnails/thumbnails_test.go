@@ -318,20 +318,17 @@ func TestLRUEvictsByBytes(t *testing.T) {
 	if _, _, ok := c.Get("d"); !ok {
 		t.Fatal("d should be cached")
 	}
-	if got := c.Bytes(); got != 8 {
-		t.Fatalf("bytes = %d, want 8", got)
-	}
 }
 
 func TestLRUSkipsOversizedEntry(t *testing.T) {
 	c := newLRUCache(1000, 5)
 	c.Add("big", make([]byte, 6), "ct")
-	if c.Len() != 0 {
-		t.Fatalf("oversized entry should be skipped, len = %d", c.Len())
+	if _, _, ok := c.Get("big"); ok {
+		t.Fatal("oversized entry should be skipped")
 	}
 	c.Add("ok", make([]byte, 5), "ct")
-	if c.Len() != 1 {
-		t.Fatalf("entry at the limit should be cached, len = %d", c.Len())
+	if _, _, ok := c.Get("ok"); !ok {
+		t.Fatal("entry at the limit should be cached")
 	}
 }
 
@@ -397,8 +394,15 @@ func TestServiceCachesAndServes(t *testing.T) {
 	if ct != "image/jpeg" || len(data) == 0 {
 		t.Fatalf("unexpected result: ct=%q len=%d", ct, len(data))
 	}
-	if s.cache.Len() != 1 {
-		t.Fatalf("result should be cached, len = %d", s.cache.Len())
+	if s.cache == nil {
+		t.Fatal("service without a cache")
+	}
+	fi, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("stat fixture: %v", err)
+	}
+	if _, _, ok := s.cache.Get(cacheKey(KindImage, p, MaxEdge, fi)); !ok {
+		t.Fatal("result should be cached")
 	}
 
 	second, _, err := s.Get(context.Background(), p, MaxEdge, KindImage)
@@ -413,8 +417,8 @@ func TestServiceCachesAndServes(t *testing.T) {
 	if _, _, err := s.Get(context.Background(), p, 128, KindImage); err != nil {
 		t.Fatalf("Get with another edge: %v", err)
 	}
-	if s.cache.Len() != 2 {
-		t.Fatalf("edge should be part of the cache key, len = %d", s.cache.Len())
+	if _, _, ok := s.cache.Get(cacheKey(KindImage, p, 128, fi)); !ok {
+		t.Fatal("edge should be part of the cache key")
 	}
 }
 

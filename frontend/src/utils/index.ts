@@ -77,10 +77,6 @@ export async function copyWithToast(val: string, isShowVal = false) {
   window.$message.success(`Copied${showVal}`)
 }
 
-export function pad2Num(num: number, len = 2) {
-  return num.toString().padStart(len, '0')
-}
-
 export function formatDate(d: any | number, format = 'YYYY-MM-DD HH:mm') {
   if (!d) {
     return ''
@@ -101,15 +97,6 @@ export function formatTimeHMS(ms: number) {
   return `${h}:${m}:${s}`
 }
 
-export function formatSelectOptions(list: string[]) {
-  return list.map((item) => {
-    return {
-      value: item,
-      label: item,
-    }
-  })
-}
-
 // 字节转换为可读的单位
 export function bytesToSize(bytes: number, autoNo = '0 B') {
   bytes = Number(bytes)
@@ -128,23 +115,6 @@ export function getRandomInt(min: number, max: number) {
   min = Math.ceil(min)
   max = Math.floor(max)
   return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-export function sleep(t: number) {
-  return new Promise(resolve => setTimeout(resolve, t))
-}
-
-// 文件对象转换为base64
-export function blobToBase64(blob: Blob): Promise<string> {
-  // console.log('b', blob)
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader()
-    fr.onload = (e) => {
-      resolve(e.target!.result as string)
-    }
-    fr.onerror = reject
-    fr.readAsDataURL(blob)
-  })
 }
 
 export function downloadUrl(url: string, filename?: string) {

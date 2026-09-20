@@ -116,7 +116,6 @@ func embeddedStaticFS() (*memoryFileSystem, error) {
 }
 
 var (
-	server       *http.Server
 	echoInstance *echo.Echo
 )
 
@@ -244,12 +243,10 @@ func startServer() (*cli.ServerResult, error) {
 			key := filepath.Join(config.DataBaseDir(), config.Config().SSLKey)
 			cert := filepath.Join(config.DataBaseDir(), config.Config().SSLCert)
 			fmt.Println("HTTPS enabled")
-			server = &http.Server{Addr: addr, Handler: e}
 			if err := e.StartTLS(addr, cert, key); err != nil && err != http.ErrServerClosed {
 				e.Logger.Fatal(err)
 			}
 		} else {
-			server = &http.Server{Addr: addr, Handler: e}
 			if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 				// ignore closed
 			}
@@ -269,7 +266,6 @@ func stopServer() {
 		if err := echoInstance.Shutdown(ctx); err != nil {
 			_ = echoInstance.Close()
 		}
-		server = nil
 		echoInstance = nil
 		fmt.Println("server stopped")
 	}

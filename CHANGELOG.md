@@ -138,7 +138,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).
 - The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
 
-- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser; it produces the screenshots used by `docs/design/frontend-ui-testing.md` and runs the conflict, progress, cancel and retry flows.
+- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser and runs the conflict, progress, cancel and retry flows; its method and cases live in `e2e/README.md`.
 - The README's feature screenshots are generated from a demonstration library by `cd e2e && bun run docs:screenshots`, so they follow the UI instead of being retaken by hand; the sample media is downloaded once into a gitignored cache.
 - Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
 - The E2E runner works on Windows again: it used to spawn Playwright's `.bin` shim, which Windows refuses to execute when it is a `.cmd` (and Bun installs an `.exe`), so the suite died with `spawn EINVAL` before running a single test; it now runs Playwright's `cli.js` through `node` on every platform (engineering).

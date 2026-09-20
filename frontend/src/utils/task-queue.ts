@@ -1,5 +1,14 @@
-import EventEmitter from './event-emitter'
+import mitt from 'mitt'
 import { guid } from './index'
+
+/** 队列向外广播的事件。 */
+// mitt 要求事件表满足 Record<EventType, unknown>，interface 没有隐式索引签名，只能用 type
+// eslint-disable-next-line ts/consistent-type-definitions
+type TaskQueueEvents = {
+  allDone: void
+  done: TaskItem
+  error: unknown
+}
 
 // 任务对象封装
 export class TaskItem {
@@ -15,7 +24,8 @@ export class TaskItem {
 }
 
 // 通用异步任务队列
-export class TaskQueue extends EventEmitter {
+export class TaskQueue {
+  private readonly emitter = mitt<TaskQueueEvents>()
   public taskMap: { [key: string]: TaskItem }
   public tasks: TaskItem[]
   public executing: Promise<any>[]
@@ -25,7 +35,6 @@ export class TaskQueue extends EventEmitter {
   public errorEmptyTask: boolean
 
   constructor(options: any = {}) {
-    super()
     this.taskMap = {}
     this.tasks = [] // 存储任务对象
     this.executing = [] // Promise 任务数组
@@ -56,6 +65,12 @@ export class TaskQueue extends EventEmitter {
     return this.executing.length
   }
 
+  /** 订阅队列事件（`allDone` / `done` / `error`）。 */
+  on<K extends keyof TaskQueueEvents>(name: K, handler: (event: TaskQueueEvents[K]) => void) {
+    this.emitter.on(name, handler)
+    return this
+  }
+
   // 添加任务
   addTask(data: any) {
     const task = new TaskItem(data)
@@ -78,7 +93,7 @@ export class TaskQueue extends EventEmitter {
   execute() {
     if (!this.tasks.length) {
       // console.log('all done')
-      this.emit('allDone')
+      this.emitter.emit('allDone')
       return
     }
     if (this.executingNum >= this.concurrent) {
@@ -105,12 +120,12 @@ export class TaskQueue extends EventEmitter {
       const p = this.taskHandler(task)
         .then((tsk) => {
           // console.log('done', tsk)
-          this.emit('done', task)
+          this.emitter.emit('done', task)
           return tsk
         })
         .catch((e) => {
           this.errorEmptyTask && this.removeAllTask()
-          this.emit('error', e)
+          this.emitter.emit('error', e)
         })
         .finally(() => {
           // 清理已完成

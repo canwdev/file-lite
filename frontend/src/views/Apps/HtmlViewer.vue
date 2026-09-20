@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useFileUrl } from '@/hooks/use-file-url'
+import { fs } from '@/utils/fs'
 
 const props = defineProps<{
   appParams: AppParams
@@ -9,7 +9,10 @@ const props = defineProps<{
 const emit = defineEmits(['setTitle'])
 
 /** 文件地址 */
-const src = useFileUrl(() => props.appParams?.absPath)
+const src = computed(() => {
+  const path = props.appParams?.absPath
+  return path ? fs.url(path) : ''
+})
 
 watch(() => props.appParams, () => {
   const { appParams } = props

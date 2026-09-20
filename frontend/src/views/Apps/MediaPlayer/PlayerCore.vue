@@ -2,9 +2,9 @@
 import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer, selectCover } from 'music-metadata'
-import { useFileUrl } from '@/hooks/use-file-url'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { localSettingsStore } from '@/store/index'
+import { fs } from '@/utils/fs'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
 import defaultCoverUrl from './assets/default-cover.webp'
 import MusicDetail from './MusicDetail.vue'
@@ -25,9 +25,12 @@ const mSettingsStore = useMusicSettingsStore()
 /**
  * 当前媒体的地址。
  *
- * 走响应式的 `useFileUrl`：路径变化时地址跟着变，调用点不必自己重算。
+ * 跟随路径变化，调用点不必自己重算。
  */
-const resolvedMediaUrl = useFileUrl(() => mediaStore.mediaItem?.absPath ?? null)
+const resolvedMediaUrl = computed(() => {
+  const path = mediaStore.mediaItem?.absPath
+  return path ? fs.url(path) : ''
+})
 const avSrc = computed(() => resolvedMediaUrl.value || undefined)
 const recordLastOpenedMedia = createLastOpenedMediaRecorder()
 

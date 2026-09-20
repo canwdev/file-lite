@@ -93,4 +93,4 @@ cd backend-go
 bun run build
 ```
 
-The UI is covered by a Playwright sub-project that drives the built app in a real browser — [e2e/README.md](e2e/README.md), method and case screenshots in [frontend-ui-testing.md](./docs/design/frontend-ui-testing.md); the screenshots above come from `cd e2e && bun run docs:screenshots` and land in [docs/screenshots](./docs/screenshots).
+The UI is covered by a Playwright sub-project that drives the built app in a real browser — [e2e/README.md](e2e/README.md) documents the method, the cases and the fixtures; the screenshots above come from `cd e2e && bun run docs:screenshots` and land in [docs/screenshots](./docs/screenshots).

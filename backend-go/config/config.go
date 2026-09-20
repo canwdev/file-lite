@@ -105,7 +105,6 @@ func normalizeLogLevel(raw string) string {
 }
 
 func DataBaseDir() string     { return dataBaseDir }
-func JWTToken() string        { return jwtToken }
 func Config() Cfg             { return cfg }
 func ConfigInitialized() bool { return configInitialized }
 func ConfigFilePath() string  { return configFilePath }

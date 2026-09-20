@@ -3,17 +3,12 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import {
   bulkName,
-  copy,
-  expectClipboardReady,
+  copyEntryInto,
   ensureBulkFixture,
-  goBack,
   lastServerTask,
   login,
-  openFolder,
-  paste,
   resetTargetDirs,
   screenshot,
-  selectItem,
   serverTaskRows,
   targetDir,
 } from './helpers'
@@ -38,13 +33,7 @@ test.describe('任务进度与取消', () => {
     ensureBulkFixture(BULK_FILES, BULK_SIZE_KB)
     await login(page)
 
-    await openFolder(page, 'source')
-    await selectItem(page, bulkName)
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
+    await copyEntryInto(page, { from: 'source', name: bulkName, to: 'target' })
 
     const task = lastServerTask(page)
     await expect(task).toBeVisible()
@@ -72,35 +61,16 @@ test.describe('任务进度与取消', () => {
     expect(copied.length).toBeLessThan(BULK_FILES)
   })
 
-  test('小目录复制完成后窗口自动收起，文件已就位', async ({ page }) => {
-    await login(page)
-
-    await openFolder(page, 'source')
-    await selectItem(page, 'nested')
-    await copy(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
-
-    await expect.poll(() => fs.existsSync(path.join(targetDir, 'nested', 'deep.txt'))).toBe(true)
-    await expect(lastServerTask(page)).toBeHidden()
-  })
-
-  // 一次普通复制成功后不该在任务列表里留下记录，否则会越积越多，
-  // 状态栏的任务入口也会一直亮着。
-  test('成功的任务不会留在任务列表里', async ({ page }) => {
+  // 成功后窗口像资源管理器那样自动收起、文件就位，且不在任务列表里留下记录——
+  // 否则记录会越积越多，状态栏的任务入口也会一直亮着。
+  test('小目录复制完成后窗口自动收起，文件已就位，且不留任务记录', async ({ page }) => {
     await login(page)
     await expect(serverTaskRows(page)).toHaveCount(0)
 
-    await openFolder(page, 'source')
-    await selectItem(page, 'nested')
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
+    await copyEntryInto(page, { from: 'source', name: 'nested', to: 'target' })
 
     await expect.poll(() => fs.existsSync(path.join(targetDir, 'nested', 'deep.txt'))).toBe(true)
+    await expect(lastServerTask(page)).toBeHidden()
     await expect(serverTaskRows(page)).toHaveCount(0)
     await expect(page.locator('.explorer-activity-toggle')).toHaveCount(0)
   })
@@ -109,13 +79,7 @@ test.describe('任务进度与取消', () => {
     ensureBulkFixture(BULK_FILES, BULK_SIZE_KB)
     await login(page)
 
-    await openFolder(page, 'source')
-    await selectItem(page, bulkName)
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
+    await copyEntryInto(page, { from: 'source', name: bulkName, to: 'target' })
 
     const second = await context.newPage()
     await second.goto('/')

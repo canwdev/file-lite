@@ -60,7 +60,6 @@ type sharedWSTaskDecision struct {
 }
 
 type sharedWSTasksClientMessage struct {
-	Scope      string                     `json:"scope"`
 	Type       string                     `json:"type"`
 	RequestID  string                     `json:"requestId,omitempty"`
 	TaskID     string                     `json:"taskId,omitempty"`

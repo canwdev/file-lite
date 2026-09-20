@@ -33,7 +33,6 @@ func readPropertiesPayload(t *testing.T, client *sharedWSClient) propertiesWSPay
 func getProperties(t *testing.T, client *sharedWSClient, requestID, path string) {
 	t.Helper()
 	handleSharedWSPropertiesMessage(client, sharedWSPropertiesClientMessage{
-		Scope:     "properties",
 		Type:      "get",
 		RequestID: requestID,
 		Path:      path,

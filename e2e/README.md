@@ -6,6 +6,9 @@
 独立的子项目（自己的 `package.json` / `node_modules`），不参与 `frontend` 的构建，
 只依赖 `bun` + `go` + Playwright 的 Chromium。
 
+本文说明**怎么测的**、**测了什么**，以及**为什么这么测**。（原来另有一份
+`docs/design/frontend-ui-testing.md`，内容与本文重叠，现已并入这里。）
+
 ## 快速开始
 
 ```sh
@@ -42,6 +45,54 @@ bun run report       # 打开上一次的 HTML 报告
 所有可写的产物都在 `e2e/.file-lite-e2e/`（已 gitignore），
 测试可以随意增删文件、改权限，不会碰到仓库里的任何东西。
 
+## 夹具与复位
+
+夹具文件树（`tests/helpers.ts` 依赖这个结构）：
+
+```
+files/
+├── source/           a.txt(alpha) b.txt(beta) note.md nested/deep.txt
+├── target/           a.txt(existing-alpha) nested/     ← 预置同名文件，冲突用例靠它
+├── empty/            （空目录，用来制造「不可写」的失败场景）
+├── drag/             inbox/（move-me.txt、copy-me.txt、ctrl-me.txt、sub/back.txt）+ archive/
+└── （根目录还会临时出现拖拽用例落在磁盘根 / 面包屑上的文件，复位时清掉）
+upload/               a.txt（与服务端同名）、fresh.txt
+```
+
+用例之间**共用同一台服务器和同一份磁盘**，所以每个用例开始前会
+`resetTargetDirs()` / `resetDragDirs()` 复位 `target` / `empty` / `drag`，并在登录后清掉历史任务，
+避免上一个用例留下的文件把下一个用例变成「同名冲突」场景。
+
+## 测试写法（为什么这么写）
+
+**1. 复制 / 粘贴走工具栏按钮，不走 Ctrl+C / Ctrl+V。**
+快捷键要通过 `document.activeElement.closest('[data-shortcut-scope]')` 解析作用域，
+焦点稍微不在列表上就**静默失效**（表现为「什么都没发生」，非常难查）。
+按钮走的是同一段 `handleCopy` / `handlePaste` 逻辑，稳定得多；快捷键本身由
+`use-shortcut` 的单元逻辑覆盖。
+
+**2. 导航必须等面包屑真的切过去。**
+`openFolder()` 一开始只等「旧的一行消失」，但目标行本来就不在当前目录里，
+这个条件会立刻成立——于是粘贴有可能还在上一个目录执行。现在它等地址栏最后一段
+面包屑变成目标目录名。
+
+**3. 任务结束后面板会自动收起，所以断言看磁盘而不是看已经隐藏的行。**
+成功的任务跑完（或被取消）后，它的行会从列表移除，传输面板就像资源管理器一样收起；
+失败 / 取消用失败清单弹窗呈现。因此 `expect.poll(() => fs.readFileSync(...))` 是主力断言，
+`toBeHidden()` 用来验证「面板确实自动收起了」。
+
+**4. 「不留半个文件」在 UI 层也要验一次。**
+取消一个大目录的复制后，遍历目标目录：既不能有 `.fl-part-*` 临时文件，
+每个已存在的文件也必须是完整大小的（不能出现半个文件）。
+
+**5. 拖拽用页面内合成的 `DataTransfer` 派发。**
+无头 Chromium 下原生拖拽的启动时机不稳定，所以 `html5Drag()` 用同一个 `DataTransfer`
+依次派发 `dragstart → dragenter → dragover → drop → dragend`，驱动页面里真实的处理器；
+「从系统拖入文件」没有对应的输入通道，`dropExternalFiles()` 在页面里造一个带 `File` 的
+`DataTransfer` 再派发 `drop`（顺带覆盖「没有 Entry API 时退化成平面文件列表」的分支）。
+
+> 登录只在第一个用例里真做一次，是登录限流逼出来的，见「排查」。
+
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
@@ -66,7 +117,18 @@ bun run report       # 打开上一次的 HTML 报告
 | `10-split-view.spec.ts` | 标签拆分视图：吸收右邻标签合并且只留一个关闭按钮；没有邻接时新建同路径面板；子菜单的交换视图 / 切换方向 / 取消拆分；总关闭按钮关掉两个面板；拆分随刷新保留；两个面板的 list/grid 与图标大小互不影响；跨面板拖文件；拖动分隔线调整大小 | — |
 | `11-path-contract.spec.ts` | VFS 路径契约：面包屑第一段 = 挂载点根；下拉打开时高亮并滚动到当前目录；「上一级」在挂载点根停住；地址栏里各种写法（尾分隔符 / 连续斜杠 / 点段 / 父目录段 / 反斜杠）落到同一个目录；UNC 前导 `//` 不被折叠；加密未解锁的卷（BitLocker）显示锁图标并报系统原话；列目录失败时列表区显示原因 + Try again，404 与 503 不互相冒充；同目录刷新失败不顶掉已有列表 | `11-mount-breadcrumb`、`11-list-error` |
 
-合计 56 个用例，单次运行约 2 分钟。
+合计 55 个用例，单次运行约 2 分钟。
+
+## 测试发现的真实缺陷
+
+这套 UI 测试不是「补个覆盖率」，它在开发过程中直接抓到了三个真 bug
+（都是单测和 WS 冒烟测不到的，因为它们只在真实前端里才暴露）：
+
+| 缺陷 | 后果 | 修复 |
+| --- | --- | --- |
+| 前端没有处理任务的创建事件，`update` / `done` 在「查无此任务」时被丢掉 | 新任务**永远不会出现在界面上**，进度条、取消、失败清单全都无从触发 | 后端新增 `created` 广播（带完整快照），前端 upsert |
+| 初始任务快照只在 `sharedWsStatus` 变化时拉取 | 设置模块先连上 WS 时状态已是 `connected`，watch 不触发 → **打开应用看不到任何进行中的任务** | watch 加 `immediate: true` |
+| 任务窗口居中悬浮且结束后不关闭 | 一个浮动窗口**一直盖住文件列表**，拦截点击 | 全部结束且无失败时自动收起；状态栏加「Tasks」入口可重开。后来又换成固定在右下角、不阻挡列表的双页签面板 |
 
 ## 截图
 
@@ -163,6 +225,25 @@ pkill -x file-lite-go
 **改了前端却没生效**
 先确认 `bun run test`（而不是 `E2E_SKIP_BUILD=1`）——只有完整构建才会更新
 `backend-go/frontend-assets.tar.gz`。
+
+## 与后端测试的分工
+
+| 层次 | 位置 | 覆盖 |
+| --- | --- | --- |
+| 文件操作原语 | `backend-go/fileops/*_test.go` | 策略矩阵、**取消后无残留 / 无半个文件**、结果集上限、扫描、Windows 合并语义 |
+| 路径规则 | `backend-go/fileops/vfs_path_test.go`、`mount_test.go` | canonical 规则表、挂载点最长前缀与**段边界**、并发档位、`IsWithinRoot` 的 UNC 例外 |
+| 任务状态机 | `backend-go/tasks/manager_test.go` | 冲突暂停 / 决策 / 取消 / TTL、重试只挑失败项、创建必须广播完整快照 |
+| HTTP 接口 | `backend-go/routes/*_test.go` | 上传策略、400 / 404 / 503 的错误码契约、rename 进子树、drives 带 kind |
+| 前端纯函数 | `frontend/src/**/*.test.ts`（`bun test`） | `normalizePath` 的 UNC 豁免、段边界匹配、面包屑与上一级 |
+| 真实 WS 冒烟 | 手工脚本（未收录） | 冲突→决策→执行、运行中取消、中断上传、临时文件不可见 |
+| **浏览器 UI** | **`e2e/`（本文）** | **上面全部行为的用户可见路径**：弹窗、双页签面板与进度条、取消、失败清单、跨窗口可见、原地粘贴、下载文件名、拖拽移动 / 复制与系统拖入上传、挂载点面包屑与列目录失败的呈现 |
+
+上层不重复下层：E2E 不验证策略矩阵的每个组合（那是单测的事），只验证
+「用户点得到、看得见、结果对」。
+
+> UNC / WSL 的**真实读写**（`\\server\share`、`\\wsl.localhost\<发行版>`）
+> 需要在有共享的机器上验证，E2E 只覆盖与平台无关的路径规则，
+> 详见 [`vfs-abstraction-design.md`](../docs/design/vfs-abstraction-design.md) §8.4。
 
 ## 目录
 

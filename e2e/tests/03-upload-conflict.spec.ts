@@ -10,6 +10,7 @@ import {
   screenshot,
   targetDir,
   uploadDir,
+  uploadFile,
 } from './helpers'
 
 /**
@@ -26,10 +27,7 @@ test.describe('上传同名冲突', () => {
   test('上传同名文件会先弹窗，Replace 后内容被替换', async ({ page }) => {
     await openFolder(page, 'target')
 
-    const chooserPromise = page.waitForEvent('filechooser')
-    await page.locator('button[title^="Upload Files"]').click()
-    const chooser = await chooserPromise
-    await chooser.setFiles(path.join(uploadDir, 'a.txt'))
+    await uploadFile(page, path.join(uploadDir, 'a.txt'))
 
     await expect(conflictDialog(page)).toBeVisible()
     await expect(conflictDialog(page)).toContainText('1 conflict')
@@ -51,10 +49,7 @@ test.describe('上传同名冲突', () => {
   test('上传同名文件选择 Skip 时目标保持原样', async ({ page }) => {
     await openFolder(page, 'target')
 
-    const chooserPromise = page.waitForEvent('filechooser')
-    await page.locator('button[title^="Upload Files"]').click()
-    const chooser = await chooserPromise
-    await chooser.setFiles(path.join(uploadDir, 'a.txt'))
+    await uploadFile(page, path.join(uploadDir, 'a.txt'))
 
     await expect(conflictDialog(page)).toBeVisible()
     await conflictDialog(page).getByText('Skip this file').click()
@@ -67,10 +62,7 @@ test.describe('上传同名冲突', () => {
   test('上传新文件不弹窗', async ({ page }) => {
     await openFolder(page, 'target')
 
-    const chooserPromise = page.waitForEvent('filechooser')
-    await page.locator('button[title^="Upload Files"]').click()
-    const chooser = await chooserPromise
-    await chooser.setFiles(path.join(uploadDir, 'fresh.txt'))
+    await uploadFile(page, path.join(uploadDir, 'fresh.txt'))
 
     await expect(conflictDialog(page)).toBeHidden()
     await expect.poll(() => readTextIfExists(path.join(targetDir, 'fresh.txt'))).toBe('fresh-upload')

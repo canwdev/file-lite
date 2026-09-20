@@ -111,14 +111,12 @@ type sharedWSBaseMessage struct {
 }
 
 type sharedWSTextSyncClientMessage struct {
-	Scope   string `json:"scope"`
 	Type    string `json:"type"`
 	Channel string `json:"channel"`
 	Text    string `json:"text,omitempty"`
 }
 
 type sharedWSSettingsClientMessage struct {
-	Scope     string `json:"scope"`
 	Type      string `json:"type"`
 	RequestID string `json:"requestId"`
 	Key       string `json:"key"`
@@ -271,7 +269,6 @@ func parseSharedWSSettingsMessage(raw []byte) (sharedWSSettingsClientMessage, er
 			return sharedWSSettingsClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
 		}
 		return sharedWSSettingsClientMessage{
-			Scope:     envelope.Scope,
 			Type:      envelope.Type,
 			RequestID: envelope.RequestID,
 			Key:       envelope.Key,

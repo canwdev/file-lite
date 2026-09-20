@@ -17,6 +17,7 @@ import (
 
 	"file-lite-go/fileops"
 	"file-lite-go/types"
+	"file-lite-go/utils"
 )
 
 // HTTP 契约：非法路径 400、不存在 404、网络位置不可用 503、BitLocker 未解锁 423，
@@ -197,7 +198,7 @@ func TestFSErrorStatusMapping(t *testing.T) {
 	}
 }
 
-// fveLockedError 是 Linux 上的替身：Errors.Is 命中 bitLockerLockedErrno，消息用系统措辞。
+// fveLockedError 是 Linux 上的替身：Errors.Is 命中 utils.BitLockerLockedErrno，消息用系统措辞。
 //
 // 注意方法名是 `Is` 而不是 `As`：errors.Is 只认 `Is(error) bool` 与可比较性，
 // 写 `As` 的话 errors.As 能过、errors.Is 照样不命中（实测就是 500）。
@@ -207,7 +208,7 @@ func (fveLockedError) Error() string { return bitLockerSystemMessage }
 
 func (fveLockedError) Is(target error) bool {
 	errno, ok := target.(syscall.Errno)
-	return ok && errno == bitLockerLockedErrno
+	return ok && errno == utils.BitLockerLockedErrno
 }
 
 const bitLockerSystemMessage = "This drive is locked by BitLocker Drive Encryption. You must unlock this drive from Control Panel."
@@ -224,7 +225,7 @@ const bitLockerSystemMessage = "This drive is locked by BitLocker Drive Encrypti
 func TestFSErrorStatusBitLocker(t *testing.T) {
 	var locked error
 	if runtime.GOOS == "windows" {
-		locked = bitLockerLockedErrno
+		locked = utils.BitLockerLockedErrno
 	} else {
 		locked = fveLockedError{}
 	}

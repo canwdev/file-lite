@@ -1,7 +1,7 @@
 <script lang="ts" setup="">
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useFileUrls } from '@/hooks/use-file-url'
+import { fs } from '@/utils/fs'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
 const props = withDefaults(
@@ -29,7 +29,7 @@ const imagePaths = computed(() => {
 /**
  * 图片地址，按路径取；换一批图（切换目录、切换应用参数）时自动跟随。
  */
-const urlMap = useFileUrls(() => imagePaths.value)
+const urlMap = computed(() => new Map(imagePaths.value.map(path => [path, fs.url(path)])))
 const urlList = computed(() => {
   return imagePaths.value.map(path => urlMap.value.get(path) ?? '')
 })

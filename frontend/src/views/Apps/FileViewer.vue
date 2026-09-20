@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useFileUrl } from '@/hooks/use-file-url'
 import { ThemeMode } from '@/hooks/use-global-theme'
 import { settingsStore } from '@/store'
 import dynamicLoadScript from '@/utils/dynamic-load-script'
+import { fs } from '@/utils/fs'
 
 const props = defineProps<{
   appParams: AppParams
@@ -14,9 +14,12 @@ const emit = defineEmits(['setTitle'])
 const FILE_VIEWER_SCRIPT_URL = 'https://unpkg.com/@file-viewer/web-full@latest/dist/flyfish-file-viewer-web-full.iife.js'
 
 /**
- * 文件地址。走响应式的 `useFileUrl`，跟随应用参数变化。
+ * 文件地址。跟随应用参数变化。
  */
-const src = useFileUrl(() => props.appParams?.absPath)
+const src = computed(() => {
+  const path = props.appParams?.absPath
+  return path ? fs.url(path) : ''
+})
 const filename = ref('')
 const isLoading = ref(true)
 const error = ref('')

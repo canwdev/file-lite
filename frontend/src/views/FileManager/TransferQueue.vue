@@ -4,7 +4,7 @@ import type { IBatchFile, ITransferItem, TransferTab, TransferTabCounts } from '
 import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
 import { useStorage } from '@vueuse/core'
-import { LsKeys } from '@/enum'
+import { isDev, LsKeys } from '@/enum'
 import { authToken } from '@/store/auth'
 import {
   cancelTask,
@@ -864,8 +864,11 @@ function exitDebugMode() {
   removeDebugTasks()
 }
 
-// 菜单里的「Debug Transfer Window」
+// 菜单里的「Demo Transfer Window」；只在开发构建里响应
 useExplorerBusOn(ExplorerEvents.DEBUG_TRANSFER, () => {
+  if (!isDev) {
+    return
+  }
   loadMockTransferList()
 })
 

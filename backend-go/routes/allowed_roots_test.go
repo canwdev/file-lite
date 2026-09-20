@@ -335,9 +335,6 @@ func TestVisibleDrivesSynthesizesBaseMount(t *testing.T) {
 	t.Cleanup(fileops.ClearAllowedRoots)
 
 	baseCanonical := onlyBase(t)
-	if fileops.HasMountRootFor(baseCanonical) {
-		t.Fatal("前置条件不成立：挂载表为空时不应当已有匹配的根")
-	}
 
 	found := false
 	for _, d := range visibleDrives() {

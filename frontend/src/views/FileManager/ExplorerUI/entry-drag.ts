@@ -201,12 +201,6 @@ export function registerExternalDropSink(sink: ExternalDropSink): void {
   externalDropSink = sink
 }
 
-export function unregisterExternalDropSink(sink: ExternalDropSink): void {
-  if (externalDropSink === sink) {
-    externalDropSink = null
-  }
-}
-
 async function uploadExternalDrop(destDir: string, event: DragEvent): Promise<void> {
   if (!externalDropSink) {
     window.$message?.warning('The drop target is not ready')

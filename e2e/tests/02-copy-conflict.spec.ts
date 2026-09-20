@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test'
 import {
   conflictDialog,
   copy,
+  copyEntryInto,
   expectClipboardReady,
-  goBack,
   lastServerTask,
   login,
   openFolder,
@@ -33,13 +33,7 @@ test.describe('复制同名冲突', () => {
   })
 
   async function startConflictCopy(page: import('@playwright/test').Page) {
-    await openFolder(page, 'source')
-    await selectItem(page, 'a.txt')
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
+    await copyEntryInto(page, { from: 'source', name: 'a.txt', to: 'target' })
     await expect(conflictDialog(page)).toBeVisible()
   }
 
@@ -104,13 +98,7 @@ test.describe('复制同名冲突', () => {
   })
 
   test('目录同名时静默合并，只对内部同名文件提问', async ({ page }) => {
-    await openFolder(page, 'source')
-    await selectItem(page, 'nested')
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-    await openFolder(page, 'target')
-    await paste(page)
+    await copyEntryInto(page, { from: 'source', name: 'nested', to: 'target' })
 
     // target/nested 已存在，但里面没有同名文件，因此不该弹窗
     await expect(conflictDialog(page)).toBeHidden()

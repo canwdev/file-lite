@@ -7,8 +7,8 @@ import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
-import { resolveFileUrlAsync } from '@/hooks/use-file-url'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
+import { fs } from '@/utils/fs'
 import FileSelector from '@/views/FileManager/FileSelector.vue'
 
 interface Props {
@@ -329,12 +329,10 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
     return
   revokeBlobRef(videoObjectUrl)
   videoObjectUrl.value = null
-  // 取到地址再切换，避免把空串交给播放器
-  void resolveFileUrlAsync(`${val.basePath}/${item.name}`).then((url) => {
-    if (url) {
-      void inst.switchUrl(url).catch(console.error)
-    }
-  })
+  const url = fs.url(`${val.basePath}/${item.name}`)
+  if (url) {
+    void inst.switchUrl(url).catch(console.error)
+  }
 }
 
 function handleFileSelect(val: FileSelectResult) {
@@ -346,14 +344,13 @@ function handleFileSelect(val: FileSelectResult) {
     handleVideoSelect(val, item)
     return
   }
-  void resolveFileUrlAsync(`${val.basePath}/${item.name}`).then((url) => {
-    if (!url) {
-      return
-    }
-    inst.subtitle.switch(url, {
-      name: item.name,
-      type: inferSubtitleType(item.name),
-    })
+  const url = fs.url(`${val.basePath}/${item.name}`)
+  if (!url) {
+    return
+  }
+  inst.subtitle.switch(url, {
+    name: item.name,
+    type: inferSubtitleType(item.name),
   })
 }
 /**

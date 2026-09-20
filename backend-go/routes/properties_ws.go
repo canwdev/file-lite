@@ -34,7 +34,6 @@ type propertiesWSPayload struct {
 }
 
 type sharedWSPropertiesClientMessage struct {
-	Scope     string `json:"scope"`
 	Type      string `json:"type"`
 	RequestID string `json:"requestId"`
 	Path      string `json:"path,omitempty"`

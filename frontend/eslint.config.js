@@ -1,44 +1,10 @@
 import antfu from '@antfu/eslint-config'
 
 /**
- * 分层约束：app 层不得依赖文件管理器的内部实现。
- *
- * 背景：挂载卷的读写原语原先住在 `views/FileManager/ExplorerUI/`，而 `views/Apps/`
- * 要用它，于是 app 反向 import 了文件管理器的内部模块，并且每个 app 都自己判断
- * 「这条路径属于哪一侧」——那正是「写挂载卷时漏掉只读守卫」的来源。
- *
- * 现在读写统一走门面 `@/utils/fs`，app 层不再需要这些内部模块。用 lint 守住，
- * 否则几周后同样的分散会重新长出来。
- */
-const fsBoundary = {
-  files: ['src/views/Apps/**', 'src/hooks/**'],
-  rules: {
-    'no-restricted-imports': ['error', {
-      patterns: [
-        {
-          group: [
-            '**/FileManager/ExplorerUI/browser-fs',
-            '**/FileManager/ExplorerUI/client-tasks',
-            '**/FileManager/ExplorerUI/mount-write',
-            '**/FileManager/ExplorerUI/mounted-volumes',
-            '@/views/FileManager/ExplorerUI/browser-fs',
-            '@/views/FileManager/ExplorerUI/client-tasks',
-            '@/views/FileManager/ExplorerUI/mount-write',
-            '@/views/FileManager/ExplorerUI/mounted-volumes',
-          ],
-          message: '请用共享门面 `@/utils/fs`（路径判断用 `@/utils/fs/paths`），不要依赖文件管理器的内部模块。',
-        },
-      ],
-    }],
-  },
-}
-
-/**
  * 存储契约：**只有 `@/utils/fs` 可以直连后端文件 API。**
  *
- * 其余调用点一律走门面。直连后端是这个功能里最容易漏、也最难发现的错法：路径属于
- * 浏览器挂载卷时，请求会带着 `/@mounted/...` 打到服务端，只得到一个 404，界面上
- * 表现为「预览没了 / 面包屑打不开」，既没有 toast 也没有堆栈。
+ * 其余调用点一律走门面，否则同一个文件操作会有两条实现路径；漏掉收尾逻辑时往往
+ * 只在运行时才暴露（预览空白、列表不刷新），既没有 toast 也没有堆栈。
  *
  * 白名单只有登录相关的三个方法（`auth` / `login` / `consumeTicket`）——它们不是
  * 文件操作，不该被塞进存储门面。
@@ -85,4 +51,4 @@ export default antfu({
     'no-alert': 'warn',
     // 'ts/no-explicit-any': 'error',
   },
-}, fsBoundary, storageContract)
+}, storageContract)

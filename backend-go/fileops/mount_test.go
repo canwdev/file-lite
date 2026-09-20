@@ -145,9 +145,6 @@ func TestSetMountsAndResolve(t *testing.T) {
 			if gotMount != c.wantMount {
 				t.Errorf("Mount = %q，期望 %q", gotMount, c.wantMount)
 			}
-			if res.ViaMount() != (c.wantMount != "") {
-				t.Errorf("ViaMount() = %v，与挂载点 %q 不一致", res.ViaMount(), c.wantMount)
-			}
 		})
 	}
 }
@@ -158,7 +155,7 @@ func TestResolveWithEmptyMountTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("挂载表为空时也应当能解析本地路径，得到错误: %v", err)
 	}
-	if res.ViaMount() {
+	if res.Mount != nil {
 		t.Fatalf("空挂载表下不应匹配到挂载点，得到 %+v", res.Mount)
 	}
 }
@@ -178,7 +175,7 @@ func TestResolveWithoutMatchingMount(t *testing.T) {
 	if res.Path != "D:/work" {
 		t.Errorf("Path = %q，期望 D:/work", res.Path)
 	}
-	if res.ViaMount() {
+	if res.Mount != nil {
 		t.Fatalf("不应匹配到挂载点，得到 %+v", res.Mount)
 	}
 }
@@ -356,18 +353,5 @@ func TestBaseNameAndDirName(t *testing.T) {
 		if got := DirName(p); got != want {
 			t.Errorf("DirName(%q) = %q，期望 %q", p, got, want)
 		}
-	}
-}
-
-func TestMountIsRoot(t *testing.T) {
-	m := Mount{Root: "//server/share"}
-	if !m.IsRoot("//server/share") {
-		t.Error("共享根应被判定为根自身")
-	}
-	if !m.IsRoot("//SERVER/share/") {
-		t.Error("根判定应当大小写与尾斜杠无关")
-	}
-	if m.IsRoot("//server/share/docs") {
-		t.Error("子路径不是根")
 	}
 }

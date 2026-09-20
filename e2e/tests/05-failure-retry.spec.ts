@@ -2,19 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import {
-  copy,
+  copyEntryInto,
   emptyDir,
-  expectClipboardReady,
   failureDialog,
-  goBack,
   lastServerTask,
   login,
-  openFolder,
-  paste,
   readTextIfExists,
   resetTargetDirs,
   screenshot,
-  selectItem,
 } from './helpers'
 
 /**
@@ -34,20 +29,17 @@ test.describe('失败清单与重试', () => {
   test('列出失败项并可以用 Try Again 补齐', async ({ page }) => {
     await login(page)
 
-    await openFolder(page, 'source')
-    await selectItem(page, 'b.txt')
-    await copy(page)
-    await expectClipboardReady(page)
-    await goBack(page)
-
-    // empty 本该是目录，先换成同名文件：往它里面写必定失败
-    // （扫描阶段仍能读到这个路径，所以任务能正常开始、在写入时失败）
-    fs.rmSync(emptyDir, { recursive: true, force: true })
-    fs.writeFileSync(emptyDir, 'not a directory')
-
-    await openFolder(page, 'empty')
-
-    await paste(page)
+    await copyEntryInto(page, {
+      from: 'source',
+      name: 'b.txt',
+      to: 'empty',
+      // empty 本该是目录，先换成同名文件：往它里面写必定失败
+      // （扫描阶段仍能读到这个路径，所以任务能正常开始、在写入时失败）
+      beforeTarget: () => {
+        fs.rmSync(emptyDir, { recursive: true, force: true })
+        fs.writeFileSync(emptyDir, 'not a directory')
+      },
+    })
 
     // 本窗口发起的任务失败后会自动弹出清单
     await expect(failureDialog(page)).toBeVisible()

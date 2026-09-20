@@ -92,23 +92,3 @@ func (c *lruCache) Add(key string, data []byte, ct string) {
 		c.curBytes -= int64(len(e.data))
 	}
 }
-
-// Len 返回当前条目数（测试与统计用）。
-func (c *lruCache) Len() int {
-	if c == nil {
-		return 0
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.order.Len()
-}
-
-// Bytes 返回当前总占用字节数（测试与统计用）。
-func (c *lruCache) Bytes() int64 {
-	if c == nil {
-		return 0
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.curBytes
-}

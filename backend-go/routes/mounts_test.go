@@ -72,7 +72,7 @@ func TestMountTableMatchesDrivesEndpoint(t *testing.T) {
 			longest = m
 		}
 	}
-	if res, err := fileops.Resolve(longest.Root); err != nil || !res.ViaMount() {
+	if res, err := fileops.Resolve(longest.Root); err != nil || res.Mount == nil {
 		t.Errorf("解析挂载点根 %q 应匹配到挂载点，得到 %+v err=%v", longest.Root, res.Mount, err)
 	}
 }

@@ -1,7 +1,6 @@
 import type { ESBuildOptions } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
-import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Icons from 'unplugin-icons/vite'
@@ -22,10 +21,9 @@ export default defineConfig(() => {
           },
         },
       }),
-      vueJsx(),
       Icons({
         compiler: 'vue3',
-        // scale 1: svg 尺寸 = 1em = 继承的 font-size，与 @mdi/font 字形框一致，避免布局/视觉尺寸漂移
+        // scale 1: svg 尺寸 = 1em = 继承的 font-size，避免布局/视觉尺寸漂移
         scale: 1,
       }),
       AutoImport({

@@ -1,6 +1,6 @@
 <script lang="ts" setup="">
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useFileUrl } from '@/hooks/use-file-url'
+import { fs } from '@/utils/fs'
 import NativeOrArtVideo from './components/NativeOrArtVideo.vue'
 
 const props = withDefaults(
@@ -17,7 +17,10 @@ const props = withDefaults(
 const emit = defineEmits(['setTitle'])
 const { appParams } = toRefs(props)
 // 文件地址
-const mediaSrc = useFileUrl(() => appParams.value?.absPath)
+const mediaSrc = computed(() => {
+  const path = appParams.value?.absPath
+  return path ? fs.url(path) : ''
+})
 watch(
   () => props.appParams,
   () => {

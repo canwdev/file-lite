@@ -9,18 +9,12 @@
  * （见 docs/design/vfs-abstraction-design.md §3、§5.2）。
  */
 import { isWithinRoot, PathError, splitRoot } from '../../../utils/path/canonical-path'
-import { normalizePath } from '../../../utils/path/form'
+import { normalizeListingPath, normalizePath } from '../../../utils/path/form'
 
 export interface BreadcrumbSegment {
   name: string
   /** listing 形态（带尾斜杠），可直接导航 */
   path: string
-}
-
-/** listing 形态：canonical + 尾斜杠。`/`、`C:/`、`//server/share` 都变成"根 + /"。 */
-export function toListingPath(path: string): string {
-  const canonical = normalizePath(path)
-  return canonical.endsWith('/') ? canonical : `${canonical}/`
 }
 
 /** 拆成 canonical 根（带尾斜杠）与相对段。非法路径回落到「按字符串切」。 */
@@ -79,7 +73,7 @@ export function findMountRoot(path: string, mounts: readonly string[]): string |
       best = root
     }
   }
-  return best === null ? null : toListingPath(best)
+  return best === null ? null : normalizeListingPath(best)
 }
 
 /**
@@ -115,7 +109,7 @@ export function canGoUpIn(path: string, mounts: readonly string[]): boolean {
 export function getParentPathIn(path: string, mounts: readonly string[]): string {
   const canonical = normalizePath(path)
   if (!canGoUpIn(canonical, mounts)) {
-    return toListingPath(canonical)
+    return normalizeListingPath(canonical)
   }
   const { root, segments } = rootAndSegments(canonical)
   return joinListing(root, segments.slice(0, -1))
@@ -159,8 +153,8 @@ export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): 
  * 当前目录就是该段自身（或不在其下）时返回 null——没有可高亮的项。
  */
 export function currentChildNameFor(segPath: string, currentPath: string): string | null {
-  const base = toListingPath(segPath)
-  const current = toListingPath(currentPath)
+  const base = normalizeListingPath(segPath)
+  const current = normalizeListingPath(currentPath)
   if (current === base || !current.startsWith(base)) {
     return null
   }

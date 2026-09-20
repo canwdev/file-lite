@@ -263,12 +263,6 @@ func (t *task) resultTotals() int {
 	return t.stats.Failed + t.stats.Skipped + t.stats.Renamed + t.stats.Succeeded + t.stats.Conflict
 }
 
-func (t *task) fail(msg string) {
-	t.mu.Lock()
-	t.errMsg = msg
-	t.mu.Unlock()
-}
-
 func (t *task) decisionsSnapshot() map[string]fileops.Policy {
 	t.mu.Lock()
 	defer t.mu.Unlock()

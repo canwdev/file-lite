@@ -1,7 +1,7 @@
 import type { MessageBoxData } from 'element-plus'
 import type { IEntry } from '@/types/server'
-import { resolveFileUrl } from '@/hooks/use-file-url'
 import { bytesToSize } from '@/utils'
+import { fs } from '@/utils/fs'
 import {
   regSupportedAudioFormat,
   regSupportedHtmlFormat,
@@ -112,7 +112,7 @@ export function useOpener(basePath: { value: string }) {
    * 取不到地址时直接放弃，而不是 `await` 掉手势。
    */
   const getStreamUrl = (item: IEntry) => {
-    return resolveFileUrl(normalizePath(`${basePath.value}/${item.name}`))
+    return fs.url(normalizePath(`${basePath.value}/${item.name}`))
   }
 
   const openFile = async (

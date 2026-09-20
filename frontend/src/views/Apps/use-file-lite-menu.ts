@@ -2,6 +2,7 @@ import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
+import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
@@ -364,7 +365,7 @@ export function useFileLiteMenu() {
                     enableDebug.value = !enableDebug.value
                   },
                 },
-                {
+                isDev && {
                   label: 'Demo Transfer Window',
                   icon: 'mdi mdi-bug-play-outline',
                   onClick: () => {

@@ -10,7 +10,7 @@ import (
 	"file-lite-go/types"
 )
 
-// isBitLockerLocked 必须只认 STATUS_FVE_LOCKED_VOLUME，别的错误不能误判。
+// IsBitLockerLocked 必须只认 STATUS_FVE_LOCKED_VOLUME，别的错误不能误判。
 //
 // 误判的代价是双向的：漏判会让锁定的盘退回「一块点不开的本地盘」，
 // 误判会把权限错误说成「请去解锁 BitLocker」。
@@ -20,8 +20,8 @@ func TestIsBitLockerLocked(t *testing.T) {
 		err  error
 		want bool
 	}{
-		{"BitLocker 锁定", bitLockerLockedErrno, true},
-		{"包装过的 BitLocker", &os.PathError{Op: "open", Path: `H:\`, Err: bitLockerLockedErrno}, true},
+		{"BitLocker 锁定", BitLockerLockedErrno, true},
+		{"包装过的 BitLocker", &os.PathError{Op: "open", Path: `H:\`, Err: BitLockerLockedErrno}, true},
 		{"nil", nil, false},
 		{"文件不存在", os.ErrNotExist, false},
 		{"权限不足", os.ErrPermission, false},
@@ -33,8 +33,8 @@ func TestIsBitLockerLocked(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := isBitLockerLocked(c.err); got != c.want {
-				t.Fatalf("isBitLockerLocked(%v) = %v，期望 %v", c.err, got, c.want)
+			if got := IsBitLockerLocked(c.err); got != c.want {
+				t.Fatalf("IsBitLockerLocked(%v) = %v，期望 %v", c.err, got, c.want)
 			}
 		})
 	}

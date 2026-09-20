@@ -1,5 +1,3 @@
-export const shortcutFilenameReg = /\.shortcut$/i
-
 export const regArchiveFormat = /\.(?:zip|rar|7z|tar|gz|bz2|xz|tgz|tar\.gz|tar\.bz2|tar\.xz|zipx|z|lzh|arj|zoo|pkg|lz|cab|iso|dmg|apk|deb|rpm|jar|war|ear|zst|lz4|br|vhd|vhdx|wim)$/i
 
 export const regImageFormat = /\.(?:jpg|jpeg|jfif|pjpeg|pjp|png|gif|apng|webp|svg|avif|bmp|tiff?|heif|heic|indd|ico)$/i
@@ -35,18 +33,4 @@ export const regClientCanvasThumbFormat = /\.(?:avif|heic|heif)$/i
 
 export function isSupportedMediaFormat(name: string) {
   return regSupportedAudioFormat.test(name) || regSupportedVideoFormat.test(name)
-}
-
-// 是否外部链接
-export function isOutLink(url: string) {
-  // eslint-disable-next-line regexp/no-dupe-disjunctions
-  return /^(https?:|mailto:|tel:|[a-zA-Z]{4,}:)/.test(url)
-}
-
-export function isBase64Image(str: string) {
-  return /^data:image\/([a-zA-Z]*);base64,/.test(str)
-}
-
-export function isSrcHttpUrl(url: string) {
-  return /^(https?:)/i.test(url)
 }

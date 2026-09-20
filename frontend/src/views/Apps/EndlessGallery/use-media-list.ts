@@ -1,6 +1,6 @@
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useFileUrls } from '@/hooks/use-file-url'
+import { fs } from '@/utils/fs'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -33,14 +33,14 @@ export function useMediaList(
   const currentIndex = ref(0)
 
   /**
-   * 每项的绝对路径；地址与条目分开算，路径变化时由 `useFileUrls` 重新取一遍。
+   * 每项的绝对路径；地址与条目分开算，路径变化时自动跟随。
    */
   const itemPaths = computed(() => {
     const base = (getAppParams()?.basePath ?? '').replace(/\/+$/, '')
     return rawItems.value.map(i => `${base}/${i.name}`)
   })
 
-  const urlMap = useFileUrls(() => itemPaths.value)
+  const urlMap = computed(() => new Map(itemPaths.value.map(path => [path, fs.url(path)])))
 
   const items = computed<MediaFile[]>(() => {
     return rawItems.value.map((item, index) => ({

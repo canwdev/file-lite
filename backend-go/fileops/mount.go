@@ -25,11 +25,6 @@ type Mount struct {
 	Kind string
 }
 
-// IsRoot 判断 p 是否正好是该挂载点的根。
-func (m Mount) IsRoot(p string) bool {
-	return ComparisonKey(p) == ComparisonKey(m.Root)
-}
-
 var mountTable = struct {
 	sync.RWMutex
 	mounts []Mount
@@ -151,9 +146,6 @@ type Resolved struct {
 	Mount *Mount
 }
 
-// ViaMount 表示这条路径属于一个已知挂载点（而不是「未匹配到挂载点的本地路径」）。
-func (r Resolved) ViaMount() bool { return r.Mount != nil }
-
 // OSPath 返回可以直接交给 os.* / filepath.* 的本机路径。
 //
 // Path 是 canonical 形式（恒用 "/"），而 Windows 的 os 调用只认 "\"——两者之间必须
@@ -249,24 +241,6 @@ func Resolve(p string) (Resolved, error) {
 		res.Mount = &m
 	}
 	return res, nil
-}
-
-// HasMountRootFor 判断一条 canonical 路径是否**正好**是挂载表里的某个根。
-//
-// 「正好是根」与「落在某个根之下」必须分开：挂载表里的 `D:` 覆盖 `D:/a/b`，
-// 但只有 `D:` 自己是根。判断访问范围要不要为允许根合成一个根时必须用前者——
-// 用后者会把「落在盘符根之下」当成「已经是根」，合成被跳过，收窄后列表变空。
-//
-// 同时也别拿它去问「这个位置有挂载点吗」：那要用 LongestMount。曾经这里叫
-// HasMountFor（前缀语义）并被当成「正好」用，结果 `D:` 让允许根看起来已经有根，
-// 侧边栏把 D: 原样留了下来。
-func HasMountRootFor(canonical string) bool {
-	for _, m := range GetMounts() {
-		if m.IsRoot(canonical) {
-			return true
-		}
-	}
-	return false
 }
 
 // SamePath 判断两条 canonical 路径是否指向同一个位置。
