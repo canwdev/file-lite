@@ -120,6 +120,7 @@ import MdiMusicCircleOutline from '~icons/mdi/music-circle-outline'
 import MdiMusicNote from '~icons/mdi/music-note'
 import MdiOpenInApp from '~icons/mdi/open-in-app'
 import MdiOpenInNew from '~icons/mdi/open-in-new'
+import MdiPalette from '~icons/mdi/palette'
 import MdiPause from '~icons/mdi/pause'
 import MdiPlay from '~icons/mdi/play'
 import MdiPlayCircle from '~icons/mdi/play-circle'
@@ -339,6 +340,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   // 标签拆分视图菜单
   'swap-horizontal': MdiSwapHorizontal,
   'swap-vertical': MdiSwapVertical,
+  // JS Paint 应用
+  'palette': MdiPalette,
 }
 /**
  * 把任意图标字符串归一化为注册表 key（去掉 'mdi ' 基类、'mdi-' 前缀及无关修饰类）。

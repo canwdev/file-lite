@@ -183,6 +183,12 @@ export async function readText(path: string, options: { signal?: AbortSignal } =
   return data as unknown as string
 }
 
+/** 读取二进制内容（图片编辑等需要拿到原始字节的调用点）。 */
+export async function readBlob(path: string, options: { signal?: AbortSignal } = {}): Promise<Blob> {
+  const data = await fsWebApi.stream(path, { responseType: 'blob', signal: options.signal })
+  return data as unknown as Blob
+}
+
 /**
  * 命名空间门面：调用点习惯写 `fs.writeText(...)`（与后端 API 对象的用法一致）。
  * 具名导出同样可用，两者指向同一批函数。
@@ -194,6 +200,7 @@ export const fs = {
   list,
   url,
   readText,
+  readBlob,
   mkdir,
   rename,
   existingPaths,

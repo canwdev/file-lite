@@ -9,6 +9,7 @@ export enum OpenWithEnum {
   TextEditor = 'TextEditor',
   VideoPlayer = 'VideoPlayer',
   ImageViewer = 'ImageViewer',
+  JsPaint = 'JsPaint',
   HtmlViewer = 'HtmlViewer',
   FileViewer = 'FileViewer',
   MediaPlayer = 'MediaPlayer',
@@ -65,6 +66,13 @@ export const AppList: AppListItem[] = [
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image',
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
+    singleInstance: true,
+  },
+  {
+    name: 'JS Paint',
+    openWith: OpenWithEnum.JsPaint,
+    icon: 'mdi mdi-palette',
+    component: defineAsyncComponent(() => import('./JsPaint.vue')),
     singleInstance: true,
   },
   {
