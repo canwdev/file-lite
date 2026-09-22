@@ -37,6 +37,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Open File picker**: The Open File picker opens with Esc, remembers folder and window size, and is selection-only (frontend).
 - **Docs**: The README and the top-level configuration guides are available in Chinese as well as English.
 - **README**: The README is shorter for new users: about 10MB, a Windows double-click install, and every document listed once at the bottom.
+- **Plugins**: Plugin pages are served cross-origin isolated, so a plugin can use WebAssembly threads (SharedArrayBuffer) (frontend, backend).
 
 ### Fixes
 

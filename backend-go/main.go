@@ -156,6 +156,8 @@ func startServer() (*cli.ServerResult, error) {
 			return err
 		},
 	}))
+	// 跨源隔离（COOP/COEP）：BoxedWine 多线程 wasm 需要 SharedArrayBuffer。
+	e.Use(middlewares.CrossOriginIsolation())
 
 	// IP 白名单：在静态资源与 API 之前生效，覆盖整站（含 WebSocket）。
 	allowlist, err := middlewares.NewIPAllowlist(config.Config().AllowedCIDRs)

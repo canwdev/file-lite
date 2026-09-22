@@ -14,6 +14,20 @@ export default defineConfig(() => {
   const outDir = '../backend-go/frontend'
   return {
     plugins: [
+      {
+        name: 'cross-origin-isolation',
+        configureServer(server) {
+          // BoxedWine's multithreaded wasm needs SharedArrayBuffer, which
+          // browsers only expose to cross-origin isolated documents. Set the
+          // headers on every dev response so the app shell and the proxied
+          // plugin pages are isolated (production sets the same ones in Go).
+          server.middlewares.use((_req, res, next) => {
+            res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+            res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless')
+            next()
+          })
+        },
+      },
       vue({
         template: {
           compilerOptions: {
