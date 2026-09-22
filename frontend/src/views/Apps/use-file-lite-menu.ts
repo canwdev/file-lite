@@ -1,6 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
+import { listPlugins } from '@/api/plugins'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
 import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
@@ -14,7 +15,8 @@ import { enableDebug } from '@/utils/debug'
 import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
-import { openAppWindow, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
+import { openAppWindow, openPluginWindow, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
+import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
@@ -226,6 +228,32 @@ export function useFileLiteMenu() {
 
   async function showMenu(event?: MouseEvent) {
     const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
+    const pluginItems = shallowReactive<MenuItem[]>([
+      { label: 'Loading…', disabled: true },
+    ])
+    let pluginLoadSeq = 0
+    function loadPluginSubmenu() {
+      const seq = ++pluginLoadSeq
+      void listPlugins().catch(() => []).then((list) => {
+        if (seq !== pluginLoadSeq) {
+          return
+        }
+        pluginItems.splice(0, pluginItems.length)
+        if (!list.length) {
+          pluginItems.push({ label: 'No plugins', disabled: true })
+          return
+        }
+        for (const plugin of list) {
+          pluginItems.push({
+            label: plugin.name,
+            icon: h(PluginIcon, { plugin }),
+            onClick: () => {
+              openPluginWindow(plugin)
+            },
+          })
+        }
+      })
+    }
     const imageCacheLabel = !cacheAvailable
       ? 'Image Cache: unavailable'
       : cacheEntries > 0
@@ -437,6 +465,12 @@ export function useFileLiteMenu() {
               list: [],
             })
           },
+        },
+        {
+          label: 'Plugins',
+          icon: 'mdi mdi-puzzle-outline',
+          children: pluginItems,
+          onSubMenuOpen: loadPluginSubmenu,
           divided: true,
         },
         {

@@ -1,4 +1,5 @@
 import type { AppName, AppParams } from './apps'
+import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import { localSettingsStore } from '@/store'
 import { guid } from '@/utils'
@@ -12,7 +13,8 @@ export type AppWindowViewRef = {
 
 export interface AppWindowState {
   id: string
-  appName: AppName
+  appName: AppName | null
+  plugin: PluginInfo | null
   appTitle: string
   appParams: AppParams
   minimized: boolean
@@ -37,11 +39,16 @@ const emptyInternalEntry: IEntry = {
   error: null,
 }
 
-function createWindowState(appName: AppName, appParams: AppParams): AppWindowState {
+function createWindowState(
+  appName: AppName | null,
+  appParams: AppParams,
+  plugin: PluginInfo | null = null,
+): AppWindowState {
   return {
     id: guid(),
     appName,
-    appTitle: '',
+    plugin,
+    appTitle: plugin?.name ?? '',
     appParams,
     minimized: false,
     maximized: true,
@@ -61,6 +68,10 @@ function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
   return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)
 }
 
+function getReusablePluginWindow(pluginId: string): AppWindowState | undefined {
+  return appsStoreState.windows.find(w => w.plugin?.id === pluginId && !w.isClosing)
+}
+
 /**
  * 打开新 App 窗口并设为当前活动窗口
  */
@@ -75,6 +86,26 @@ export function openAppWindow(appName: AppName, appParams: AppParams) {
   }
 
   const win = createWindowState(appName, appParams)
+  appsStoreState.windows.push(win)
+  appsStoreState.activeId = win.id
+}
+
+export function openPluginWindow(plugin: PluginInfo) {
+  const reusableWin = getReusablePluginWindow(plugin.id)
+  if (reusableWin) {
+    reusableWin.plugin = plugin
+    reusableWin.appTitle = plugin.name
+    setAppWindowActive(reusableWin)
+    reusableWin.windowRef?.focus()
+    return
+  }
+
+  const win = createWindowState(null, {
+    absPath: '',
+    item: { ...emptyInternalEntry, name: plugin.name },
+    basePath: '',
+    list: [],
+  }, plugin)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id
 }

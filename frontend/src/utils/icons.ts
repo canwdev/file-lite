@@ -128,6 +128,7 @@ import MdiPlaylistMusic from '~icons/mdi/playlist-music'
 import MdiPlus from '~icons/mdi/plus'
 import MdiProgressDownload from '~icons/mdi/progress-download'
 import MdiProgressUpload from '~icons/mdi/progress-upload'
+import MdiPuzzleOutline from '~icons/mdi/puzzle-outline'
 import MdiRayEnd from '~icons/mdi/ray-end'
 import MdiRayStart from '~icons/mdi/ray-start'
 import MdiRefresh from '~icons/mdi/refresh'
@@ -342,6 +343,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'swap-vertical': MdiSwapVertical,
   // JS Paint 应用
   'palette': MdiPalette,
+  'puzzle-outline': MdiPuzzleOutline,
 }
 /**
  * 把任意图标字符串归一化为注册表 key（去掉 'mdi ' 基类、'mdi-' 前缀及无关修饰类）。

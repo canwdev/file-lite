@@ -50,6 +50,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- HTML pages dropped in the server's plugins folder appear in the main menu under Plugins and open in a window (frontend, backend).
 - Branch view (Ctrl+B) lists every file under the current folder, ignoring directory nesting, so copy, delete and other batch actions can run across subfolders; leaving the folder turns it off, and a right-click can open the file's containing folder. A folder with too many files to flatten shows an error instead of a partial list. It is an explorer view only and does not apply inside apps (frontend, backend).
 - Folders can be grouped like Explorer — by name, type, size or date, in either direction — in both the list and the grid; the group's heading stays pinned while you scroll it, size groups show their range in brackets, the chevron collapses the group, and clicking the rest of the heading selects every file in it (frontend).
 - The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
@@ -99,7 +100,6 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - A BitLocker volume that is still locked shows up in the sidebar with a lock icon instead of looking like an ordinary disk that happens to be empty, and opening it quotes Windows' own explanation — unlock it from Control Panel — rather than a generic "failed to read the path" (backend, frontend).
 - Installed WSL distributions now appear in the sidebar as their own locations, below the local disks and with the network icon, so `\\wsl.localhost\Debian` no longer has to be typed into the address bar by someone who happens to know the rule; the list comes from the registry, so it costs about a millisecond and never waits on the network (backend, frontend).
 - Network locations added to This PC with "Add a network location" — a share that was never given a drive letter, such as `\\DESKTOP-ROGZ16\shared` — now appear in the sidebar too, read from the shortcut Explorer keeps for them rather than by probing the network; a location only shows up for the account the server runs as, and one that is offline reports itself as unreachable when opened (backend, frontend).
-- A JS Paint app bundles a stripped-down editor (no help viewer, PDF/TIFF import, sound, speech, wallpaper, palette files or extra image codecs) and serves it from the app itself, so it needs no third-party site and can be picked from Open With or set as the default app for an extension; a picture opened this way loads into its canvas, Ctrl+S writes it back to the same file, Save As downloads a copy through the browser, and File > Exit closes the paint window (frontend).
 
 ### Fixes
 

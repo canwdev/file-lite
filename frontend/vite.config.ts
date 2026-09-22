@@ -74,6 +74,10 @@ export default defineConfig(() => {
           ws: true,
           rewriteWsOrigin: true,
         },
+        '/plugins': {
+          target: 'http://localhost:3111',
+          changeOrigin: true,
+        },
       },
     },
     css: {

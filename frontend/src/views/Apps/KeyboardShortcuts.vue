@@ -43,8 +43,8 @@ function scopeLabel(scope: string) {
     const winId = scope.slice(4)
     const win = appsStoreState.windows.find(w => w.id === winId)
     if (win) {
-      const meta = appMetaByName[win.appName]
-      const title = win.appTitle?.trim() || meta?.name || win.appName
+      const meta = win.appName ? appMetaByName[win.appName] : undefined
+      const title = win.appTitle?.trim() || meta?.name || win.plugin?.name || win.appName
       return `App: ${title}`
     }
     return `App (${shortId(winId)})`

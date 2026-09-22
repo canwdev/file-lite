@@ -125,7 +125,8 @@ var (
 func frontendStaticMiddleware(staticFS http.FileSystem) echo.MiddlewareFunc {
 	return middleware.StaticWithConfig(middleware.StaticConfig{
 		Skipper: func(c echo.Context) bool {
-			return strings.HasPrefix(c.Request().URL.Path, "/api")
+			path := c.Request().URL.Path
+			return strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/plugins")
 		},
 		Root:       ".",
 		Index:      "index.html",
@@ -186,6 +187,8 @@ func startServer() (*cli.ServerResult, error) {
 		staticFS = memFS
 	}
 	e.Use(frontendStaticMiddleware(staticFS))
+
+	routes.RegisterPluginStatic(e)
 
 	api := e.Group("/api")
 	// 认证后的 API 不按请求数限流（大目录遍历会发起大量 list 请求）；

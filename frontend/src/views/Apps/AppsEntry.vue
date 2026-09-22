@@ -12,6 +12,8 @@ import {
   setAppWindowActive,
   syncAppWindowRefs,
 } from './apps-store'
+import PluginHost from './PluginHost.vue'
+import PluginIcon from './PluginIcon.vue'
 
 const vpWindowRefs = ref<unknown[]>([])
 const appContainerRefs = new Map<string, HTMLElement | null>()
@@ -26,11 +28,15 @@ watch(
 )
 
 function appMeta(win: AppWindowState) {
-  return appMetaByName[win.appName]
+  return win.appName ? appMetaByName[win.appName] : undefined
 }
 
 function dockTitle(win: AppWindowState) {
-  return win.appTitle || appMeta(win)?.name || win.appParams.item.name
+  return win.appTitle || win.plugin?.name || appMeta(win)?.name || win.appParams.item.name
+}
+
+function windowTitle(win: AppWindowState) {
+  return win.appTitle || win.plugin?.name || appMeta(win)?.name
 }
 
 function handleClose(win: AppWindowState) {
@@ -134,8 +140,21 @@ watch(
     @on-restored="handleWindowRestored(win)"
   >
     <template #titleBarLeft>
-      <MdiIcon :name="appMeta(win)?.icon" @click.stop @dblclick.stop="handleClose(win)" />
-      <span class="title-text">{{ win.appTitle || appMeta(win)?.name }}</span>
+      <PluginIcon
+        v-if="win.plugin"
+        :plugin="win.plugin"
+        class="title-icon"
+        @click.stop
+        @dblclick.stop="handleClose(win)"
+      />
+      <MdiIcon
+        v-else
+        :name="appMeta(win)?.icon"
+        class="title-icon"
+        @click.stop
+        @dblclick.stop="handleClose(win)"
+      />
+      <span class="title-text">{{ windowTitle(win) }}</span>
     </template>
 
     <ShortcutScopeProvider :scope="`app:${win.id}`">
@@ -145,8 +164,16 @@ watch(
         tabindex="-1"
         :data-shortcut-scope="`app:${win.id}`"
       >
+        <PluginHost
+          v-if="win.plugin"
+          :plugin="win.plugin"
+          :app-params="win.appParams"
+          @exit="handleClose(win)"
+          @set-title="(val: string) => { win.appTitle = val }"
+        />
         <component
           :is="Apps[win.appName]"
+          v-else-if="win.appName"
           :app-params="win.appParams"
           @exit="handleClose(win)"
           @set-title="(val: string) => { win.appTitle = val }"
@@ -180,7 +207,8 @@ watch(
           @click="handleDockClick(win)"
         >
           <span class="dock-icon-wrap vgo-panel">
-            <MdiIcon :name="appMeta(win)?.icon" class="dock-icon" />
+            <PluginIcon v-if="win.plugin" :plugin="win.plugin" class="dock-icon" />
+            <MdiIcon v-else :name="appMeta(win)?.icon" class="dock-icon" />
           </span>
           <span class="dock-indicator" aria-hidden="true" />
         </button>
@@ -209,6 +237,11 @@ watch(
 .title-text {
   word-break: break-word;
   font-size: var(--vgo-font-sm);
+}
+
+.title-icon {
+  flex-shrink: 0;
+  font-size: var(--vgo-icon-md);
 }
 
 .app-window {
