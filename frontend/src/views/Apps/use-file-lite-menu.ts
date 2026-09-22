@@ -233,21 +233,22 @@ export function useFileLiteMenu() {
       label: 'Plugins',
       icon: 'mdi mdi-puzzle-outline',
       children: [
-        ...plugins.map((plugin, index) => ({
-          label: plugin.name,
-          icon: h(PluginIcon, { plugin }),
-          divided: index === plugins.length - 1,
-          onClick: () => {
-            openPluginWindow(plugin)
-          },
-        })),
         {
           label: 'Refresh',
           icon: 'mdi mdi-refresh',
+          divided: true,
           onClick: () => {
             void refreshPlugins()
           },
         },
+        ...plugins.map(plugin => ({
+          label: plugin.name,
+          icon: h(PluginIcon, { plugin }),
+          shortcut: plugin.version || undefined,
+          onClick: () => {
+            openPluginWindow(plugin)
+          },
+        })),
       ],
     }
     const imageCacheLabel = !cacheAvailable
@@ -270,7 +271,7 @@ export function useFileLiteMenu() {
         pluginsMenu,
         {
           label: 'Text Sync',
-          icon: 'mdi mdi-clipboard',
+          icon: 'mdi mdi-clipboard-outline',
           shortcut: 'F1',
           divided: true,
           onClick: () => {

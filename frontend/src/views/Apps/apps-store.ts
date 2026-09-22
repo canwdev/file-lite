@@ -68,8 +68,10 @@ function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
   return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)
 }
 
-function getReusablePluginWindow(pluginId: string): AppWindowState | undefined {
-  return appsStoreState.windows.find(w => w.plugin?.id === pluginId && !w.isClosing)
+function getReusablePluginWindow(plugin: PluginInfo): AppWindowState | undefined {
+  if (!plugin.singleInstance)
+    return undefined
+  return appsStoreState.windows.find(w => w.plugin?.id === plugin.id && !w.isClosing)
 }
 
 /**
@@ -97,7 +99,7 @@ export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
     basePath: '',
     list: [],
   }
-  const reusableWin = getReusablePluginWindow(plugin.id)
+  const reusableWin = getReusablePluginWindow(plugin)
   if (reusableWin) {
     reusableWin.plugin = plugin
     reusableWin.appParams = params

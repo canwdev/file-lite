@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import type { PluginInfo } from '@/api/plugins'
+import type { IEntry } from '@/types/server'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fs } from '@/utils/fs'
+import { normalizePath } from '@/utils/path/form'
 
 const props = defineProps<{
   plugin: PluginInfo
@@ -11,6 +13,15 @@ const emit = defineEmits(['setTitle', 'exit'])
 
 const HOST = 'file-lite-host'
 const PLUGIN = 'file-lite-plugin'
+
+interface PluginListEntry {
+  name: string
+  path: string
+  ext: string
+  isDirectory: boolean
+  size: number | null
+  lastModified: number
+}
 
 const iframeRef = ref<HTMLIFrameElement>()
 const isLoading = ref(true)
@@ -30,6 +41,21 @@ watch(() => props.plugin.entryUrl, () => {
   loaded.value = false
 })
 
+function entryPath(dir: string, name: string) {
+  return normalizePath(`${dir.replace(/\/+$/, '')}/${name}`)
+}
+
+function listEntry(dir: string, entry: IEntry): PluginListEntry {
+  return {
+    name: entry.name,
+    path: entryPath(dir, entry.name),
+    ext: entry.ext,
+    isDirectory: entry.isDirectory,
+    size: entry.size,
+    lastModified: entry.lastModified,
+  }
+}
+
 function dirOf(path: string) {
   const cut = path.replace(/\/+$/, '').lastIndexOf('/')
   return cut > 0 ? path.slice(0, cut) : path
@@ -39,7 +65,7 @@ function baseOf(path: string) {
   return path.slice(path.lastIndexOf('/') + 1)
 }
 
-function reply(id: number, error?: string, data?: ArrayBuffer) {
+function reply(id: number, error?: string, data?: ArrayBuffer | PluginListEntry[]) {
   iframeRef.value?.contentWindow?.postMessage({
     source: HOST,
     id,
@@ -50,15 +76,23 @@ function reply(id: number, error?: string, data?: ArrayBuffer) {
 
 function postOpen() {
   const win = iframeRef.value?.contentWindow
-  const path = props.appParams?.absPath
-  if (!loaded.value || !win || !path)
+  if (!loaded.value || !win)
     return
-  emit('setTitle', props.appParams.item?.name || '')
+  const path = props.appParams?.absPath
+  if (!path) {
+    win.postMessage({
+      source: HOST,
+      event: 'open',
+    }, window.location.origin)
+    return
+  }
+  const filename = props.appParams.item?.name || ''
+  emit('setTitle', filename)
   win.postMessage({
     source: HOST,
     event: 'open',
     path,
-    name: props.appParams.item?.name || '',
+    filename,
   }, window.location.origin)
 }
 
@@ -72,6 +106,12 @@ async function onPluginMessage(event: MessageEvent) {
     return
 
   try {
+    if (data.method === 'list') {
+      const path = String(data.path ?? '')
+      const entries = await fs.list(path)
+      reply(data.id, undefined, entries.map(entry => listEntry(path, entry)))
+      return
+    }
     if (data.method === 'readFile') {
       const blob = await fs.readBlob(String(data.path ?? ''))
       reply(data.id, undefined, await blob.arrayBuffer())

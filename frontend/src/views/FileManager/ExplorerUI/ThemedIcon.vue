@@ -7,10 +7,12 @@ import { serverCapabilities } from '@/store/capabilities'
 import { localSettingsStore } from '@/store/index.ts'
 import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DIRECT_MAX } from '@/utils/image-thumb-cache'
 import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedAudioFormat, regSupportedImageFormat, regSupportedVideoFormat } from '@/utils/is.ts'
+import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { normalizeListingPath } from '../utils'
 import { getFileIconClass } from './file-icons'
 import { applyFolderListSort, readFolderRawList } from './folder-listing'
 import { useFolderImagePreviews, useImagePreview } from './hooks/use-image-preview'
+import { getDefaultOpenApp } from './hooks/use-opener'
 
 const props = withDefaults(
   defineProps<{
@@ -18,6 +20,8 @@ const props = withDefaults(
     item?: IEntry
     absPath?: string
     iconSize?: number
+    /** 网格视图：右下角固定显示默认打开应用，未知类型不显示 */
+    showOpenAppBadge?: boolean
   }>(),
   {
     iconSize: 48,
@@ -346,13 +350,20 @@ const linkBadgeStyle = computed(() => badgeBoxStyle(badgeSize.value))
 const typeBadgeStyle = computed(() => badgeBoxStyle(badgeSize.value))
 
 /**
- * 非图片文件出预览时，在右下角压一个类型图标：
- * 缩略图本身看不出这是音频还是视频，角标用来区分文件类型。
- * 图片不加（对图片而言类型没有区分价值），文件夹 2×2 预览也不加（格子太小看不清）。
+ * 列表里，非图片文件出预览时在右下角压一个类型图标。
+ * 网格视图改由默认打开应用的角标代替，见 openAppBadge。
  */
 const typeBadgeIcon = computed(() => props.iconClass || getFileIconClass(props.item))
+const openAppBadge = computed(() => {
+  if (!props.showOpenAppBadge || !props.item || props.item.isDirectory)
+    return null
+  const app = getDefaultOpenApp(props.item)
+  if (app.source === 'fallback')
+    return null
+  return app
+})
 const showTypeBadge = computed(() =>
-  !!previewUrl.value && !!props.item && !regSupportedImageFormat.test(props.item.name),
+  !props.showOpenAppBadge && !!previewUrl.value && !!props.item && !regSupportedImageFormat.test(props.item.name),
 )
 
 let folderReadSeq = 0
@@ -441,7 +452,17 @@ onBeforeUnmount(() => {
       <MdiIcon name="file-question-outline" />
     </span>
     <span
-      v-if="showTypeBadge"
+      v-if="openAppBadge"
+      class="themed-icon-type-badge"
+      :class="{ 'themed-icon-type-badge--plain': openAppBadge.plugin }"
+      :style="typeBadgeStyle"
+      aria-hidden="true"
+    >
+      <PluginIcon v-if="openAppBadge.plugin" :plugin="openAppBadge.plugin" />
+      <MdiIcon v-else :name="openAppBadge.icon" />
+    </span>
+    <span
+      v-else-if="showTypeBadge"
       class="themed-icon-type-badge"
       :style="typeBadgeStyle"
       aria-hidden="true"
@@ -546,7 +567,7 @@ onBeforeUnmount(() => {
     pointer-events: none;
   }
 
-  // 右下角类型角标：音频 / 视频出了封面之后，光看缩略图分不出是什么文件类型。
+  // 右下角角标：列表里是音频 / 视频的类型图标，网格里是默认打开应用。
   // 放在右下角，和左下角的链接角标错开。
   .themed-icon-type-badge {
     position: absolute;
@@ -562,6 +583,12 @@ onBeforeUnmount(() => {
     color: var(--vgo-on-primary);
     line-height: 1;
     pointer-events: none;
+
+    &--plain {
+      border-radius: 0;
+      background-color: transparent;
+      color: inherit;
+    }
   }
 }
 </style>

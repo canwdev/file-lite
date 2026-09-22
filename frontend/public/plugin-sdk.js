@@ -42,8 +42,11 @@
     if (!data || data.source !== HOST)
       return
     if (data.event === 'open') {
+      var file = data.path
+        ? { path: data.path, filename: data.filename || '' }
+        : undefined
       openHandlers.forEach(function (cb) {
-        cb(data.path, data.name)
+        cb(file)
       })
       return
     }
@@ -58,6 +61,9 @@
   })
 
   window.fileLiteSDK = {
+    list: function (path) {
+      return call('list', { path: path })
+    },
     readFile: function (path) {
       return call('readFile', { path: path })
     },

@@ -20,19 +20,23 @@ var (
 )
 
 type Manifest struct {
-	Name     string   `json:"name"`
-	Entry    string   `json:"entry"`
-	Icon     string   `json:"icon"`
-	OpenWith []string `json:"openWith"`
+	Name           string   `json:"name"`
+	Entry          string   `json:"entry"`
+	Icon           string   `json:"icon"`
+	OpenWith       []string `json:"openWith"`
+	SingleInstance bool     `json:"singleInstance"`
+	Version        string   `json:"version"`
 }
 
 type Plugin struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	EntryURL  string   `json:"entryUrl"`
-	IconEmoji string   `json:"iconEmoji"`
-	IconURL   string   `json:"iconUrl"`
-	OpenWith  []string `json:"openWith"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	EntryURL       string   `json:"entryUrl"`
+	IconEmoji      string   `json:"iconEmoji"`
+	IconURL        string   `json:"iconUrl"`
+	OpenWith       []string `json:"openWith"`
+	SingleInstance bool     `json:"singleInstance"`
+	Version        string   `json:"version"`
 
 	Root     string `json:"-"`
 	EntryRel string `json:"-"`
@@ -152,6 +156,8 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 	entry := "index.html"
 	icon := ""
 	openWith := []string{}
+	singleInstance := false
+	version := ""
 
 	manifestPath := filepath.Join(root, "manifest.json")
 	body, err := os.ReadFile(manifestPath)
@@ -171,6 +177,8 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 		if manifest.OpenWith != nil {
 			openWith = manifest.OpenWith
 		}
+		singleInstance = manifest.SingleInstance
+		version = strings.TrimSpace(manifest.Version)
 	} else if !os.IsNotExist(err) {
 		utils.LogWarnf("skip plugin %s: read manifest: %v", id, err)
 		return Plugin{}, false
@@ -189,12 +197,14 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 	}
 
 	plugin := Plugin{
-		ID:       id,
-		Name:     name,
-		EntryURL: "/plugins/" + id + "/" + entry,
-		OpenWith: openWith,
-		Root:     root,
-		EntryRel: entry,
+		ID:             id,
+		Name:           name,
+		EntryURL:       "/plugins/" + id + "/" + entry,
+		OpenWith:       openWith,
+		SingleInstance: singleInstance,
+		Version:        version,
+		Root:           root,
+		EntryRel:       entry,
 	}
 	applyIcon(&plugin, icon)
 	return plugin, true
@@ -202,14 +212,16 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 
 func loadFilePlugin(filePath, id, filename string) Plugin {
 	plugin := Plugin{
-		ID:       id,
-		Name:     id,
-		EntryURL: "/plugins/" + filename,
-		OpenWith: []string{},
-		Root:     filepath.Dir(filePath),
-		EntryRel: filename,
-		File:     true,
-		FilePath: filePath,
+		ID:             id,
+		Name:           id,
+		EntryURL:       "/plugins/" + filename,
+		OpenWith:       []string{},
+		SingleInstance: false,
+		Version:        "",
+		Root:           filepath.Dir(filePath),
+		EntryRel:       filename,
+		File:           true,
+		FilePath:       filePath,
 	}
 	return plugin
 }

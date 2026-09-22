@@ -29,7 +29,8 @@ export function getOpenActionMeta(item: IEntry) {
   const defaultOpenApp = item.isDirectory ? null : getDefaultOpenApp(item)
   return {
     label: defaultOpenApp ? `Open with ${defaultOpenApp.name}` : 'Open',
-    icon: defaultOpenApp?.icon ?? 'mdi mdi-folder-open-outline',
+    icon: defaultOpenApp?.icon || 'mdi mdi-folder-open-outline',
+    plugin: defaultOpenApp?.plugin,
   }
 }
 
@@ -239,14 +240,20 @@ export function useFileActions({
 
   const openWithPlugins = ref<PluginInfo[]>([])
 
-  function pluginMenuItems(onPick: (plugin: PluginInfo) => void): MenuItem[] {
-    return openWithPlugins.value
-      .filter(plugin => plugin.openWith.length > 0)
-      .map(plugin => ({
+  function pluginsSubMenu(onPick: (plugin: PluginInfo) => void, currentId?: string | null): MenuItem | null {
+    const plugins = openWithPlugins.value.filter(plugin => plugin.openWith.length > 0)
+    if (!plugins.length)
+      return null
+    return {
+      label: 'Plugins',
+      icon: 'mdi mdi-puzzle-outline',
+      divided: true,
+      children: plugins.map(plugin => ({
         label: plugin.name,
-        icon: h(PluginIcon, { plugin }),
+        icon: currentId === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
         onClick: () => onPick(plugin),
-      }))
+      })),
+    }
   }
 
   const ctxMenuOptions = computed((): MenuItem[] => {
@@ -298,7 +305,7 @@ export function useFileActions({
       branchOpenContaining,
       isSingle && {
         label: openActionMeta.label,
-        icon: openActionMeta.icon,
+        icon: openActionMeta.plugin ? h(PluginIcon, { plugin: openActionMeta.plugin }) : openActionMeta.icon,
         shortcut: 'Enter',
         onClick: () => {
           handleOpen()
@@ -316,6 +323,10 @@ export function useFileActions({
         label: 'Open With',
         icon: 'mdi mdi-open-in-app',
         children: [
+          pluginsSubMenu(plugin => emit('open', {
+            item: selectedItem,
+            openWith: plugin.id,
+          })),
           {
             label: 'Browser',
             icon: 'mdi mdi-open-in-new',
@@ -327,21 +338,6 @@ export function useFileActions({
             },
             divided: true,
           },
-          // {
-          //   label: 'Share',
-          //   icon: 'mdi mdi-share-variant',
-          //   onClick: () => {
-          //     emit('open', {
-          //       item: selectedItems.value[0],
-          //       openWith: OpenWithEnum.Share,
-          //     })
-          //   },
-          //   divided: true,
-          // },
-          ...pluginMenuItems(plugin => emit('open', {
-            item: selectedItem,
-            openWith: plugin.id,
-          })),
           ...AppList.map(app => ({
             label: app.name,
             icon: app.icon,
@@ -360,6 +356,7 @@ export function useFileActions({
               const ext = getFileExt(selectedItem.name)
               const current = ext ? (defaultAppMap.value[ext] ?? null) : null
               return [
+                pluginsSubMenu(plugin => setDefaultApp(ext, plugin.id), current),
                 {
                   label: 'Default',
                   icon: current === null ? 'mdi mdi-check' : '',
@@ -376,17 +373,10 @@ export function useFileActions({
                   icon: current === app.openWith ? 'mdi mdi-check' : app.icon,
                   onClick: () => setDefaultApp(ext, app.openWith),
                 })),
-                ...openWithPlugins.value
-                  .filter(plugin => plugin.openWith.length > 0)
-                  .map(plugin => ({
-                    label: plugin.name,
-                    icon: current === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
-                    onClick: () => setDefaultApp(ext, plugin.id),
-                  })),
-              ]
+              ].filter(Boolean) as MenuItem[]
             })(),
           },
-        ],
+        ].filter(Boolean) as MenuItem[],
       },
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
       { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },

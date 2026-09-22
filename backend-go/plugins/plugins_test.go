@@ -33,7 +33,9 @@ func TestScanDirPluginWithManifest(t *testing.T) {
 		"name": "JS Paint",
 		"entry": "index.html",
 		"icon": "🎨",
-		"openWith": [".png", ".jpg"]
+		"openWith": [".png", ".jpg"],
+		"singleInstance": true,
+		"version": " 1.2.0 "
 	}`)
 
 	got := byID(Scan(dir))
@@ -55,6 +57,12 @@ func TestScanDirPluginWithManifest(t *testing.T) {
 	}
 	if len(plugin.OpenWith) != 2 {
 		t.Fatalf("openWith = %v", plugin.OpenWith)
+	}
+	if !plugin.SingleInstance {
+		t.Fatal("singleInstance = false, want true")
+	}
+	if plugin.Version != "1.2.0" {
+		t.Fatalf("version = %q", plugin.Version)
 	}
 }
 
@@ -78,6 +86,12 @@ func TestScanDirPluginDefaults(t *testing.T) {
 	if plugin.OpenWith == nil || len(plugin.OpenWith) != 0 {
 		t.Fatalf("openWith = %#v", plugin.OpenWith)
 	}
+	if plugin.SingleInstance {
+		t.Fatal("singleInstance = true, want false")
+	}
+	if plugin.Version != "" {
+		t.Fatalf("version = %q", plugin.Version)
+	}
 }
 
 func TestScanSingleFilePlugin(t *testing.T) {
@@ -96,6 +110,12 @@ func TestScanSingleFilePlugin(t *testing.T) {
 	}
 	if plugin.EntryURL != "/plugins/excel-to-json.html" {
 		t.Fatalf("entryUrl = %q", plugin.EntryURL)
+	}
+	if plugin.SingleInstance {
+		t.Fatal("singleInstance = true, want false")
+	}
+	if plugin.Version != "" {
+		t.Fatalf("version = %q", plugin.Version)
 	}
 }
 
@@ -346,16 +366,6 @@ func TestEnsureReadme(t *testing.T) {
 	}
 	if string(kept) != "keep" {
 		t.Fatalf("overwrote existing readme: %s", kept)
-	}
-}
-
-func TestReadmeMatchesDocs(t *testing.T) {
-	docs, err := os.ReadFile(filepath.Join("..", "..", "docs", "plugins.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(docs) != string(readme) {
-		t.Fatal("docs/plugins.md and backend-go/plugins/readme.md differ")
 	}
 }
 

@@ -6,7 +6,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
-- The Plugins entry is first in the main menu and is left out when nothing is installed. Its list is loaded once when the page opens; Refresh in that submenu loads it again (frontend).
+- Endless Gallery, Media Player, Video Player, File Viewer and Text Sync use new icons (frontend).
+- In grid view each file icon shows its default app at the bottom right, including images; a file with no matched app shows none, and a plugin icon there has no background. A plugin is the default only when no built-in app matches the file. Open With and Set Default App list plugins in a Plugins submenu, and the Open with label uses the plugin's name (frontend).
+- A plugin opens a new window each time. Set `singleInstance` in its manifest to keep one window, and a `version` string there is shown beside the name in the Plugins menu and is not used for anything else (frontend, backend).
 - The panel has two tabs: Transfers for uploads and downloads, which always run in the browser, and Tasks for background copy, move, delete and duplicate work on the server. Each tab has its own summary and its own actions, so a progress percentage or a "Cancel All" never mixes the two (frontend).
 - Rows in both tabs share one layout — status icon, name, progress details on aligned columns — and the panel's footer only offers what applies to the tab you are looking at (frontend).
 - Progress in the panel is now a translucent wash behind each row instead of a bar along its bottom edge, so the row keeps its height and nothing competes with the file name (frontend).
@@ -52,6 +54,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - HTML pages dropped in the server's plugins folder appear in the main menu under Plugins and open in a window (frontend, backend).
 - A plugin can open a file from the file manager, read and write that file, and close its own window (frontend, backend).
+- A plugin can list the entries in a directory and read each one by its full path (frontend).
 - Branch view (Ctrl+B) lists every file under the current folder, ignoring directory nesting, so copy, delete and other batch actions can run across subfolders; leaving the folder turns it off, and a right-click can open the file's containing folder. A folder with too many files to flatten shows an error instead of a partial list. It is an explorer view only and does not apply inside apps (frontend, backend).
 - Folders can be grouped like Explorer — by name, type, size or date, in either direction — in both the list and the grid; the group's heading stays pinned while you scroll it, size groups show their range in brackets, the chevron collapses the group, and clicking the rest of the heading selects every file in it (frontend).
 - The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).

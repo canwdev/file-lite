@@ -1,6 +1,7 @@
 import type { MessageBoxData } from 'element-plus'
+import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
-import { listPlugins } from '@/api/plugins'
+import { listPlugins, pluginList } from '@/api/plugins'
 import { bytesToSize } from '@/utils'
 import { fs } from '@/utils/fs'
 import {
@@ -10,7 +11,7 @@ import {
   regSupportedTextFormat,
   regSupportedVideoFormat,
 } from '@/utils/is'
-import { appListByOpenWith, getDefaultApp, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
+import { appListByOpenWith, getDefaultApp, getFileExt, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
 
@@ -19,6 +20,7 @@ interface OpenAppInfo {
   icon: string
   openWith: string
   source: 'custom' | 'matched' | 'fallback'
+  plugin?: PluginInfo
 }
 
 type OpenAppMeta = Omit<OpenAppInfo, 'source'>
@@ -65,12 +67,48 @@ export function matchOpenApp(item: IEntry): OpenAppInfo {
   return { ...getOpenAppInfo(OpenWithEnum.Browser), source: 'fallback' }
 }
 
+function normExt(ext: string) {
+  const value = ext.trim().toLowerCase()
+  if (!value)
+    return ''
+  return value.startsWith('.') ? value : `.${value}`
+}
+
+function pluginOpenApp(plugin: PluginInfo, source: OpenAppInfo['source']): OpenAppInfo {
+  return {
+    name: plugin.name,
+    icon: 'mdi mdi-puzzle-outline',
+    openWith: plugin.id,
+    source,
+    plugin,
+  }
+}
+
+/** 同一扩展名有多个插件时，取它在各自 openWith 里更靠前的那个。 */
+function matchPluginOpenApp(item: IEntry): OpenAppInfo | null {
+  const ext = getFileExt(item.name)
+  if (!ext)
+    return null
+  const ranked = pluginList.value
+    .map(plugin => ({
+      plugin,
+      index: plugin.openWith.findIndex(entry => normExt(entry) === ext),
+    }))
+    .filter(entry => entry.index >= 0)
+    .sort((a, b) => a.index - b.index)
+  const plugin = ranked[0]?.plugin
+  return plugin ? pluginOpenApp(plugin, 'matched') : null
+}
+
 export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
   const customDefault = getDefaultApp(item.name)
   if (customDefault && isBuiltinApp(customDefault)) {
     return { ...getOpenAppInfo(customDefault), source: 'custom' }
   }
   if (customDefault) {
+    const plugin = pluginList.value.find(entry => entry.id === customDefault)
+    if (plugin)
+      return pluginOpenApp(plugin, 'custom')
     return {
       name: customDefault,
       icon: 'mdi mdi-puzzle-outline',
@@ -78,7 +116,10 @@ export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
       source: 'custom',
     }
   }
-  return matchOpenApp(item)
+  const builtin = matchOpenApp(item)
+  if (builtin.source !== 'fallback')
+    return builtin
+  return matchPluginOpenApp(item) ?? builtin
 }
 
 function checkTooLargeFileDialog(item: IEntry, bytes: number) {

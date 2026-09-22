@@ -50,7 +50,7 @@ export const AppList: AppListItem[] = [
   {
     name: 'Endless Gallery',
     openWith: OpenWithEnum.EndlessGallery,
-    icon: 'mdi mdi-view-carousel-outline',
+    icon: 'mdi mdi-image-multiple',
     component: defineAsyncComponent(() => import('./EndlessGallery/EndlessGallery.vue')),
     singleInstance: true,
   },
@@ -77,21 +77,21 @@ export const AppList: AppListItem[] = [
   {
     name: 'Media Player',
     openWith: OpenWithEnum.MediaPlayer,
-    icon: 'mdi mdi-music-circle',
+    icon: 'mdi mdi-play-circle',
     component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
     singleInstance: true,
   },
   {
     name: 'Video Player',
     openWith: OpenWithEnum.VideoPlayer,
-    icon: 'mdi mdi-play-circle',
+    icon: 'mdi mdi-movie',
     component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
     singleInstance: true,
   },
   {
     name: 'File Viewer',
     openWith: OpenWithEnum.FileViewer,
-    icon: 'mdi mdi-file-document-outline',
+    icon: 'mdi mdi-asterisk-circle-outline',
     component: defineAsyncComponent(() => import('./FileViewer.vue')),
     singleInstance: true,
   },
@@ -101,7 +101,7 @@ export const InternalAppList: InternalAppListItem[] = [
   {
     name: 'Text Sync',
     appName: InternalAppEnum.TextSync,
-    icon: 'mdi mdi-clipboard',
+    icon: 'mdi mdi-clipboard-outline',
     component: defineAsyncComponent(() => import('./TextSync.vue')),
     singleInstance: true,
   },

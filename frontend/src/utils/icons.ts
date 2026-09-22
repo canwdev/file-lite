@@ -15,6 +15,7 @@ import MdiArrowSplitVertical from '~icons/mdi/arrow-split-vertical'
 import MdiArrowUp from '~icons/mdi/arrow-up'
 import MdiArrowUpBoldCircleOutline from '~icons/mdi/arrow-up-bold-circle-outline'
 import MdiArrowUpThinCircleOutline from '~icons/mdi/arrow-up-thin-circle-outline'
+import MdiAsteriskCircleOutline from '~icons/mdi/asterisk-circle-outline'
 import MdiBroom from '~icons/mdi/broom'
 import MdiBugPlayOutline from '~icons/mdi/bug-play-outline'
 import MdiCheck from '~icons/mdi/check'
@@ -31,6 +32,7 @@ import MdiChevronRight from '~icons/mdi/chevron-right'
 import MdiChevronUp from '~icons/mdi/chevron-up'
 import MdiClipboard from '~icons/mdi/clipboard'
 import MdiClipboardArrowDownOutline from '~icons/mdi/clipboard-arrow-down-outline'
+import MdiClipboardOutline from '~icons/mdi/clipboard-outline'
 import MdiClipboardTextOutline from '~icons/mdi/clipboard-text-outline'
 import MdiClose from '~icons/mdi/close'
 import MdiCloseBoxMultipleOutline from '~icons/mdi/close-box-multiple-outline'
@@ -93,6 +95,7 @@ import MdiHarddisk from '~icons/mdi/harddisk'
 import MdiHelpCircleOutline from '~icons/mdi/help-circle-outline'
 import MdiHome from '~icons/mdi/home'
 import MdiImage from '~icons/mdi/image'
+import MdiImageMultiple from '~icons/mdi/image-multiple'
 import MdiImageMultipleOutline from '~icons/mdi/image-multiple-outline'
 import MdiImageOffOutline from '~icons/mdi/image-off-outline'
 import MdiImageSearch from '~icons/mdi/image-search'
@@ -115,6 +118,7 @@ import MdiMicrosoft from '~icons/mdi/microsoft'
 import MdiMicrosoftWindows from '~icons/mdi/microsoft-windows'
 import MdiMinus from '~icons/mdi/minus'
 import MdiMonitorEye from '~icons/mdi/monitor-eye'
+import MdiMovie from '~icons/mdi/movie'
 import MdiMusicCircle from '~icons/mdi/music-circle'
 import MdiMusicCircleOutline from '~icons/mdi/music-circle-outline'
 import MdiMusicNote from '~icons/mdi/music-note'
@@ -252,6 +256,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'check': MdiCheck,
   'share-variant': MdiShareVariant,
   'clipboard': MdiClipboard,
+  'clipboard-outline': MdiClipboardOutline,
   'speedometer': MdiSpeedometer,
   'theme-light-dark': MdiThemeLightDark,
   'unfold-less-horizontal': MdiUnfoldLessHorizontal,
@@ -263,6 +268,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'filter-off-outline': MdiFilterOffOutline,
   'format-list-group': MdiFormatListGroup,
   'format-title': MdiFormatTitle,
+  'image-multiple': MdiImageMultiple,
   'image-multiple-outline': MdiImageMultipleOutline,
   'broom': MdiBroom,
   'monitor-eye': MdiMonitorEye,
@@ -275,6 +281,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'image': MdiImage,
   'music-circle': MdiMusicCircle,
   'play-circle': MdiPlayCircle,
+  'movie': MdiMovie,
+  'asterisk-circle-outline': MdiAsteriskCircleOutline,
   'file-document-outline': MdiFileDocumentOutline,
   'file-move-outline': MdiFileMoveOutline,
   'file-outline': MdiFileOutline,

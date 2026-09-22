@@ -9,6 +9,10 @@ alwaysApply: true
 
 A lightweight web file manager with a Go backend implementation. `README.md` is the project's main document.
 
+## Language
+
+Write new documents and code comments in English.
+
 ## Frontend architecture
 
 - Stack: Vite + Vue 3 + TypeScript

@@ -43,7 +43,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
       @dblclick.stop
     />
 
-    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="`${basePath}/${item.name}`" :icon-size="iconSize" />
+    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="`${basePath}/${item.name}`" :icon-size="iconSize" show-open-app-badge />
     <span
       class="desktop-icon-name"
       :class="{
