@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
-import { parseFromTokenizer, selectCover } from 'music-metadata'
+import { parseFromTokenizer } from 'music-metadata'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
@@ -284,10 +284,27 @@ watch(
 )
 
 /**
- * 标签（封面 / 歌词 / 标题）的加载时机。
+ * 封面是异步从共享缩略图缓存来的（还有可能命中缓存、也可能被 Disable Preview 收掉）：
+ * 变化后要刷新系统媒体面板的 artwork，否则它会一直停在默认封面。
+ */
+watch(
+  () => mediaStore.mediaItem?.cover,
+  () => {
+    const item = mediaStore.mediaItem
+    if (item && item.type === 'music') {
+      setAudioMediaSessionMetadata(item)
+    }
+  },
+)
+
+/**
+ * 标签（标题 / 艺术家 / 专辑 / 歌词）的加载时机。
  *
  * **盯地址，而不是盯媒体条目**：地址变了（切歌、路径更新）才是重新解析标签的信号；
  * 同时用 watcher cleanup 中止上一首的在途解析。
+ *
+ * 封面不在这里：它由 `useMediaCoverController` 从共享缩略图缓存取（≤512px 降采样），
+ * 用同一份原始解析再抽一次全分辨率图只会白占内存。
  */
 watch(
   resolvedMediaUrl,
@@ -327,21 +344,11 @@ async function loadMusicMetadata(signal: AbortSignal) {
       ? common.artists!.filter(Boolean).join(', ')
       : (common.artist ?? common.albumartist)?.trim()
 
-    const cover = selectCover(common.picture)
-    let coverImage: { data: Uint8Array, mimeType: string } | undefined
-    if (cover?.data?.length) {
-      coverImage = {
-        data: cover.data,
-        mimeType: cover.format || 'image/jpeg',
-      }
-    }
-
     item.applyEmbeddedTags({
       title: common.title,
       artist: artistJoined,
       album: common.album,
       year: common.year ?? undefined,
-      coverImage,
       lyricsLines: lyricsLinesFromCommonTags(common.lyrics),
     })
     if (mediaStore.mediaItem?.guid === loadGuid) {

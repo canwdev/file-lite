@@ -13,8 +13,6 @@ export interface EmbeddedAudioTags {
   artist?: string
   album?: string
   year?: number
-  /** Embedded cover; caller creates object URL from raw picture data */
-  coverImage?: { data: Uint8Array, mimeType: string }
   lyricsLines?: LyricLine[]
 }
 
@@ -23,8 +21,15 @@ export class MediaItem {
   filename: string
   basePath: string
   type: MediaType
-  /** Optional cover URL when enriched by the player / metadata (e.g. blob:) */
+  /**
+   * 封面地址（`blob:`）。统一由缩略图缓存给出：`resolveAudioCover` 的结果是
+   * ≤512px 的降采样图，不再是内嵌标签里的原始分辨率图片。
+   */
   cover?: string
+  /** 文件字节数；封面缓存指纹的一半，来自文件列表条目 */
+  size: number
+  /** 最后修改时间；封面缓存指纹的另一半 */
+  lastModified: number
   /** Track title from embedded tags; falls back to filename in `titleDisplay` */
   title?: string
   artist?: string
@@ -34,10 +39,12 @@ export class MediaItem {
   lyricsLines?: LyricLine[]
   private _coverObjectUrl?: string
 
-  constructor(filename: string, basePath: string) {
+  constructor(filename: string, basePath: string, size = 0, lastModified = 0) {
     this.guid = guid()
     this.filename = filename
     this.basePath = basePath
+    this.size = size
+    this.lastModified = lastModified
     this.type = regSupportedAudioFormat.test(filename) ? 'music' : 'video'
   }
 
@@ -60,27 +67,26 @@ export class MediaItem {
     return parts.join(' — ')
   }
 
-  /** Replace embedded-tag fields and cover; revokes previous cover blob URL */
+  /**
+   * 替换内嵌标签字段。**不碰封面**：封面由缩略图缓存统一解析（`setCoverBlobUrl`），
+   * 在这里回收它会在标签解析完成时把已经显示的封面擦掉。
+   */
   applyEmbeddedTags(tags: EmbeddedAudioTags) {
     this.title = tags.title?.trim() || undefined
     this.artist = tags.artist?.trim() || undefined
     this.album = tags.album?.trim() || undefined
     this.year = tags.year
 
-    this.releaseCoverObjectUrl()
-    if (tags.coverImage?.data?.length) {
-      const mime = tags.coverImage.mimeType || 'image/jpeg'
-      const blob = new Blob([tags.coverImage.data.slice()], { type: mime })
-      this._coverObjectUrl = URL.createObjectURL(blob)
-      this.cover = this._coverObjectUrl
-    }
-    else {
-      this.cover = undefined
-    }
-
     this.lyricsLines = tags.lyricsLines?.length
       ? tags.lyricsLines.map(l => ({ time: l.time, text: l.text }))
       : undefined
+  }
+
+  /** 设置封面地址；旧地址立刻回收，保证同一时间只有一个封面 URL。 */
+  setCoverBlobUrl(url: string) {
+    this.releaseCoverObjectUrl()
+    this._coverObjectUrl = url
+    this.cover = url
   }
 
   releaseCoverObjectUrl() {

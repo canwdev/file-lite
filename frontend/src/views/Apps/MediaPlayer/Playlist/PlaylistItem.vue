@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import type { MediaCoverController } from '../utils/media-cover'
 import type { MediaItem } from '../utils/music-state'
+import { useIntersectionObserver } from '@vueuse/core'
+import { localSettingsStore } from '@/store'
 import CoverMini from '../CoverMini.vue'
 import { useMediaStore } from '../utils/media-store'
 
@@ -17,10 +20,32 @@ const { item } = toRefs(props)
 const isCurrent = computed(() => {
   return item.value.guid === mediaStore.mediaItem?.guid
 })
+
+/**
+ * 行进入可视区才向共享封面缓存要图：歌单没有虚拟滚动，不懒加载的话一次打开
+ * 就会对整表发 Range 解析。封面 URL 存在 item 上，滚回来时直接复用不会闪。
+ */
+const mediaCover = inject<MediaCoverController | null>('mediaCover', null)
+const rootRef = ref<HTMLElement | null>(null)
+const isVisible = ref(false)
+
+useIntersectionObserver(rootRef, ([entry]) => {
+  isVisible.value = Boolean(entry?.isIntersecting)
+  if (isVisible.value) {
+    mediaCover?.request(item.value)
+  }
+}, { threshold: 0 })
+
+// 重新打开预览时 observer 不会自己再触发一次，可见的行要补一次请求
+watch(() => localSettingsStore.value.disablePreview, (disabled) => {
+  if (!disabled && isVisible.value) {
+    mediaCover?.request(item.value)
+  }
+})
 </script>
 
 <template>
-  <div class="vgo-list-item playlist-item" :class="{ 'is-active': isCurrent }" :title="item.filename">
+  <div ref="rootRef" class="vgo-list-item playlist-item" :class="{ 'is-active': isCurrent }" :title="item.filename">
     <div class="item-left">
       <div v-if="isCurrent" class="status-icon">
         <template v-if="!mediaStore.paused">

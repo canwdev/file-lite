@@ -5,6 +5,7 @@ import { isSupportedMediaFormat } from '@/utils/is'
 import MusicControl from './MusicControl.vue'
 import PlayerCore from './PlayerCore.vue'
 import MusicPlaylist from './Playlist/index.vue'
+import { useMediaCoverController } from './utils/media-cover'
 import { useMediaStore } from './utils/media-store'
 import { MediaItem } from './utils/music-state'
 
@@ -28,6 +29,14 @@ provide('storeId', storeId)
 const mediaStore = useMediaStore(storeId.value)
 const showPlaylist = ref(false)
 
+/**
+ * 封面加载器：当前曲目与歌单每一行的封面都从共享缩略图缓存取（见 media-cover.ts）。
+ * 每行通过 inject 拿它，关窗时统一回收 objectURL。
+ */
+const mediaCover = useMediaCoverController(mediaStore)
+provide('mediaCover', mediaCover)
+onBeforeUnmount(() => mediaCover.releaseAll())
+
 const coverBackgroundStyle = computed(() => {
   const cover = mediaStore.mediaItem?.cover
   return cover ? { '--media-cover-bg': `url(${cover})` } : {}
@@ -42,7 +51,8 @@ watch(
     }
     const { item, list, basePath } = props.appParams
     const medias = list
-      .map(i => new MediaItem(i.name, basePath))
+      // size / lastModified 是封面缓存的指纹，不能丢
+      .map(i => new MediaItem(i.name, basePath, Number(i.size ?? 0), i.lastModified ?? 0))
       .filter((i) => {
         return isSupportedMediaFormat(i.filename)
       })

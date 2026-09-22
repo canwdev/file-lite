@@ -584,6 +584,34 @@ export async function resolveImageThumb(options: ResolveThumbOptions): Promise<T
 }
 
 /**
+ * 音频内嵌封面的**统一入口**:网格缩略图与播放器都走它。
+ *
+ * 同一个文件必须命中同一条缓存 —— 主键是绝对路径,指纹是 `(版本, size, lastModified)`,
+ * 所以两边的取图方式与失效规则天然一致。命中就是一次 IndexedDB 读,未命中才按 Range
+ * 解析标签并降采样,结果统一是 `<= IMAGE_THUMB_MAX_EDGE` 的图。
+ *
+ * `lastModified` 为 0 时没有可用的指纹,调用方应先拒绝(与 ThemedIcon 的判据一致),
+ * 否则文件改动后旧封面会一直命中。
+ */
+export async function resolveAudioCover(options: {
+  /** 缓存主键:服务端绝对路径 */
+  key: string
+  size: number
+  lastModified: number
+  /** 音频流地址(`fs.url(absPath)`),封面从它解析 */
+  streamUrl: string
+  signal?: AbortSignal
+}): Promise<ThumbResolveResult> {
+  return await resolveImageThumb({
+    key: options.key,
+    size: options.size,
+    lastModified: options.lastModified,
+    source: { kind: 'audio', url: options.streamUrl },
+    signal: options.signal,
+  })
+}
+
+/**
  * 当前缓存真实占用(只读 meta,不加载 blob)。
  * `available` 区分「缓存为空」和「缓存根本用不了」(隐私模式 / 配额 / 升级失败)——
  * 这两种情况在 UI 上必须长得不一样,否则一次静默失效会被当成"还没缓存东西"。

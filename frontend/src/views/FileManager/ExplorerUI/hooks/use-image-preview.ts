@@ -18,9 +18,10 @@ import type { ThumbResolveResult } from '@/utils/image-thumb-cache'
 import { onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import {
   IMAGE_PREVIEW_RAW_MAX_BYTES,
+  resolveAudioCover,
   resolveImageThumb,
 } from '@/utils/image-thumb-cache'
-import { requestPreviewLoad } from '../preview-load-queue'
+import { requestPreviewLoad } from '@/utils/preview-load-queue'
 
 /**
  * 取图方式：
@@ -74,15 +75,24 @@ async function resolvePreviewUrl(candidate: ImagePreviewCandidate, signal: Abort
   if (candidate.mode === 'direct')
     return { ok: true, url: candidate.url }
 
+  // 音频封面走专用入口，和播放器共用同一条缓存与同一套指纹
+  if (candidate.mode === 'audio') {
+    return await resolveAudioCover({
+      key: candidate.key,
+      size: candidate.size,
+      lastModified: candidate.lastModified,
+      streamUrl: candidate.url,
+      signal,
+    })
+  }
+
   return await resolveImageThumb({
     key: candidate.key,
     size: candidate.size,
     lastModified: candidate.lastModified,
     source: candidate.mode === 'server'
       ? { kind: 'server', url: candidate.url }
-      : candidate.mode === 'audio'
-        ? { kind: 'audio', url: candidate.url }
-        : { kind: 'client', url: candidate.url },
+      : { kind: 'client', url: candidate.url },
     signal,
   })
 }

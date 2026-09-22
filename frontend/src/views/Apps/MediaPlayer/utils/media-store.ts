@@ -57,6 +57,16 @@ export function useMediaStore(uniqueStoreName = 'mediaStore') {
           return
         }
 
+        // 换列表：旧列表里不再出现的条目立刻回收封面 objectURL，
+        // 否则每换一次目录都会留下一批不再显示的封面 blob。
+        // 按 guid 比而不是对象引用：state 里的条目是 reactive 代理，`includes` 永远为 false
+        const nextGuids = new Set(list.map(i => i.guid))
+        for (const item of this.playingList) {
+          if (!nextGuids.has(item.guid)) {
+            item.releaseCoverObjectUrl()
+          }
+        }
+
         this.playingList = list
         this.playingIndex = index
         this.mediaItem = playItem

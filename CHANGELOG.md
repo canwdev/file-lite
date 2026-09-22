@@ -18,6 +18,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Drag and drop**: Drag and drop highlights targets, auto-scrolls the list, supports Ctrl-drag duplication, and uploads system files onto folders, breadcrumbs, favourites and drives (frontend).
 - **Split view**: Split view has a narrower divider drag area, per-pane list/grid and icon size, focus outline, and remembered split (frontend).
 - **Tabs**: New tabs and new split panes inherit the view they were opened from, and middle-clicking a drive, favourite, breadcrumb or toolbar Back/Forward/Up opens the target in a new tab (frontend).
+- **Covers**: The player loads each queue item’s embedded cover from the shared thumbnail cache at thumbnail size instead of decoding the full-size artwork, and hides covers when content previews are disabled (frontend).
 - **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width (frontend).
 - **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
 
