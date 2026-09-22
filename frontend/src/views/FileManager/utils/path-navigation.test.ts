@@ -9,10 +9,11 @@ import { describe, expect, mock, test } from 'bun:test'
  */
 mock.module('../ExplorerUI/drives', () => ({
   mountPaths: () => [] as readonly string[],
+  mountLabelFor: () => null,
 }))
 
 const { canGoUp, getBreadcrumbSegments, getParentPath, getVolumeBoundary, normalizeListingPath, normalizePath } = await import('./index')
-const { currentChildNameFor, findMountRoot, syntacticRoot } = await import('./volume-mounts')
+const { boundaryDisplayName, currentChildNameFor, findMountRoot, syntacticRoot } = await import('./volume-mounts')
 
 /**
  * 路径契约。设计依据见 docs/design/vfs-abstraction-design.md §4、§5.2。
@@ -163,6 +164,48 @@ describe('面包屑', () => {
       expect(seg.path.endsWith('/')).toBe(true)
       expect(normalizeListingPath(seg.path)).toBe(seg.path)
     }
+  })
+})
+
+/**
+ * 面包屑第一段用挂载点的 Label 显示，路径本身不变。
+ *
+ * 这里测的是纯函数：模块级 `getBreadcrumbSegments` 走的是被 mock 掉的 drives
+ * （挂载表为空、mountLabelFor 恒为 null），Label 的匹配规则只能在这一层覆盖。
+ */
+describe('boundaryDisplayName', () => {
+  const mounts = [
+    { label: 'Home', path: '/home/me' },
+    { label: '/', path: '/' },
+    { label: 'Local Disk (C:)', path: 'C:' },
+    { label: 'Debian (WSL)', path: '//wsl.localhost/Debian' },
+  ]
+
+  test('Home 用 Label，不用路径', () => {
+    expect(boundaryDisplayName('/home/me/', mounts)).toBe('Home')
+  })
+
+  test('网络位置用 Label', () => {
+    expect(boundaryDisplayName('//wsl.localhost/Debian/', mounts)).toBe('Debian (WSL)')
+  })
+
+  // 卷标形态把盘符重复了一遍，还与设计文档「第一段 = C:/」冲突
+  test('盘符根保持字母，不用卷标', () => {
+    expect(boundaryDisplayName('C:/', mounts)).toBe(null)
+    expect(boundaryDisplayName('C:', mounts)).toBe(null)
+  })
+
+  // Unix 挂载点的 Label 就是挂载路径，替代没有意义
+  test('Label 与路径名相同：回退路径', () => {
+    expect(boundaryDisplayName('/', mounts)).toBe(null)
+  })
+
+  test('挂载表里没有这一项：回退路径', () => {
+    expect(boundaryDisplayName('/srv/data/', mounts)).toBe(null)
+  })
+
+  test('Label 为空或只有空白：回退路径', () => {
+    expect(boundaryDisplayName('/srv/data/', [{ label: '  ', path: '/srv/data' }])).toBe(null)
   })
 })
 

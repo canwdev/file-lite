@@ -17,6 +17,12 @@ export interface BreadcrumbSegment {
   path: string
 }
 
+/** 挂载点的显示名来源：路径 + 后端给的 Label。 */
+export interface MountLabelSource {
+  path: string
+  label: string
+}
+
 /** 拆成 canonical 根（带尾斜杠）与相对段。非法路径回落到「按字符串切」。 */
 function rootAndSegments(path: string): { root: string, segments: string[] } {
   const canonical = normalizePath(path)
@@ -139,6 +145,51 @@ export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): 
     out.push({ name: rest[i], path: joinListing(boundary, rest.slice(0, i + 1)) })
   }
   return out
+}
+
+/** 盘符根（`C:` / `C:/`）。规则复用 splitRoot，不在这里另写一套盘符判定。 */
+function isDriveLetterRoot(path: string): boolean {
+  try {
+    const { root } = splitRoot(normalizePath(path))
+    // splitRoot 对盘符返回 `${Letter}:/`，长度恒为 3
+    return root.length === 3 && root[1] === ':' && root.endsWith('/')
+  }
+  catch (error) {
+    if (!(error instanceof PathError)) {
+      throw error
+    }
+    return false
+  }
+}
+
+/**
+ * 挂载点根在界面上显示什么名字；没有更好的名字时返回 null（调用方用路径本身）。
+ *
+ * 面包屑第一段是挂载点根（见 `breadcrumbSegmentsFor`）。大多数挂载点的「根名」
+ * 就是路径本身（Unix 的 `/`、`/mnt/c`），但有一类挂载点的 Label 才是用户认识
+ * 的名字：Home（`/home/user`）、UNC / WSL 网络位置、配置的允许根。侧边栏显示
+ * Label，地址栏却显示路径，同一个位置两个名字。
+ *
+ * 三种情况回退路径：
+ *
+ * - **盘符根保持字母**（`C:/`）。Windows 的卷标形态是 `Local Disk (C:)`，把字母
+ *   重复了一遍、还比字母长，也与设计文档 §6.1「面包屑第一段 = 挂载点根（`D:/`）」
+ *   冲突；映射网络盘、BitLocker 未解锁的卷也是盘符，一并保持原样。
+ * - **Label 为空或与路径名相同**——Unix 挂载点的 Label 就是挂载路径，替代没有意义。
+ * - **挂载表里没有这一项**（还没加载 / 加载失败）。
+ *
+ * 这纯粹是显示名：`BreadcrumbSegment.path` 始终是真实路径，导航、拖拽、
+ * 地址栏编辑态都不受影响。
+ */
+export function boundaryDisplayName(boundary: string, mounts: readonly MountLabelSource[]): string | null {
+  if (isDriveLetterRoot(boundary)) {
+    return null
+  }
+  const rootName = boundary.replace(/\/+$/, '') || '/'
+  const target = normalizeListingPath(boundary)
+  const mount = mounts.find(item => normalizeListingPath(item.path) === target)
+  const label = mount?.label.trim()
+  return label && label !== rootName ? label : null
 }
 
 /**

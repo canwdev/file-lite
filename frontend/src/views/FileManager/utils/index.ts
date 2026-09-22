@@ -1,5 +1,5 @@
 import type { BreadcrumbSegment } from './volume-mounts'
-import { mountPaths } from '../ExplorerUI/drives'
+import { mountLabelFor, mountPaths } from '../ExplorerUI/drives'
 import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn } from './volume-mounts'
 
 export { normalizeListingPath, normalizePath } from '../../../utils/path/form'
@@ -30,9 +30,22 @@ export function getParentPath(path: string) {
   return getParentPathIn(path, navigationBoundaryPaths())
 }
 
-/** 面包屑：第一段 = 挂载点根 */
+/**
+ * 面包屑：第一段 = 挂载点根。
+ *
+ * 挂载点的名字优先用后端给的 Label（`/home/user` → `Home`、UNC / WSL 网络位置、
+ * 配置的允许根），这样侧边栏与地址栏对同一个位置叫同一个名字；盘符根与没有
+ * Label 的挂载点仍然是路径本身。见 `volume-mounts.ts` 的 `boundaryDisplayName`。
+ * 只有 `name` 变了，`path` 仍是真实路径。
+ */
 export function getBreadcrumbSegments(path: string): BreadcrumbSegment[] {
-  return breadcrumbSegmentsFor(path, navigationBoundaryPaths())
+  const segments = breadcrumbSegmentsFor(path, navigationBoundaryPaths())
+  const root = segments[0]
+  if (!root) {
+    return segments
+  }
+  const label = mountLabelFor(root.path)
+  return label ? [{ name: label, path: root.path }, ...segments.slice(1)] : segments
 }
 
 /** 路径所在的导航边界（挂载点根，未匹配则为语法根），listing 形态 */

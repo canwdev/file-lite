@@ -102,7 +102,9 @@ test.describe('路径与挂载点', () => {
     const crumbs = page.locator('.explorer-main:visible .address-bar__crumb-text')
     // 三段：夹具根 + drag + inbox。若把语法根当成第一段，这里会是 4 段（多一个 "/"）。
     await expect(crumbs).toHaveCount(3)
-    await expect(crumbs.first()).toHaveText(mountRoot)
+    // 第一段是挂载点根，显示的是它的 Label（夹具的盘叫 Files），不是路径。
+    // 路径仍挂在 crumb 上（title / 导航用），见下面的「点第一段回到挂载点根」。
+    await expect(crumbs.first()).toHaveText('Files')
     await expect(crumbs.nth(1)).toHaveText('drag')
     await expect(crumbs.nth(2)).toHaveText('inbox')
 

@@ -9,7 +9,7 @@ import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
 import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
-import { findMountRoot } from '../utils/volume-mounts'
+import { boundaryDisplayName, findMountRoot } from '../utils/volume-mounts'
 
 export const driveList = ref<IDrive[]>([])
 export const drivesLoading = ref(false)
@@ -81,6 +81,19 @@ let cachedMountSource: IDrive[] = []
 
 export function mountPaths(): readonly string[] {
   return cachedPathsOf(driveList.value)
+}
+
+/**
+ * 挂载点根的显示名（后端 `Drive.Label`），供面包屑第一段使用；没有更好的名字
+ * 时返回 null，调用方回退路径本身。
+ *
+ * 判据与三种回退情况（盘符根、Label 与路径同名、挂载表未加载）见
+ * `volume-mounts.ts` 的 `boundaryDisplayName`。这里只负责把当前的盘列表喂进去；
+ * 直接读 `driveList` 而不是 `mountPaths()` 的缓存，是为了在「重新加载盘列表」
+ * 之后显示名能跟着更新。
+ */
+export function mountLabelFor(path: string): string | null {
+  return boundaryDisplayName(normalizeListingPath(path), driveList.value)
 }
 
 /**
