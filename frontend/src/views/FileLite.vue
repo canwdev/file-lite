@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { listPlugins } from '@/api/plugins'
 import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore, settingsStore } from '@/store'
 import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
@@ -9,6 +10,10 @@ import TransferQueue from '@/views/FileManager/TransferQueue.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
 const { showMenu } = useFileLiteMenu()
+
+onMounted(() => {
+  void listPlugins().catch(() => [])
+})
 
 const pageTitle = computed(() => settingsStore.value.pageTitle.trim())
 const sidebarVisible = computed(() => localSettingsStore.value.sidebarVisible)

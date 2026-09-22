@@ -290,6 +290,75 @@ func TestFindInvalidID(t *testing.T) {
 	}
 }
 
+func TestInjectSDK(t *testing.T) {
+	withHead := InjectSDK([]byte("<html><head></head><body></body></html>"))
+	headAt := strings.Index(string(withHead), "plugin-sdk.js")
+	closeHead := strings.Index(string(withHead), "</head>")
+	if headAt < 0 || headAt > closeHead {
+		t.Fatalf("script not before </head>: %s", withHead)
+	}
+	again := InjectSDK(withHead)
+	if strings.Count(string(again), "plugin-sdk.js") != 1 {
+		t.Fatalf("duplicated: %s", again)
+	}
+
+	withBody := InjectSDK([]byte("<html><body></body></html>"))
+	if strings.Index(string(withBody), "plugin-sdk.js") > strings.Index(string(withBody), "</body>") {
+		t.Fatalf("script not before </body>: %s", withBody)
+	}
+}
+
+func TestIsEntry(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "paint", "index.html"), "entry")
+	writeFile(t, filepath.Join(dir, "paint", "help.html"), "help")
+	plugin := byID(Scan(dir))["paint"]
+	entry := filepath.Join(dir, "paint", "index.html")
+	if !plugin.IsEntry(entry) {
+		t.Fatal("index.html should be the entry")
+	}
+	if plugin.IsEntry(filepath.Join(dir, "paint", "help.html")) {
+		t.Fatal("help.html should not be the entry")
+	}
+}
+
+func TestEnsureReadme(t *testing.T) {
+	dir := t.TempDir()
+	if err := EnsureReadme(dir); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != string(readme) {
+		t.Fatal("readme bytes differ from embed")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureReadme(dir); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := os.ReadFile(filepath.Join(dir, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(kept) != "keep" {
+		t.Fatalf("overwrote existing readme: %s", kept)
+	}
+}
+
+func TestReadmeMatchesDocs(t *testing.T) {
+	docs, err := os.ReadFile(filepath.Join("..", "..", "docs", "plugins.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(docs) != string(readme) {
+		t.Fatal("docs/plugins.md and backend-go/plugins/readme.md differ")
+	}
+}
+
 func TestValidID(t *testing.T) {
 	ok := []string{"a", "jspaint", "excel-to-json", "A1._-z", strings.Repeat("x", 64)}
 	for _, id := range ok {

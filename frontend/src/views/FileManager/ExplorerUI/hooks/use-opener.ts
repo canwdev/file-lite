@@ -1,5 +1,6 @@
 import type { MessageBoxData } from 'element-plus'
 import type { IEntry } from '@/types/server'
+import { listPlugins } from '@/api/plugins'
 import { bytesToSize } from '@/utils'
 import { fs } from '@/utils/fs'
 import {
@@ -9,14 +10,14 @@ import {
   regSupportedTextFormat,
   regSupportedVideoFormat,
 } from '@/utils/is'
-import { appListByOpenWith, getDefaultApp, OpenWithEnum } from '@/views/Apps/apps'
-import { openAppWindow } from '@/views/Apps/apps-store'
+import { appListByOpenWith, getDefaultApp, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
+import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
 import { normalizePath } from '../../utils'
 
 interface OpenAppInfo {
   name: string
   icon: string
-  openWith: OpenWithEnum
+  openWith: string
   source: 'custom' | 'matched' | 'fallback'
 }
 
@@ -44,30 +45,40 @@ function getOpenAppInfo(openWith: OpenWithEnum): OpenAppInfo {
   return { ...app, source: 'matched' }
 }
 
-export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
-  const customDefault = getDefaultApp(item.name)
-  if (customDefault) {
-    return { ...getOpenAppInfo(customDefault), source: 'custom' }
-  }
-
+export function matchOpenApp(item: IEntry): OpenAppInfo {
   if (regSupportedImageFormat.test(item.name)) {
-    // return getOpenAppInfo(OpenWithEnum.ImageViewer)
-    return getOpenAppInfo(OpenWithEnum.EndlessGallery)
+    return { ...getOpenAppInfo(OpenWithEnum.EndlessGallery), source: 'matched' }
   }
   if (regSupportedHtmlFormat.test(item.name)) {
-    return getOpenAppInfo(OpenWithEnum.HtmlViewer)
+    return { ...getOpenAppInfo(OpenWithEnum.HtmlViewer), source: 'matched' }
   }
   if (regSupportedTextFormat.test(item.name)) {
-    return getOpenAppInfo(OpenWithEnum.TextEditor)
+    return { ...getOpenAppInfo(OpenWithEnum.TextEditor), source: 'matched' }
   }
   if (regSupportedAudioFormat.test(item.name)) {
-    return getOpenAppInfo(OpenWithEnum.MediaPlayer)
+    return { ...getOpenAppInfo(OpenWithEnum.MediaPlayer), source: 'matched' }
   }
   if (regSupportedVideoFormat.test(item.name)) {
-    return getOpenAppInfo(OpenWithEnum.VideoPlayer)
+    return { ...getOpenAppInfo(OpenWithEnum.VideoPlayer), source: 'matched' }
   }
 
   return { ...getOpenAppInfo(OpenWithEnum.Browser), source: 'fallback' }
+}
+
+export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
+  const customDefault = getDefaultApp(item.name)
+  if (customDefault && isBuiltinApp(customDefault)) {
+    return { ...getOpenAppInfo(customDefault), source: 'custom' }
+  }
+  if (customDefault) {
+    return {
+      name: customDefault,
+      icon: 'mdi mdi-puzzle-outline',
+      openWith: customDefault,
+      source: 'custom',
+    }
+  }
+  return matchOpenApp(item)
 }
 
 function checkTooLargeFileDialog(item: IEntry, bytes: number) {
@@ -121,7 +132,7 @@ export function useOpener(basePath: { value: string }) {
       openWith,
     }: {
       item: IEntry
-      openWith?: OpenWithEnum
+      openWith?: string
     },
     list: IEntry[],
   ) => {
@@ -134,6 +145,19 @@ export function useOpener(basePath: { value: string }) {
           basePath: basePath.value,
           list,
         })
+      }
+      const openPlugin = async (pluginId: string) => {
+        const plugins = await listPlugins().catch(() => [])
+        const plugin = plugins.find(entry => entry.id === pluginId)
+        if (!plugin)
+          return false
+        openPluginWindow(plugin, {
+          absPath,
+          item,
+          basePath: basePath.value,
+          list,
+        })
+        return true
       }
       const openInBrowser = () => {
         const url = getStreamUrl(item)
@@ -174,8 +198,16 @@ export function useOpener(basePath: { value: string }) {
         return await checkTooLargeFileDialog(item, limit)
       }
 
-      const defaultOpenApp = openWith ? null : getDefaultOpenApp(item)
-      const targetApp = openWith ?? defaultOpenApp!.openWith
+      let defaultOpenApp = openWith ? null : getDefaultOpenApp(item)
+      let targetApp = openWith ?? defaultOpenApp!.openWith
+      if (!isBuiltinApp(targetApp)) {
+        if (await openPlugin(targetApp))
+          return
+        if (openWith)
+          return
+        defaultOpenApp = matchOpenApp(item)
+        targetApp = defaultOpenApp.openWith
+      }
       // 没有自定义默认、也不是匹配到的查看器：交给下面的「不支持类型」弹窗。
       // 必须排在 openSpecialApp 之前，否则 fallback 的 Browser 会被直接打开。
       const unsupportedFallback = !openWith && defaultOpenApp!.source === 'fallback'
@@ -203,11 +235,11 @@ export function useOpener(basePath: { value: string }) {
         return
       }
 
-      if (await openSpecialApp(targetApp)) {
+      if (await openSpecialApp(targetApp as OpenWithEnum)) {
         return
       }
-      if (await confirmOpenLargeFile(targetApp)) {
-        openApp(targetApp)
+      if (await confirmOpenLargeFile(targetApp as OpenWithEnum)) {
+        openApp(targetApp as OpenWithEnum)
       }
     }
     catch (error) {

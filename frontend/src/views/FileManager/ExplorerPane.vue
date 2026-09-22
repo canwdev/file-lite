@@ -360,7 +360,7 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
 }
 
 // 启动App
-function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: OpenWithEnum }) {
+function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: string }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
     // 多选时双击其中一项应返回全部已选文件，而不是只返回被双击的那个
     const picked = multiple.value ? selectedFilesForPick() : []

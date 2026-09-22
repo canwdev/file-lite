@@ -1,6 +1,5 @@
 import type { Ref, WritableComputedRef } from 'vue'
 import type { FsDirChange, IEntry } from '@/types/server'
-import type { OpenWithEnum } from '@/views/Apps/apps'
 import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath } from '../../utils'
@@ -228,7 +227,7 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
   const { openFile } = useOpener(basePath)
 
   // 打开文件或文件夹
-  const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: OpenWithEnum }) => {
+  const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: string }) => {
     const path = normalizePath(`${basePath.value}/${item.name}`)
     if (item.isDirectory) {
       await handleOpenPath(path, true)

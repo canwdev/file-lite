@@ -991,6 +991,7 @@ const {
   confirmDelete,
   ctxMenuOptions,
   handleShowCtxMenu,
+  loadOpenWithPlugins,
   enableAction,
 } = useFileActions({
   isLoading,
@@ -1159,7 +1160,8 @@ function getMenuOptions() {
 function updateMenuOptions(item: IEntry | null, event: MouseEvent | KeyboardEvent) {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
-function updateMenuOptions2(event: MouseEvent) {
+async function updateMenuOptions2(event: MouseEvent) {
+  await loadOpenWithPlugins()
   const items = resolveMenuIcons(getMenuOptions())
   if (!items.length) {
     return

@@ -153,32 +153,36 @@ export function getFileExt(filename: string): string {
   return dot > 0 ? filename.slice(dot).toLowerCase() : ''
 }
 
-function normalizeDefaultAppMap(value: unknown): Record<string, OpenWithEnum> {
+function normalizeDefaultAppMap(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {}
   }
 
-  return Object.entries(value).reduce<Record<string, OpenWithEnum>>((acc, [ext, app]) => {
-    if (Object.values(OpenWithEnum).includes(app as OpenWithEnum)) {
-      acc[ext] = app as OpenWithEnum
+  return Object.entries(value).reduce<Record<string, string>>((acc, [ext, app]) => {
+    if (typeof app === 'string' && app.trim()) {
+      acc[ext] = app
     }
     return acc
   }, {})
 }
 
-/** Persistent map of file extension → preferred OpenWithEnum, e.g. { ".mp3": "MediaPlayer" } */
-export const { state: defaultAppMap } = useRemoteSetting<Record<string, OpenWithEnum>>({
+/** Persistent map of file extension → built-in app or plugin id, e.g. { ".mp3": "MediaPlayer" } */
+export const { state: defaultAppMap } = useRemoteSetting<Record<string, string>>({
   key: LsKeys.DEFAULT_APP_MAP,
   createDefaultValue: () => ({}),
   normalize: normalizeDefaultAppMap,
 })
 
-export function getDefaultApp(filename: string): OpenWithEnum | null {
+export function isBuiltinApp(name: string): name is OpenWithEnum {
+  return (Object.values(OpenWithEnum) as string[]).includes(name)
+}
+
+export function getDefaultApp(filename: string): string | null {
   const ext = getFileExt(filename)
   return ext ? (defaultAppMap.value[ext] ?? null) : null
 }
 
-export function setDefaultApp(ext: string, openWith: OpenWithEnum | null): void {
+export function setDefaultApp(ext: string, openWith: string | null): void {
   if (openWith === null) {
     delete defaultAppMap.value[ext]
   }

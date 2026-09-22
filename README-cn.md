@@ -44,6 +44,7 @@ http://192.168.1.10:3111?ticket=a1b2c3d4
 | --- | --- |
 | 功能、截图、安装、开发 | [README.md](./README.md) |
 | 配置字段 | [docs/config.md](./docs/config.md) |
+| 插件 | [docs/plugins.md](./docs/plugins.md) |
 | IP 网段限制 / HTTPS | [docs/ip-allowlist.md](./docs/ip-allowlist.md) · [docs/ssl.md](./docs/ssl.md) |
 | 设计文档 | [docs/design/](./docs/design/) |
 | 端到端测试 | [e2e/README.md](./e2e/README.md) |

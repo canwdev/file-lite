@@ -90,22 +90,24 @@ export function openAppWindow(appName: AppName, appParams: AppParams) {
   appsStoreState.activeId = win.id
 }
 
-export function openPluginWindow(plugin: PluginInfo) {
+export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
+  const params = appParams ?? {
+    absPath: '',
+    item: { ...emptyInternalEntry, name: plugin.name },
+    basePath: '',
+    list: [],
+  }
   const reusableWin = getReusablePluginWindow(plugin.id)
   if (reusableWin) {
     reusableWin.plugin = plugin
-    reusableWin.appTitle = plugin.name
+    reusableWin.appParams = params
+    reusableWin.appTitle = params.absPath ? params.item.name : plugin.name
     setAppWindowActive(reusableWin)
     reusableWin.windowRef?.focus()
     return
   }
 
-  const win = createWindowState(null, {
-    absPath: '',
-    item: { ...emptyInternalEntry, name: plugin.name },
-    basePath: '',
-    list: [],
-  }, plugin)
+  const win = createWindowState(null, params, plugin)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id
 }

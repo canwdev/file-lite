@@ -1,15 +1,18 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { Ref } from 'vue'
+import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import dayjs from 'dayjs'
-import { computed } from 'vue'
+import { computed, h, ref } from 'vue'
+import { listPlugins } from '@/api/plugins'
 import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
+import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
@@ -234,6 +237,18 @@ export function useFileActions({
     })
   }
 
+  const openWithPlugins = ref<PluginInfo[]>([])
+
+  function pluginMenuItems(onPick: (plugin: PluginInfo) => void): MenuItem[] {
+    return openWithPlugins.value
+      .filter(plugin => plugin.openWith.length > 0)
+      .map(plugin => ({
+        label: plugin.name,
+        icon: h(PluginIcon, { plugin }),
+        onClick: () => onPick(plugin),
+      }))
+  }
+
   const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
@@ -323,6 +338,10 @@ export function useFileActions({
           //   },
           //   divided: true,
           // },
+          ...pluginMenuItems(plugin => emit('open', {
+            item: selectedItem,
+            openWith: plugin.id,
+          })),
           ...AppList.map(app => ({
             label: app.name,
             icon: app.icon,
@@ -357,6 +376,13 @@ export function useFileActions({
                   icon: current === app.openWith ? 'mdi mdi-check' : app.icon,
                   onClick: () => setDefaultApp(ext, app.openWith),
                 })),
+                ...openWithPlugins.value
+                  .filter(plugin => plugin.openWith.length > 0)
+                  .map(plugin => ({
+                    label: plugin.name,
+                    icon: current === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
+                    onClick: () => setDefaultApp(ext, plugin.id),
+                  })),
               ]
             })(),
           },
@@ -405,7 +431,11 @@ export function useFileActions({
     ].filter(Boolean) as MenuItem[]
   })
 
-  const handleShowCtxMenu = (
+  async function loadOpenWithPlugins() {
+    openWithPlugins.value = await listPlugins().catch(() => [])
+  }
+
+  const handleShowCtxMenu = async (
     item: IEntry | null,
     event: MouseEvent | KeyboardEvent,
     getMenuOptions: () => MenuItem[],
@@ -419,6 +449,8 @@ export function useFileActions({
         selectedItemsSet.value.add(item)
       }
     }
+
+    await loadOpenWithPlugins()
 
     const x = event instanceof MouseEvent ? event.clientX : window.innerWidth / 2
     const y = event instanceof MouseEvent ? event.clientY : window.innerHeight / 2
@@ -448,6 +480,7 @@ export function useFileActions({
     confirmDelete,
     ctxMenuOptions,
     handleShowCtxMenu,
+    loadOpenWithPlugins,
     enableAction,
   }
 }

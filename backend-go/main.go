@@ -26,6 +26,7 @@ import (
 	"file-lite-go/config"
 	"file-lite-go/fileops"
 	"file-lite-go/middlewares"
+	"file-lite-go/plugins"
 	"file-lite-go/routes"
 	"file-lite-go/updater"
 	"file-lite-go/utils"
@@ -261,6 +262,15 @@ func startServer() (*cli.ServerResult, error) {
 	return result, nil
 }
 
+func ensurePluginReadme() {
+	if !config.ConfigInitialized() {
+		return
+	}
+	if err := plugins.EnsureReadme(plugins.Dir()); err != nil {
+		fmt.Printf("plugins readme: %v\n", err)
+	}
+}
+
 func stopServer() {
 	routes.StopSharedWSServices()
 	if echoInstance != nil {
@@ -279,6 +289,7 @@ func bootServer(createConfig bool, overrides cli.Overrides) (*cli.ServerResult, 
 	if err := config.LoadConfig(createConfig); err != nil {
 		return nil, err
 	}
+	ensurePluginReadme()
 	// 文件访问范围必须在任何路径解析之前就位（挂载表按它收窄，见 routes.visibleDrives）。
 	// 校验放在这里而不是 config 包里：fileops 依赖 utils，而 utils 依赖 config，
 	// config 再引用 fileops 就成环了；启动路径引用三者都没有这个问题。
@@ -390,6 +401,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		ensurePluginReadme()
 		if overrides.WithTLS {
 			res, err := cli.EnsureSelfSignedTLS(config.DataBaseDir(), overrides.TLSHosts)
 			if err != nil {

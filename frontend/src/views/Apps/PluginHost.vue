@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { PluginInfo } from '@/api/plugins'
 import type { AppParams } from '@/views/Apps/apps.ts'
+import { fs } from '@/utils/fs'
 
 const props = defineProps<{
   plugin: PluginInfo
@@ -8,28 +9,136 @@ const props = defineProps<{
 }>()
 const emit = defineEmits(['setTitle', 'exit'])
 
+const HOST = 'file-lite-host'
+const PLUGIN = 'file-lite-plugin'
+
+const iframeRef = ref<HTMLIFrameElement>()
 const isLoading = ref(true)
+const loaded = ref(false)
 
 watch(
   () => props.plugin.name,
   (name) => {
-    emit('setTitle', name)
+    if (!props.appParams?.absPath)
+      emit('setTitle', name)
   },
   { immediate: true },
 )
 
 watch(() => props.plugin.entryUrl, () => {
   isLoading.value = true
+  loaded.value = false
 })
+
+function dirOf(path: string) {
+  const cut = path.replace(/\/+$/, '').lastIndexOf('/')
+  return cut > 0 ? path.slice(0, cut) : path
+}
+
+function baseOf(path: string) {
+  return path.slice(path.lastIndexOf('/') + 1)
+}
+
+function reply(id: number, error?: string, data?: ArrayBuffer) {
+  iframeRef.value?.contentWindow?.postMessage({
+    source: HOST,
+    id,
+    error,
+    data,
+  }, window.location.origin)
+}
+
+function postOpen() {
+  const win = iframeRef.value?.contentWindow
+  const path = props.appParams?.absPath
+  if (!loaded.value || !win || !path)
+    return
+  emit('setTitle', props.appParams.item?.name || '')
+  win.postMessage({
+    source: HOST,
+    event: 'open',
+    path,
+    name: props.appParams.item?.name || '',
+  }, window.location.origin)
+}
+
+async function onPluginMessage(event: MessageEvent) {
+  if (event.origin !== window.location.origin)
+    return
+  if (event.source !== iframeRef.value?.contentWindow)
+    return
+  const data = event.data
+  if (!data || data.source !== PLUGIN || typeof data.id !== 'number')
+    return
+
+  try {
+    if (data.method === 'readFile') {
+      const blob = await fs.readBlob(String(data.path ?? ''))
+      reply(data.id, undefined, await blob.arrayBuffer())
+      return
+    }
+    if (data.method === 'writeFile') {
+      const path = String(data.path ?? '')
+      try {
+        const written = await fs.writeFile(dirOf(path), baseOf(path), data.data, { conflict: 'overwrite' })
+        if (!written.ok) {
+          const reason = written.reason ?? 'This location is read-only'
+          window.$message?.warning(reason)
+          reply(data.id, reason)
+          return
+        }
+      }
+      catch (error) {
+        const reason = error instanceof Error ? error.message : 'failed'
+        window.$message?.warning(reason)
+        reply(data.id, reason)
+        return
+      }
+      reply(data.id)
+      return
+    }
+    if (data.method === 'exit') {
+      emit('exit')
+      reply(data.id)
+      return
+    }
+    if (data.method === 'setTitle') {
+      emit('setTitle', String(data.title ?? ''))
+      reply(data.id)
+      return
+    }
+    reply(data.id, 'unknown method')
+  }
+  catch (error) {
+    reply(data.id, error instanceof Error ? error.message : 'failed')
+  }
+}
 
 function handleLoad() {
   isLoading.value = false
+  loaded.value = true
+  postOpen()
 }
+
+watch(() => props.appParams?.absPath, (path, prev) => {
+  if (!loaded.value || path === prev)
+    return
+  postOpen()
+})
+
+onMounted(() => {
+  window.addEventListener('message', onPluginMessage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', onPluginMessage)
+})
 </script>
 
 <template>
   <div class="plugin-host">
     <iframe
+      ref="iframeRef"
       class="plugin-host__frame"
       :src="plugin.entryUrl"
       :title="plugin.name"

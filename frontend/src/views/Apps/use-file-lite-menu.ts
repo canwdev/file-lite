@@ -1,7 +1,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
-import { listPlugins } from '@/api/plugins'
+import { listPlugins, refreshPlugins } from '@/api/plugins'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
 import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
@@ -228,31 +228,27 @@ export function useFileLiteMenu() {
 
   async function showMenu(event?: MouseEvent) {
     const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
-    const pluginItems = shallowReactive<MenuItem[]>([
-      { label: 'Loading…', disabled: true },
-    ])
-    let pluginLoadSeq = 0
-    function loadPluginSubmenu() {
-      const seq = ++pluginLoadSeq
-      void listPlugins().catch(() => []).then((list) => {
-        if (seq !== pluginLoadSeq) {
-          return
-        }
-        pluginItems.splice(0, pluginItems.length)
-        if (!list.length) {
-          pluginItems.push({ label: 'No plugins', disabled: true })
-          return
-        }
-        for (const plugin of list) {
-          pluginItems.push({
-            label: plugin.name,
-            icon: h(PluginIcon, { plugin }),
-            onClick: () => {
-              openPluginWindow(plugin)
-            },
-          })
-        }
-      })
+    const plugins = await listPlugins().catch(() => [])
+    const pluginsMenu: MenuItem | false = plugins.length > 0 && {
+      label: 'Plugins',
+      icon: 'mdi mdi-puzzle-outline',
+      children: [
+        ...plugins.map((plugin, index) => ({
+          label: plugin.name,
+          icon: h(PluginIcon, { plugin }),
+          divided: index === plugins.length - 1,
+          onClick: () => {
+            openPluginWindow(plugin)
+          },
+        })),
+        {
+          label: 'Refresh',
+          icon: 'mdi mdi-refresh',
+          onClick: () => {
+            void refreshPlugins()
+          },
+        },
+      ],
     }
     const imageCacheLabel = !cacheAvailable
       ? 'Image Cache: unavailable'
@@ -271,6 +267,16 @@ export function useFileLiteMenu() {
       y: rect?.top || event?.y || 0,
       ...menuThemeOptions,
       items: resolveMenuIcons([
+        pluginsMenu,
+        {
+          label: 'Text Sync',
+          icon: 'mdi mdi-clipboard',
+          shortcut: 'F1',
+          divided: true,
+          onClick: () => {
+            toggleTextSyncApp()
+          },
+        },
         {
           label: `Theme: ${settingsStore.value.themeMode}`,
           icon: 'mdi mdi-theme-light-dark',
@@ -447,33 +453,6 @@ export function useFileLiteMenu() {
           ].filter(Boolean) as MenuItem[],
         },
         {
-          label: 'Text Sync',
-          icon: 'mdi mdi-clipboard',
-          shortcut: 'F1',
-          onClick: () => {
-            toggleTextSyncApp()
-          },
-        },
-        {
-          label: 'Speed Test',
-          icon: 'mdi mdi-speedometer',
-          onClick: () => {
-            openAppWindow(InternalAppEnum.SpeedTest, {
-              absPath: '',
-              item: internalSpeedTestEntry,
-              basePath: '',
-              list: [],
-            })
-          },
-        },
-        {
-          label: 'Plugins',
-          icon: 'mdi mdi-puzzle-outline',
-          children: pluginItems,
-          onSubMenuOpen: loadPluginSubmenu,
-          divided: true,
-        },
-        {
           label: isWakeLockSupported.value
             ? `Browser Wake Lock: ${isWakeLockActive.value ? 'On' : 'Off'}`
             : 'Browser Wake Lock (unsupported)',
@@ -489,15 +468,28 @@ export function useFileLiteMenu() {
             : 'Fullscreen (unsupported)',
           icon: isFullscreen.value ? 'mdi mdi-fullscreen-exit' : 'mdi mdi-fullscreen',
           disabled: !isFullscreenSupported.value,
+          divided: true,
           onClick: () => {
             toggleFullscreen()
           },
-          divided: true,
+        },
+        {
+          label: 'Speed Test',
+          icon: 'mdi mdi-speedometer',
+          onClick: () => {
+            openAppWindow(InternalAppEnum.SpeedTest, {
+              absPath: '',
+              item: internalSpeedTestEntry,
+              basePath: '',
+              list: [],
+            })
+          },
         },
         {
           label: 'Keyboard Shortcuts',
           icon: 'mdi mdi-keyboard-outline',
           shortcut: '?',
+          divided: true,
           onClick: () => {
             toggleKeyboardShortcutsApp()
           },
@@ -516,7 +508,7 @@ export function useFileLiteMenu() {
             window.$logout(true)
           },
         },
-      ]),
+      ].filter(Boolean) as MenuItem[]),
     })
   }
 
