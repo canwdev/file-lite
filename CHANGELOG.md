@@ -102,6 +102,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- Uploading, creating, renaming, or saving a file updates every open view of that folder, including other windows; saving a file also refreshes its size and modification time (backend, frontend).
 - Group headings no longer sit on top of the file list's column header (frontend).
 - Copy progress is no longer counted twice: the bar, the percentage and the transferred-bytes readout used to reach 100% after roughly half the data, because each file's size was added once during the copy and again when it finished (backend).
 - Cancelling a background task — from its row or from the Replace or Skip Files dialog — now removes it from the list instead of leaving a "Cancelled" entry behind, and the dialog's Cancel no longer leaves the task waiting for a decision (frontend).

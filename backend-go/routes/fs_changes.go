@@ -144,6 +144,113 @@ func dedupeEntries(entries []types.Entry) []types.Entry {
 	return out
 }
 
+// listingChangeSet 累计一次写操作要广播的条目变化。
+// 同一目录的增删合并成一条；读不到的路径直接跳过，调用方不必先判断存不存在。
+type listingChangeSet struct {
+	order []string
+	byDir map[string]*fsDirChange
+}
+
+func (s *listingChangeSet) dir(dir string) *fsDirChange {
+	if s.byDir == nil {
+		s.byDir = map[string]*fsDirChange{}
+	}
+	if c, ok := s.byDir[dir]; ok {
+		return c
+	}
+	c := &fsDirChange{Dir: dir}
+	s.byDir[dir] = c
+	s.order = append(s.order, dir)
+	return c
+}
+
+func (s *listingChangeSet) add(path string) {
+	s.put(path, false)
+}
+
+func (s *listingChangeSet) update(path string) {
+	s.put(path, true)
+}
+
+func (s *listingChangeSet) put(path string, updated bool) {
+	entry, ok := statEntry(path)
+	if !ok {
+		return
+	}
+	c := s.dir(fileops.DirName(path))
+	if updated {
+		c.Updated = append(c.Updated, entry)
+		return
+	}
+	c.Added = append(c.Added, entry)
+}
+
+func (s *listingChangeSet) remove(dir, name string) {
+	if dir == "" || name == "" {
+		return
+	}
+	c := s.dir(dir)
+	c.Removed = append(c.Removed, name)
+}
+
+func (s *listingChangeSet) broadcast() {
+	if s == nil || len(s.order) == 0 {
+		return
+	}
+	out := make([]fsDirChange, 0, len(s.order))
+	paths := make([]string, 0, len(s.order))
+	for _, dir := range s.order {
+		c := s.byDir[dir]
+		c.Added = dedupeEntries(c.Added)
+		c.Updated = dedupeEntries(c.Updated)
+		c.Removed = dedupeStrings(c.Removed)
+		if len(c.Added) == 0 && len(c.Updated) == 0 && len(c.Removed) == 0 {
+			continue
+		}
+		out = append(out, *c)
+		paths = append(paths, dir)
+	}
+	broadcastFSChanged(paths, out)
+}
+
+// absentDirs 返回 canonical 路径上还不存在的目录，从最外层缺的那级排到它自己。
+// 路径已经存在时返回 nil。遇到第一个存在的祖先，或走到语法根，就停。
+func absentDirs(canonicalPath string) []string {
+	var missing []string
+	cur := canonicalPath
+	for cur != "" {
+		if fileops.ExistsAt(filepath.FromSlash(cur)) {
+			break
+		}
+		missing = append(missing, cur)
+		parent := fileops.DirName(cur)
+		if parent == cur {
+			break
+		}
+		cur = parent
+	}
+	for i, j := 0, len(missing)-1; i < j; i, j = i+1, j-1 {
+		missing[i], missing[j] = missing[j], missing[i]
+	}
+	return missing
+}
+
+func uniqueDirs(dirs ...string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		if dir == "" {
+			continue
+		}
+		if _, ok := seen[dir]; ok {
+			continue
+		}
+		seen[dir] = struct{}{}
+		out = append(out, dir)
+	}
+	return out
+}
+
 func dedupeStrings(values []string) []string {
 	if len(values) < 2 {
 		return values

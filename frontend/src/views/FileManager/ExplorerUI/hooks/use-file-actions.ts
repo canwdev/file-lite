@@ -11,7 +11,7 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
-import { generateTextFile, getLastDirName, normalizePath } from '../../utils'
+import { getLastDirName, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
@@ -20,41 +20,6 @@ function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
   if (slash < 0)
     return { dirPrefix: '', baseName: name }
   return { dirPrefix: name.slice(0, slash + 1), baseName: name.slice(slash + 1) }
-}
-
-function getEntryExt(name: string) {
-  const dotIndex = name.lastIndexOf('.')
-  return dotIndex > 0 ? name.slice(dotIndex) : ''
-}
-
-/** 本地造一个文件条目，用于「新建 / 上传后直接补进列表」。 */
-function fileEntry(name: string, file: File): IEntry {
-  const mtime = file.lastModified || Date.now()
-  return {
-    name,
-    ext: getEntryExt(name),
-    isDirectory: false,
-    hidden: name.startsWith('.'),
-    lastModified: mtime,
-    birthtime: mtime,
-    size: file.size,
-    error: null,
-  }
-}
-
-/** 本地造一个目录条目，用于「新建目录后直接补进列表」。 */
-function dirEntry(name: string): IEntry {
-  const now = Date.now()
-  return {
-    name,
-    ext: '',
-    isDirectory: true,
-    hidden: name.startsWith('.'),
-    lastModified: now,
-    birthtime: now,
-    size: null,
-    error: null,
-  }
 }
 
 export function getOpenActionMeta(item: IEntry) {
@@ -115,16 +80,13 @@ export function useFileActions({
             value: `${dayjs().format('YYYYMMDD_HHmmss')}.txt`,
           }))
       isLoading.value = true
-      const file = generateTextFile(content, name)
-      // 走门面写文件，并在写之前统一过只读守卫
+      // 列表由服务端的 fs changed 补上，这里只负责等写入结束再选中新名字
       const written = await fs.writeText(basePath.value, name, content, { conflict: 'overwrite' })
       if (!written.ok) {
         window.$message?.warning(written.reason ?? 'This location is read-only')
         return
       }
-      const finalName = written.name ?? name
-      onEntryCreated?.(finalName)
-      emit('patch', { added: [fileEntry(finalName, file)] })
+      onEntryCreated?.(written.name ?? name)
     }
     finally {
       isLoading.value = false
@@ -145,7 +107,6 @@ export function useFileActions({
       }
       await fs.mkdir(target)
       onEntryCreated?.(name)
-      emit('patch', { added: [dirEntry(name)] })
     }
     finally {
       isLoading.value = false
@@ -184,19 +145,8 @@ export function useFileActions({
       const nextName = `${dirPrefix}${name}`
       const fromPath = normalizePath(`${basePath.value}/${item.name}`)
       const toPath = normalizePath(`${basePath.value}/${nextName}`)
-      // 走门面重命名（写之前统一过只读守卫）
       await fs.rename(fromPath, toPath)
-      const renamedItem: IEntry = {
-        ...item,
-        name: nextName,
-        ext: item.isDirectory ? '' : getEntryExt(name),
-      }
-      selectedItemsSet.value = new Set(
-        [...selectedItemsSet.value].map(selectedItem =>
-          selectedItem.name === item.name ? renamedItem : selectedItem,
-        ),
-      )
-      emit('patch', { removed: [item.name], added: [renamedItem] })
+      onEntryCreated?.(nextName)
     }
     catch (error) {
       // 重命名可能被服务端拒绝（只读、目标被占用…）：如实提示，别静默失败

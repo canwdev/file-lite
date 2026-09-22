@@ -2,7 +2,7 @@
 import type { MenuItem } from '@imengyu/vue3-context-menu'
 import type { ExplorerPaneView } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
-import type { FsDirChange, IEntry } from '@/types/server'
+import type { IEntry } from '@/types/server'
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { useDebounceFn } from '@vueuse/core'
 import { menuThemeOptions } from '@/hooks/use-global-theme'
@@ -116,7 +116,6 @@ const {
   files,
   handleOpen,
   handleRefresh,
-  applyEntryChange,
   basePathNormalized,
   handleOpenPath,
   navigationHistory,
@@ -151,11 +150,6 @@ const {
 const debounceHandleRefresh = useDebounceFn(() => {
   handleRefresh()
 }, 100)
-
-/** 文件操作完成后的条目级更新：直接改列表，不整目录重读。 */
-function handleEntryChange(change: Pick<FsDirChange, 'added' | 'updated' | 'removed'>) {
-  applyEntryChange(change)
-}
 
 // 外壳换了路径：本地同步后刷新；面板内部导航已经同步过，跳过，避免重复请求
 watch(() => props.path, (path) => {
@@ -623,7 +617,6 @@ defineExpose({
           @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
           @clear-filter="clearFilter"
           @refresh="debounceHandleRefresh"
-          @patch="handleEntryChange"
         />
         <Transition name="last-media-fab">
           <div v-if="lastOpenedMediaItem && !selectFileMode" class="last-media-fab-wrapper">

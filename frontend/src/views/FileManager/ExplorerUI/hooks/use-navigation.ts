@@ -119,9 +119,8 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
     refreshController?.abort()
   })
 
-  // 服务端在任务改动目录后广播 fs changed：带上条目级 changes 就原地打补丁，
-  // 只有拿不到 changes 时才退回整目录刷新。
-  // 这取代了过去跨实例的 moveRefresh 补丁。
+  // 服务端在目录变化后广播 fs changed：带上条目级 changes 就原地打补丁，
+  // 只有拿不到 changes 时才退回整目录刷新。上传、建目录、重命名与任务结束都走这条。
   const unsubscribeFsChanged = subscribeFsChanged((paths, changes) => {
     if (!paths.length && !changes.length) {
       return
@@ -138,8 +137,9 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
       return
     }
     const change = changes.find(item => normalizeListingPath(item.dir) === current)
-    // 正在整目录刷新时不打补丁（列表可能是空的 / 旧的），让刷新自己收尾
-    if (change && !isLoading.value) {
+    // 整目录刷新进行中不打补丁：这份列表马上会被整份替换。
+    // 不能看 isLoading——新建、重命名、粘贴也会把它置上，那些结果要靠补丁出现在发起操作的列表里。
+    if (change && !refreshController) {
       applyEntryChange(change)
       return
     }

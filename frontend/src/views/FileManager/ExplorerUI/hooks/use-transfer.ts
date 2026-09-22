@@ -65,7 +65,6 @@ async function enqueueUploads(items: PendingUpload[], targetDir: string) {
       })
 
       if (!resolution) {
-        window.$message?.info('Upload cancelled')
         return
       }
       if (resolution.policy === 'skip') {

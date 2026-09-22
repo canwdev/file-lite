@@ -145,8 +145,7 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   `top` 用 `--explorer-top-bar-height`（`styles/style.scss` 里的 `:root` 变量，顶栏自己也用它定高）。
 - `ExplorerUI/transfer-queue-registry.ts` 保存那个唯一实例的 API；各标签的上传 / 下载入口往同一个队列塞任务。
 - 上传管线与「系统文件拖入」的 sink 移到模块级：之前每个 `FileList` 注册一次 sink，多实例时后者会覆盖前者。
-- 队列跑完一批后通过 `ExplorerEvents.TRANSFER_DONE` 广播，各标签自己按目录过滤后补丁自己的列表
-  （不再由某一个列表绑定 `@all-done`）。
+- 目录变化（含上传、新建、重命名、保存）由服务端 `fs changed` 推送，每个打开的列表按自己的目录打补丁。
 
 ## 10. 测试覆盖
 
