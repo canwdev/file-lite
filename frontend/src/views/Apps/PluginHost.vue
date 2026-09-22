@@ -66,12 +66,15 @@ function baseOf(path: string) {
 }
 
 function reply(id: number, error?: string, data?: ArrayBuffer | PluginListEntry[]) {
+  // Hand the buffer over instead of copying it. Plugins can read large files
+  // (game archives), and structured cloning would double the peak memory.
+  const transfer = data instanceof ArrayBuffer ? [data] : []
   iframeRef.value?.contentWindow?.postMessage({
     source: HOST,
     id,
     error,
     data,
-  }, window.location.origin)
+  }, window.location.origin, transfer)
 }
 
 function postOpen() {
