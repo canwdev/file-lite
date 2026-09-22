@@ -407,7 +407,15 @@ func createDirectory(c echo.Context) error {
 	if isExist(osPath) {
 		return c.JSON(http.StatusOK, map[string]any{"existed": true, "path": body.Path})
 	}
-	if err := os.MkdirAll(osPath, 0755); err != nil {
+	// 先记下缺的每一级：MkdirAll 可能建到一半才失败，已经落盘的那些也要通知。
+	missing := absentDirs(body.Path)
+	err := os.MkdirAll(osPath, 0755)
+	changes := &listingChangeSet{}
+	for _, dir := range missing {
+		changes.add(dir)
+	}
+	changes.broadcast()
+	if err != nil {
 		status, message := fsErrorStatus(err, res.Network())
 		return jsonFSError(c, status, message)
 	}
@@ -462,6 +470,17 @@ func renamePath(c echo.Context) error {
 		status, message := fsErrorStatus(err, from.Network() || to.Network())
 		return jsonFSError(c, status, message)
 	}
+	srcDir := fileops.DirName(from.Path)
+	dstDir := fileops.DirName(to.Path)
+	if _, ok := statEntry(to.Path); !ok {
+		// 改名已经成功但读不出新条目：只给目录，让前端整表刷新，别只删掉旧名字。
+		broadcastFSChanged(uniqueDirs(srcDir, dstDir), nil)
+		return c.JSON(http.StatusOK, map[string]string{"path": to.Path})
+	}
+	changes := &listingChangeSet{}
+	changes.remove(srcDir, fileops.BaseName(from.Path))
+	changes.add(to.Path)
+	changes.broadcast()
 	return c.JSON(http.StatusOK, map[string]string{"path": to.Path})
 }
 
@@ -649,10 +668,21 @@ func uploadFile(c echo.Context) error {
 		network = res.Network()
 	} else {
 		dest = filepath.ToSlash(filepath.Join(config.DataBaseDir(), "uploads"))
+		if canonical, err := fileops.CanonicalizePath(dest); err == nil {
+			dest = canonical
+		}
 	}
+	// 父目录可能是这次顺便建出来的。先记下来，写入失败或同名冲突时也要广播这些目录；
+	// 文件本身只在写成功之后才放进同一条通知。
+	changes := &listingChangeSet{}
+	defer changes.broadcast()
 	destOS := filepath.FromSlash(dest)
-	if _, err := os.Stat(destOS); err != nil {
+	if created := absentDirs(dest); len(created) > 0 {
+		// 失败不在这里返回：后面的写入会带上真正的原因。已经建出来的目录照样通知。
 		_ = os.MkdirAll(destOS, 0755)
+		for _, dir := range created {
+			changes.add(dir)
+		}
 	}
 	f, err := c.FormFile("file")
 	if err != nil {
@@ -678,9 +708,11 @@ func uploadFile(c echo.Context) error {
 
 	destPath := path.Join(dest, name)
 	destPathOS := filepath.FromSlash(destPath)
+	replaced := false
 	switch c.QueryParam("onConflict") {
 	case "overwrite":
-		// 调用方已确认要替换
+		// 调用方已确认要替换。写之前看一眼：已有文件走 updated，新建走 added。
+		replaced = fileops.ExistsAt(destPathOS)
 	case "keep-both":
 		destPath = fileops.UniquePath(destPath)
 		destPathOS = filepath.FromSlash(destPath)
@@ -693,8 +725,8 @@ func uploadFile(c echo.Context) error {
 			})
 		}
 	}
-	// 报告落盘时的真实名字：keep-both 会把目标改成 "a (1).txt"，此时返回请求里的
-	// "a.txt" 会让前端按一个并不存在的文件名去更新列表。
+	// 报告落盘时的真实名字：keep-both 会把目标改成 "a (1).txt"，
+	// 响应里仍写请求名会让传输记录对不上磁盘上的文件。
 	name = fileops.BaseName(destPath)
 
 	if err := fileops.PublishFile(destPathOS, fileops.PublishOptions{
@@ -711,6 +743,11 @@ func uploadFile(c echo.Context) error {
 			message = "Failed to write the file"
 		}
 		return jsonFSError(c, status, message)
+	}
+	if replaced {
+		changes.update(destPath)
+	} else {
+		changes.add(destPath)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

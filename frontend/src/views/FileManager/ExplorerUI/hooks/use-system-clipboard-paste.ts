@@ -30,12 +30,10 @@ export function useSystemClipboardPaste({
   basePath,
   entries,
   isLoading,
-  emit,
 }: {
   basePath: Ref<string>
   entries: Ref<IEntry[]>
   isLoading: Ref<boolean>
-  emit: (event: 'refresh' | 'patch', ...args: any[]) => void
 }) {
   const handlePasteFromClipboard = async () => {
     try {
@@ -78,19 +76,6 @@ export function useSystemClipboardPaste({
       }
 
       window.$message.success(`Pasted ${filename}`)
-      const mtime = file.lastModified || Date.now()
-      emit('patch', {
-        added: [{
-          name: filename,
-          ext: content.ext,
-          isDirectory: false,
-          hidden: filename.startsWith('.'),
-          lastModified: mtime,
-          birthtime: mtime,
-          size: file.size,
-          error: null,
-        }],
-      })
     }
     catch (error) {
       console.error('[pasteFromClipboard]', error)

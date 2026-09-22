@@ -23,7 +23,7 @@ import { registerTransferQueue, unregisterTransferQueue } from './ExplorerUI/tra
 import ServerTaskList from './TransferPanel/ServerTaskList.vue'
 import TransferList from './TransferPanel/TransferList.vue'
 import TransferPanel from './TransferPanel/TransferPanel.vue'
-import explorerBus, { ExplorerEvents, useExplorerBusOn } from './utils/bus'
+import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 /**
  * 传输面板的编排层。
@@ -341,8 +341,6 @@ onMounted(() => {
     taskHandler,
   })
   taskQueueRef.value.on('allDone', () => {
-    // 面板全局唯一，没有哪一份列表该独占这个事件：广播给所有标签，各自按目录过滤
-    explorerBus.emit(ExplorerEvents.TRANSFER_DONE, listData.value)
     if (props.autoClose && !listData.value.some(item => item.status === 'failed') && !hasServerActive.value) {
       // 直接看列表，避免依赖下一帧才刷新的计数
       isVisible.value = false

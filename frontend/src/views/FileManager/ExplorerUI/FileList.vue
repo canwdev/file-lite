@@ -79,7 +79,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'openPath', 'update:isLoading', 'update:view', 'refresh', 'clearFilter', 'patch'])
+const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'openPath', 'update:isLoading', 'update:view', 'refresh', 'clearFilter'])
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
@@ -740,7 +740,6 @@ const { handlePasteFromClipboard } = useSystemClipboardPaste({
   basePath,
   entries: files,
   isLoading,
-  emit,
 })
 
 /* ------------------------------------------------------------------ *
@@ -960,86 +959,6 @@ const {
   resolveDropDir: resolveExternalDropDir,
 })
 
-function entryExt(name: string) {
-  const dot = name.lastIndexOf('.')
-  return dot > 0 ? name.slice(dot) : ''
-}
-
-/**
- * 上传成功后直接补进当前列表，而不是整目录刷新。
- *
- * 上传接口是逐个文件独立的，所以这里按「当前目录下的第一段路径」聚合：
- * 直接传进本目录的文件补一个文件条目，传进子目录的只补最外层那个目录条目。
- */
-function uploadEntries(items: Array<{
-  type?: 'upload' | 'download'
-  status?: 'success' | 'failed' | 'pending' | 'transferring'
-  path?: string
-  filename?: string
-  file?: File
-  result?: { path?: string, name?: string }
-}>): IEntry[] {
-  const base = normalizePath(`${basePath.value}/`)
-  const now = Date.now()
-  const byName = new Map<string, IEntry>()
-
-  for (const item of items) {
-    if ((item.type ?? 'upload') !== 'upload' || item.status !== 'success') {
-      continue
-    }
-    const dest = normalizePath(item.result?.path ?? item.path ?? '')
-    if (!dest || !dest.startsWith(base)) {
-      continue
-    }
-    const rel = dest.slice(base.length)
-    if (!rel) {
-      continue
-    }
-    const slash = rel.indexOf('/')
-    if (slash === -1) {
-      const name = item.result?.name ?? item.filename ?? rel
-      byName.set(name, {
-        name,
-        ext: entryExt(name),
-        isDirectory: false,
-        hidden: name.startsWith('.'),
-        lastModified: item.file?.lastModified ?? now,
-        birthtime: item.file?.lastModified ?? now,
-        size: item.file?.size ?? null,
-        error: null,
-      })
-    }
-    else {
-      const name = rel.slice(0, slash)
-      if (byName.get(name)?.isDirectory) {
-        continue
-      }
-      byName.set(name, {
-        name,
-        ext: '',
-        isDirectory: true,
-        hidden: name.startsWith('.'),
-        lastModified: now,
-        birthtime: now,
-        size: null,
-        error: null,
-      })
-    }
-  }
-  return [...byName.values()]
-}
-
-function handleTransferAllDone(items: Array<Parameters<typeof uploadEntries>[0][number]>) {
-  // 只有成功上传才可能改动目录；全部失败/取消则不动列表
-  const added = uploadEntries(items)
-  if (added.length) {
-    emit('patch', { added })
-  }
-}
-
-// 传输面板全局唯一，跑完一批后广播；uploadEntries 自己按 basePath 过滤，只补丁落在本目录的
-useExplorerBusOn(ExplorerEvents.TRANSFER_DONE, items => handleTransferAllDone(items))
-
 watch(isLoading, (val) => {
   // 聚焦的面板才抢焦点：拆分视图里另一个面板加载完不该把活动面板抢过去
   if (!val && props.focused) {
@@ -1052,8 +971,16 @@ async function focusFileList() {
   dropZoneRef.value?.focus()
 }
 
-// 新建后待选中的文件名（等列表刷新出来再 selectAndReveal）
+// 新建 / 重命名后待选中的名字。列表更新来自服务端推送，可能早于或晚于操作返回。
 const pendingRevealName = ref<string | null>(null)
+
+function revealWhenListed(name: string) {
+  pendingRevealName.value = name
+  if (!files.value.some(item => item.name === name))
+    return
+  pendingRevealName.value = null
+  nextTick(() => selectAndReveal(name))
+}
 
 // 文件操作功能
 const {
@@ -1083,9 +1010,7 @@ const {
   onOpenContainingFolder: (path) => {
     emit('openPath', path)
   },
-  onEntryCreated: (name) => {
-    pendingRevealName.value = name
-  },
+  onEntryCreated: revealWhenListed,
 })
 
 watch(files, () => {

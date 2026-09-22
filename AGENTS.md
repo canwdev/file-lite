@@ -55,7 +55,7 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 
 `CHANGELOG.md` lives at the repository root and is **minimal**: only record changes users can perceive, one item per thing.
 
-- Newest version first. Unreleased content goes under `## Unreleased` and is changed to a version number at release.
+- Newest version first. add the item under the latest version heading.
 - Groups appear only as needed, with no empty headings: `### UI` / `### Features` / `### Fixes` / `### Engineering`. `Engineering` only holds things that affect the development workflow (guardrails, build, lint); purely internal refactors are not recorded.
 - Use one sentence to say what change the user sees; do not list which files or class names changed — that is git log's job.
 - When a change is specific to the frontend or the backend, say which side (frontend / backend).
