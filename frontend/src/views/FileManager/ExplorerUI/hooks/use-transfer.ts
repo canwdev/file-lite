@@ -4,7 +4,7 @@ import { useFileDialog } from '@vueuse/core'
 import { requestLocalConflict } from '@/store/tasks'
 import { downloadUrl } from '@/utils'
 import { fs } from '@/utils/fs'
-import { normalizePath } from '../../utils'
+import { joinPath, normalizeListingPath, normalizePath } from '../../utils'
 import { isExternalFileDrag, registerExternalDropSink } from '../entry-drag'
 import { transferQueue } from '../transfer-queue-registry'
 
@@ -19,7 +19,7 @@ interface PendingUpload {
 
 /** 弹窗里展示用的相对路径 */
 function relativeLabel(path: string, targetDir: string) {
-  const prefix = normalizePath(`${targetDir}/`)
+  const prefix = normalizeListingPath(targetDir)
   return path.startsWith(prefix) ? path.slice(prefix.length) : path
 }
 
@@ -97,13 +97,13 @@ async function collectEntry(entry: FileSystemEntry, path: string, out: PendingUp
     const file = await new Promise<File>((resolve, reject) => {
       (entry as FileSystemFileEntry).file(resolve, reject)
     })
-    out.push({ file, path: normalizePath(`${targetDir}/${path}${file.name}`) })
+    out.push({ file, path: normalizePath(joinPath(targetDir, `${path}${file.name}`)) })
     return
   }
   if (entry.isDirectory) {
     const dir = entry as FileSystemDirectoryEntry
     // 走门面创建目录
-    await fs.mkdir(normalizePath(targetDir + dir.fullPath), { recursive: true })
+    await fs.mkdir(normalizePath(joinPath(targetDir, dir.fullPath)), { recursive: true })
     const children = await readAllDirectoryEntries(dir.createReader())
     for (const child of children) {
       await collectEntry(child, `${path}${dir.name}/`, out, targetDir)
@@ -144,7 +144,7 @@ async function collectDroppedItems(event: DragEvent, targetDir: string): Promise
   for (const file of plainFiles) {
     collected.push({
       file,
-      path: normalizePath(`${targetDir}/${file.webkitRelativePath || file.name}`),
+      path: normalizePath(joinPath(targetDir, file.webkitRelativePath || file.name)),
     })
   }
   return collected
@@ -191,7 +191,7 @@ export function useTransfer({
     }
     await enqueueUploads(Array.from(files).map(file => ({
       file,
-      path: normalizePath(`${basePath.value}/${file.name}`),
+      path: normalizePath(joinPath(basePath.value, file.name)),
     })), basePath.value)
   })
 
@@ -212,7 +212,7 @@ export function useTransfer({
       }
       items.push({
         file,
-        path: normalizePath(`${basePath.value}/${file.webkitRelativePath || file.name}`),
+        path: normalizePath(joinPath(basePath.value, file.webkitRelativePath || file.name)),
       })
     }
     await enqueueUploads(items, basePath.value)
@@ -229,7 +229,7 @@ export function useTransfer({
       else {
         for (const itemsKey in selectedItems.value) {
           const item = selectedItems.value[itemsKey]
-          paths.push(normalizePath(`${basePath.value}/${item.name}`))
+          paths.push(normalizePath(joinPath(basePath.value, item.name)))
         }
       }
 
@@ -308,7 +308,7 @@ export function useTransfer({
 
       while (stack.length) {
         const { entry, parentHandle, basePathStr } = stack.pop()!
-        const itemPath = normalizePath(`${basePathStr}/${entry.name}`)
+        const itemPath = normalizePath(joinPath(basePathStr, entry.name))
 
         if (entry.isDirectory) {
           const dirHandle = await parentHandle.getDirectoryHandle(entry.name, { create: true })

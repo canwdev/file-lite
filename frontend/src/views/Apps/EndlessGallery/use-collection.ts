@@ -1,5 +1,6 @@
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
+import { normalizePath } from '@/utils/path/form'
 
 export interface CollectionItem {
   name: string
@@ -27,7 +28,9 @@ export function useCollection() {
     normalize: normalizeCollection,
   })
 
-  const collectedPathSet = computed(() => new Set(collection.value.map(item => item.absPath)))
+  // 收藏是服务端持久化的：老数据里可能有 `a//b` 这种拼出来的路径，比较前先归一化，
+  // 免得修掉拼接之后旧收藏全部显示成「未收藏」
+  const collectedPathSet = computed(() => new Set(collection.value.map(item => normalizePath(item.absPath))))
   const collectedByDir = computed(() => {
     const map = new Map<string, CollectionItem[]>()
     for (const item of collection.value) {

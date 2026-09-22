@@ -9,6 +9,7 @@ import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
 import { fs } from '@/utils/fs'
+import { joinPath } from '@/utils/path/form'
 import FileSelector from '@/views/FileManager/FileSelector.vue'
 
 interface Props {
@@ -329,7 +330,7 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
     return
   revokeBlobRef(videoObjectUrl)
   videoObjectUrl.value = null
-  const url = fs.url(`${val.basePath}/${item.name}`)
+  const url = fs.url(joinPath(val.basePath, item.name))
   if (url) {
     void inst.switchUrl(url).catch(console.error)
   }
@@ -344,7 +345,7 @@ function handleFileSelect(val: FileSelectResult) {
     handleVideoSelect(val, item)
     return
   }
-  const url = fs.url(`${val.basePath}/${item.name}`)
+  const url = fs.url(joinPath(val.basePath, item.name))
   if (!url) {
     return
   }

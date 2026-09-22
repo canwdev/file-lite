@@ -2,7 +2,7 @@ import type { IEntry } from '@/types/server'
 import { localSettingsStore } from '@/store'
 import { fs } from '@/utils/fs'
 import { getPathSortMode } from '@/views/FileManager/ExplorerUI/explorer-state'
-import { canGoUp, getLastDirName, getParentPath, normalizeListingPath } from '@/views/FileManager/utils'
+import { canGoUp, getLastDirName, getParentPath, joinPath, normalizeListingPath } from '@/views/FileManager/utils'
 import { sortEntries } from '@/views/FileManager/utils/sort'
 import { getMediaType } from '../use-media-list'
 
@@ -84,7 +84,7 @@ function toMediaFolder(basePath: string, entries: IEntry[]): MediaFolder | null 
 }
 
 function childPath(parentPath: string, name: string): string {
-  return normalizeListingPath(`${parentPath}/${name}`)
+  return normalizeListingPath(joinPath(parentPath, name))
 }
 
 /** preorder：目录自身排在其子目录之前 */

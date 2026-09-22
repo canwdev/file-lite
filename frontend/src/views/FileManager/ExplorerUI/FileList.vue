@@ -20,7 +20,7 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import { normalizeListingPath, normalizePath } from '../utils'
+import { joinPath, normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
 import { composeSortMode, parseSortMode } from '../utils/sort'
@@ -246,7 +246,7 @@ const tableColumns = computed(() => {
           h(ThemedIcon, {
             iconClass: `mdi ${getFileIconClass(item)}`,
             item,
-            absPath: `${basePath.value}/${item.name}`,
+            absPath: joinPath(basePath.value, item.name),
             iconSize: iconSizeList.value,
           }),
           h(
@@ -769,7 +769,7 @@ function hoveredDropRow(event: DragEvent) {
   if (!item?.isDirectory) {
     return null
   }
-  return { name, dir: normalizePath(`${basePath.value}/${name}`) }
+  return { name, dir: normalizePath(joinPath(basePath.value, name)) }
 }
 
 function onRowDragStart(event: DragEvent) {

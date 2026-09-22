@@ -13,7 +13,7 @@ import {
 } from '@/utils/is'
 import { appListByOpenWith, getDefaultApp, getFileExt, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
-import { normalizePath } from '../../utils'
+import { joinPath, normalizePath } from '../../utils'
 
 interface OpenAppInfo {
   name: string
@@ -164,7 +164,7 @@ export function useOpener(basePath: { value: string }) {
    * 取不到地址时直接放弃，而不是 `await` 掉手势。
    */
   const getStreamUrl = (item: IEntry) => {
-    return fs.url(normalizePath(`${basePath.value}/${item.name}`))
+    return fs.url(normalizePath(joinPath(basePath.value, item.name)))
   }
 
   const openFile = async (
@@ -178,7 +178,7 @@ export function useOpener(basePath: { value: string }) {
     list: IEntry[],
   ) => {
     try {
-      const absPath = normalizePath(`${basePath.value}/${item.name}`)
+      const absPath = normalizePath(joinPath(basePath.value, item.name))
       const openApp = (appName: OpenWithEnum) => {
         openAppWindow(appName, {
           absPath,

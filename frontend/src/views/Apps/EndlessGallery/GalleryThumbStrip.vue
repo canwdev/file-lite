@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MediaFile } from './use-media-list.ts'
+import { joinPath } from '@/utils/path/form'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { THUMB_ICON_SIZE, useThumbStrip } from './use-thumb-strip.ts'
@@ -52,7 +53,7 @@ const { trackRef, visibleItems, sizerStyle, progressWidth, onTrackScroll, onTrac
           <ThemedIcon
             :icon-class="getFileIconClass(item.entry)"
             :item="item.entry"
-            :abs-path="`${basePath}/${item.name}`"
+            :abs-path="joinPath(basePath, item.name)"
             :icon-size="THUMB_ICON_SIZE"
           />
         </button>

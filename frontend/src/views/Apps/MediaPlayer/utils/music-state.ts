@@ -2,7 +2,7 @@ import type { LyricLine } from './lrc'
 import { watch } from 'vue'
 import { guid } from '@/utils'
 import { regSupportedAudioFormat } from '@/utils/is'
-import { normalizePath } from '@/views/FileManager/utils'
+import { joinPath, normalizePath } from '@/views/FileManager/utils'
 
 export type MediaType = 'music' | 'video'
 
@@ -49,7 +49,7 @@ export class MediaItem {
   }
 
   get absPath() {
-    return normalizePath(`${this.basePath}/${this.filename}`)
+    return normalizePath(joinPath(this.basePath, this.filename))
   }
 
   get titleDisplay() {

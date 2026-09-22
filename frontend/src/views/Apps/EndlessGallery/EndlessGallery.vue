@@ -2,6 +2,7 @@
 import type { WalkDirection } from './folder-nav/tree-walk.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
+import { joinPath, normalizePath } from '@/utils/path/form'
 import { useFolderNavigation } from './folder-nav/use-folder-navigation.ts'
 import GalleryPanels from './GalleryPanels.vue'
 import GalleryThumbStrip from './GalleryThumbStrip.vue'
@@ -41,7 +42,7 @@ watch(currentItem, (item) => {
 const currentAbsPath = computed(() => {
   if (!props.appParams?.basePath || !currentItem.value)
     return ''
-  return `${props.appParams.basePath}/${currentItem.value.name}`
+  return normalizePath(joinPath(props.appParams.basePath, currentItem.value.name))
 })
 
 const collected = computed(() =>

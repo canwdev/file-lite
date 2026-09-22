@@ -2,7 +2,7 @@ import type { Ref, WritableComputedRef } from 'vue'
 import type { FsDirChange, IEntry } from '@/types/server'
 import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
-import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath } from '../../utils'
+import { canGoUp, getLastDirName, getParentPath, joinPath, normalizeListingPath, normalizePath } from '../../utils'
 import { seedFolderListing } from '../folder-listing'
 import { useFavourites } from './use-favourites'
 import { useOpener } from './use-opener'
@@ -228,7 +228,7 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
 
   // 打开文件或文件夹
   const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: string }) => {
-    const path = normalizePath(`${basePath.value}/${item.name}`)
+    const path = normalizePath(joinPath(basePath.value, item.name))
     if (item.isDirectory) {
       await handleOpenPath(path, true)
     }

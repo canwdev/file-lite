@@ -44,3 +44,21 @@ export function normalizeListingPath(path: string) {
   }
   return p
 }
+
+/**
+ * 把子项名拼到父目录后面，父目录可以是 canonical（`/`、`C:/`、`//server/share/`）
+ * 或 listing（带尾斜杠）形态。
+ *
+ * **不要写成 `` `${base}/${name}` ``**：父目录是 Unix 根时那会拼出 `//name`，
+ * 而 canonical 规则里前导 `//` 是 UNC，于是 `/` 下的一级目录会被当成网络位置
+ * （`//root`）——表现为点不开、预览也取不到。盘符与 UNC 必须原样保留，
+ * 所以这里只做「去掉父目录尾斜杠、去掉子项前导斜杠」。
+ */
+export function joinPath(base: string, name: string) {
+  const parent = base.replace(/\/+$/, '')
+  const child = name.replace(/^\/+/, '')
+  if (!child) {
+    return parent === '' ? '/' : parent
+  }
+  return parent === '' ? `/${child}` : `${parent}/${child}`
+}

@@ -41,6 +41,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Root folder**: On Linux, opening the root (`/`) from the sidebar no longer breaks entering its subfolders or their previews (frontend).
 - **View refresh**: All open views refresh after upload, create, rename or save, and saved files update their size and modification time (backend, frontend).
 - **Copy progress**: Copy progress is no longer double-counted, and upload/download rows update their progress, percentage and speed (backend, frontend).
 - **Transfer cancellation**: Cancelling a transfer or task removes or marks its row correctly, and retries replace the old row (frontend).

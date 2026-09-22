@@ -2,7 +2,7 @@ import type { BreadcrumbSegment } from './volume-mounts'
 import { mountLabelFor, mountPaths } from '../ExplorerUI/drives'
 import { boundaryFor, breadcrumbSegmentsFor, canGoUpIn, getParentPathIn } from './volume-mounts'
 
-export { normalizeListingPath, normalizePath } from '../../../utils/path/form'
+export { joinPath, normalizeListingPath, normalizePath } from '../../../utils/path/form'
 
 /**
  * 导航边界（挂载点根）列表。

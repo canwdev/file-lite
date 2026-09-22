@@ -14,7 +14,7 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
-import { getLastDirName, normalizePath } from '../../utils'
+import { getLastDirName, joinPath, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
@@ -73,7 +73,7 @@ export function useFileActions({
     const { dirPrefix } = splitEntryName(item.name)
     if (!dirPrefix)
       return normalizePath(basePath.value)
-    return normalizePath(`${basePath.value}/${dirPrefix.replace(/\/$/, '')}`)
+    return normalizePath(joinPath(basePath.value, dirPrefix.replace(/\/$/, '')))
   }
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -103,7 +103,7 @@ export function useFileActions({
         value: `${dayjs().format('YYYYMMDD_HHmmss')}`,
       })
       isLoading.value = true
-      const target = normalizePath(`${basePath.value}/${name}`)
+      const target = normalizePath(joinPath(basePath.value, name))
       const guard = await fs.canWrite(target)
       if (!guard.ok) {
         window.$message?.warning(guard.reason ?? 'This location is read-only')
@@ -147,8 +147,8 @@ export function useFileActions({
     try {
       isLoading.value = true
       const nextName = `${dirPrefix}${name}`
-      const fromPath = normalizePath(`${basePath.value}/${item.name}`)
-      const toPath = normalizePath(`${basePath.value}/${nextName}`)
+      const fromPath = normalizePath(joinPath(basePath.value, item.name))
+      const toPath = normalizePath(joinPath(basePath.value, nextName))
       await fs.rename(fromPath, toPath)
       onEntryCreated?.(nextName)
     }
@@ -315,7 +315,7 @@ export function useFileActions({
         label: 'Open in new Tab',
         icon: 'mdi mdi-open-in-new',
         onClick: () => {
-          emit('openPathInNewTab', normalizePath(`${basePath.value}/${selectedItem.name}`))
+          emit('openPathInNewTab', normalizePath(joinPath(basePath.value, selectedItem.name)))
         },
       },
       isSingle
@@ -409,7 +409,7 @@ export function useFileActions({
         icon: 'mdi mdi-information-outline',
         onClick: () => {
           openProperties({
-            absPath: normalizePath(`${basePath.value}/${selectedItem.name}`),
+            absPath: normalizePath(joinPath(basePath.value, selectedItem.name)),
             name: selectedItem.name,
             isDirectory: selectedItem.isDirectory,
             ext: selectedItem.ext,

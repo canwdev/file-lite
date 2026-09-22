@@ -3,7 +3,7 @@ import type { IEntry } from '@/types/server'
 import dayjs from 'dayjs'
 import { readSystemClipboard } from '@/utils/clipboard'
 import { fs } from '@/utils/fs'
-import { generateTextFile, normalizePath } from '../../utils'
+import { generateTextFile, joinPath, normalizePath } from '../../utils'
 
 function appendCopySuffix(name: string, index?: number) {
   const suffix = index ? `-copy-${index}` : '-copy'
@@ -45,7 +45,7 @@ export function useSystemClipboardPaste({
 
       const existingNames = new Set(entries.value.map(entry => entry.name))
       const filename = buildUniqueName(content.ext, existingNames)
-      const path = normalizePath(`${basePath.value}/${filename}`)
+      const path = normalizePath(joinPath(basePath.value, filename))
       const name = path.split('/').pop() ?? filename
 
       // 从门面问一次能不能写，不能写就当场说明原因

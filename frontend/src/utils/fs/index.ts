@@ -10,7 +10,7 @@
  */
 import type { IEntry } from '@/types/server'
 import { fsWebApi } from '@/api/filesystem'
-import { normalizePath } from '@/utils/path/form'
+import { joinPath, normalizePath } from '@/utils/path/form'
 
 /** 同名冲突策略。与服务端 `upload-file` 的 `onConflict` 及上传队列保持一致。 */
 export type FsConflictPolicy = 'error' | 'overwrite' | 'keep-both' | 'skip'
@@ -31,10 +31,6 @@ export interface FsWriteResult {
   name?: string
   /** 未执行的原因（策略为 skip 等） */
   reason?: string
-}
-
-function joinPath(dir: string, name: string): string {
-  return `${dir.replace(/\/+$/, '')}/${name}`
 }
 
 /**

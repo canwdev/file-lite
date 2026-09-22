@@ -3,7 +3,7 @@ import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fs } from '@/utils/fs'
-import { normalizePath } from '@/utils/path/form'
+import { joinPath, normalizePath } from '@/utils/path/form'
 
 const props = defineProps<{
   plugin: PluginInfo
@@ -42,7 +42,7 @@ watch(() => props.plugin.entryUrl, () => {
 })
 
 function entryPath(dir: string, name: string) {
-  return normalizePath(`${dir.replace(/\/+$/, '')}/${name}`)
+  return normalizePath(joinPath(dir, name))
 }
 
 function listEntry(dir: string, entry: IEntry): PluginListEntry {

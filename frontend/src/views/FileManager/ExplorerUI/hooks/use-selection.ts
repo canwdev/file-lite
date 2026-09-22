@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useSelectionArea } from '@/hooks/use-selection-area'
-import { normalizePath, toggleArrayElement } from '../../utils'
+import { joinPath, normalizePath, toggleArrayElement } from '../../utils'
 
 export interface SelectionRect {
   left: number
@@ -387,7 +387,7 @@ export function useSelection({
 
   const selectedPaths = computed(() => {
     return selectedItems.value.map((item) => {
-      return normalizePath(`${basePath.value}/${item.name}`)
+      return normalizePath(joinPath(basePath.value, item.name))
     })
   })
 

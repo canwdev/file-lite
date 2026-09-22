@@ -1,7 +1,7 @@
 import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import { useSharedRef } from '@/hooks/use-shared-ref'
 import { createTask, onTaskDone } from '@/store/tasks'
-import { normalizeListingPath, normalizePath } from '../../utils'
+import { joinPath, normalizeListingPath, normalizePath } from '../../utils'
 
 const explorerStore = useSharedRef<{
   cutPaths: string[]
@@ -34,7 +34,7 @@ export function useCopyPaste({
     for (const p of explorerStore.value.cutPaths) {
       const normalized = normalizePath(p)
       const name = normalized.split('/').pop()
-      if (name && normalizePath(`${basePath.value}/${name}`) === normalized)
+      if (name && normalizePath(joinPath(basePath.value, name)) === normalized)
         names.add(name)
     }
     return names

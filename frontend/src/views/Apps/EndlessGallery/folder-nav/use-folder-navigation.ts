@@ -1,6 +1,6 @@
 import type { WalkDirection } from './tree-walk'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { normalizePath } from '@/views/FileManager/utils'
+import { joinPath, normalizePath } from '@/views/FileManager/utils'
 import { MAX_DIR_READS, walkToMediaFolder } from './tree-walk'
 
 /**
@@ -46,7 +46,7 @@ export function useFolderNavigation(getAppParams: () => AppParams | undefined) {
       const { basePath: targetPath, entries, mediaEntries } = outcome
       const item = direction === 'next' ? mediaEntries[0] : mediaEntries[mediaEntries.length - 1]
       return {
-        absPath: normalizePath(`${targetPath}/${item.name}`),
+        absPath: normalizePath(joinPath(targetPath, item.name)),
         item,
         basePath: targetPath,
         list: entries,
