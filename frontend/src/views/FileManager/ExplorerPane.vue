@@ -20,7 +20,7 @@ import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
-import { normalizeListingPath } from './utils'
+import { getParentPath, normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
@@ -359,6 +359,30 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
   })
 }
 
+/**
+ * 导航按钮中键 = 把「这一键要去的目录」在新标签里打开，而不是在当前面板里导航。
+ *
+ * Back / Forward 用 `getPrevious` / `getNext` **预览**历史里的相邻项：它们只读不移动
+ * 历史指针，所以当前面板不受任何影响；Up 取父目录（和 `goUp` 同一个函数）。
+ * Refresh 不在这里——它没有目标目录，中键保持原来的刷新语义。
+ */
+function onNavAuxClick(action: 'back' | 'forward' | 'up', event: MouseEvent) {
+  if (event.button !== 1) {
+    return
+  }
+  const hist = navigationHistory.value
+  const target = action === 'back'
+    ? hist?.getPrevious()?.path
+    : action === 'forward'
+      ? hist?.getNext()?.path
+      : (allowUp.value ? getParentPath(basePath.value) : '')
+  if (!target) {
+    return
+  }
+  event.preventDefault()
+  emit('openPathInNewTab', target)
+}
+
 // 启动App
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: string }) {
   if (selectFileMode.value === 'file' && !item.isDirectory) {
@@ -516,6 +540,7 @@ defineExpose({
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Back (alt+left)"
                 @click="goBack"
+                @auxclick="onNavAuxClick('back', $event)"
                 @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
               >
                 <i-mdi-arrow-left />
@@ -525,6 +550,7 @@ defineExpose({
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 title="Forward (alt+right)"
                 @click="goForward"
+                @auxclick="onNavAuxClick('forward', $event)"
                 @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
               >
                 <i-mdi-arrow-right />
@@ -534,6 +560,7 @@ defineExpose({
                 :disabled="!allowUp"
                 title="Up (alt+up)"
                 @click="goUp"
+                @auxclick="onNavAuxClick('up', $event)"
               >
                 <i-mdi-arrow-up />
               </button>

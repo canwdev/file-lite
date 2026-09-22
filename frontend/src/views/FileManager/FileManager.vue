@@ -369,6 +369,18 @@ useEventListener(window, 'dragend', () => {
   resetStarDrag()
 })
 
+/**
+ * 收藏项中键 = 在新标签里打开。与磁盘项、标签栏保持同一套鼠标约定：
+ * 中键是有默认行为的辅助键，左键的 `click` 不会触发这里。
+ */
+function onStarAuxClick(path: string, event: MouseEvent) {
+  if (event.button !== 1) {
+    return
+  }
+  event.preventDefault()
+  openPathInNewTab(path)
+}
+
 function showStarredPathMenu(path: string, event: MouseEvent) {
   const menuItems: MenuItem[] = [
     {
@@ -424,6 +436,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
             :draggable="dragEnabled"
             :title="path"
             @click="openPath(path)"
+            @auxclick="onStarAuxClick(path, $event)"
             @contextmenu.prevent.stop="showStarredPathMenu(path, $event)"
             @dragstart="onStarDragStart(path, $event)"
             @dragover="onStarDragOver(path, index, $event)"

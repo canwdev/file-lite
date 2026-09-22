@@ -53,14 +53,24 @@ interface ExplorerTabsState {
   activeItemId: string
 }
 
-function createTab(path: string): ExplorerTab {
-  return { id: guid(), path }
+function createTab(path: string, view?: ExplorerPaneView): ExplorerTab {
+  return view ? { id: guid(), path, view } : { id: guid(), path }
 }
 
 /** 单标签项：项 id 就取它唯一那个面板的 id，拆分 / 取消拆分时包装元素能原地复用 */
-function createItem(path: string): ExplorerTabItem {
-  const tab = createTab(path)
+function createItem(path: string, view?: ExplorerPaneView): ExplorerTabItem {
+  const tab = createTab(path, view)
   return { id: tab.id, tabs: [tab], activeTabId: tab.id }
+}
+
+/**
+ * 新面板继承的视图偏好。
+ *
+ * 只带 list/grid 与图标大小：`branch`（平铺子目录）是**当前目录**的临时模式，
+ * 跟着新标签走会让它一打开就平铺整个继承来的目录，所以不继承。
+ */
+function inheritedPaneView(view: ExplorerPaneView): ExplorerPaneView {
+  return { grid: view.grid, iconSizeList: view.iconSizeList, iconSizeGrid: view.iconSizeGrid }
 }
 
 export function isSplitItem(item: ExplorerTabItem): boolean {
@@ -205,9 +215,16 @@ function patchItem(itemId: string, patch: Partial<ExplorerTabItem>) {
 }
 
 export function useExplorerTabs() {
-  /** 新建标签并激活，永远追加在最后。默认沿用当前标签的路径（和资源管理器一致）。 */
+  /**
+   * 新建标签并激活，永远追加在最后。默认沿用当前标签的路径（和资源管理器一致）。
+   *
+   * 视图偏好继承**当前聚焦面板**：手动切过 list/grid 或调过图标大小之后再开新标签，
+   * 不会又退回全局默认。聚焦面板还没设过面板级视图（`view` 为空）时不写入，
+   * 新面板继续走全局设置——与它的来源面板表现一致。
+   */
   function addTab(path = activePath.value): string {
-    const item = createItem(path)
+    const view = activePane.value?.view
+    const item = createItem(path, view ? inheritedPaneView(view) : undefined)
     replaceItems([...state.value.items, item], item.id)
     return item.id
   }
@@ -351,6 +368,9 @@ export function useExplorerTabs() {
   /**
    * 拆分视图：优先吸收右邻单标签项，其次左邻，都没有就新建一个同路径标签当第二个面板。
    * 合并后的项落在两者中靠前的位置，面板顺序保持标签条原来的左右顺序。
+   *
+   * 新建的那个面板继承被拆分面板的视图偏好——否则在 grid 下拆分最后一个标签会得到
+   * 「一 grid 一 list」，看起来像是拆分把视图弄丢了。
    */
   function splitTab(itemId: string) {
     const index = findItemIndex(itemId)
@@ -371,7 +391,7 @@ export function useExplorerTabs() {
 
     const tabs = neighbor
       ? (neighbor.prepend ? [neighbor.item.tabs[0], self] : [self, neighbor.item.tabs[0]])
-      : [self, createTab(self.path)]
+      : [self, createTab(self.path, self.view ? inheritedPaneView(self.view) : undefined)]
 
     const merged: ExplorerTabItem = { id: item.id, tabs, split: 'vertical', activeTabId: self.id }
     const next = state.value.items.filter(entry => entry.id !== item.id && entry.id !== neighbor?.item.id)

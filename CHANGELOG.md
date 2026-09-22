@@ -17,6 +17,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Folder errors**: Folder open failures show the reason and a Try again button in the list area (frontend).
 - **Drag and drop**: Drag and drop highlights targets, auto-scrolls the list, supports Ctrl-drag duplication, and uploads system files onto folders, breadcrumbs, favourites and drives (frontend).
 - **Split view**: Split view has a narrower divider drag area, per-pane list/grid and icon size, focus outline, and remembered split (frontend).
+- **Tabs**: New tabs and new split panes inherit the view they were opened from, and middle-clicking a drive, favourite, breadcrumb or toolbar Back/Forward/Up opens the target in a new tab (frontend).
 - **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width (frontend).
 - **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
 

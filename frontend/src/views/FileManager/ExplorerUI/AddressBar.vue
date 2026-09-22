@@ -167,6 +167,19 @@ function onCrumbClick(path: string) {
   emit('navigate', path, highlightName)
 }
 
+/**
+ * 面包屑段中键 = 在新标签里打开该祖先目录。和磁盘项 / 收藏项同一套约定；
+ * 中键点击（`auxclick`）不会触发左键的 `click`，也不会与 `▼` 下拉冲突——
+ * 下拉有自己的按钮，中键落在它上面不会走到这里。
+ */
+function onCrumbAuxClick(path: string, event: MouseEvent) {
+  if (event.button !== 1) {
+    return
+  }
+  event.preventDefault()
+  emit('openPathInNewTab', path)
+}
+
 function showCrumbMenu(path: string, event: MouseEvent) {
   const items: MenuItem[] = [
     {
@@ -497,6 +510,7 @@ defineExpose({
               :class="{ 'is-drop-target': dragOverPath === seg.path }"
               :title="seg.path"
               @click.stop="onCrumbClick(seg.path)"
+              @auxclick.stop="onCrumbAuxClick(seg.path, $event)"
               @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
               @dragover="onCrumbDragOver(seg, $event)"
               @dragleave="onCrumbDragLeave(seg, $event)"

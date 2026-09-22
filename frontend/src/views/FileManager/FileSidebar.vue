@@ -65,6 +65,18 @@ function openDrive(item: IDrive) {
   }
 }
 
+/**
+ * 中键 = 在新标签里打开（与标签栏「中键关闭」、收藏项中键同一套鼠标约定）。
+ * `auxclick` 才是中键的那次点击，左键的 `click` 不会走到这里。
+ */
+function onDriveAuxClick(item: IDrive, event: MouseEvent) {
+  if (event.button !== 1) {
+    return
+  }
+  event.preventDefault()
+  emit('openPathInNewTab', item.path)
+}
+
 /* ------------------------------------------------------------------ */
 /* 磁盘根是拖拽落点：拖到磁盘上 = 移动 / 复制（跨卷自动变成复制）到该卷 */
 /* ------------------------------------------------------------------ */
@@ -174,6 +186,7 @@ defineExpose({
         :title="getTitle(item)"
         :class="{ 'is-active': item.path === currentPath, 'is-drop-target': dragOverPath === item.path }"
         @click="openDrive(item)"
+        @auxclick="onDriveAuxClick(item, $event)"
         @contextmenu.prevent.stop="showDriveMenu(item, $event)"
         @dragover="onDriveDragOver(item, $event)"
         @dragleave="onDriveDragLeave(item, $event)"
