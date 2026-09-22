@@ -8,6 +8,7 @@ Plugins in the repository that have already been adapted for the [File Lite plug
 
 ## Currently Available Plugins
 
-- [jspaint.7z](./jspaint.7z): A browser-based recreation of Microsoft Paint for drawing and editing images. [https://github.com/1j01/jspaint](https://github.com/1j01/jspaint)
+- [jspaint.7z](./jspaint.7z): Recreation of Microsoft Paint for drawing and editing images. [https://github.com/1j01/jspaint](https://github.com/1j01/jspaint)
+- [webamp-player.7z](./webamp-player.7z): Re-implementation of Winamp 2 in HTML5 and JavaScript, featuring full skin support and playback capabilities. [https://github.com/captbaritone/webamp](https://github.com/captbaritone/webamp)
 - [markdown-viewer.7z](./markdown-viewer.7z): A plugin for rendering and viewing Markdown documents, built on the Marked library: [https://github.com/markedjs/marked](https://github.com/markedjs/marked)
 - [monaco-editor.7z](./monaco-editor.7z): A plugin that bundles the Monaco code editor used in VS Code. [https://github.com/microsoft/monaco-editor](https://github.com/microsoft/monaco-editor)
