@@ -1,9 +1,9 @@
 ## Prebuilt Plugins
 
-Plugins in the repository that have already been adapted for the File Lite plugin system.
+Plugins in the repository that have already been adapted for the [File Lite plugin system](../docs/design/plugins.md).
 
 1. Download the archive. For example, `jspaint.7z` is available.
-2. Extract it to the `plugins/` directory in the data directory. After extraction, it should be `plugins/jspaint/index.html`.
+2. Extract it to the `plugins/` directory in the [data directory](../docs/config.md). After extraction, it should be `plugins/jspaint/index.html`.
 3. Refresh the page to take effect.
 
 ## Currently Available Plugins

@@ -1,22 +1,24 @@
-# config.json 配置说明
+# config.json Configuration Reference
 
-File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文列出文件位置、写入时机和每个字段的含义；类型定义见 [`Cfg`](../backend-go/config/config.go)。
+[中文](./zh-CN/config.md) | English
 
-## 文件位置
+File Lite's (Go backend) configuration comes from `config.json` in the data directory. This document lists the file location, when it is written, and what each field means. The type definition is [`Cfg`](../backend-go/config/config.go).
 
-- 默认：`<进程工作目录>/file-lite/config.json`。
-- 用 `--data-dir <path>` 或环境变量 `FILE_LITE_DATA_BASE_DIR` 换数据目录（`--data-dir` 就是设置这个环境变量）。
-- `sslKey` / `sslCert` 写的是**相对数据目录**的路径。
+## File location
 
-## 生成与写入时机
+- Default: `<process working directory>/file-lite/config.json`.
+- Change the data directory with `--data-dir <path>` or the `FILE_LITE_DATA_BASE_DIR` environment variable (`--data-dir` sets that variable).
+- `sslKey` / `sslCert` are paths **relative to the data directory**.
 
-| 情况 | 行为 |
+## When it is generated and written
+
+| Case | Behavior |
 | --- | --- |
-| `--create-config` | 写出一份默认配置（含随机生成的 `password`、`jwtToken`）后退出；加 `--with-tls` 会同时生成自签证书，见 [ssl.md](./ssl.md) |
-| 已有 config.json | 直接读取；`password` 或 `jwtToken` 为空时随机生成并**写回**该文件 |
-| 没有 config.json，也没加 `--create-config` | **ephemeral 模式**：密码和签名密钥只在内存里生成，不写任何文件，用控制台打印的 Ticket 登录，进程一退全部失效 |
+| `--create-config` | Writes a default config (including a randomly generated `password` and `jwtToken`) and exits. Adding `--with-tls` also generates a self-signed certificate; see [ssl.md](./ssl.md). |
+| config.json already exists | Read as-is. If `password` or `jwtToken` is empty, a random value is generated and **written back**. |
+| No config.json, and `--create-config` was not passed | **Ephemeral mode**: the password and signing key exist only in memory. Nothing is written. Log in with the ticket printed on the console; everything is gone when the process exits. |
 
-## 示例
+## Example
 
 ```json
 {
@@ -27,55 +29,55 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
   "logLevel": "warn",
   "sslKey": "",
   "sslCert": "",
-  "allowedCIDRs": [],
+  "allowedCIDRs": null,
   "allowSelfUpdate": false,
   "allowedRoots": []
 }
 ```
 
-## 字段
+## Fields
 
-| 字段 | 类型 | 缺省 | 说明 |
+| Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `host` | string | `""` | 监听地址，空表示 `0.0.0.0`（所有网卡）。优先级：`--host` / `-H` > 配置文件 > 环境变量 `HOST` |
-| `port` | string | `"3100"` | 监听端口。优先级：`--port` / `-p` > 配置文件 > 环境变量 `PORT` |
-| `password` | string | 随机 | 登录密码。为空时随机生成并写回；ephemeral 模式下只存在于内存。控制台不打印它，请查配置文件 |
-| `jwtToken` | string | 随机 | JWT 签名密钥。改它会让所有已登录会话立刻失效 |
-| `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
-| `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
-| `allowedCIDRs` | string[] | `[]` | 允许访问的客户端 IP 段（CIDR），空表示不限制，见 [ip-allowlist.md](./ip-allowlist.md) |
-| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/update`（校验并替换自身二进制、重启）、`POST /api/update/restart`（原地重启进程）和 `POST /api/update/exit`（退出进程）。关闭时这三条路由**根本不注册**，请求得到 404 |
-| `allowedRoots` | string[] | `[]` | 允许访问的根路径，**范围限制**；空表示不限制。见下 |
+| `host` | string | `""` | Listen address. Empty means `0.0.0.0` (all interfaces). Priority: `--host` / `-H` > config file > `HOST` |
+| `port` | string | `"3100"` | Listen port. Priority: `--port` / `-p` > config file > `PORT` |
+| `password` | string | random | Login password. Generated and written back when empty; in ephemeral mode it exists only in memory. The console does not print it — read the config file. |
+| `jwtToken` | string | random | JWT signing key. Changing it invalidates every existing session immediately. |
+| `logLevel` | string | `"warn"` | Event-log threshold: `verbose` / `warn` / `error` / `none`. Unknown values fall back to `warn`. Startup messages are not affected. |
+| `sslKey` / `sslCert` | string | `""` | HTTPS starts only when both are non-empty. Paths are relative to the data directory; see [ssl.md](./ssl.md). |
+| `allowedCIDRs` | string[] | `null` | Client IP ranges (CIDR) allowed to connect. `null` (the default) means no restriction; `[]` denies everyone. See [ip-allowlist.md](./ip-allowlist.md). |
+| `allowSelfUpdate` | bool | `false` | Whether to register `POST /api/update` (verify and replace this binary, then restart), `POST /api/update/restart` (restart in place) and `POST /api/update/exit` (exit). When off, these three routes are **not registered at all** and the request gets 404. |
+| `allowedRoots` | string[] | `[]` | Root paths the file manager may access — a **scope limit**. Empty means no restriction. See below. |
 
-超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，**本机卷上**临时文件在改名之前一定 fsync。网络位置（SMB / NFS / 对象存储挂载）上不做这次 fsync，也不对齐权限与时间——那三处各是一次网络往返，而挂载层本身已经保证数据已提交。
+Any field not in the table is treated as unset. `ffmpegPath`, `taskConcurrency`, `copyFileConcurrency` and `copyFsync` used to be configurable and have been removed: ffmpeg is always looked up on `PATH`, task concurrency is fixed at 2, and per-task file concurrency is fixed at 4. On a **local volume** the temporary file is always fsynced before it is renamed. On a network location (SMB / NFS / an object-storage mount) that fsync is skipped, and permissions and timestamps are not aligned either — each of those is a network round trip, and the mount itself already guarantees the data is committed.
 
-`startPath` 已删除：首次打开进入**位置列表的第一个**（通常是 Home），之后的位置由地址栏或侧边栏自由切换——起点不再是配置项，也就不会再出现「配置里写了一个不存在的目录」这类问题。旧配置里残留的该字段会被忽略，不影响启动。
+`startPath` has been removed. The first open lands on **the first entry in the locations list** (usually Home); after that the address bar or the sidebar switches location freely. The start location is no longer a setting, so a config that names a directory which does not exist can no longer happen. A leftover field in an old config is ignored and does not affect startup.
 
 ## allowedRoots
 
-默认空 = 不限制：**服务进程有权访问的每一个路径，登录后都能读写**。配上一组绝对路径之后，范围之外的请求一律 403，侧边栏也只列出这些位置。
+Empty by default means no restriction: **after login, every path the server process is allowed to access can be read and written**. Once a set of absolute paths is configured, anything outside that set returns 403, and the sidebar lists only those locations.
 
 ```json
 "allowedRoots": ["C:/Users/me/Shared", "//nas/media"]
 ```
 
-- 多条是**并集**：落在任意一条之内都放行，便于同时开放几个互不包含的目录（例如本机一个、NAS 一个）。
-- 嵌套的会被折叠成外层那一条：同时写 `/srv` 与 `/srv/files` 只保留 `/srv`——内层不会让任何新路径变得可访问，留着只会让侧边栏出现重复项。
-- 每一项都必须是绝对路径的 canonical 形态：`C:/Users/me`、`//server/share`、`/home/me`（也可以用反斜杠写，会被归一化）。空串项被忽略。
-- **启动时校验**：形态非法、目录不存在、指向的是文件，都直接启动失败并在错误里带上那条路径。配错一个路径会让所有请求 403，而界面上看不出原因，所以宁可起不来。
-- 启动日志会打印生效范围：`file access scope: ... (allowedRoots)`，不配则是 `the whole file system`。
-- 目标必须在范围内；**源可以在范围外**——否则就没法把别处的文件拷进受控目录，而那正是它的主要用途。
+- Several entries are a **union**: a path is allowed if it falls inside any one of them, so you can expose directories that do not contain each other (one local, one on a NAS).
+- Nested entries collapse to the outer one: writing both `/srv` and `/srv/files` keeps only `/srv`. The inner path does not make anything new reachable, and leaving it in only duplicates a sidebar entry.
+- Each entry must be an absolute path in canonical form: `C:/Users/me`, `//server/share`, `/home/me` (backslashes are accepted and normalized). Empty strings are ignored.
+- **Checked at startup.** An illegal form, a missing directory, or a path that points at a file fails startup, and the error includes that path. One wrong path would 403 every request with nothing in the UI to explain it, so failing to start is the safer outcome.
+- The startup log prints the effective scope: `file access scope: ... (allowedRoots)`, or `the whole file system` when unset.
+- The destination must be inside the scope. **The source may be outside it** — otherwise there would be no way to copy a file from elsewhere into a controlled directory, which is the main reason the setting exists.
 
-它**不是沙箱**：进程仍以服务账户的权限运行。它拦的是「认证之后的横向移动」——签名有效期长、cookie 持久化，一个泄露的 token 否则等于整台机器。已知边界：
+It is **not a sandbox**. The process still runs with the service account's permissions. What it stops is lateral movement after authentication: signatures last a long time and cookies persist, so a leaked token would otherwise be the whole machine. Known boundaries:
 
-- 范围内的符号链接指向范围外时不会被拦住：canonical 路径不解析符号链接（设计决策 10），要挡住得解析每一次请求，既有 TOCTOU 窗口又会让不存在的路径无法判断。
-- 通过软链访问（`/srv/files -> /mnt/pool/files`）时，范围按**软链那条路径**算：配 `allowedRoots: ["/srv/files"]` 时 `/mnt/pool/files` 不在范围内。这是有意的、可解释的行为。
-- 服务端自己访问的路径（数据目录、缩略图缓存）不受它约束，那是进程自身的行为，不是用户请求。
+- A symlink inside the scope that points outside it is not blocked. Canonical paths do not resolve symlinks (design decision 10). Blocking that would mean resolving every request, which both opens a TOCTOU window and makes a path that does not exist impossible to judge.
+- Access through a symlink (`/srv/files -> /mnt/pool/files`) is judged on **the symlink's own path**. With `allowedRoots: ["/srv/files"]`, `/mnt/pool/files` is out of scope. That is intentional and explainable.
+- Paths the server opens for itself (the data directory, the thumbnail cache) are not constrained. That is the process acting on its own, not a user request.
 
-## 注意
+## Notes
 
-- `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
-- **默认情况下，服务进程有权访问的每一个路径，登录后都能读写**（`allowedRoots` 为空时）。只在你信任的网络里运行；必要时配合 `allowedCIDRs` 限制来源，或用 `allowedRoots` 把范围收窄。
-- `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
-- 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。
-- 环境变量只在配置文件没有写该字段时生效：命令行 > 配置文件 > 环境变量。
+- `password` and `jwtToken` are secrets stored in plaintext. Do not commit `config.json` or share it.
+- **By default, after login, every path the server process can access can be read and written** (`allowedRoots` empty). Run it only on a network you trust. Use `allowedCIDRs` to limit where clients come from, or `allowedRoots` to narrow the scope.
+- With `allowSelfUpdate` on, **any logged-in user** can upload and run an arbitrary binary, or restart or stop the service. Turn it on only on a network you trust, and pair it with `allowedCIDRs` when you need to. See [ip-allowlist.md](./ip-allowlist.md).
+- Restart the process after changing `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert`.
+- An environment variable applies only when the config file does not set that field: command line > config file > environment variable.

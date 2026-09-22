@@ -13,6 +13,8 @@ A lightweight web file manager with a Go backend implementation. `README.md` is 
 
 Write new documents and code comments in English.
 
+Translate into Chinese only after every other part of the task is done, so the English text is stable first. The scope is the root `README.md` and the first-level files in `docs/` (`docs/*.md`). Do not translate nested directories such as `docs/design/`. Chinese translations live in `docs/zh-CN/`, including the Chinese copy of the root README (`docs/zh-CN/README.md`). English stays at the original path.
+
 ## Frontend architecture
 
 - Stack: Vite + Vue 3 + TypeScript
@@ -59,10 +61,11 @@ Note that the theme-layer selector is `body.vgo-theme-default .vgo-x` (specifici
 
 `CHANGELOG.md` lives at the repository root and is **minimal**: only record changes users can perceive, one item per thing.
 
-- Newest version first. add the item under the latest version heading.
+- Newest version first. Add the item under the latest version heading.
 - Groups appear only as needed, with no empty headings: `### UI` / `### Features` / `### Fixes` / `### Engineering`. `Engineering` only holds things that affect the development workflow (guardrails, build, lint); purely internal refactors are not recorded.
 - Use one sentence to say what change the user sees; do not list which files or class names changed — that is git log's job.
 - When a change is specific to the frontend or the backend, say which side (frontend / backend).
+- Start every list item with a short bold summary label, then a colon, then the one-sentence description. Example: `- **Icons**: ...`, `- **Fix**: ...`, `- **UI**: ...`. Keep labels short and consistent.
 - The version number must match in two places and be changed together at release: `frontend/src/enum/version.ts` and `const Version` in `backend-go/config/config.go`.
 
 ## Git

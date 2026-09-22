@@ -6,159 +6,64 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
-- Endless Gallery, Media Player, Video Player, File Viewer and Text Sync use new icons (frontend).
-- In grid view each file icon shows its default app at the bottom right, including images; a file with no matched app shows none, and a plugin icon there has no background. A plugin is the default only when no built-in app matches the file. Open With and Set Default App list plugins in a Plugins submenu, and the Open with label uses the plugin's name (frontend).
-- A plugin opens a new window each time. Set `singleInstance` in its manifest to keep one window, and a `version` string there is shown beside the name in the Plugins menu and is not used for anything else (frontend, backend).
-- The panel has two tabs: Transfers for uploads and downloads, which always run in the browser, and Tasks for background copy, move, delete and duplicate work on the server. Each tab has its own summary and its own actions, so a progress percentage or a "Cancel All" never mixes the two (frontend).
-- Rows in both tabs share one layout — status icon, name, progress details on aligned columns — and the panel's footer only offers what applies to the tab you are looking at (frontend).
-- Progress in the panel is now a translucent wash behind each row instead of a bar along its bottom edge, so the row keeps its height and nothing competes with the file name (frontend).
-- The Transfers and Tasks tabs use up/down and left/right arrow file icons instead of a cloud and a synced folder (frontend).
-- A new transfer opens the panel on its own tab: an upload or download brings up Transfers, a background copy, move, delete or duplicate brings up Tasks (frontend).
-- Transfer and task rows keep their type icon — uploads and downloads now use a progress-upload / progress-download icon — and show running, paused, success or failure as a small corner badge instead of replacing the whole icon (frontend).
-- A finished copy, move, delete or duplicate now updates the folder you are looking at in place instead of reloading it, so the list no longer blanks and the selection and scroll position stay put; uploads, new files and renames do the same (frontend).
-- A folder that fails to open now keeps the reason on screen in the list area — with a warning icon and a "Try again" button — instead of showing "This folder is empty" while only a toast explains what went wrong; a folder that already has files on screen keeps them (frontend).
-- Reloading the current folder keeps the list on screen instead of blanking it, and a reload that finds nothing changed no longer redraws the rows (frontend).
-- The conflict dialog asks "What do you want to do?" and its options are left-aligned instead of centred (frontend).
-- The debug switch moved into a Development submenu, which also has an entry that fills the transfer panel with a sample of every row state — uploads, downloads and background tasks alike — so its layout can be checked without transferring anything (frontend).
-- The panel no longer leaves a growing list of successful operations behind: entries that finished without problems are dropped once the panel closes, while ones with failures or a cancel stay until removed, and the button that removes them is an × rather than a second checkmark (frontend).
-- A dragged file highlights its drop target with a dashed outline, and the file list scrolls on its own when the pointer is held near its top or bottom edge (frontend).
-- The music cover card no longer tilts or lights up on phones, where there is no hover and the 3D effect only costs performance (frontend).
-- The main menu has a Fullscreen entry next to the browser wake lock toggle that switches the app in and out of fullscreen (frontend).
-- The colour themes are named after the Material palette — Red, Pink, Purple, and so on — instead of programming languages and tools (frontend).
-- The Config menu labels are title-cased, so they read Image Cache, Disable Preview and Reduce Motion (frontend).
-- Disable Preview moved to the bottom of the Config menu beside Clear Local Data, and the Image Cache entry is hidden while previews are off (frontend).
-- The context menu draws a border, and a shadow in dark mode, so it no longer blends into the list behind it (frontend).
-- The page title and the global menu moved into a top bar above the explorer, whose left side is an empty strip reserved for the upcoming tabs (frontend).
-- A button at the top bar's left shows or hides the navigation sidebar, the choice is remembered in the browser, and the sidebar is no longer resized by dragging (frontend).
-- The navigation sidebar uses the raised surface colour, and its "Storage" heading stays pinned while the drive list scrolls (frontend).
-- When the address bar's breadcrumb collapses to the last two folders, a leading … shows that earlier folders are hidden (frontend).
-- The folder dropdown on a breadcrumb now highlights the folder you are currently in and scrolls it into view immediately, so a long list no longer opens at the top with your own folder below the fold (frontend).
-- A favourite folder in the sidebar is highlighted while you are inside it, and the drive / favourite highlight is a background wash without an outline (frontend).
-- Holding Ctrl while dragging files or folders onto the empty area of their own folder now duplicates them, the same as Explorer, producing a `name - Copy` next to the original (frontend, backend).
-- The transfer panel moved from the file list's status bar to the top bar, opens at the top right just below the top bar, and is shared by every tab (frontend).
-- The sidebar toggle switches its icon with the navigation's state (`menu-open` while it is shown, `menu-close` while it is hidden) (frontend).
-- In a split view the draggable area beside the divider is 4px wide instead of 16px, so it no longer takes clicks on the panes next to it; the divider itself looks the same (frontend).
-- File icons are outline glyphs, and PDFs, Word, Excel, PowerPoint and Windows binaries each have their own icon (frontend).
-- In the filter bar the case-sensitive toggle sits before the regular-expression one (frontend).
-- The folder menu opens with View, Sort and Group by; View switches list and grid, can flatten every subdirectory into one file list (Ctrl+B), and can expand or collapse every group, and creating a file or folder sits under New (frontend).
-- The transfer panel sits below floating windows so it no longer covers them (frontend).
-- Config → App Settings has a "Show folders first" switch that decides whether folders stay grouped above files after sorting; it is on by default (frontend).
-- The folder Sort menu lists the sort field and the direction as two groups, so you pick Name / Size / date separately from Ascending / Descending (frontend).
-- Ctrl+scroll (Cmd+scroll on Mac) over the file list moves the icon-size slider, matching list and grid ranges (frontend).
-- In grid view the arrow keys move selection in two dimensions — left/right along the row, up/down by column — including across groups (frontend).
-- The explorer toolbar and file list switch to their compact layout from the pane's own width, so a narrow half of a split view stacks the address and filter bars even on a wide screen (frontend).
-- Context menus show the shortcuts that are already bound — Refresh, Paste, Cut, Copy, Delete, Rename, Open, New Folder, Branch view and Close tab (frontend).
-- The main menu has a Keyboard Shortcuts entry (also `?`) that opens a live list of every currently registered binding; press `?` again or Alt+W to close it. Alt+W also closes other app windows (same key closes the active tab when no app is open). F1 opens or closes Text Sync; Ctrl+\ splits or unsplits the active tab; Ctrl+` shows or hides the navigation sidebar; Alt+M opens the global menu (frontend).
+- **Icons**: New icon set across the gallery, media player, video player, file viewer and text sync, with outline file icons and distinct icons for common file types (frontend).
+- **Grid badges**: Grid view shows each file’s default app badge, and plugins are listed in a submenu when no built-in app matches (frontend).
+- **Top bar**: The top bar now holds the page title, global menu, tab strip, sidebar toggle and shared transfer panel (frontend).
+- **Sidebar**: The sidebar uses the raised surface colour, keeps its Storage heading pinned, remembers visibility, and highlights the current favourite or drive (frontend).
+- **Breadcrumbs**: Breadcrumbs collapse with a leading …, highlight the current folder in the dropdown, and stop Up navigation at the starting location (frontend).
+- **Menus**: Context menus have a border and dark-mode shadow, show existing shortcuts, and use title-cased Config labels and Material theme names (frontend).
+- **Transfer panel**: The transfer panel has separate Transfers and Tasks tabs with their own summaries, actions, row layout, progress wash, type icons and status badges (frontend).
+- **In-place updates**: Finished file operations update the current folder in place, and reloads keep the list, selection and scroll position (frontend).
+- **Folder errors**: Folder open failures show the reason and a Try again button in the list area (frontend).
+- **Drag and drop**: Drag and drop highlights targets, auto-scrolls the list, supports Ctrl-drag duplication, and uploads system files onto folders, breadcrumbs, favourites and drives (frontend).
+- **Split view**: Split view has a narrower divider drag area, per-pane list/grid and icon size, focus outline, and remembered split (frontend).
+- **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width (frontend).
+- **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
 
 ### Features
 
-- HTML pages dropped in the server's plugins folder appear in the main menu under Plugins and open in a window (frontend, backend).
-- A plugin can open a file from the file manager, read and write that file, and close its own window (frontend, backend).
-- A plugin can list the entries in a directory and read each one by its full path (frontend).
-- Branch view (Ctrl+B) lists every file under the current folder, ignoring directory nesting, so copy, delete and other batch actions can run across subfolders; leaving the folder turns it off, and a right-click can open the file's containing folder. A folder with too many files to flatten shows an error instead of a partial list. It is an explorer view only and does not apply inside apps (frontend, backend).
-- Folders can be grouped like Explorer — by name, type, size or date, in either direction — in both the list and the grid; the group's heading stays pinned while you scroll it, size groups show their range in brackets, the chevron collapses the group, and clicking the rest of the heading selects every file in it (frontend).
-- The sidebar and the explorer pane no longer each ask the server for the drive list on startup, so one visit sends one request instead of two (frontend).
-- `allowedRoots` restricts the file manager to the folders you list — anything outside them is refused, and the sidebar only offers those folders and whatever is inside them — while leaving it empty (the default) keeps the whole file system reachable; listing several folders grants all of them, nested ones collapse into their parent, and every folder is checked at startup, so a path that does not exist stops the server instead of silently refusing every request (backend). This is the access-scope option; the name says what it is, namely the roots a path is allowed to be under.
-- The default stays what it was: with `allowedRoots` empty the file manager reaches every path the server process can, so a folder anywhere on the machine — including a network share such as `\\server\share` or a WSL distribution at `\\wsl.localhost\Debian` — can be opened by typing its path in the address bar (backend).
-- The `startPath` config option is gone: opening the app enters the first location in the drive list (normally Home) and you navigate from there, so a typo in the config can no longer leave the first tab pointing at a folder that does not open; the field is ignored if it is still in your config file (backend, frontend).
-- On Linux the sidebar's drive list shows only real storage — the pseudo file systems (`/proc`, `/sys`, `/run`, container layers) and WSL's internal mounts no longer clutter it, a volume mounted at several paths appears once, and each entry now reports its free and total space, so the usage bar and the "Used / Available" tooltip finally have data (backend, frontend).
-- The sidebar tells a network location (NFS, CIFS, WSL's 9p drives) from a local volume with a network folder icon, and home with a plain home icon (frontend).
-- The explorer has built-in tabs: open several folders at once and switch between them, and each tab keeps its own folder, selection, filter and scroll position (frontend).
-- Tabs can be added, closed and reordered by dragging, are remembered across reloads, and at least one tab always stays open; a new tab is appended at the end, the active one is highlighted in the theme colour, and tabs squeeze instead of wrapping when there are many (frontend).
-- A tab's context menu can split it into two panes, side by side by default or stacked, merging with the tab next to it when there is one; the pair shows as a single tab with one close button, and the menu also unsplits it, switches the direction, swaps the two views and pushes the focused pane's folder to the other one (frontend).
-- The two panes resize by dragging the divider, files can be dropped from one pane straight into a folder of the other, and which pane has focus follows the one you click and is marked with a theme-coloured inset outline; the split is remembered across reloads while the divider position is not (frontend).
-- Each pane keeps its own list or grid mode and its own icon size, so the two panes of a split can look different; a pane that was never changed keeps following the global setting, and the file selector still uses it (frontend).
-- The tab strip sits in the top bar at the toolbar's height, with rounded tabs separated by short dividers; the only tab hides its close button, and the new-tab / close buttons are small and round (frontend).
-- Dragging files over another tab for half a second switches to that tab, but the drop itself still has to happen in the file list — a tab never accepts files (frontend).
-- Every "Open in new Tab" entry now opens a built-in tab instead of a browser tab; `Alt+T` / `Alt+W` / `Alt+1..9` add, close and jump between tabs, and a tab's right-click menu closes it, the others, or everything to its left or right (frontend).
-- Files can be dragged from one tab onto another tab's file list and land in that tab's folder (frontend).
-- Copying, moving, deleting and duplicating are now background tasks: they show a progress bar, can be cancelled, and every open window sees and can cancel them (frontend, backend).
-- When a copy or move lands on a name that already exists, a "Replace or Skip Files" dialog asks whether to replace, skip or keep both, with a "do this for all" option, instead of failing the whole batch (frontend, backend).
-- Folders are merged the way Windows Explorer does it when the destination already has a folder of the same name, so only the conflicting files inside are asked about (backend).
-- "Duplicate" now creates the copy directly with a `name - Copy` name instead of going through a temporary folder (frontend, backend).
-- A finished copy or move refreshes both the source and the destination listing, in every open window (frontend, backend).
-- Uploading a file whose name already exists now asks whether to replace it, skip it or keep both, instead of overwriting it without a word (frontend, backend).
-- A copy, move or delete that fails now lists exactly which items failed and why, and "Try Again" retries only those items (frontend, backend).
-- The panel opens itself when a background task starts and closes once every task has finished, and a button in the status bar shows or hides it — hiding it never cancels work in progress (frontend).
-- Tasks started in one window are now visible in every other open window, including ones that were already open (frontend).
-- Files and folders can be dragged onto a folder row, a breadcrumb, a favourite or a drive to move or copy them: the same drive moves, another drive copies, Ctrl copies and Shift moves, and anything moved away is dropped from the clipboard (frontend).
-- Dragging files from the system onto a folder row, a breadcrumb, a favourite or a drive now uploads them into that folder (frontend).
-- Favourite folders can be dragged up and down in the sidebar to change their order, and that order is remembered (frontend).
-- Drag and drop is off while the file or folder picker is open (frontend).
-- The `enableLog` config option is replaced by `logLevel` (`verbose`, `warn` (default), `error`, `none`): HTTP request logs print only at `verbose`, a failed login is recorded as a warning, and server errors print down to `error`, while startup output always prints (backend).
-- Right-clicking a file or folder — or the empty area of a folder — opens a Windows-style Properties window with its icon, name, type, full path, size, contained files and folders, and modified and created dates; a folder's recursive size is counted in the background and fills in without holding the window back (frontend, backend).
-- The Open File picker now opens with Esc, remembers the folder you were in and the window's size and position, and shows a plain title instead of the raw filter pattern (frontend).
-- When the config file sets `allowSelfUpdate`, the Development menu can install a new backend binary: the server checks that the uploaded file really runs on this machine, replaces its own executable and restarts, and the page reloads a second later (frontend, backend).
-- The same menu can stop the backend process, after a confirmation that warns it may have to be started again manually (frontend, backend).
-- The same menu can also restart the backend process, which interrupts any transfer in progress (frontend, backend).
-- With the default config all three entries stay hidden and the endpoints are not registered at all, so the requests are 404 (frontend, backend).
-- ffmpeg is looked up in `PATH` only, and the `ffmpegPath` config option is gone (backend).
-- Background tasks run two at a time with four files in parallel, and the `taskConcurrency` and `copyFileConcurrency` config options are gone (backend).
-- The `copyFsync` config option is gone: the temporary file is fsynced before the rename, so a power cut can no longer leave a renamed file whose contents were never written. On a network location — an SMB or NFS share, or an object store mounted as a folder — that final sync is skipped instead, along with aligning the file's permissions and time, since each of those is a full network round trip per file while the mount layer already commits the data (backend).
-- Typing a network path — `\\server\share`, or a WSL distribution at `\\wsl.localhost\Debian` — in the address bar now browses that share: the leading double slash used to be folded into a single one, which turned the share into an ordinary folder of the Unix root and made every operation address the wrong place (frontend, backend).
-- Opening a folder that cannot be reached on a network share now says the location is unreachable and can be retried, instead of claiming the folder does not exist; an invalid path is refused as such, instead of being reported as a missing file (frontend, backend).
-- Opening a network path that names only a host — `\\wsl.localhost` by itself — now explains that a share has to be named and shows the `//host/share` form, instead of answering "path is malformed"; the location itself is not browseable because the file system refuses it, so it stays out of the sidebar too (backend, frontend).
-- Listing a folder on a network share no longer fires one request per entry at the same time: the concurrency drops from 64 to 6 for network locations, while local disks keep all 64 (backend).
-- The list of locations is shown if the drive list comes back empty, instead of silently dropping into the root of the file system (frontend).
-- A mapped network drive, and a drive letter linked to a share, are shown with the network icon like other network locations (backend, frontend).
-- A BitLocker volume that is still locked shows up in the sidebar with a lock icon instead of looking like an ordinary disk that happens to be empty, and opening it quotes Windows' own explanation — unlock it from Control Panel — rather than a generic "failed to read the path" (backend, frontend).
-- Installed WSL distributions now appear in the sidebar as their own locations, below the local disks and with the network icon, so `\\wsl.localhost\Debian` no longer has to be typed into the address bar by someone who happens to know the rule; the list comes from the registry, so it costs about a millisecond and never waits on the network (backend, frontend).
-- Network locations added to This PC with "Add a network location" — a share that was never given a drive letter, such as `\\DESKTOP-ROGZ16\shared` — now appear in the sidebar too, read from the shortcut Explorer keeps for them rather than by probing the network; a location only shows up for the account the server runs as, and one that is offline reports itself as unreachable when opened (backend, frontend).
+- **Plugins**: Plugins can be dropped into the server plugins folder, appear in the main menu, open in windows, and can read/write files and list directories (frontend, backend).
+- **Tabs**: The explorer has built-in tabs that remember folder, selection, filter and scroll, can be reordered, split, merged, and moved between panes (frontend).
+- **Branch and grouping**: Branch view (Ctrl+B) flattens subdirectories for batch actions, and folders can be grouped by name, type, size or date in list and grid views (frontend, backend).
+- **Background tasks**: Copy, move, delete and duplicate run as background tasks visible in every open window, with conflict handling, retry of failed items, and in-place listing refreshes (frontend, backend).
+- **Conflicts**: Uploads with existing names ask to replace, skip or keep both, and failed copy/move/delete reports list exactly which items failed (frontend, backend).
+- **Properties**: The Properties window shows icon, name, type, path, size, contained files, and created/modified dates, counting folder sizes in the background (frontend, backend).
+- **Access config**: `allowedRoots` restricts the file manager to listed folders; `startPath` is removed; `logLevel` replaces `enableLog` (backend).
+- **Storage sidebar**: Linux sidebar shows only real storage with free/total space, and network locations, WSL distributions, mapped drives and locked BitLocker volumes appear with appropriate icons (backend, frontend).
+- **Network paths**: Network paths in the address bar browse correctly, with clear errors for unreachable locations and host-only paths (frontend, backend).
+- **Backend controls**: Self-update, stop and restart backend actions are available only when `allowSelfUpdate` is set (frontend, backend).
+- **Open File picker**: The Open File picker opens with Esc, remembers folder and window size, and is selection-only (frontend).
+- **Docs**: The README and the top-level configuration guides are available in Chinese as well as English.
+- **README**: The README is shorter for new users: about 10MB, a Windows double-click install, and every document listed once at the bottom.
 
 ### Fixes
 
-- Uploading, creating, renaming, or saving a file updates every open view of that folder, including other windows; saving a file also refreshes its size and modification time (backend, frontend).
-- Group headings no longer sit on top of the file list's column header (frontend).
-- Copy progress is no longer counted twice: the bar, the percentage and the transferred-bytes readout used to reach 100% after roughly half the data, because each file's size was added once during the copy and again when it finished (backend).
-- Cancelling a background task — from its row or from the Replace or Skip Files dialog — now removes it from the list instead of leaving a "Cancelled" entry behind, and the dialog's Cancel no longer leaves the task waiting for a decision (frontend).
-- Retrying a failed or cancelled transfer now shows the retried row and its progress instead of leaving the old, cancelled row on screen (frontend).
-- Upload and download rows in the transfer panel now update while they run: the progress bar, percentage and speed used to stay at their first value because the virtualized rows never saw the field changes (frontend).
-- Cancelling a transfer now marks its row as cancelled instead of leaving it showing "Uploading" (frontend).
-- Several icons showed a question-mark file instead of the real one — the panel's tabs, the Development menu, and the conflict and failure dialogs — because icons named at runtime have to be registered (frontend).
-- Opening File Lite now shows the tasks that are already running instead of an empty task window (frontend).
-- New tasks appear in the task window immediately, so the progress bar, cancel button and failure list work for them (frontend, backend).
-- Cancelling a copy can no longer leave half a file behind: every file is written to a temporary file next to the destination and only renamed into place once complete (backend).
-- A batch copy or move no longer stops at the first conflicting name and silently leaves the earlier items done: every item now reports its own result (backend).
-- Deleting a large folder no longer blocks the page: it runs as a cancellable task and the listing refreshes when it finishes (frontend, backend).
-- An interrupted upload no longer leaves a half-written file at the destination, and the server refuses to overwrite an existing file unless the client asked for it (backend).
-- Uploading a folder no longer skips files after the first 100 entries of a subfolder (frontend).
-- Cancelling an upload no longer risks deleting a file that had already finished uploading (frontend).
-- When a copy or move fails, the failed items are now always included in the report even if there are more results than fit in one message (backend).
-- Error messages for a failed copy, move or upload no longer mention the internal temporary file name (backend).
-- Downloading a file whose name contains a `+` no longer fails: the download path was decoded twice, and the second pass turned `+` into a space, so the file was reported as not found and the browser saved the error as `download.json` (backend).
-- Copying a file and pasting it back into the same folder no longer asks whether to replace it with itself — an answer that rewrote the file in place and silently broke its hard links — and instead makes a copy beside it, the way Explorer does; moving an item into the folder it already lives in is a no-op (frontend, backend).
-- Downloads keep their real name. A space in the name came out as `+`, and every file was saved as `download.<ext>` because the `download` attribute overrode the filename the server sent (frontend, backend).
-- Closing the failed-items dialog now also drops that finished task from the Tasks list, so a failure you have read (or retried) no longer stays behind as a row (frontend).
-- "Created" now shows the file's real creation time instead of a copy of the modified time, on Windows, macOS and Linux; where the file system does not record one it still falls back to the modified time (backend).
-- The Open File picker is selection-only now: no play-last-media button, no transfers panel or button, no keyboard shortcuts, a filter pattern you cannot clear, and a right-click menu that offers just Select instead of open, rename, delete and the rest (frontend).
-- Double-clicking a file in a multi-select Open File picker returns every selected file instead of only the one under the pointer (frontend).
-- Opening a file applies the same too-large warning to a custom default app as to the built-in viewers, and cancelling the share sheet no longer throws (frontend).
-- The video player's settings entries no longer show "undefined" on the right after they are clicked (frontend).
-- Saving a file in the text editor works again: the save went through the upload endpoint without a conflict policy, so the backend refused to replace the file the editor had just opened and answered "Destination path already exists" (frontend).
-- Image previews are requested before their cell scrolls into view and kept until the cell leaves the list, instead of only being requested once the cell was already on screen and thrown away the moment it left: scrolling a grid of large icons no longer shows a screenful of file-type icons that fill in late (frontend).
-- A thumbnail shown in two places at once — the same folder on both sides of a split view — no longer falls back to a question-mark file icon when one of them is scrolled away: each place now owns its own copy of the picture (frontend).
-- The icon grid places its rows in the document flow, with a spacer standing in for the rows above the viewport, instead of shifting a whole layer with a transform the way it used to; a transformed layer has to be re-rasterized in the same frame it moves, so a busy browser could draw the grid one row out of place for a moment (frontend).
-- Moving a file to another disk works again: the copy-and-delete fallback never triggered on Windows, which reports its own error code for a rename across disks, so the move failed with "The system cannot move the file to a different disk drive" (backend).
-- Moving a folder to another disk no longer fails with "Failed to remove source directory": the source directory was removed before the files inside it had finished copying (backend).
-- Uploading a file whose name has two dots in a row — a track named "C.h.a.o.s.m.y.t.h..mp3", for instance — no longer answers "Invalid filename": only a name that is nothing but dots is refused now, instead of every name containing "..", which is what the rule against path traversal had turned into (backend).
-- On Windows, extracting a video cover no longer flashes a black console window: ffmpeg runs without a console of its own now, and so do the browser opener and the update check, which had the same problem (backend).
-- "Open in new Tab" always opens another tab, even when that folder is already open as a tab (frontend).
-- The Up button and the address bar's first breadcrumb now stop at the location you started from — the drive letter, the network share or the home folder — instead of walking past a share's root or into a folder that is not a location at all (frontend).
-- Opening a folder called `data2` where a drive or folder called `data` is also mounted no longer treats the two as the same volume, which made a drag between them copy when it should have moved, or move when it should have copied (frontend).
-- The Properties window now counts a folder's size and shows its creation time on a network share or a mapped drive, where it used to fail to read the folder at all (backend).
-- Copying, moving, deleting and duplicating a folder that sits deeper than a drive's root now works on Windows, where the operation used to be refused with "Source path does not exist" (backend).
-- A folder listing no longer stays stale after a copy, move, delete or duplicate underneath a drive's root: the in-place update was computed against paths the file list could not match (backend).
+- **View refresh**: All open views refresh after upload, create, rename or save, and saved files update their size and modification time (backend, frontend).
+- **Copy progress**: Copy progress is no longer double-counted, and upload/download rows update their progress, percentage and speed (backend, frontend).
+- **Transfer cancellation**: Cancelling a transfer or task removes or marks its row correctly, and retries replace the old row (frontend).
+- **Partial files**: Cancelled or interrupted copies and uploads no longer leave half-written files, and the server refuses overwrites unless requested (backend).
+- **Batch results**: Batch copy/move reports every item’s result instead of stopping at the first conflict (backend).
+- **Large deletes**: Deleting large folders runs as a cancellable task and refreshes the listing when done (frontend, backend).
+- **Downloads**: Downloads preserve real names, including spaces and `+`, and no longer save as `download.<ext>` (frontend, backend).
+- **Self-copy**: Copying a file into its own folder makes a copy beside it instead of replacing itself (frontend, backend).
+- **Cross-disk moves**: Moving files or folders across disks works on Windows, including deep folders (backend).
+- **Dotted filenames**: Uploading filenames with two dots in a row no longer fails as invalid (backend).
+- **Editors and dialogs**: Text editor saving, video player settings, custom default app warnings, and share-sheet cancellation are fixed (frontend).
+- **Image previews**: Image previews are requested earlier and kept until cells leave view; split-view thumbnails no longer fall back to question-mark icons (frontend).
+- **Grid rendering**: The icon grid renders rows in the document flow to avoid drawing one row out of place (frontend).
+- **Windows console**: On Windows, extracting video covers, opening the browser and checking for updates no longer flash a black console window (backend).
+- **Tabs and navigation**: “Open in new Tab” always opens another tab, and Up/breadcrumb navigation stops at the starting location (frontend).
+- **Properties and stale listings**: The Properties window works on network shares and mapped drives, and folder listings no longer stay stale after operations underneath a drive root (backend).
 
 ### Engineering
 
-- File reads and writes now go through one shared facade (`utils/fs`), so apps no longer import the file manager's internals or call the file API directly (frontend).
-- Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).
-- The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
-
-- A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser and runs the conflict, progress, cancel and retry flows; its method and cases live in `e2e/README.md`.
-- The README's feature screenshots are generated from a demonstration library by `cd e2e && bun run docs:screenshots`, so they follow the UI instead of being retaken by hand; the sample media is downloaded once into a gitignored cache.
-- Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
-- The E2E runner works on Windows again: it used to spawn Playwright's `.bin` shim, which Windows refuses to execute when it is a `.cmd` (and Bun installs an `.exe`), so the suite died with `spawn EINVAL` before running a single test; it now runs Playwright's `cli.js` through `node` on every platform (engineering).
+- **FS facade**: File reads and writes now go through one shared facade (`utils/fs`), so apps no longer import the file manager's internals or call the file API directly (frontend).
+- **Facade enforcement**: Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).
+- **Shared path rules**: The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
+- **E2E project**: A Playwright end-to-end sub-project (`e2e/`) drives the built app in a real browser and runs the conflict, progress, cancel and retry flows; its method and cases live in `e2e/README.md`.
+- **Docs screenshots**: The README's feature screenshots are generated from a demonstration library by `cd e2e && bun run docs:screenshots`, so they follow the UI instead of being retaken by hand; the sample media is downloaded once into a gitignored cache.
+- **E2E polling**: Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
+- **Windows E2E runner**: The E2E runner works on Windows again: it used to spawn Playwright's `.bin` shim, which Windows refuses to execute when it is a `.cmd` (and Bun installs an `.exe`), so the suite died with `spawn EINVAL` before running a single test; it now runs Playwright's `cli.js` through `node` on every platform (engineering).
 
 ## 1.4.5
 
