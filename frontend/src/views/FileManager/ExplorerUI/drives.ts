@@ -9,7 +9,7 @@ import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
 import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
-import { boundaryDisplayName, findMountRoot } from '../utils/volume-mounts'
+import { boundaryDisplayName, boundaryFor, findMountRoot } from '../utils/volume-mounts'
 
 export const driveList = ref<IDrive[]>([])
 export const drivesLoading = ref(false)
@@ -94,6 +94,53 @@ export function mountPaths(): readonly string[] {
  */
 export function mountLabelFor(path: string): string | null {
   return boundaryDisplayName(normalizeListingPath(path), driveList.value)
+}
+
+/**
+ * 驱动器图标（MDI 名，`MdiIcon` 会归一化）。
+ *
+ * 图标看 `kind`，不看「有没有容量」：网络位置与拿不到容量的卷都会被误判。
+ * 后端不带 `kind` 时（老版本）沿用「有容量才算卷」的回退。
+ */
+export function driveIcon(item: Pick<IDrive, 'label' | 'kind' | 'total'>): string {
+  const label = item.label.toLowerCase()
+  if (label === 'home') {
+    return 'home'
+  }
+  if (label === 'data') {
+    return 'folder-pound-outline'
+  }
+  const kind = item.kind ?? (item.total ? 'volume' : undefined)
+  // 加密未解锁的卷：读不到卷标也读不到容量，给「文件夹 + 锁」，
+  // 别让它看起来像一块普通硬盘，也别丢掉「它是个可点的位置」这层意思
+  if (kind === 'locked') {
+    return 'folder-lock-outline'
+  }
+  if (kind === 'network') {
+    return 'folder-network-outline'
+  }
+  if (kind === 'home') {
+    return 'home'
+  }
+  if (!item.total) {
+    return 'folder-outline'
+  }
+  return 'harddisk'
+}
+
+/**
+ * 路径的「根图标」：路径正好停在挂载点根上（打开的是一个卷 / 位置）时给该卷的图标，
+ * 普通目录给文件夹，根不在盘列表里时回退 `harddisk`。
+ *
+ * 地址栏最左侧与标签栏的根标签共用它，保证同一个位置图标一致。
+ */
+export function pathRootIcon(path: string): string {
+  const boundary = boundaryFor(path, mountPaths())
+  if (normalizeListingPath(path) !== boundary) {
+    return 'folder'
+  }
+  const mount = driveList.value.find(drive => normalizeListingPath(drive.path) === boundary)
+  return mount ? driveIcon(mount) : 'harddisk'
 }
 
 /**

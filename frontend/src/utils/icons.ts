@@ -1,4 +1,4 @@
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { Component, VNode } from 'vue'
 import { h } from 'vue'
 import MdiAlertCircle from '~icons/mdi/alert-circle'
@@ -15,7 +15,7 @@ import MdiArrowSplitVertical from '~icons/mdi/arrow-split-vertical'
 import MdiArrowUp from '~icons/mdi/arrow-up'
 import MdiArrowUpBoldCircleOutline from '~icons/mdi/arrow-up-bold-circle-outline'
 import MdiArrowUpThinCircleOutline from '~icons/mdi/arrow-up-thin-circle-outline'
-import MdiAsteriskCircleOutline from '~icons/mdi/asterisk-circle-outline'
+import MdiAsterisk from '~icons/mdi/asterisk'
 import MdiBroom from '~icons/mdi/broom'
 import MdiBugPlayOutline from '~icons/mdi/bug-play-outline'
 import MdiCheck from '~icons/mdi/check'
@@ -284,7 +284,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'music-circle': MdiMusicCircle,
   'play-circle': MdiPlayCircle,
   'movie': MdiMovie,
-  'asterisk-circle-outline': MdiAsteriskCircleOutline,
+  'asterisk': MdiAsterisk,
   'file-document-outline': MdiFileDocumentOutline,
   'file-move-outline': MdiFileMoveOutline,
   'file-outline': MdiFileOutline,
@@ -392,7 +392,7 @@ export function mdiMenuIcon(cls?: string | null, attrs?: Record<string, unknown>
   return h(mdiComponentFor(name), attrs)
 }
 
-/** 深遍历菜单项，把 string 型 icon 转为 VNode（@imengyu/vue3-context-menu 的 icon 支持 VNode） */
+/** 深遍历菜单项，把 string 型 icon 转为 VNode（vgo-ui 的 MenuItem.icon 支持 VNode） */
 export function resolveMenuIcons(items: MenuItem[]): MenuItem[] {
   for (const item of items) {
     if (!item)

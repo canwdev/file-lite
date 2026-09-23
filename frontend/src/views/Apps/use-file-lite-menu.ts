@@ -1,16 +1,17 @@
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { IEntry } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { listPlugins, refreshPlugins } from '@/api/plugins'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
 import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
-import { colorThemeOptions, menuThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
+import { colorThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme.ts'
 import { clearLastOpenedMediaMap, toggleRememberLastMedia } from '@/hooks/use-last-opened-media'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { serverCapabilities } from '@/store/capabilities.ts'
 import { localSettingsStore, settingsStore } from '@/store/index.ts'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { enableDebug } from '@/utils/debug'
 import { mdiMenuIcon, resolveMenuIcons } from '@/utils/icons'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
@@ -226,7 +227,8 @@ export function useFileLiteMenu() {
     })
   }
 
-  async function showMenu(event?: MouseEvent) {
+  /** 构建全局菜单的菜单项；缓存统计与插件列表每次打开时现取，所以是异步的。 */
+  async function buildMenuItems(): Promise<MenuItem[]> {
     const { entries: cacheEntries, bytes: cacheBytes, available: cacheAvailable } = await getImageThumbCacheStats()
     const plugins = await listPlugins().catch(() => [])
     const pluginsMenu: MenuItem | false = plugins.length > 0 && {
@@ -256,18 +258,8 @@ export function useFileLiteMenu() {
       : cacheEntries > 0
         ? `Image Cache: ${cacheEntries} items · ${formatCacheBytes(cacheBytes)}`
         : 'Image Cache: empty'
-    const fromEvent = event?.target instanceof Element
-      ? event.target.closest('button') as HTMLElement | null
-      : null
-    const button = fromEvent
-      ?? document.querySelector<HTMLElement>('[data-file-lite-menu]')
-    const rect = button?.getBoundingClientRect()
-
-    ContextMenu.showContextMenu({
-      x: rect?.right || event?.x || 0,
-      y: rect?.top || event?.y || 0,
-      ...menuThemeOptions,
-      items: resolveMenuIcons([
+    return resolveMenuIcons(
+      [
         pluginsMenu,
         {
           label: 'Text Sync',
@@ -509,11 +501,41 @@ export function useFileLiteMenu() {
             window.$logout(true)
           },
         },
-      ].filter(Boolean) as MenuItem[]),
-    })
+      ].filter(Boolean) as MenuItem[],
+    )
+  }
+
+  const menuItems = shallowRef<MenuItem[]>([])
+
+  /**
+   * 「Menu」按钮：点开 / 再点关闭，打开期间按钮保持激活。位置、开合状态与
+   * 「点击外部关闭」的时序都交给 vgo-ui 的 trigger hook。
+   */
+  const {
+    setTriggerRef: setMenuTriggerRef,
+    isOpen: menuOpen,
+    show: showMenu,
+    close: closeMenu,
+  } = useContextMenuTrigger({
+    ...baseContextMenuOptions,
+    items: () => menuItems.value,
+  })
+
+  async function toggleMenu() {
+    if (menuOpen.value) {
+      closeMenu()
+      return
+    }
+    menuItems.value = await buildMenuItems()
+    if (!menuItems.value.length) {
+      return
+    }
+    showMenu()
   }
 
   return {
-    showMenu,
+    setMenuTriggerRef,
+    menuOpen,
+    toggleMenu,
   }
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { ExplorerTab, ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import { useEventListener } from '@vueuse/core'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
+import { loadDrives, pathRootIcon } from './ExplorerUI/drives'
 import { isExternalFileDrag, isInternalDrag } from './ExplorerUI/entry-drag'
 import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import { getLastDirName, normalizeListingPath } from './utils'
@@ -144,6 +145,11 @@ useEventListener(window, 'drop', () => {
 })
 onBeforeUnmount(cancelSpringLoad)
 
+// 根标签要显示真实卷图标，需要盘列表；缓存共享，重复调用不会多发请求。
+onMounted(() => {
+  void loadDrives()
+})
+
 /* ---------------- 基本操作 ---------------- */
 function tabLabel(tab: ExplorerTab) {
   return getLastDirName(tab.path) || tab.path || '/'
@@ -256,7 +262,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(menuItems),
   })
 }
@@ -303,7 +309,8 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
         :title="pane.path"
         @click="activateTab(pane.id)"
       >
-        <i-mdi-folder class="explorer-tabs__icon" />
+        <!-- 根标签显示真实卷图标（pathRootIcon），普通目录是文件夹 -->
+        <MdiIcon :name="pathRootIcon(pane.path)" class="explorer-tabs__icon" />
         <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(pane) }}</span>
       </span>
       <!-- Shown on every closable tab; crowded CSS hides it on inactive ones. -->

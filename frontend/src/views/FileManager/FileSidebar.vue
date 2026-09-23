@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { IDrive } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import { bytesToSize } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
-import { driveList, drivesLoading, loadDrives as refreshDrives } from './ExplorerUI/drives'
+import { driveIcon, driveList, drivesLoading, loadDrives as refreshDrives } from './ExplorerUI/drives'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './ExplorerUI/entry-drag'
 
 interface Props {
@@ -30,33 +30,6 @@ function openFirstDrive() {
   if (driveList.value[0]) {
     emit('openDrive', driveList.value[0])
   }
-}
-
-function getIcon(item: IDrive) {
-  // 图标看 kind，不看「有没有容量」：网络位置与拿不到容量的卷都会被误判。
-  // 后端不带 kind 时（老版本）沿用「有容量才算卷」的回退。
-  const kind = item.kind ?? (item.total ? 'volume' : undefined)
-  if (item.label.toLowerCase() === 'home') {
-    return 'mdi-home'
-  }
-  if (item.label.toLowerCase() === 'data') {
-    return 'mdi-folder-pound-outline'
-  }
-  // 加密未解锁的卷：读不到卷标也读不到容量，给「文件夹 + 锁」，
-  // 别让它看起来像一块普通硬盘，也别丢掉「它是个可点的位置」这层意思
-  if (kind === 'locked') {
-    return 'mdi-folder-lock-outline'
-  }
-  if (kind === 'network') {
-    return 'mdi-folder-network-outline'
-  }
-  if (kind === 'home') {
-    return 'mdi-home'
-  }
-  if (!item.total) {
-    return 'mdi-folder-outline'
-  }
-  return 'mdi-harddisk'
 }
 
 function openDrive(item: IDrive) {
@@ -139,7 +112,7 @@ function showDriveMenu(item: IDrive, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(items),
   })
 }
@@ -194,7 +167,7 @@ defineExpose({
       >
         <!-- `drive-list__icon` 与 `drive-list__item` 一样是既有选择器契约（e2e 与样式都用它） -->
         <span class="sidebar-list__icon drive-list__icon">
-          <MdiIcon :name="getIcon(item)" class="vgo-u-icon-md" />
+          <MdiIcon :name="driveIcon(item)" class="vgo-u-icon-md" />
         </span>
         <span class="sidebar-list__content">
           <span class="sidebar-list__title vgo-u-text-overflow">{{ item.label }}</span>

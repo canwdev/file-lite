@@ -9,17 +9,6 @@ export enum ThemeMode {
   Dark = 'dark',
 }
 
-// https://docs.imengyu.top/vue3-context-menu-docs/en/guide/theme.html
-const mxContextMenuTheme = 'flat' // mac,win10,flat,default
-export const menuThemeOptions = reactive({
-  theme: `${mxContextMenuTheme} dark`,
-  // menuTransitionProps: {
-  //   name: 'mx-fade',
-  // },
-  /** 防止滚动关闭菜单 */
-  closeWhenScroll: false,
-})
-
 export const colorThemeOptions = [
   { label: 'Red', rgb: '244,67,54' },
   { label: 'Pink', rgb: '233,30,99' },
@@ -96,15 +85,9 @@ export function useGlobalTheme() {
   watch(
     isAppDarkMode,
     (val) => {
-      if (val) {
-        // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
-        document.documentElement.classList.add('dark')
-        menuThemeOptions.theme = `${mxContextMenuTheme} dark`
-      }
-      else {
-        document.documentElement.classList.remove('dark')
-        menuThemeOptions.theme = mxContextMenuTheme
-      }
+      // Element Plus 黑暗模式 https://element-plus.org/zh-CN/guide/dark-mode.html
+      // vgo-ui 的暗色令牌与上下文菜单同样跟随 html.dark，所以只切这一个类。
+      document.documentElement.classList.toggle('dark', val)
     },
     { immediate: true },
   )

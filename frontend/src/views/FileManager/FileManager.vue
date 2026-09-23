@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { ExplorerPaneView, ExplorerTabItem } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
 import type { IDrive } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import { useEventListener, useStorage } from '@vueuse/core'
 import { provide } from 'vue'
 import { LsKeys } from '@/enum'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { appsStoreState, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
@@ -403,7 +403,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(menuItems),
   })
 }

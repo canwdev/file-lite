@@ -33,7 +33,7 @@ async function splitSourceTarget(page: Page) {
   const tabs = tabItems(page)
   await expect(tabs).toHaveCount(2)
   await tabs.nth(0).click({ button: 'right' })
-  await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).click()
+  await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).click()
   await expect(tabs).toHaveCount(1)
   await expect(tabLabels(page)).toHaveCount(2)
   return tabs
@@ -42,13 +42,13 @@ async function splitSourceTarget(page: Page) {
 /** 打开拆分项的右键菜单并悬停到 Split view 子菜单上 */
 async function openSplitSubmenu(page: Page) {
   await tabItems(page).first().click({ button: 'right' })
-  await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).hover()
+  await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).hover()
 }
 
 /** 打开拆分项右键菜单里的 Split view 子菜单，再点其中一项 */
 async function clickSplitSubmenu(page: Page, label: string) {
   await openSplitSubmenu(page)
-  await page.locator('.mx-context-menu-item', { hasText: label }).click()
+  await page.locator('.vgo-context-menu__item', { hasText: label }).click()
 }
 
 function panelWidths(page: Page) {
@@ -71,7 +71,7 @@ test.describe('拆分视图', () => {
 
     // 在最左边的标签上右键 → Split view：吸收右邻（target）
     await tabs.nth(0).click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).click()
 
     await expect(tabs).toHaveCount(2)
     await expect(tabLabels(page)).toHaveCount(3)
@@ -107,7 +107,7 @@ test.describe('拆分视图', () => {
     await expect(tabs).toHaveCount(1)
 
     await tabs.first().click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).click()
 
     await expect(tabs).toHaveCount(1)
     await expect(tabLabels(page)).toHaveCount(2)
@@ -132,9 +132,9 @@ test.describe('拆分视图', () => {
 
     // 当前左右并排，所以子菜单里的切换项是「切成上下堆叠」
     await openSplitSubmenu(page)
-    await expect(page.locator('.mx-context-menu-item', { hasText: 'Unsplit' })).toBeVisible()
-    await expect(page.locator('.mx-context-menu-item', { hasText: 'Swap views' })).toBeVisible()
-    await page.locator('.mx-context-menu-item', { hasText: 'Split horizontally' }).click()
+    await expect(page.locator('.vgo-context-menu__item', { hasText: 'Unsplit' })).toBeVisible()
+    await expect(page.locator('.vgo-context-menu__item', { hasText: 'Swap views' })).toBeVisible()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Split horizontally' }).click()
     await expect(visibleSplitter(page)).toHaveClass(/el-splitter__vertical/)
 
     // 再开一次：切换项已经变成「切回左右并排」
@@ -160,7 +160,7 @@ test.describe('拆分视图', () => {
     await expect(tabs).toHaveCount(3)
     // 把后两个标签合成一个拆分项
     await tabs.nth(1).click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).click()
     await expect(tabs).toHaveCount(2)
     await expect(tabLabels(page)).toHaveCount(3)
     await expect(page.locator('.explorer-tabs__close')).toHaveCount(2)

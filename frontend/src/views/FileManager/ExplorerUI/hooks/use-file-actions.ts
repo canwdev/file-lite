@@ -1,14 +1,14 @@
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { Ref } from 'vue'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import dayjs from 'dayjs'
 import { computed, h, ref } from 'vue'
 import { listPlugins } from '@/api/plugins'
-import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
@@ -453,7 +453,7 @@ export function useFileActions({
     ContextMenu.showContextMenu({
       x,
       y,
-      ...menuThemeOptions,
+      ...baseContextMenuOptions,
       items,
     })
   }

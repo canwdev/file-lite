@@ -9,7 +9,7 @@ import FileManager from '@/views/FileManager/FileManager.vue'
 import TransferQueue from '@/views/FileManager/TransferQueue.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
-const { showMenu } = useFileLiteMenu()
+const { menuOpen, setMenuTriggerRef, toggleMenu } = useFileLiteMenu()
 
 onMounted(() => {
   void listPlugins().catch(() => [])
@@ -34,7 +34,7 @@ useShortcut({
   combo: 'alt+m',
   description: 'Open global menu',
   handler: () => {
-    void showMenu()
+    void toggleMenu()
   },
 })
 
@@ -82,10 +82,11 @@ function toggleTransferPanel() {
             <span class="vgo-u-text-overflow">{{ pageTitle }}</span>
           </span>
           <button
+            :ref="setMenuTriggerRef"
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-            data-file-lite-menu
+            :class="{ 'is-active': menuOpen }"
             title="Menu"
-            @click="showMenu"
+            @click="toggleMenu"
           >
             <i-mdi-menu />
           </button>

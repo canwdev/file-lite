@@ -8,10 +8,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - **Icons**: New icon set across the gallery, media player, video player, file viewer and text sync, with outline file icons and distinct icons for common file types (frontend).
 - **Grid badges**: Grid view shows each file’s default app badge, and plugins are listed in a submenu when no built-in app matches (frontend).
+- **Folder previews**: The folder tab on thumbnail previews is drawn as a folder-shaped trapezoid instead of a rounded bar (frontend).
 - **Top bar**: The top bar now holds the page title, global menu, tab strip, sidebar toggle and shared transfer panel (frontend).
 - **Sidebar**: The sidebar uses the raised surface colour, keeps its Storage heading pinned, remembers visibility, and highlights the current favourite or drive (frontend).
-- **Breadcrumbs**: Breadcrumbs collapse with a leading …, highlight the current folder in the dropdown, and stop Up navigation at the starting location (frontend).
+- **Breadcrumbs**: A storage icon on the left opens the volume list and breadcrumbs collapse when the pane is narrow, the subfolder dropdown highlights the current folder, and Up navigation stops at the starting location (frontend).
 - **Menus**: Context menus have a border and dark-mode shadow, show existing shortcuts, and use title-cased Config labels and Material theme names (frontend).
+- **Menu rendering**: Context menus and the text editor menu bar now use vgo-ui’s menu component, so their colours and dark mode come from the shared theme tokens (frontend).
+- **Menu buttons**: The top-bar Menu button and the file list Menu button toggle their menu open and closed, and stay highlighted while it is open (frontend).
+- **Breadcrumb menu**: The caret after a breadcrumb segment opens its subfolder list as a vgo-ui dropdown menu (frontend).
 - **Transfer panel**: The transfer panel has separate Transfers and Tasks tabs with their own summaries, actions, row layout, progress wash, type icons and status badges (frontend).
 - **In-place updates**: Finished file operations update the current folder in place, and reloads keep the list, selection and scroll position (frontend).
 - **Folder errors**: Folder open failures show the reason and a Try again button in the list area (frontend).
@@ -19,8 +23,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Split view**: Split view has a narrower divider drag area, per-pane list/grid and icon size, focus outline, and remembered split (frontend).
 - **Tabs**: New tabs and new split panes inherit the view they were opened from, and middle-clicking a drive, favourite, breadcrumb or toolbar Back/Forward/Up opens the target in a new tab (frontend).
 - **Tab strip**: Tabs use a Firefox-style floating rounded box. Every closable tab shows a close button when there is room; when the strip is crowded, inactive tabs keep the folder icon and the active tab swaps the icon for close (frontend).
+- **Tab icons**: A tab opened at a volume root shows that volume’s icon instead of the folder icon (frontend).
 - **Covers**: The player loads each queue item’s embedded cover from the shared thumbnail cache at thumbnail size instead of decoding the full-size artwork, and hides covers when content previews are disabled (frontend).
-- **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width (frontend).
+- **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width, and a narrow toolbar stacks the navigation buttons above a full-width address bar (frontend).
 - **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
 - **Favourites**: Sidebar favourites use a starred folder icon, and the toolbar star toggle sits next to Refresh (frontend).
 - **Favourites menu**: Right-clicking the toolbar star lists every starred folder and opens the one you pick (frontend).

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { ContextMenuInstance, MenuItem } from '@canwdev/vgo-ui'
 import type { IEntry } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
+import { ContextMenu, useContextMenuTrigger } from '@canwdev/vgo-ui'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { getBreadcrumbSegments, normalizeListingPath, normalizePath } from '../utils'
 import { currentChildNameFor } from '../utils/volume-mounts'
+import { driveIcon, driveList, loadDrives, pathRootIcon } from './drives'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './entry-drag'
 import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFolderListingOk } from './folder-listing'
 
@@ -76,15 +77,58 @@ const segments = computed(() => getBreadcrumbSegments(props.modelValue))
 const hiddenPrefixCount = ref(0)
 /** 测量阶段临时显示全部 crumb（同一帧内完成，不会闪烁） */
 const measuring = ref(false)
-/** 被折叠隐藏的祖先段，作为最左侧「…」的提示文案 */
-const hiddenPrefixNames = computed(() =>
-  segments.value
-    .slice(0, hiddenPrefixCount.value)
-    .map(seg => seg.name)
-    .filter(name => name !== '/')
-    .join(' / '),
-)
 let breadcrumbResizeObserver: ResizeObserver | null = null
+
+/* ---------------------------------------------------------------------------
+ * 最左侧固定一个当前根的图标；点击弹出 Storage（盘 / 挂载点）列表。
+ * ------------------------------------------------------------------------- */
+const rootSegment = computed(() => segments.value[0] ?? null)
+const currentMount = computed(() => {
+  const path = rootSegment.value ? normalizeListingPath(rootSegment.value.path) : ''
+  return driveList.value.find(drive => normalizeListingPath(drive.path) === path) ?? null
+})
+const currentRootIcon = computed(() => pathRootIcon(rootSegment.value?.path ?? ''))
+const currentRootLabel = computed(() => currentMount.value?.label || rootSegment.value?.name || 'Storage')
+
+function buildStorageItems(): MenuItem[] {
+  if (!driveList.value.length) {
+    return [{ label: 'No locations available.', disabled: true }]
+  }
+  const currentRoot = rootSegment.value ? normalizeListingPath(rootSegment.value.path) : ''
+  return driveList.value.map(drive => ({
+    label: drive.label,
+    icon: driveIcon(drive),
+    customClass: normalizeListingPath(drive.path) === currentRoot ? 'is-active' : '',
+    onClick: () => {
+      if (normalizeListingPath(drive.path) === currentRoot) {
+        return
+      }
+      emit('navigate', drive.path, null)
+    },
+  }))
+}
+
+const {
+  setTriggerRef: setRootMenuTriggerRef,
+  isOpen: rootMenuOpen,
+  show: showRootMenu,
+  close: closeRootMenu,
+} = useContextMenuTrigger({
+  ...baseContextMenuOptions,
+  items: () => resolveMenuIcons(buildStorageItems()),
+})
+
+async function toggleRootMenu() {
+  if (editing.value) {
+    return
+  }
+  if (rootMenuOpen.value) {
+    closeRootMenu()
+    return
+  }
+  await loadDrives()
+  showRootMenu()
+}
 
 async function recomputeBreadcrumbFit() {
   const el = breadcrumbScrollRef.value
@@ -103,6 +147,7 @@ watch(
   () => props.modelValue,
   () => {
     closeCrumbMenu()
+    closeRootMenu()
     clearDragOver()
     recomputeBreadcrumbFit()
   },
@@ -112,6 +157,7 @@ watch(
 watch(editing, (isEditing: boolean) => {
   if (isEditing) {
     closeCrumbMenu()
+    closeRootMenu()
   }
   else {
     recomputeBreadcrumbFit()
@@ -192,7 +238,7 @@ function showCrumbMenu(path: string, event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(items),
   })
 }
@@ -202,7 +248,7 @@ function onBreadcrumbBarClick(event: MouseEvent) {
     return
   }
   const target = event.target as HTMLElement | null
-  if (target?.closest('.address-bar__crumb, .address-bar__crumb-caret')) {
+  if (target?.closest('.address-bar__crumb, .address-bar__crumb-caret, .address-bar__root')) {
     return
   }
   startEdit()
@@ -228,32 +274,16 @@ function onInputBlur() {
 
 // ---------------------------------------------------------------------------
 // 面包屑「▼」下拉：列出该段目录的子文件夹（按该目录自身排序规则），点击导航。
+// 用 vgo-ui 的 ContextMenu 以按钮下拉的形式弹出。
 // ---------------------------------------------------------------------------
 const CRUMB_MENU_WIDTH = 220
-const CRUMB_MENU_VIEWPORT_MARGIN = 8
 const CRUMB_MENU_MAX_HEIGHT = 360
+/** 展开菜单的 caret 会带上这个 class，让菜单的「点击外部关闭」放过触发它的那一下。 */
+const CRUMB_MENU_TRIGGER_CLASS = 'address-bar__crumb-caret--menu'
 
-interface CrumbMenuPos {
-  left: number
-  top: number
-  width: number
-  maxHeight: number
-}
-
-const crumbMenu = ref<BreadcrumbSegment | null>(null)
-const crumbMenuPos = ref<CrumbMenuPos | null>(null)
-const crumbMenuLoading = ref(false)
-const crumbMenuSubDirs = ref<IEntry[]>([])
-const crumbMenuError = ref(false)
-const menuActiveIndex = ref(-1)
-/**
- * 「当前目录」在下拉里的下标；-1 表示不在这个列表里。
- *
- * 与 `menuActiveIndex`（键盘 / 悬停高亮）分开：打开菜单时先把当前目录高亮出来，
- * 用户一旦用方向键或悬停，键盘高亮就接管，两者不该互相覆盖。
- */
-const menuCurrentIndex = ref(-1)
-const crumbMenuRef = ref<HTMLElement | null>(null)
+/** 当前展开子目录菜单的面包屑段；null 表示没有打开。 */
+const openCrumbPath = ref<string | null>(null)
+let crumbMenuInstance: ContextMenuInstance | null = null
 
 /**
  * 当前目录在 `seg` 的哪个子目录里（见 currentChildNameFor 的注释）。
@@ -262,182 +292,93 @@ function currentChildName(seg: BreadcrumbSegment): string | null {
   return currentChildNameFor(seg.path, props.modelValue)
 }
 
-/** 高亮当前目录那一行，并把它滚进可视区（瞬时，不做平滑滚动）。 */
-function revealCurrentDir() {
-  const name = crumbMenu.value ? currentChildName(crumbMenu.value) : null
-  const index = name ? crumbMenuSubDirs.value.findIndex(item => item.name === name) : -1
-  menuCurrentIndex.value = index
-  if (index < 0) {
-    return
+/** 读取某段的子文件夹；命中缓存时同步返回，避免已加载过的目录再次等待。 */
+async function readCrumbSubDirs(path: string): Promise<{ dirs: IEntry[], error: boolean }> {
+  if (wasFolderListingOk(path)) {
+    return { dirs: getSortedFolderEntries(path).filter(item => item.isDirectory), error: false }
   }
-  // 等列表渲染出来再量位置
-  void nextTick(() => {
-    const row = crumbMenuRef.value?.querySelectorAll<HTMLElement>('.address-bar__menu-row')[index]
-    // 默认就是瞬时；显式写出来免得将来有人给容器加上 scroll-behavior: smooth
-    row?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
-  })
+  const raw = await readFolderRawList(path)
+  return {
+    dirs: applyFolderListSort(path, raw).filter(item => item.isDirectory),
+    error: !wasFolderListingOk(path) && raw.length === 0,
+  }
 }
 
-const crumbMenuPanelStyle = computed(() => {
-  const pos = crumbMenuPos.value
-  if (!pos) {
-    return {}
+/** 子文件夹菜单项；当前目录那一条保持高亮，空 / 失败时给一条禁用的提示。 */
+function buildCrumbSubDirItems(seg: BreadcrumbSegment, dirs: IEntry[], error: boolean): MenuItem[] {
+  if (!dirs.length) {
+    return [{ label: error ? 'Failed to load subfolders.' : 'No subfolders.', disabled: true }]
   }
-  return {
-    left: `${pos.left}px`,
-    top: `${pos.top}px`,
-    width: `${pos.width}px`,
-    maxHeight: `${pos.maxHeight}px`,
-  }
-})
-
-function openCrumbMenu(seg: BreadcrumbSegment, anchor: HTMLElement) {
-  const rect = anchor.getBoundingClientRect()
-  const width = CRUMB_MENU_WIDTH
-  const { innerWidth, innerHeight } = window
-  const left = Math.min(
-    Math.max(rect.left, CRUMB_MENU_VIEWPORT_MARGIN),
-    Math.max(CRUMB_MENU_VIEWPORT_MARGIN, innerWidth - CRUMB_MENU_VIEWPORT_MARGIN - width),
-  )
-  const top = rect.bottom + 4
-  const maxHeight = Math.max(
-    120,
-    Math.min(CRUMB_MENU_MAX_HEIGHT, innerHeight - top - CRUMB_MENU_VIEWPORT_MARGIN),
-  )
-  crumbMenuPos.value = { left, top, width, maxHeight }
-  crumbMenu.value = { name: seg.name, path: seg.path }
-  menuActiveIndex.value = -1
-  loadCrumbMenuEntries(seg.path)
-  nextTick(() => crumbMenuRef.value?.focus())
+  const current = currentChildName(seg)
+  return dirs.map(dir => ({
+    label: dir.name,
+    icon: 'mdi mdi-folder',
+    customClass: dir.name === current ? 'is-active' : '',
+    onClick: () => {
+      onCrumbClick(`${seg.path}${dir.name}/`)
+    },
+  }))
 }
 
 function closeCrumbMenu() {
-  crumbMenu.value = null
-  crumbMenuPos.value = null
-  crumbMenuLoading.value = false
-  crumbMenuSubDirs.value = []
-  crumbMenuError.value = false
-  menuActiveIndex.value = -1
-  menuCurrentIndex.value = -1
+  crumbMenuInstance?.closeMenu()
+  crumbMenuInstance = null
+  openCrumbPath.value = null
 }
 
-function onCrumbCaretClick(seg: BreadcrumbSegment, event: MouseEvent) {
+/** 点 caret：同一段再点关闭，否则读取子目录后贴在 caret 下方弹出。 */
+async function toggleCrumbMenu(seg: BreadcrumbSegment, event: MouseEvent) {
   if (editing.value) {
     return
   }
-  if (crumbMenu.value?.path === seg.path) {
+  const anchor = event.currentTarget as HTMLElement
+  if (openCrumbPath.value === seg.path) {
     closeCrumbMenu()
     return
   }
-  openCrumbMenu(seg, event.currentTarget as HTMLElement)
-}
-
-async function loadCrumbMenuEntries(path: string) {
-  crumbMenuError.value = false
-  crumbMenuSubDirs.value = []
-  menuCurrentIndex.value = -1
-  // 命中缓存时同步展示，避免已加载过的目录再次闪烁 Loading
-  if (wasFolderListingOk(path)) {
-    crumbMenuSubDirs.value = getSortedFolderEntries(path).filter(item => item.isDirectory)
-    revealCurrentDir()
-    return
-  }
-  crumbMenuLoading.value = true
-  const raw = await readFolderRawList(path)
-  if (crumbMenu.value?.path !== path) {
-    return
-  }
-  crumbMenuLoading.value = false
-  crumbMenuError.value = !wasFolderListingOk(path) && raw.length === 0
-  const sorted = applyFolderListSort(path, raw)
-  crumbMenuSubDirs.value = sorted.filter(item => item.isDirectory)
-  revealCurrentDir()
-}
-
-function onMenuPick(dir: IEntry) {
-  const seg = crumbMenu.value
   closeCrumbMenu()
-  if (!seg) {
-    return
-  }
-  onCrumbClick(`${seg.path}${dir.name}/`)
-}
+  openCrumbPath.value = seg.path
 
-function onMenuKeydown(e: KeyboardEvent) {
-  const list = crumbMenuSubDirs.value
-  if (!list.length) {
-    if (e.key === 'Escape') {
-      closeCrumbMenu()
-    }
+  const { dirs, error } = await readCrumbSubDirs(seg.path)
+  // 读取期间用户点了别处或别的段
+  if (openCrumbPath.value !== seg.path) {
     return
   }
 
-  let next = menuActiveIndex.value
-  switch (e.key) {
-    case 'ArrowDown':
-      next = next + 1 >= list.length ? 0 : next + 1
-      break
-    case 'ArrowUp':
-      next = next <= 0 ? list.length - 1 : next - 1
-      break
-    case 'Home':
-      next = 0
-      break
-    case 'End':
-      next = list.length - 1
-      break
-    case 'Enter':
-      if (menuActiveIndex.value >= 0) {
-        e.preventDefault()
-        onMenuPick(list[menuActiveIndex.value])
-      }
-      return
-    case 'Escape':
-      e.preventDefault()
-      closeCrumbMenu()
-      return
-    default:
-      return
+  const currentIndex = dirs.findIndex(dir => dir.name === currentChildName(seg))
+  const rect = anchor.getBoundingClientRect()
+  crumbMenuInstance = ContextMenu.showContextMenu({
+    x: rect.left,
+    y: rect.bottom + 4,
+    minWidth: CRUMB_MENU_WIDTH,
+    maxHeight: CRUMB_MENU_MAX_HEIGHT,
+    ...baseContextMenuOptions,
+    ignoreClickClassName: CRUMB_MENU_TRIGGER_CLASS,
+    items: resolveMenuIcons(buildCrumbSubDirItems(seg, dirs, error)),
+    onClose: () => {
+      anchor.classList.remove(CRUMB_MENU_TRIGGER_CLASS)
+      crumbMenuInstance = null
+      openCrumbPath.value = null
+    },
+  })
+  anchor.classList.add(CRUMB_MENU_TRIGGER_CLASS)
+
+  // 等菜单项挂载后把当前目录滚进可视区（瞬时，不做平滑滚动）
+  if (currentIndex >= 0) {
+    void nextTick(() => {
+      const currentItem = crumbMenuInstance?.getMenuRef()?.getChildItem(currentIndex)?.getElement()
+      currentItem?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+    })
   }
-  e.preventDefault()
-  menuActiveIndex.value = next
-  const panel = crumbMenuRef.value
-  const button = panel?.querySelectorAll<HTMLElement>('.address-bar__menu-row')[next]
-  button?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
 }
 
-function onWindowPointerDown(e: PointerEvent) {
-  const target = e.target as HTMLElement | null
-  if (target?.closest('.address-bar__crumb-caret, .address-bar__crumb-menu')) {
-    return
-  }
-  closeCrumbMenu()
-}
-
-function onWindowScroll(e: Event) {
-  // 菜单内部滚动（如键盘高亮 scrollIntoView）不关闭
-  const target = e.target as Element | null
-  if (target?.closest?.('.address-bar__crumb-menu')) {
-    return
-  }
-  closeCrumbMenu()
-}
-
+/** 窗口尺寸变化时收起下拉（菜单本身不跟随重排）。 */
 function onWindowResize() {
   closeCrumbMenu()
 }
 
-function onWindowKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    closeCrumbMenu()
-  }
-}
-
 onMounted(() => {
-  document.addEventListener('pointerdown', onWindowPointerDown, true)
-  document.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowResize)
-  document.addEventListener('keydown', onWindowKeydown)
   window.addEventListener('dragend', clearDragOver)
 
   const el = breadcrumbScrollRef.value
@@ -453,10 +394,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   breadcrumbResizeObserver?.disconnect()
   breadcrumbResizeObserver = null
-  document.removeEventListener('pointerdown', onWindowPointerDown, true)
-  document.removeEventListener('scroll', onWindowScroll, true)
+  closeCrumbMenu()
   window.removeEventListener('resize', onWindowResize)
-  document.removeEventListener('keydown', onWindowKeydown)
   window.removeEventListener('dragend', clearDragOver)
 })
 
@@ -493,12 +432,18 @@ defineExpose({
       @click="onBreadcrumbBarClick"
     >
       <template v-if="segments.length">
-        <span
-          v-if="hiddenPrefixCount > 0 && !measuring"
-          class="address-bar__ellipsis"
-          :title="hiddenPrefixNames"
-          aria-hidden="true"
-        >…</span>
+        <button
+          :ref="setRootMenuTriggerRef"
+          type="button"
+          class="address-bar__root vgo-u-button-reset"
+          :class="{ 'is-open': rootMenuOpen }"
+          :title="currentRootLabel"
+          :aria-label="currentRootLabel"
+          aria-haspopup="menu"
+          @click.stop.prevent="toggleRootMenu"
+        >
+          <MdiIcon :name="currentRootIcon" />
+        </button>
         <template v-for="(seg, index) in segments" :key="seg.path">
           <span
             v-show="index >= hiddenPrefixCount || measuring"
@@ -522,15 +467,15 @@ defineExpose({
               v-if="index < segments.length - 1"
               type="button"
               class="address-bar__crumb-caret vgo-u-button-reset"
-              :class="{ 'is-open': crumbMenu?.path === seg.path }"
+              :class="{ 'is-open': openCrumbPath === seg.path }"
               :title="`${seg.name} subfolders`"
               :aria-label="`${seg.name} subfolders`"
-              :aria-expanded="crumbMenu?.path === seg.path"
+              :aria-expanded="openCrumbPath === seg.path"
               aria-haspopup="menu"
-              @click.stop.prevent="onCrumbCaretClick(seg, $event)"
+              @click.stop.prevent="toggleCrumbMenu(seg, $event)"
               @contextmenu.prevent.stop="showCrumbMenu(seg.path, $event)"
             >
-              <MdiIcon :name="crumbMenu?.path === seg.path ? 'chevron-down' : 'chevron-right'" />
+              <MdiIcon :name="openCrumbPath === seg.path ? 'chevron-down' : 'chevron-right'" />
             </button>
           </span>
         </template>
@@ -544,42 +489,6 @@ defineExpose({
         Path
       </button>
     </div>
-
-    <Teleport to="body">
-      <div
-        v-if="crumbMenu"
-        ref="crumbMenuRef"
-        class="address-bar__crumb-menu vgo-panel vgo-u-scrollbar"
-        :style="crumbMenuPanelStyle"
-        role="menu"
-        :aria-label="`${crumbMenu.name} subfolders`"
-        tabindex="-1"
-        @keydown="onMenuKeydown"
-      >
-        <div v-if="crumbMenuLoading" class="address-bar__menu-status">
-          Loading…
-        </div>
-        <template v-else>
-          <button
-            v-for="(dir, index) in crumbMenuSubDirs"
-            :key="dir.name"
-            type="button"
-            role="menuitem"
-            class="vgo-u-button-reset vgo-list-item address-bar__menu-row"
-            :class="{ 'is-active': menuActiveIndex === index || menuCurrentIndex === index }"
-            :title="dir.name"
-            @mouseenter="menuActiveIndex = index"
-            @click="onMenuPick(dir)"
-          >
-            <i-mdi-folder class="address-bar__menu-row-icon" />
-            <span class="address-bar__menu-row-name vgo-u-text-overflow">{{ dir.name }}</span>
-          </button>
-          <div v-if="!crumbMenuSubDirs.length" class="address-bar__menu-status">
-            {{ crumbMenuError ? 'Failed to load subfolders.' : 'No subfolders.' }}
-          </div>
-        </template>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -645,12 +554,40 @@ defineExpose({
   }
 }
 
-// 折叠到只剩末尾 2 段时，最左侧提示「左边还有内容」
-.address-bar__ellipsis {
+// 最左侧：当前根（Storage / 挂载点）图标，点开 Storage 列表
+.address-bar__root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  padding: 0 var(--vgo-space-1);
+  width: var(--vgo-icon-md);
+  height: var(--vgo-icon-md);
+  margin-inline-end: 2px;
+  border-radius: var(--vgo-radius);
   color: var(--vgo-text-secondary);
-  user-select: none;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--vgo-hover);
+    color: var(--vgo-text);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--vgo-primary);
+    outline-offset: -1px;
+  }
+
+  &.is-open {
+    color: var(--vgo-primary);
+    background-color: var(--vgo-primary-opacity);
+  }
+
+  > svg {
+    font-size: var(--vgo-icon-sm);
+    line-height: 1;
+  }
 }
 
 .address-bar__crumb-wrap {
@@ -728,45 +665,6 @@ defineExpose({
   > svg {
     font-size: var(--vgo-icon-sm);
     line-height: 1;
-  }
-}
-
-.address-bar__crumb-menu {
-  position: fixed;
-  z-index: var(--vgo-z-overlay);
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  overflow-y: auto;
-  padding: var(--vgo-space-1);
-  outline: none;
-
-  .address-bar__menu-row {
-    width: 100%;
-    min-height: var(--vgo-control-md);
-    padding-inline: var(--vgo-space-2);
-    text-align: left;
-
-    .address-bar__menu-row-icon {
-      flex-shrink: 0;
-      color: var(--vgo-primary);
-      font-size: var(--vgo-icon-md);
-      line-height: 1;
-    }
-
-    .address-bar__menu-row-name {
-      flex: 1;
-      min-width: 0;
-      line-height: 1.4;
-    }
-  }
-
-  .address-bar__menu-status {
-    padding: var(--vgo-space-3) var(--vgo-space-3);
-    font-size: var(--vgo-font-sm);
-    line-height: 1.6;
-    text-align: center;
-    color: var(--vgo-text-secondary);
   }
 }
 </style>

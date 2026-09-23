@@ -1,4 +1,4 @@
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { GroupField } from '../../utils/group'
 import type { SortField } from '../../utils/sort'
 import type { IEntry, SortType } from '@/types/server'

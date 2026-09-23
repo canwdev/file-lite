@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { ExplorerPaneView } from './ExplorerUI/explorer-tabs-store'
 import type { FileSelectResult } from './types'
 import type { IEntry } from '@/types/server'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import { useDebounceFn } from '@vueuse/core'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaInDir, useLastOpenedMediaItem } from '@/hooks/use-last-opened-media'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { bytesToSize } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
@@ -345,7 +345,7 @@ function showStarredMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(items),
   })
 }
@@ -373,7 +373,7 @@ function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: event.clientX,
     y: event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(items),
   })
 }
@@ -707,6 +707,7 @@ defineExpose({
       &-nav {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         flex-shrink: 0;
         gap: var(--vgo-space-1);
       }
@@ -737,6 +738,9 @@ defineExpose({
         gap: var(--vgo-space-1);
 
         @include when-panel-narrow {
+          // 窄面板：导航按钮与地址栏各占一行，两行都铺满整宽
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
           width: 100%;
         }
       }

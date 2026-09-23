@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { ContextMenu } from '@canwdev/vgo-ui'
 import { useEventListener } from '@vueuse/core'
-import { menuThemeOptions } from '@/hooks/use-global-theme'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { formatTimeHMS } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import Seekbar from './SeekBar.vue'
 import { MusicEvents, useMediaStore } from './utils/media-store'
@@ -53,7 +53,7 @@ function showSpeedMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(PLAYBACK_RATE_OPTIONS.map((opt) => {
       const selected = rateMatches(mediaStore.playbackRate, opt.value)
       return {
@@ -73,7 +73,7 @@ function showLoopMenu(event: MouseEvent) {
   ContextMenu.showContextMenu({
     x: rect?.right ?? event.clientX,
     y: rect?.top ?? event.clientY,
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: resolveMenuIcons(LoopModeTypeValues.map((mode) => {
       const info = loopModeMap[mode]
       const selected = mSettingsStore.loopMode === mode

@@ -1,4 +1,3 @@
-import ContextMenu from '@imengyu/vue3-context-menu'
 import { createPinia } from 'pinia'
 
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
@@ -19,7 +18,6 @@ import 'element-plus/es/components/message-box/style/css'
 import 'element-plus/es/components/loading/style/css'
 
 import 'normalize.css'
-import '@imengyu/vue3-context-menu/lib/vue3-context-menu.css'
 
 async function bootstrap() {
   const app = createApp(App)
@@ -29,7 +27,6 @@ async function bootstrap() {
   app.use(pinia)
 
   app.use(router)
-  app.use(ContextMenu)
   app.component('MdiIcon', MdiIcon)
 
   app.mount('#app')

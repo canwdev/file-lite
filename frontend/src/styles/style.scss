@@ -82,52 +82,6 @@ body,
   cursor: pointer;
 }
 
-// 减少动态效果由库承担：`html.reduce-motion` 与系统 prefers-reduced-motion
-// 都在 vgo-ui 的 core 里实现，这里只负责用 localSettingsStore.reduceMotion
-// 把类挂到 html 上，见 hooks/use-global-theme.ts。
-
-// @imengyu/vue3-context-menu 样式覆盖
-.mx-context-menu {
-  $size: 10px;
-
-  &.flat {
-    border-radius: var(--vgo-radius) !important;
-
-    .mx-context-menu-item {
-      padding: var(--vgo-space-2) var(--vgo-space-3) !important;
-    }
-  }
-
-  &.win10 {
-    border-radius: var(--vgo-radius) !important;
-  }
-
-  // 扩大命中区域，避免贴边时误关闭
-  &::before {
-    position: absolute;
-    inset: -$size;
-    content: '';
-    z-index: -1;
-  }
-}
-
-.mx-menu-bar.mac,
-.mx-context-menu.mac {
-  --mx-menu-hover-backgroud: var(--vgo-primary) !important;
-  --mx-menu-active-backgroud: var(--vgo-primary) !important;
-  --mx-menu-open-hover-backgroud: var(--vgo-primary) !important;
-  --mx-menu-open-backgroud: var(--vgo-primary-opacity) !important;
-}
-
-.mx-menu-bar.flat.dark, .mx-context-menu.flat.dark {
-  border: 1px solid var(--mx-menu-divider);
-  // vgo-allow: 上下文菜单只接受阴影颜色，--vgo-shadow 是完整 box-shadow，暗色下需要更重的投影
-  --mx-menu-shadow-color: rgba(0, 0, 0, 0.277);
-}
-
-.mx-shortcut {
-  border-radius: var(--vgo-radius);
-}
 
 // element 样式覆盖
 .el-image-viewer__prev {

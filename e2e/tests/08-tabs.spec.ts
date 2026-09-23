@@ -170,7 +170,7 @@ test.describe('多标签页', () => {
 
     // 在最左的标签上右键：关掉它右边所有标签
     await tabs.nth(0).click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Close to the right' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Close to the right' }).click()
     await expect(tabs).toHaveCount(1)
 
     // 再开两个，在最右的标签上右键：关掉它左边所有标签
@@ -178,7 +178,7 @@ test.describe('多标签页', () => {
     await page.locator('.explorer-tabs__add').click()
     await expect(tabs).toHaveCount(3)
     await tabs.nth(2).click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Close to the left' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Close to the left' }).click()
     await expect(tabs).toHaveCount(1)
 
     // 再开两个，Close others 只保留被右键的那个
@@ -186,7 +186,7 @@ test.describe('多标签页', () => {
     await page.locator('.explorer-tabs__add').click()
     await expect(tabs).toHaveCount(3)
     await tabs.nth(1).click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'Close others' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'Close others' }).click()
     await expect(tabs).toHaveCount(1)
   })
 

@@ -126,7 +126,7 @@ test.describe('拖拽', () => {
 
     // 收藏是服务端设置，清理掉免得影响其它用例
     await page.locator('.star-list__item').click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'UnStar' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'UnStar' }).click()
     await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 
@@ -214,7 +214,7 @@ test.describe('拖拽', () => {
     await expect.poll(() => readTextIfExists(path.join(filesDir, 'os-drive.txt'))).toBe('from-drive')
 
     await page.locator('.star-list__item').click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'UnStar' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'UnStar' }).click()
     await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 

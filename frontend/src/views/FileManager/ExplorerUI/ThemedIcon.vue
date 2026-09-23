@@ -508,7 +508,7 @@ onBeforeUnmount(() => {
     }
   }
 
-  // 文件夹内容预览：CSS 圆角矩形边框 + 2×2 子项内容。
+  // 文件夹内容预览：CSS 圆角矩形边框 + 2×2 子项内容，顶上再拼一个文件夹标签。
   // 框架绝对定位铺满图标方框：子项（尤其是高>宽的图片缩略图）的固有尺寸
   // 不再参与布局，避免把容器高度撑开。
   .folder-preview {
@@ -520,18 +520,34 @@ onBeforeUnmount(() => {
     grid-template-rows: repeat(2, minmax(0, 1fr));
     align-items: stretch;
     justify-items: stretch;
-    border: 2px solid var(--vgo-primary);
+    border: 3px solid var(--vgo-primary);
     border-radius: var(--vgo-radius);
-    &::before {
+
+    // 文件夹标签：左侧是带圆角的矩形、右侧是斜边三角，拼成「下宽上窄」的
+    // 梯形，贴着文件夹顶边；原来那种两端都圆角的细横条不像文件夹。
+    &::before,
+    &::after {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 45%;
-      height: 8%;
-      transform: translateY(-100%);
+      bottom: 100%;
+      height: 9%;
+      // 大图标下不让标签无限变高（和文件夹本体保持固定比例会顶到相邻格子）
+      min-height: 5px;
+      max-height: 18px;
       background-color: var(--vgo-primary);
-      border-radius: var(--vgo-radius) var(--vgo-radius) 0 0;
       content: '';
+    }
+
+    &::before {
+      left: 0;
+      width: 35%;
+      border-top-left-radius: var(--vgo-radius);
+    }
+
+    &::after {
+      left: 35%;
+      width: 12%;
+      // 直角三角形（左上 → 右下）：补出标签右侧向下的斜坡
+      clip-path: polygon(0 0, 100% 100%, 0 100%);
     }
   }
 

@@ -1,20 +1,20 @@
 <script lang="ts" setup>
-import type { MenuItem } from '@imengyu/vue3-context-menu'
+import type { MenuItem } from '@canwdev/vgo-ui'
 import type { GroupField } from '../utils/group'
 import type { ExplorerPaneView } from './explorer-tabs-store'
 import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
 import type { Column, FileTableVirtualRow } from '@/views/FileManager/ExplorerUI/FileTable.vue'
-import ContextMenu from '@imengyu/vue3-context-menu'
+import { useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { useDebounceFn, useEventListener, useVModel, watchDebounced } from '@vueuse/core'
 import { computed, h, inject, nextTick, onBeforeUnmount, ref, toRefs, watch } from 'vue'
 import MdiMenuDown from '~icons/mdi/menu-down'
 import MdiMenuUp from '~icons/mdi/menu-up'
-import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
@@ -1103,7 +1103,6 @@ function getMenuOptions() {
   return [
     {
       label: 'View',
-      icon: 'mdi mdi-eye-outline',
       children: viewMenuItems(),
     },
     {
@@ -1160,20 +1159,32 @@ function getMenuOptions() {
 function updateMenuOptions(item: IEntry | null, event: MouseEvent | KeyboardEvent) {
   handleShowCtxMenu(item, event, getMenuOptions)
 }
-async function updateMenuOptions2(event: MouseEvent) {
-  await loadOpenWithPlugins()
-  const items = resolveMenuIcons(getMenuOptions())
-  if (!items.length) {
+
+/**
+ * 「Menu (ctrl+m)」按钮：点开 / 再点关闭，打开期间按钮保持激活。位置、开合状态与
+ * 「点击外部关闭」的时序都交给 vgo-ui 的 trigger hook。
+ */
+const {
+  setTriggerRef: setMenuTriggerRef,
+  isOpen: menuOpen,
+  show: showMenuDropdown,
+  close: closeMenuDropdown,
+} = useContextMenuTrigger({
+  ...baseContextMenuOptions,
+  items: () => resolveMenuIcons(getMenuOptions()),
+})
+
+async function toggleMenuDropdown() {
+  if (menuOpen.value) {
+    closeMenuDropdown()
     return
   }
-  const button = (event.target as HTMLElement)?.closest('button') as HTMLElement
-  const rect = button?.getBoundingClientRect()
-  ContextMenu.showContextMenu({
-    x: rect?.right || event.x,
-    y: rect?.top || event.y,
-    ...menuThemeOptions,
-    items,
-  })
+  // Open with 子菜单的插件列表要现取，菜单项因此在这里才解析
+  await loadOpenWithPlugins()
+  if (!getMenuOptions().length) {
+    return
+  }
+  showMenuDropdown()
 }
 
 function selectKeyboardItem(index: number) {
@@ -1372,7 +1383,9 @@ useShortcut({
   scope: shortcutScope,
   combo: ['ctrl+m', 'meta+m'],
   description: 'Open context menu',
-  handler: event => updateMenuOptions(null, event),
+  handler: () => {
+    void toggleMenuDropdown()
+  },
 })
 
 useShortcut({
@@ -1772,9 +1785,11 @@ defineExpose({
         </template>
 
         <button
+          :ref="setMenuTriggerRef"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+          :class="{ 'is-active': menuOpen }"
           title="Menu (ctrl+m)"
-          @click="updateMenuOptions2($event)"
+          @click="toggleMenuDropdown"
         >
           <i-mdi-dots-vertical />
         </button>

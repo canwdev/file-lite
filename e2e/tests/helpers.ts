@@ -198,7 +198,7 @@ export async function clearStars(page: Page) {
   while (await stars.count() > 0) {
     const before = await stars.count()
     await stars.first().click({ button: 'right' })
-    await page.locator('.mx-context-menu-item', { hasText: 'UnStar' }).click()
+    await page.locator('.vgo-context-menu__item', { hasText: 'UnStar' }).click()
     await expect(stars).toHaveCount(before - 1)
   }
 }

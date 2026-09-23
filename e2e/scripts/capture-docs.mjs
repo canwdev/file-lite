@@ -105,7 +105,7 @@ async function shotTabsSplit(page) {
 
   // 拆分项吸收右邻标签，合并成一个标签格（Pictures | Music）
   await page.locator('.explorer-tabs__item').nth(0).click({ button: 'right' })
-  await page.locator('.mx-context-menu-item', { hasText: 'Split view' }).click()
+  await page.locator('.vgo-context-menu__item', { hasText: 'Split view' }).click()
   await expect(page.locator('.explorer-tabs__item')).toHaveCount(2)
   await expect(page.locator('.explorer-tabs__label')).toHaveCount(3)
 
@@ -228,7 +228,7 @@ async function shotTextEditor(page) {
 async function shotProperties(page) {
   await goToRoot(page)
   await row(page, 'Pictures').click({ button: 'right' })
-  await page.locator('.mx-context-menu-item', { hasText: 'Properties' }).click()
+  await page.locator('.vgo-context-menu__item', { hasText: 'Properties' }).click()
   const window = page.locator('.properties-window')
   await expect(window).toBeVisible()
   await expect(window.locator('.properties-row', { hasText: 'Contains' }).locator('.properties-value'))

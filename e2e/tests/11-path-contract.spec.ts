@@ -130,10 +130,10 @@ test.describe('路径与挂载点', () => {
 
     // 在「drag」那一段点 ▼（它在第一段的 caret 之后）
     await page.locator('.explorer-main:visible .address-bar__crumb-caret').nth(1).click()
-    const menu = page.locator('.address-bar__crumb-menu')
+    const menu = page.locator('.vgo-context-menu')
     await expect(menu).toBeVisible()
 
-    const current = menu.locator('.address-bar__menu-row.is-active')
+    const current = menu.locator('.vgo-context-menu__item.is-active')
     await expect(current).toHaveCount(1)
     await expect(current).toHaveText('inbox')
   })

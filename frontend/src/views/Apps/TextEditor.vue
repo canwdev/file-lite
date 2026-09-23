@@ -1,11 +1,10 @@
 <script lang="ts" setup="">
-import type { MenuBarOptions } from '@imengyu/vue3-context-menu'
+import type { MenuBarOptions } from '@canwdev/vgo-ui'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { useUnSavedChanges } from '@canwdev/vgo-ui'
-import { MenuBar } from '@imengyu/vue3-context-menu'
-import { menuThemeOptions } from '@/hooks/use-global-theme.ts'
+import { ContextMenuBar, useUnSavedChanges } from '@canwdev/vgo-ui'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { bytesToSize } from '@/utils'
+import { baseContextMenuOptions } from '@/utils/context-menu'
 import { fs } from '@/utils/fs'
 
 const props = withDefaults(
@@ -205,7 +204,7 @@ async function handleExit() {
 
 const menuOptions = computed((): MenuBarOptions => {
   return {
-    ...menuThemeOptions,
+    ...baseContextMenuOptions,
     items: [
       {
         label: `Save${isChanged.value ? '*' : ''}`,
@@ -249,7 +248,7 @@ useShortcut({
     class="text-editor-wrap"
     tabindex="0"
   >
-    <MenuBar :options="menuOptions" />
+    <ContextMenuBar :options="menuOptions" />
     <div v-if="isLoading" class="loading-wrapper">
       Loading...
     </div>
@@ -291,7 +290,7 @@ useShortcut({
     outline: none;
   }
 
-  .mx-menu-bar {
+  .vgo-context-menu-bar {
     padding: var(--vgo-space-1) 0;
     flex: unset;
   }

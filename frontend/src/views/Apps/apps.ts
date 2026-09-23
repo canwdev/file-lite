@@ -91,7 +91,7 @@ export const AppList: AppListItem[] = [
   {
     name: 'File Viewer',
     openWith: OpenWithEnum.FileViewer,
-    icon: 'mdi mdi-asterisk-circle-outline',
+    icon: 'mdi mdi-asterisk',
     component: defineAsyncComponent(() => import('./FileViewer.vue')),
     singleInstance: true,
   },
