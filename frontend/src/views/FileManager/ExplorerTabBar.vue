@@ -43,8 +43,6 @@ const {
 } = useExplorerTabs()
 
 const tabBarRef = ref<HTMLElement | null>(null)
-/** One geometry symbol for every tab. `use` cannot share a duplicated id. */
-const geometryId = `explorer-tab-geometry-${useId().replace(/[^\w-]/g, '')}`
 
 /* ---------------- 排序拖拽 ---------------- */
 const dragTabId = ref<string | null>(null)
@@ -272,19 +270,6 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     aria-label="Open folders"
     @dragleave="onTabDragLeave"
   >
-    <svg class="explorer-tabs__defs" aria-hidden="true">
-      <defs>
-        <symbol :id="geometryId" viewBox="0 0 214 36">
-          <!--
-            Chrome's path has a 2px bottom stub (v-2) that tucks under the
-            browser chrome bar. Without that bar it shows as a 1px step, so
-            the curve starts on the baseline instead.
-          -->
-          <path d="M17 0h197v36H0c4.5 0 9-3.5 9-8V8c0-4.5 3.5-8 8-8z" />
-        </symbol>
-      </defs>
-    </svg>
-
     <div
       v-for="(item, index) in items"
       :key="item.id"
@@ -310,22 +295,6 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       @dragover="onTabDragOver(item, index, $event)"
       @drop="onTabDrop"
     >
-      <!-- Shoulder geometry: left slice + mirrored right slice, so the curve stays a fixed width. -->
-      <svg class="explorer-tabs__shape" aria-hidden="true">
-        <!--
-          Native geometry is 214×36. Width is scaled by tab-height/36 so the
-          curve stays round (preserveAspectRatio would otherwise letterbox it).
-          Tab height = control-md + space-1 → 214 * 34/36 ≈ 201.889.
-        -->
-        <svg width="52%" height="100%">
-          <use :href="`#${geometryId}`" width="201.889" height="100%" preserveAspectRatio="none" fill="currentColor" />
-        </svg>
-        <g transform="scale(-1, 1)">
-          <svg width="52%" height="100%" x="-100%" y="0">
-            <use :href="`#${geometryId}`" width="201.889" height="100%" preserveAspectRatio="none" fill="currentColor" />
-          </svg>
-        </g>
-      </svg>
       <span
         v-for="pane in item.tabs"
         :key="pane.id"
@@ -361,66 +330,50 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
 
 <style lang="scss" scoped>
 .explorer-tabs {
-  // Shoulder overlap. The curve is ~17px wide; space-2 on each side meets in the middle.
-  --tab-overlap: var(--vgo-space-2);
-  --tab-height: calc(var(--vgo-control-md) + var(--vgo-space-1));
-
   display: flex;
-  align-items: flex-end;
-  gap: 0;
+  align-items: center;
+  gap: var(--vgo-space-1);
   flex: 1;
   min-width: 0;
-  // content-box so the 1px bottom pad sits outside --tab-height and can
-  // cover the top-bar border without shortening the tabs.
-  box-sizing: content-box;
-  height: var(--tab-height);
-  padding-bottom: 1px;
-  margin-bottom: -1px;
+  height: 100%;
   flex-wrap: nowrap;
-  overflow: hidden;
-  isolation: isolate;
-
-  &__defs {
-    position: absolute;
-    width: 0;
-    height: 0;
-  }
+  overflow: auto;
 
   &__item {
     position: relative;
     display: flex;
     align-items: center;
     gap: var(--vgo-space-1);
-    // Equal share of the strip, capped like Chrome (~240px), shrinks down to a close button.
+    // Equal share; title ellipsizes when squeezed.
     flex: 1 1 0;
     min-width: 2.5rem;
     max-width: 15rem;
-    height: 100%;
-    margin-inline: calc(var(--tab-overlap) * -1);
-    // Top corners only. The shoulder SVG is the silhouette; this keeps the rounded-tab contract.
-    border-radius: var(--vgo-radius-lg) var(--vgo-radius-lg) 0 0;
+    height: var(--vgo-control-md);
+    padding-inline: var(--vgo-space-1);
+    // Firefox Proton: floating rounded box, all four corners.
+    border-radius: var(--vgo-radius);
     outline: none;
     cursor: pointer;
     font-size: var(--vgo-font-sm);
     color: var(--vgo-text-secondary);
     user-select: none;
-    z-index: 1;
     container-type: inline-size;
-
-    // First *tab* — not `:first-child`, because the geometry <svg> comes first.
-    // Without this the left shoulder is pulled outside and clipped by overflow.
-    &:first-of-type {
-      margin-inline-start: 0;
-    }
+    // Tokens, not a literal duration: Reduce Motion collapses --vgo-duration-*.
+    transition:
+      background-color var(--vgo-duration-fast),
+      color var(--vgo-duration-fast);
 
     &:hover {
-      z-index: 2;
       color: var(--vgo-text);
+      background-color: var(--vgo-hover);
     }
 
     &.is-active {
-      z-index: 3;
       color: var(--vgo-text);
+      // Raised surface floats on the strip in both themes (surface alone matches the dark strip).
+      background-color: var(--vgo-surface-raised);
+      // box-shadow: var(--vgo-shadow);
+      transition: none;
     }
 
     &:focus-visible {
@@ -428,7 +381,6 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       outline-offset: calc(var(--vgo-space-1) * -1);
     }
 
-    // Two titles need room to stay readable; the cap is 1.5× a single tab.
     &.is-split {
       min-width: 10rem;
       max-width: 18rem;
@@ -438,91 +390,41 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       opacity: 0.5;
     }
 
-    // Short separator between two background tabs. Hidden beside the active or hovered tab.
-    &:not(.is-active):not(:hover) + &:not(.is-active):not(:hover)::before {
-      content: '';
-      position: absolute;
-      z-index: 1;
-      left: var(--tab-overlap);
-      top: 50%;
-      width: 1px;
-      height: var(--vgo-font-lg);
-      transform: translateY(-50%);
-      background-color: var(--vgo-border);
-      pointer-events: none;
+    &.is-drop-pending {
+      background-color: var(--vgo-primary-opacity);
     }
 
     &.is-drop-before::after,
     &.is-drop-after::after {
       content: '';
       position: absolute;
-      z-index: 4;
+      z-index: 1;
       top: var(--vgo-space-1);
-      bottom: 0;
+      bottom: var(--vgo-space-1);
       width: var(--vgo-space-1);
       background-color: var(--vgo-primary);
       pointer-events: none;
     }
 
     &.is-drop-before::after {
-      left: 0;
+      left: calc(var(--vgo-space-1) * -0.5);
     }
 
     &.is-drop-after::after {
-      right: 0;
+      right: calc(var(--vgo-space-1) * -0.5);
     }
-  }
-
-  &__shape {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    // Explicit height — SVG defaults to 150px tall if only top/bottom are set,
-    // and the fill paints below the overflow clip. +1px covers the top-bar hairline.
-    width: 100%;
-    height: calc(100% + 1px);
-    overflow: hidden;
-    pointer-events: none;
-    color: transparent;
-    // Tokens, not a literal duration: Reduce Motion collapses --vgo-duration-*.
-    transition: color var(--vgo-duration-fast);
-
-    use {
-      fill: currentColor;
-    }
-  }
-
-  &__item:hover &__shape {
-    color: color-mix(in srgb, var(--vgo-surface-raised) 42%, var(--explorer-tab-strip, var(--vgo-window)));
-  }
-
-  &__item.is-active &__shape {
-    // Same fill as the ledge under the strip, so the tab joins the toolbar.
-    color: var(--vgo-surface-raised);
-    transition: none;
-  }
-
-  &__item.is-drop-pending &__shape {
-    color: var(--vgo-primary-opacity);
   }
 
   /** One pane's slot inside an item. A single tab is just one of these. */
   &__half {
     position: relative;
-    z-index: 1;
     display: flex;
     align-items: center;
     gap: var(--vgo-space-1);
     flex: 1;
     min-width: 0;
     height: 100%;
-    // Clear the fixed-width shoulder. The close button owns the trailing inset.
-    padding-inline-start: var(--vgo-space-4);
-
-    &:last-child {
-      padding-inline-end: var(--vgo-space-4);
-    }
+    padding-inline: var(--vgo-space-1);
 
     & + &::before {
       content: '';
@@ -553,11 +455,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   }
 
   &__close {
-    position: relative;
-    z-index: 1;
     flex-shrink: 0;
-    // Sit clear of the neighbour's overlapping shoulder.
-    margin-inline-end: var(--vgo-space-4);
 
     svg {
       font-size: var(--vgo-icon-sm);
@@ -565,13 +463,12 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   }
 
   &__add {
-    position: relative;
-    z-index: 1;
     flex-shrink: 0;
-    align-self: center;
     font-size: var(--vgo-icon-sm);
-    // The last tab's negative margin pulls this in; leave a small gap past the shoulder.
-    margin-inline-start: var(--vgo-space-3);
+
+    svg {
+      font-size: var(--vgo-icon-sm);
+    }
   }
 }
 

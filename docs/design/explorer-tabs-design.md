@@ -45,17 +45,16 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 
 ## 4. 标签栏交互（`ExplorerTabBar.vue`）
 
-- BEM 块 `explorer-tabs`。外形是 Chrome 的肩角：一份 `<symbol>`（左肩路径），每个标签用左片 + 水平翻转的右片拼出来，曲线宽度不随标签变宽而拉伸。关闭 / 新建仍是 `.vgo-button`，不新增 vgo 原语。不再用 `.vgo-list-item`。
-- 顶栏（`FileLite.vue`）负责条带底色 `--explorer-tab-strip`：浅色是 `--vgo-window` 混一点 `--vgo-text`，暗色是 `--vgo-surface`。顶栏去掉底边 padding，标签条贴底；侧栏按钮与右侧控件各自保留 `--vgo-space-1` 底边距。一条同色线盖住顶栏 `border-bottom`，活动标签（填色 `--vgo-surface-raised`）和下方工具栏连成一片。未选中标签透明；悬停才画出肩角。相邻两个都不是活动 / 悬停时，重叠处画一条短分隔线。
-- 挤压不换行：`flex: 1 1 0`，单标签 `min-width: 2.5rem; max-width: 15rem`（拆分项见 §5）。左右各伸出 `--vgo-space-2` 重叠肩角；第一项用 `:first-of-type`（不是 `:first-child`，前面还有 geometry `<svg>`）取消左伸出，否则左肩会被 `overflow: hidden` 裁掉。标题左对齐、前面一个文件夹图标、省略号、字号 `--vgo-font-sm`。窄到 `5.5rem` 藏标题，`3.25rem` 再藏图标、只留关闭按钮。
-- 高度：标签条 `height: var(--vgo-control-md)` 贴顶栏底边，不把顶栏撑得比 `explorer-header` 高。
-- 上沿圆角是 `--vgo-radius-lg`，默认 `outline: none`（键盘焦点才画 `--vgo-primary` 描边）。肩角本身是 SVG，圆角不裁切它。
-- 悬停填色走 `--vgo-duration-fast`，活动标签立刻生效；插入线、分隔线都不动画。
+- BEM 块 `explorer-tabs`。外形对齐 Firefox Proton：四角圆角浮层（`--vgo-radius-lg`），活动标签用 `--vgo-surface-raised` + `--vgo-shadow` 浮在条带上，悬停用 `--vgo-hover`，未选中透明。项之间留 `--vgo-space-1`，没有竖分隔线。关闭 / 新建仍是 `.vgo-button`，不新增 vgo 原语。不再用 `.vgo-list-item` / SVG 肩角。
+- 顶栏（`FileLite.vue`）整条是条带底色 `--explorer-tab-strip`（浅色是 `--vgo-window` 混一点 `--vgo-text`，暗色是 `--vgo-surface`），四周 `--vgo-space-1` 内边距，标签在条带里垂直居中「浮」着。
+- 挤压不换行：`flex: 1 1 0`，单标签 `min-width: 2.5rem; max-width: 15rem`（拆分项见 §5）。标题左对齐、前面一个文件夹图标、省略号、字号 `--vgo-font-sm`。窄到 `5.5rem` 藏标题，`3.25rem` 再藏图标、只留关闭按钮。
+- 高度：标签项 `height: var(--vgo-control-md)`，顶栏 `min-height: var(--explorer-top-bar-height)`，不把顶栏撑得比 `explorer-header` 高。
+- 默认 `outline: none`（键盘焦点才画 `--vgo-primary` 描边）。悬停 / 活动走 `--vgo-duration-fast`，活动立刻生效；插入线不动画。
 - 操作：单击切换、中键关闭、关闭按钮（**只剩一项时不渲染**）、`+` 新建（沿用当前标签的路径，**永远追加在最后**并激活）；`+` 与关闭是小号的圆形按钮。
 - 右键菜单最上面是 `Split view`（见 §5）并压一条分隔线，下面保持 Close / Close others / Close to the left /
   Close to the right，都天然满足「至少保留 1 项」。
 - 排序拖拽用自己的 MIME（`application/x-file-lite-tab`），插入下标按指针在标签左 / 右半边计算，
-  插入线用 `::after` 画（`--vgo-space-1` 宽，比标签之间的分隔线粗）。
+  插入线用 `::after` 画（`--vgo-space-1` 宽）。
 - **标签不是文件落点**：拖文件经过标签时只启动 500ms 计时器，不调用 `preventDefault`，
   因此浏览器不会把标签当成合法落点；到点后切到该标签，用户再在内容区放下。
 - 标签自己的排序拖拽与「文件经过标签」靠 MIME 区分，互不干扰。
@@ -93,7 +92,7 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
   否则被吸收进来的邻接标签一加载完就会把活动面板抢走：`FileList` 因此多了一个 `focused` prop，
   由 `ExplorerPane` 从外壳拿 `pane.id === activeTabId` 传下去。
 - **标签条上的合并格子**：两个标题各自可点（点哪半就聚焦哪个面板），聚焦的那半正常色、另一半压暗，
-  两半之间画一条 1px 分隔线；各带一个文件夹图标，左肩留 `--vgo-space-4` 免得标题压住曲线。
+  两半之间画一条 1px 分隔线；各带一个文件夹图标。
   宽度是 `min-width: 10rem` + `max-width: 18rem`：标签均分条带直到上限，拆分项靠 `min-width` 撑开，
   否则两个标题会被省略号截断。
 - **视图偏好按面板走**：list/grid 与图标大小（`ExplorerPaneView`）挂在 `ExplorerTab.view` 上，
