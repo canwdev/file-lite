@@ -1,6 +1,7 @@
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { IEntry } from '@/types/server'
 import { useContextMenuTrigger } from '@canwdev/vgo-ui'
+import { ElCheckbox } from 'element-plus'
 import { listPlugins, refreshPlugins } from '@/api/plugins'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
 import { isDev } from '@/enum'
@@ -202,29 +203,50 @@ export function useFileLiteMenu() {
 
   async function clearLocalData() {
     const { entries, bytes } = await getImageThumbCacheStats()
-    const message = [
-      '<div>This will clear the following data:</div>',
-      '<ul style="margin: 8px 0 0; padding-left: 18px;">',
-      '<li>Last opened media per folder</li>',
-      '<li>Collected items (Endless Gallery)</li>',
-      '<li>Folder state (scroll position &amp; sort mode)</li>',
-      `<li>Image preview cache${entries > 0 ? ` (${entries} items · ${formatCacheBytes(bytes)})` : ''}</li>`,
-      '</ul>',
-    ].join('')
-    window.$dialog.confirm(message, 'Clear Local Data', {
-      type: 'warning',
-      confirmButtonText: 'Clear',
-      cancelButtonText: 'Cancel',
-      dangerouslyUseHTMLString: true,
-    }).then(() => {
-      clearLastOpenedMediaMap()
-      clearCollection()
-      explorerStateMap.value = {}
-      void clearImageThumbCache()
-      window.$message.success('Local data cleared')
-    }).catch(() => {
-      // cancelled
+    const cacheLabel = `Image preview cache${entries > 0 ? ` (${entries} items · ${formatCacheBytes(bytes)})` : ''}`
+
+    // 默认全选；用户取消勾选哪一项就不清哪一项
+    const selected = reactive({
+      media: true,
+      collection: true,
+      folderState: true,
+      imageCache: true,
     })
+    const options: { key: keyof typeof selected, label: string }[] = [
+      { key: 'media', label: 'Last opened media per folder' },
+      { key: 'collection', label: 'Collected items (Endless Gallery)' },
+      { key: 'folderState', label: 'Folder state (scroll position & sort mode)' },
+      { key: 'imageCache', label: cacheLabel },
+    ]
+
+    // message 用函数形式：勾选状态跟着 reactive 走，ElMessageBox 重渲染时读到最新值
+    const message = () => h('div', { style: 'display: flex; flex-direction: column; gap: var(--vgo-space-2);' }, options.map(option => h(ElCheckbox, {
+      'modelValue': selected[option.key],
+      'onUpdate:modelValue': (value: string | number | boolean) => { selected[option.key] = Boolean(value) },
+    }, option.label)))
+
+    try {
+      await window.$dialog.confirm(message, 'Clear Local Data', {
+        confirmButtonText: 'Clear',
+        cancelButtonText: 'Cancel',
+      })
+    }
+    catch {
+      // cancelled
+      return
+    }
+
+    if (selected.media)
+      clearLastOpenedMediaMap()
+    if (selected.collection)
+      clearCollection()
+    if (selected.folderState)
+      explorerStateMap.value = {}
+    if (selected.imageCache)
+      void clearImageThumbCache()
+
+    if (options.some(option => selected[option.key]))
+      window.$message.success('Local data cleared')
   }
 
   /** 构建全局菜单的菜单项；缓存统计与插件列表每次打开时现取，所以是异步的。 */

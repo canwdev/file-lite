@@ -26,9 +26,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Tab icons**: A tab opened at a volume root shows that volume’s icon instead of the folder icon (frontend).
 - **Covers**: The player loads each queue item’s embedded cover from the shared thumbnail cache at thumbnail size instead of decoding the full-size artwork, and hides covers when content previews are disabled (frontend).
 - **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width, and a narrow toolbar stacks the navigation buttons above a full-width address bar (frontend).
+- **Sort inheritance**: A folder without its own sort or grouping setting follows the nearest ancestor that has one, then the default (frontend).
+- **View presets**: The View menu has By Name / By Modified / By Size / By Type / By Date shortcuts that set sort + grouping in one click and reverse on a second click; they also apply to subfolders through inheritance (frontend).
 - **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
 - **Favourites**: Sidebar favourites use a starred folder icon, and the toolbar star toggle sits next to Refresh (frontend).
 - **Favourites menu**: Right-clicking the toolbar star lists every starred folder and opens the one you pick (frontend).
+- **Clear local data**: The Clear Local Data dialog lists each kind of local data with its own checkbox, all selected by default, so only the ticked ones are cleared (frontend).
+- **Gallery background**: The Endless Gallery transparency checkerboard follows the theme, using light greys in light mode, and its navigation arrows keep dark buttons in every theme so they stay visible (frontend).
+- **Gallery keyboard**: In the End of gallery overlay, the arrow keys move focus between its buttons instead of only Tab; Home and End jump to the first and last item, and clicking the zoom percentage resets the zoom (frontend).
 
 ### Features
 

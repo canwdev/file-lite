@@ -387,6 +387,27 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
     handler: () => navigate(false, { instant: true }),
   })
 
+  // Home / End：跳到第一 / 最后一个媒体；浮层开着时先关掉（和 jumpToOpposite 一致）
+  useShortcut({
+    scope: shortcutScope,
+    combo: 'home',
+    description: 'First image',
+    handler: () => {
+      edgeOverlay.value = null
+      jumpToIndex(0)
+    },
+  })
+
+  useShortcut({
+    scope: shortcutScope,
+    combo: 'end',
+    description: 'Last image',
+    handler: () => {
+      edgeOverlay.value = null
+      jumpToIndex(items.value.length - 1)
+    },
+  })
+
   onBeforeUnmount(() => {
     flushPendingDragOffset()
     cleanListeners()

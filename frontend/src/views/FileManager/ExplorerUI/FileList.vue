@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { GroupField } from '../utils/group'
+import type { SortField } from '../utils/sort'
 import type { ExplorerPaneView } from './explorer-tabs-store'
 import type { FileFilterState } from './file-filter'
 import type { IEntry } from '@/types/server'
@@ -12,7 +13,6 @@ import MdiMenuDown from '~icons/mdi/menu-down'
 import MdiMenuUp from '~icons/mdi/menu-up'
 import { shortcutScopeKey, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
-import { SortType } from '@/types/server'
 import { bytesToSize, formatDate } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
@@ -25,7 +25,7 @@ import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
 import { composeSortMode, parseSortMode } from '../utils/sort'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
-import { explorerStateMap, pathStateRef } from './explorer-state'
+import { explorerStateMap, groupDescRef, groupFieldRef, sortModeRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import { getEntryTypeLabel } from './file-type'
 import FileGridItem from './FileGridItem.vue'
@@ -88,9 +88,10 @@ const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))
 
-const sortMode = pathStateRef(basePath, 'sortMode', SortType.default)
-const groupField = pathStateRef(basePath, 'groupField', 'none' as GroupField)
-const groupDesc = pathStateRef(basePath, 'groupDesc', false)
+// 排序 / 分组：目录自己的设置优先，没有就继承最近一个手动设置过的祖先
+const sortMode = sortModeRef(basePath)
+const groupField = groupFieldRef(basePath)
+const groupDesc = groupDescRef(basePath)
 const isGrouping = computed(() => groupField.value !== 'none')
 
 function clearCollapsedGroups() {
@@ -1031,8 +1032,72 @@ async function handleRename() {
   focusFileList()
 }
 
+/**
+ * View 菜单顶部的「编排预设」：一次点掉就把排序 + 分组一起设好。
+ *
+ * 只是普通设置，写在当前目录上并向后代继承（见 explorer-state.ts）——
+ * 所以「下载目录按时间倒序」这类需求在上层设置一次就够，不需要猜目录名。
+ */
+interface LayoutPreset {
+  label: string
+  /** 不分组时是排序字段；分组时是组内排序字段（组间按 `group` 切桶） */
+  sortField: SortField
+  sortDesc: boolean
+  group: GroupField
+  groupDesc: boolean
+}
+
+const LAYOUT_PRESETS: LayoutPreset[] = [
+  { label: 'By Name', sortField: 'name', sortDesc: false, group: 'none', groupDesc: false },
+  { label: 'By Modified', sortField: 'lastModified', sortDesc: true, group: 'none', groupDesc: false },
+  { label: 'By Size', sortField: 'size', sortDesc: true, group: 'none', groupDesc: false },
+  { label: 'By Type', sortField: 'name', sortDesc: false, group: 'extension', groupDesc: false },
+  { label: 'By Date', sortField: 'lastModified', sortDesc: true, group: 'lastModified', groupDesc: true },
+]
+
+/**
+ * 点一下应用预设；已经在这个编排上就翻转方向。
+ *
+ * 扁平预设（By Name / Modified / Size）翻排序；分组预设（By Type / By Date）
+ * 翻组间顺序。组内顺序由预设自己定（By Type 名字升序、By Date 日期倒序）；
+ * `By Date` 的组内字段和分组字段是同一个，两者一起翻，再点一次就是完整的反向。
+ */
+function toggleLayoutPreset(preset: LayoutPreset) {
+  const grouped = preset.group !== 'none'
+  const onPreset = grouped
+    ? groupField.value === preset.group
+    : groupField.value === 'none' && parseSortMode(sortMode.value).field === preset.sortField
+
+  if (onPreset) {
+    if (grouped) {
+      groupDesc.value = !groupDesc.value
+      if (preset.sortField === preset.group)
+        sortMode.value = composeSortMode(preset.sortField, groupDesc.value)
+    }
+    else {
+      sortMode.value = composeSortMode(preset.sortField, !parseSortMode(sortMode.value).desc)
+    }
+    return
+  }
+
+  const groupChanged = groupField.value !== preset.group
+  sortMode.value = composeSortMode(preset.sortField, preset.sortDesc)
+  groupField.value = preset.group
+  groupDesc.value = grouped ? preset.groupDesc : false
+  if (groupChanged)
+    clearCollapsedGroups()
+}
+
 function viewMenuItems(): MenuItem[] {
+  // 预设不做勾选：它是「点一下应用 / 再点翻转」的动作，当前状态看 Sort / Group by 两个子菜单。
+  const presetItems: MenuItem[] = LAYOUT_PRESETS.map((preset, index) => ({
+    label: preset.label,
+    divided: index === LAYOUT_PRESETS.length - 1,
+    onClick: () => toggleLayoutPreset(preset),
+  }))
+
   const items: MenuItem[] = [
+    ...presetItems,
     {
       label: 'List',
       icon: isGridView.value ? '' : 'mdi mdi-check',

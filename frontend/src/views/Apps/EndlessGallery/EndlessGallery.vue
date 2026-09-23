@@ -170,6 +170,23 @@ function handleEdgeOverlayTab(e: KeyboardEvent): void {
   }
 }
 
+/**
+ * 方向键在浮层按钮之间移动焦点：按钮竖排，Up/Left 上一个、Down/Right 下一个，首尾循环。
+ *
+ * 模板上挂了 `.prevent`，所以浮层打开时事件会带 defaultPrevented，
+ * use-shortcut 的全局方向键（翻图）会被跳过；`navigate` 本身也已经对浮层开了短路。
+ */
+function handleEdgeOverlayArrow(e: KeyboardEvent): void {
+  const buttons = getEdgeOverlayFocusableButtons()
+  if (buttons.length < 2)
+    return
+
+  const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+  const forward = e.key === 'ArrowDown' || e.key === 'ArrowRight'
+  const next = index < 0 ? 0 : (index + (forward ? 1 : -1) + buttons.length) % buttons.length
+  buttons[next]?.focus()
+}
+
 async function handleFolderNav(direction: WalkDirection): Promise<void> {
   const nextParams = await navigateFolder(direction)
   // overlay 已被关闭则放弃本次结果
@@ -266,7 +283,13 @@ function setWrapperRef(el: unknown): void {
         >
           <i-mdi-minus />
         </button>
-        <span class="zoom-scale">{{ zoom.scalePercent.value }}</span>
+        <button
+          class="vgo-u-button-reset zoom-scale"
+          title="Reset zoom"
+          @click.stop="zoom.resetZoom()"
+        >
+          {{ zoom.scalePercent.value }}
+        </button>
         <button
           class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
           title="Zoom in (Ctrl+scroll)"
@@ -314,6 +337,7 @@ function setWrapperRef(el: unknown): void {
         aria-modal="true"
         @click.self="edgeOverlay = null"
         @keydown.tab.exact="handleEdgeOverlayTab"
+        @keydown.up.down.left.right.prevent="handleEdgeOverlayArrow"
       >
         <div class="edge-card vgo-panel vgo-panel--overlay vgo-empty">
           <MdiIcon
@@ -378,15 +402,38 @@ function setWrapperRef(el: unknown): void {
   height: 100%;
   position: relative;
   overflow: hidden;
-  background-color: #0d0d0d;
-  background-image: conic-gradient(#181818 25%, #0d0d0d 0 50%, #181818 0 75%, #0d0d0d 0);
+  // 透明底的棋盘格：亮色主题用接近白的浅灰，暗色主题用深灰（跟随 html.dark）
+  --gallery-grid-base: #ffffff;
+  --gallery-grid-check: #f0f0f0;
+
+  background-color: var(--gallery-grid-base);
+  background-image: conic-gradient(
+    var(--gallery-grid-check) 25%,
+    var(--gallery-grid-base) 0 50%,
+    var(--gallery-grid-check) 0 75%,
+    var(--gallery-grid-base) 0
+  );
   background-size: 24px 24px;
   user-select: none;
   touch-action: none;
+
+  html.dark & {
+    --gallery-grid-base: #0d0d0d;
+    --gallery-grid-check: #181818;
+  }
 }
 
 // ── Navigation arrows ────────────────────────────────────────
 .nav-arrows {
+  // 按钮浮在任意图片 / 棋盘格上，不跟主题：统一用「暗底 + 浅字」的浮层配色。
+  // 默认的 --overlay 是半透明白底 + 白字，亮色背景（浅色棋盘格）上几乎看不见。
+  --vgo-overlay-control: rgba(0, 0, 0, 0.45);
+  --vgo-overlay-control-hover: rgba(0, 0, 0, 0.62);
+  --vgo-overlay-control-active: rgba(0, 0, 0, 0.78);
+  --vgo-overlay-border: rgba(255, 255, 255, 0.16);
+  --vgo-overlay-text: #ffffff;
+  --vgo-overlay-text-secondary: rgba(255, 255, 255, 0.55);
+
   position: absolute;
   right: var(--vgo-space-3);
   top: 50%;
@@ -459,6 +506,10 @@ function setWrapperRef(el: unknown): void {
   font-size: var(--vgo-font-sm);
   text-align: center;
   font-variant-numeric: tabular-nums;
+
+  &:hover {
+    color: var(--vgo-primary);
+  }
 }
 
 .zoom-resolution {
@@ -584,7 +635,6 @@ function setWrapperRef(el: unknown): void {
   position: absolute;
   inset: 0;
   background: var(--vgo-overlay-surface);
-  backdrop-filter: blur(var(--vgo-overlay-blur));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -595,7 +645,7 @@ function setWrapperRef(el: unknown): void {
 .edge-card {
   min-width: 260px;
   border-radius: var(--vgo-radius-lg);
-
+  box-shadow: var(--vgo-shadow);
   p {
     margin: 0;
   }

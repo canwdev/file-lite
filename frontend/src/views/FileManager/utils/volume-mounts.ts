@@ -122,6 +122,20 @@ export function getParentPathIn(path: string, mounts: readonly string[]): string
 }
 
 /**
+ * listing 路径的父目录：纯字符串剥一段，不查挂载表；已在根上则返回自身。
+ *
+ * 与 `getParentPathIn` 的区别是不需要挂载表，供「沿路径向上逐段解析」的逻辑
+ * 调用——挂载边界由调用方在外面判一次，避免每层都重扫一遍挂载表。
+ */
+export function listingParent(path: string): string {
+  const { root, segments } = rootAndSegments(path)
+  if (segments.length === 0) {
+    return normalizeListingPath(root)
+  }
+  return joinListing(root, segments.slice(0, -1))
+}
+
+/**
  * 面包屑：第一段是**挂载点根**，之后每深一级各一段。
  *
  * 前导 `//` 必须活着（UNC），所以不能按 `split('/')` 拼接后再 `replace(/\/+/g,'/')`
