@@ -85,6 +85,7 @@ import MdiFolderOpenOutline from '~icons/mdi/folder-open-outline'
 import MdiFolderOutline from '~icons/mdi/folder-outline'
 import MdiFolderPlusOutline from '~icons/mdi/folder-plus-outline'
 import MdiFolderPoundOutline from '~icons/mdi/folder-pound-outline'
+import MdiFolderStarOutline from '~icons/mdi/folder-star-outline'
 import MdiFolderUploadOutline from '~icons/mdi/folder-upload-outline'
 import MdiFormatListGroup from '~icons/mdi/format-list-group'
 import MdiFormatTitle from '~icons/mdi/format-title'
@@ -193,6 +194,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'folder-open-outline': MdiFolderOpenOutline,
   'open-in-new': MdiOpenInNew,
   'folder-pound-outline': MdiFolderPoundOutline,
+  'folder-star-outline': MdiFolderStarOutline,
   'folder-outline': MdiFolderOutline,
   'folder-move-outline': MdiFolderMoveOutline,
   'folder-network-outline': MdiFolderNetworkOutline,

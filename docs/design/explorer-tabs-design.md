@@ -47,10 +47,10 @@ FileLite.vue                        页面壳：顶栏（标签栏 + 页面标�
 
 - BEM 块 `explorer-tabs`。外形对齐 Firefox Proton：四角圆角浮层（`--vgo-radius-lg`），活动标签用 `--vgo-surface-raised` + `--vgo-shadow` 浮在条带上，悬停用 `--vgo-hover`，未选中透明。项之间留 `--vgo-space-1`，没有竖分隔线。关闭 / 新建仍是 `.vgo-button`，不新增 vgo 原语。不再用 `.vgo-list-item` / SVG 肩角。
 - 顶栏（`FileLite.vue`）整条是条带底色 `--explorer-tab-strip`（浅色是 `--vgo-window` 混一点 `--vgo-text`，暗色是 `--vgo-surface`），四周 `--vgo-space-1` 内边距，标签在条带里垂直居中「浮」着。
-- 挤压不换行：`flex: 1 1 0`，单标签 `min-width: 2.5rem; max-width: 15rem`（拆分项见 §5）。标题左对齐、前面一个文件夹图标、省略号、字号 `--vgo-font-sm`。窄到 `5.5rem` 藏标题，`3.25rem` 再藏图标、只留关闭按钮。
+- 挤压不换行：`flex: 1 1 0`，单标签 `min-width: 2.5rem; max-width: 15rem`（拆分项见 §5）。标题左对齐、前面一个文件夹图标、省略号、字号 `--vgo-font-sm`。窄到 `5.5rem` 藏标题；再窄到 `3.25rem`（拥挤）时未活动标签只留图标并藏关闭，活动标签用关闭替换图标。不拥挤时每个可关标签都画关闭按钮。
 - 高度：标签项 `height: var(--vgo-control-md)`，顶栏 `min-height: var(--explorer-top-bar-height)`，不把顶栏撑得比 `explorer-header` 高。
 - 默认 `outline: none`（键盘焦点才画 `--vgo-primary` 描边）。悬停 / 活动走 `--vgo-duration-fast`，活动立刻生效；插入线不动画。
-- 操作：单击切换、中键关闭、关闭按钮（**只剩一项时不渲染**）、`+` 新建（沿用当前标签的路径，**永远追加在最后**并激活）；`+` 与关闭是小号的圆形按钮。
+- 操作：单击切换、中键关闭、关闭按钮（**只剩一项时不渲染**；拥挤时未活动标签 CSS 隐藏）、`+` 新建（沿用当前标签的路径，**永远追加在最后**并激活）；`+` 与关闭是小号的圆形按钮。
 - 右键菜单最上面是 `Split view`（见 §5）并压一条分隔线，下面保持 Close / Close others / Close to the left /
   Close to the right，都天然满足「至少保留 1 项」。
 - 排序拖拽用自己的 MIME（`application/x-file-lite-tab`），插入下标按指针在标签左 / 右半边计算，

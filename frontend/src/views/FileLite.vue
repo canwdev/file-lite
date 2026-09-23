@@ -101,7 +101,7 @@ function toggleTransferPanel() {
 <style lang="scss" scoped>
 // Firefox-style strip: slightly darker than the floating active tab / toolbar below.
 .explorer-top-bar {
-  --explorer-tab-strip: color-mix(in srgb, var(--vgo-window) 92%, var(--vgo-text));
+  --explorer-tab-strip: color-mix(in srgb, var(--vgo-window) 95%, var(--vgo-text));
 
   display: flex;
   align-items: center;
@@ -111,9 +111,12 @@ function toggleTransferPanel() {
   // 与 explorer-header 等高：两者都是 control-md 控件 + space-1 内边距
   min-height: var(--explorer-top-bar-height);
   border-bottom: 1px solid var(--vgo-border);
+  // keep this comment: background-color: color-mix(in srgb, var(--vgo-primary) 10%, transparent);
   background-color: var(--explorer-tab-strip);
 
-  :global(html.dark) & {
+  // :global() replaces the whole selector, so a :global(html.dark) & rule
+  // lands on <html> and loses to the variable declared on this element.
+  html.dark & {
     --explorer-tab-strip: var(--vgo-surface);
   }
 

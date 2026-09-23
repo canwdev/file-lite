@@ -306,6 +306,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
         <i-mdi-folder class="explorer-tabs__icon" />
         <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(pane) }}</span>
       </span>
+      <!-- Shown on every closable tab; crowded CSS hides it on inactive ones. -->
       <button
         v-if="canCloseTabs"
         type="button"
@@ -478,8 +479,13 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   }
 }
 
+// Crowded: inactive keeps the icon and hides close; active swaps icon for close.
 @container (max-width: 3.25rem) {
-  .explorer-tabs__icon {
+  .explorer-tabs__item:not(.is-active) .explorer-tabs__close {
+    display: none;
+  }
+
+  .explorer-tabs__item.is-active .explorer-tabs__icon {
     display: none;
   }
 

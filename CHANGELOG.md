@@ -18,10 +18,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Drag and drop**: Drag and drop highlights targets, auto-scrolls the list, supports Ctrl-drag duplication, and uploads system files onto folders, breadcrumbs, favourites and drives (frontend).
 - **Split view**: Split view has a narrower divider drag area, per-pane list/grid and icon size, focus outline, and remembered split (frontend).
 - **Tabs**: New tabs and new split panes inherit the view they were opened from, and middle-clicking a drive, favourite, breadcrumb or toolbar Back/Forward/Up opens the target in a new tab (frontend).
-- **Tab strip**: Tabs use a Firefox-style floating rounded box. The active tab sits on the strip with a light surface and shadow (frontend).
+- **Tab strip**: Tabs use a Firefox-style floating rounded box. Every closable tab shows a close button when there is room; when the strip is crowded, inactive tabs keep the folder icon and the active tab swaps the icon for close (frontend).
 - **Covers**: The player loads each queue item’s embedded cover from the shared thumbnail cache at thumbnail size instead of decoding the full-size artwork, and hides covers when content previews are disabled (frontend).
 - **Compact layout**: The explorer toolbar and file list switch to a compact layout based on pane width (frontend).
 - **Shortcuts**: Keyboard shortcuts are listed in a live menu (`?`), with additional shortcuts for tabs, sidebar, menu and app windows (frontend).
+- **Favourites**: Sidebar favourites use a starred folder icon, and the toolbar star toggle sits next to Refresh (frontend).
+- **Favourites menu**: Right-clicking the toolbar star lists every starred folder and opens the one you pick (frontend).
 
 ### Features
 
@@ -59,6 +61,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Windows console**: On Windows, extracting video covers, opening the browser and checking for updates no longer flash a black console window (backend).
 - **Tabs and navigation**: “Open in new Tab” always opens another tab, and Up/breadcrumb navigation stops at the starting location (frontend).
 - **Properties and stale listings**: The Properties window works on network shares and mapped drives, and folder listings no longer stay stale after operations underneath a drive root (backend).
+- **Top bar**: The tab strip uses the dark surface colour in dark mode (frontend).
 
 ### Engineering
 

@@ -20,7 +20,7 @@ import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import { useNavigation } from './ExplorerUI/hooks/use-navigation'
-import { getParentPath, normalizeListingPath } from './utils'
+import { getLastDirName, getParentPath, normalizeListingPath } from './utils'
 import { ExplorerEvents, useExplorerBusOn } from './utils/bus'
 
 const props = withDefaults(
@@ -64,7 +64,7 @@ const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
 // 选择器固定了 fileFilterPattern 时锁住过滤条，用户不能清除或改动
 const filterLocked = computed(() => Boolean(selectFileMode.value && props.fileFilterPattern))
 provide(shortcutScopeKey, shortcutScope.value)
-const { isStared, toggleStar } = useFavourites()
+const { isStared, toggleStar, starList } = useFavourites()
 
 /**
  * 路径由外壳持有，这里只做受控绑定。
@@ -331,6 +331,25 @@ async function jumpToHistory(index: number) {
   await handleOpenPath(item.path, false)
 }
 
+function showStarredMenu(event: MouseEvent) {
+  const paths = starList.value
+  const items: MenuItem[] = paths.length
+    ? paths.map(path => ({
+        label: getLastDirName(path) || path,
+        icon: path === basePathNormalized.value ? 'mdi mdi-star' : 'mdi mdi-folder-star-outline',
+        attrs: { title: path },
+        onClick: () => handleOpenPath(path),
+      }))
+    : [{ label: 'No starred folders', disabled: true }]
+
+  ContextMenu.showContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    ...menuThemeOptions,
+    items: resolveMenuIcons(items),
+  })
+}
+
 function showHistoryMenu(direction: 'back' | 'forward', event: MouseEvent) {
   const hist = navigationHistory.value
   if (!hist) {
@@ -571,6 +590,14 @@ defineExpose({
               >
                 <i-mdi-refresh />
               </button>
+              <button
+                class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+                title="Toggle Star (alt+d)"
+                @click="toggleStar(basePathNormalized)"
+                @contextmenu.prevent.stop="showStarredMenu($event)"
+              >
+                <MdiIcon :name="isStared(basePathNormalized) ? 'star' : 'star-outline'" />
+              </button>
             </div>
             <AddressBar
               ref="addressBarRef"
@@ -579,13 +606,6 @@ defineExpose({
               @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
               @refresh="debounceHandleRefresh"
             />
-            <button
-              class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-              title="Toggle Star (alt+d)"
-              @click="toggleStar(basePathNormalized)"
-            >
-              <MdiIcon :name="isStared(basePathNormalized) ? 'star' : 'star-outline'" />
-            </button>
           </div>
           <div class="explorer-toolbar-filters">
             <FilterBar

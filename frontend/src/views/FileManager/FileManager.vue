@@ -443,7 +443,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
             @dragleave="onStarDragLeave($event)"
             @drop="onStarDrop(path, $event)"
           >
-            <i-mdi-star class="vgo-u-icon-md" />
+            <i-mdi-folder-star-outline class="vgo-u-icon-md" />
             <span class="vgo-u-text-overflow">{{ getLastDirName(path) }}</span>
           </button>
         </div>
