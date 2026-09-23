@@ -101,25 +101,77 @@ function toggleTransferPanel() {
 <style lang="scss" scoped>
 // 背景与高度对齐 FileManager 的 explorer-header：同一个 flat 面板 + 同样的内边距
 .explorer-top-bar {
+  // Strip behind the tabs. Dark strip is the page surface, which sits behind
+  // the lighter raised toolbar the way Chrome's strip does.
+  --explorer-tab-strip: color-mix(in srgb, var(--vgo-window) 98%, var(--vgo-text));
+
+  position: relative;
+  isolation: isolate;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   gap: var(--vgo-space-1);
-  padding: var(--vgo-space-1);
+  // No bottom padding: the tab strip sits on the bar's bottom edge. Sidebar
+  // toggle and the right cluster keep their own bottom inset.
+  padding: var(--vgo-space-1) var(--vgo-space-1) 0;
   // 与 explorer-header 等高：两者都是 control-md 控件 + space-1 内边距
   min-height: var(--explorer-top-bar-height);
   border-bottom: 1px solid var(--vgo-border);
+  background-color: var(--vgo-surface-raised);
+
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: var(--explorer-tab-strip);
+    pointer-events: none;
+  }
+
+  // Paint over the hairline so the active tab and the toolbar are one surface.
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background-color: var(--vgo-surface-raised);
+    pointer-events: none;
+  }
 
   &__left,
   &__right {
+    position: relative;
+    z-index: 1;
     display: flex;
-    align-items: center;
-    gap: var(--vgo-space-1);
     min-width: 0;
   }
 
   &__left {
     flex: 1;
+    align-items: flex-end;
+    gap: var(--vgo-space-1);
+
+    // Sidebar toggle stays optically centered; only the tab strip hugs the bottom.
+    > .vgo-button {
+      align-self: center;
+      margin-bottom: var(--vgo-space-1);
+    }
+  }
+
+  &__right {
+    align-items: center;
+    gap: var(--vgo-space-1);
+    padding-bottom: var(--vgo-space-1);
+  }
+
+  :global(html.dark) & {
+    --explorer-tab-strip: var(--vgo-surface);
   }
 
   &__title {

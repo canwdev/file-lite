@@ -520,9 +520,19 @@ onBeforeUnmount(() => {
     grid-template-rows: repeat(2, minmax(0, 1fr));
     align-items: stretch;
     justify-items: stretch;
-    overflow: hidden;
     border: 2px solid var(--vgo-primary);
     border-radius: var(--vgo-radius);
+    &::before {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 45%;
+      height: 8%;
+      transform: translateY(-100%);
+      background-color: var(--vgo-primary);
+      border-radius: var(--vgo-radius) var(--vgo-radius) 0 0;
+      content: '';
+    }
   }
 
   .folder-preview-cell {
@@ -548,6 +558,7 @@ onBeforeUnmount(() => {
   .folder-preview-child-icon {
     line-height: 1;
     color: var(--vgo-primary);
+    display: flex;
   }
 
   // 链接角标：显示在图标左下角

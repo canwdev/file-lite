@@ -43,6 +43,8 @@ const {
 } = useExplorerTabs()
 
 const tabBarRef = ref<HTMLElement | null>(null)
+/** One geometry symbol for every tab. `use` cannot share a duplicated id. */
+const geometryId = `explorer-tab-geometry-${useId().replace(/[^\w-]/g, '')}`
 
 /* ---------------- 排序拖拽 ---------------- */
 const dragTabId = ref<string | null>(null)
@@ -270,10 +272,23 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     aria-label="Open folders"
     @dragleave="onTabDragLeave"
   >
+    <svg class="explorer-tabs__defs" aria-hidden="true">
+      <defs>
+        <symbol :id="geometryId" viewBox="0 0 214 36">
+          <!--
+            Chrome's path has a 2px bottom stub (v-2) that tucks under the
+            browser chrome bar. Without that bar it shows as a 1px step, so
+            the curve starts on the baseline instead.
+          -->
+          <path d="M17 0h197v36H0c4.5 0 9-3.5 9-8V8c0-4.5 3.5-8 8-8z" />
+        </symbol>
+      </defs>
+    </svg>
+
     <div
       v-for="(item, index) in items"
       :key="item.id"
-      class="vgo-list-item explorer-tabs__item"
+      class="explorer-tabs__item"
       :class="{
         'is-active': item.id === activeItemId,
         'is-split': isSplitItem(item),
@@ -295,6 +310,22 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       @dragover="onTabDragOver(item, index, $event)"
       @drop="onTabDrop"
     >
+      <!-- Shoulder geometry: left slice + mirrored right slice, so the curve stays a fixed width. -->
+      <svg class="explorer-tabs__shape" aria-hidden="true">
+        <!--
+          Native geometry is 214×36. Width is scaled by tab-height/36 so the
+          curve stays round (preserveAspectRatio would otherwise letterbox it).
+          Tab height = control-md + space-1 → 214 * 34/36 ≈ 201.889.
+        -->
+        <svg width="52%" height="100%">
+          <use :href="`#${geometryId}`" width="201.889" height="100%" preserveAspectRatio="none" fill="currentColor" />
+        </svg>
+        <g transform="scale(-1, 1)">
+          <svg width="52%" height="100%" x="-100%" y="0">
+            <use :href="`#${geometryId}`" width="201.889" height="100%" preserveAspectRatio="none" fill="currentColor" />
+          </svg>
+        </g>
+      </svg>
       <span
         v-for="pane in item.tabs"
         :key="pane.id"
@@ -303,6 +334,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
         :title="pane.path"
         @click="activateTab(pane.id)"
       >
+        <i-mdi-folder class="explorer-tabs__icon" />
         <span class="explorer-tabs__label vgo-u-text-overflow">{{ tabLabel(pane) }}</span>
       </span>
       <button
@@ -329,101 +361,169 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
 
 <style lang="scss" scoped>
 .explorer-tabs {
+  // Shoulder overlap. The curve is ~17px wide; space-2 on each side meets in the middle.
+  --tab-overlap: var(--vgo-space-2);
+  --tab-height: calc(var(--vgo-control-md) + var(--vgo-space-1));
+
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0;
+  flex: 1;
   min-width: 0;
+  // content-box so the 1px bottom pad sits outside --tab-height and can
+  // cover the top-bar border without shortening the tabs.
+  box-sizing: content-box;
+  height: var(--tab-height);
+  padding-bottom: 1px;
+  margin-bottom: -1px;
   flex-wrap: nowrap;
   overflow: hidden;
+  isolation: isolate;
+
+  &__defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
 
   &__item {
     position: relative;
     display: flex;
     align-items: center;
     gap: var(--vgo-space-1);
-    // 挤压：可以长到 12rem，也可以缩到 2.5rem，标题省略号
-    flex: 1 1 auto;
+    // Equal share of the strip, capped like Chrome (~240px), shrinks down to a close button.
+    flex: 1 1 0;
     min-width: 2.5rem;
-    max-width: 12rem;
-    // vgo-list-item 的 min-height 是 control-lg，会把顶栏撑得比 explorer-header 高
-    height: var(--vgo-control-md);
-    min-height: var(--vgo-control-md);
-    padding: 0 var(--vgo-space-1);
-    border-radius: var(--vgo-radius);
-    overflow: hidden;
+    max-width: 15rem;
+    height: 100%;
+    margin-inline: calc(var(--tab-overlap) * -1);
+    // Top corners only. The shoulder SVG is the silhouette; this keeps the rounded-tab contract.
+    border-radius: var(--vgo-radius-lg) var(--vgo-radius-lg) 0 0;
     outline: none;
     cursor: pointer;
     font-size: var(--vgo-font-sm);
-    // 用 token 而不是字面量：Reduce Motion 会把 --vgo-duration-* 压到 0.01ms
-    transition: background-color var(--vgo-duration-base);
+    color: var(--vgo-text-secondary);
+    user-select: none;
+    z-index: 1;
+    container-type: inline-size;
 
-    // 拆分项里有两个标题：至少 10rem（实测单个标签约 5.7rem），两个标题都能完整显示；
-    // 字号缩一档，上限取单标签上限的 1.5 倍
+    // First *tab* — not `:first-child`, because the geometry <svg> comes first.
+    // Without this the left shoulder is pulled outside and clipped by overflow.
+    &:first-of-type {
+      margin-inline-start: 0;
+    }
+
+    &:hover {
+      z-index: 2;
+      color: var(--vgo-text);
+    }
+
+    &.is-active {
+      z-index: 3;
+      color: var(--vgo-text);
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--vgo-primary);
+      outline-offset: calc(var(--vgo-space-1) * -1);
+    }
+
+    // Two titles need room to stay readable; the cap is 1.5× a single tab.
     &.is-split {
       min-width: 10rem;
       max-width: 18rem;
-    }
-
-    // 高亮只留底色，去掉 vgo-list-item.is-active 的 1px outline
-    &.is-active {
-      background-color: var(--vgo-primary-opacity);
-      // 活动标签立刻变色，不做过渡
-      transition: none;
-    }
-
-    // 相邻两个都不是活动标签时，中间画一条短分隔线
-    &:not(.is-active) + &:not(.is-active)::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 50%;
-      width: 1px;
-      height: var(--vgo-font-lg);
-      transform: translateY(-50%);
-      background-color: var(--vgo-border);
     }
 
     &.is-drag-source {
       opacity: 0.5;
     }
 
-    // 拖拽排序的插入线
+    // Short separator between two background tabs. Hidden beside the active or hovered tab.
+    &:not(.is-active):not(:hover) + &:not(.is-active):not(:hover)::before {
+      content: '';
+      position: absolute;
+      z-index: 1;
+      left: var(--tab-overlap);
+      top: 50%;
+      width: 1px;
+      height: var(--vgo-font-lg);
+      transform: translateY(-50%);
+      background-color: var(--vgo-border);
+      pointer-events: none;
+    }
+
     &.is-drop-before::after,
     &.is-drop-after::after {
       content: '';
       position: absolute;
-      top: 0;
+      z-index: 4;
+      top: var(--vgo-space-1);
       bottom: 0;
-      width: 3px;
+      width: var(--vgo-space-1);
       background-color: var(--vgo-primary);
+      pointer-events: none;
     }
 
     &.is-drop-before::after {
-      left: -1px;
+      left: 0;
     }
 
     &.is-drop-after::after {
-      right: -1px;
-    }
-
-    // 弹簧加载等待中：只是提示，不会有动画
-    &.is-drop-pending {
-      background-color: var(--vgo-primary-opacity);
+      right: 0;
     }
   }
 
-  /** 一个面板在一项里占的那半边：单标签项就是一整块标题 */
+  &__shape {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    // Explicit height — SVG defaults to 150px tall if only top/bottom are set,
+    // and the fill paints below the overflow clip. +1px covers the top-bar hairline.
+    width: 100%;
+    height: calc(100% + 1px);
+    overflow: hidden;
+    pointer-events: none;
+    color: transparent;
+    // Tokens, not a literal duration: Reduce Motion collapses --vgo-duration-*.
+    transition: color var(--vgo-duration-fast);
+
+    use {
+      fill: currentColor;
+    }
+  }
+
+  &__item:hover &__shape {
+    color: color-mix(in srgb, var(--vgo-surface-raised) 42%, var(--explorer-tab-strip, var(--vgo-window)));
+  }
+
+  &__item.is-active &__shape {
+    // Same fill as the ledge under the strip, so the tab joins the toolbar.
+    color: var(--vgo-surface-raised);
+    transition: none;
+  }
+
+  &__item.is-drop-pending &__shape {
+    color: var(--vgo-primary-opacity);
+  }
+
+  /** One pane's slot inside an item. A single tab is just one of these. */
   &__half {
     position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
+    gap: var(--vgo-space-1);
     flex: 1;
     min-width: 0;
     height: 100%;
-    // 标题不要贴住分隔线 / 标签边缘
-    padding-inline: var(--vgo-space-1);
+    // Clear the fixed-width shoulder. The close button owns the trailing inset.
+    padding-inline-start: var(--vgo-space-4);
 
-    // 拆分项里两个标题之间的分隔线
+    &:last-child {
+      padding-inline-end: var(--vgo-space-4);
+    }
+
     & + &::before {
       content: '';
       position: absolute;
@@ -435,32 +535,30 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
       background-color: var(--vgo-border);
     }
 
-    // 拆分项里没聚焦的那半压暗，一眼能看出当前面板是哪个
     &:not(.is-focused) {
       color: var(--vgo-text-secondary);
     }
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    font-size: var(--vgo-icon-sm);
   }
 
   &__label {
     flex: 1;
     min-width: 0;
     line-height: 1.4;
-    text-align: center;
-  }
-
-  /**
-   * 高亮只留底色，去掉 vgo 的 1px outline。
-   *
-   * 主题规则是 `body.vgo-theme-default .vgo-list-item.is-active`（0,3,1），而 `&__item`
-   * 只会编译成 `.explorer-tabs__item`（不会带上 .explorer-tabs 前缀），(0,3,0) 盖不住，
-   * 所以这里显式再套一层父选择器。
-   */
-  .explorer-tabs__item.is-active {
-    outline: none;
+    text-align: start;
   }
 
   &__close {
+    position: relative;
+    z-index: 1;
     flex-shrink: 0;
+    // Sit clear of the neighbour's overlapping shoulder.
+    margin-inline-end: var(--vgo-space-4);
+
     svg {
       font-size: var(--vgo-icon-sm);
     }
@@ -468,9 +566,28 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
 
   &__add {
     position: relative;
+    z-index: 1;
     flex-shrink: 0;
+    align-self: center;
     font-size: var(--vgo-icon-sm);
-    margin-inline-start: var(--vgo-space-1);
+    // The last tab's negative margin pulls this in; leave a small gap past the shoulder.
+    margin-inline-start: var(--vgo-space-3);
+  }
+}
+
+@container (max-width: 5.5rem) {
+  .explorer-tabs__label {
+    display: none;
+  }
+}
+
+@container (max-width: 3.25rem) {
+  .explorer-tabs__icon {
+    display: none;
+  }
+
+  .explorer-tabs__close {
+    margin-inline: auto;
   }
 }
 </style>
