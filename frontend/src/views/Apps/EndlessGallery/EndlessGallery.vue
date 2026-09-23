@@ -245,6 +245,7 @@ function setWrapperRef(el: unknown): void {
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Previous (↑ / ← / k)"
         @click.stop="navigate(false)"
+        @contextmenu.prevent="jumpToIndex(0)"
       >
         <i-mdi-chevron-up />
       </button>
@@ -267,6 +268,7 @@ function setWrapperRef(el: unknown): void {
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Next (↓ / → / j)"
         @click.stop="navigate(true)"
+        @contextmenu.prevent="jumpToIndex(items.length - 1)"
       >
         <i-mdi-chevron-down />
       </button>
