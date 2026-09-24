@@ -54,6 +54,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Plugin files** cache: Plugin files revalidate on every request, so an edited page or script is picked up the next time the plugin opens, and an unchanged file is not downloaded again (backend).
 - **Locate in folder**: Locating a file from the gallery or playlist opens it in the focused tab and leaves the other tabs on their own paths (frontend).
 - **Root folder**: On Linux, opening the root (`/`) from the sidebar no longer breaks entering its subfolders or their previews (frontend).
 - **View refresh**: All open views refresh after upload, create, rename or save, and saved files update their size and modification time (backend, frontend).

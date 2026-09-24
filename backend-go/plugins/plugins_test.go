@@ -369,6 +369,88 @@ func TestEnsureReadme(t *testing.T) {
 	}
 }
 
+func TestScanCacheFollowsManifestAndListing(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "paint", "index.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{
+		"name": "Paint",
+		"openWith": [".png"]
+	}`)
+
+	first := Scan(dir)
+	if len(first) != 1 || first[0].Name != "Paint" {
+		t.Fatalf("first = %#v", first)
+	}
+	first[0].Name = "mutated"
+	first[0].OpenWith[0] = ".mutated"
+
+	cached := Scan(dir)
+	if cached[0].Name != "Paint" || cached[0].OpenWith[0] != ".png" {
+		t.Fatalf("cache aliased caller data: %#v", cached[0])
+	}
+
+	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{
+		"name": "Paint 2",
+		"openWith": [".jpg"]
+	}`)
+	renamed := byID(Scan(dir))["paint"]
+	if renamed.Name != "Paint 2" || len(renamed.OpenWith) != 1 || renamed.OpenWith[0] != ".jpg" {
+		t.Fatalf("manifest edit not visible: %#v", renamed)
+	}
+
+	writeFile(t, filepath.Join(dir, "notes", "index.html"), "<html></html>")
+	if _, ok := byID(Scan(dir))["notes"]; !ok {
+		t.Fatal("added plugin should appear")
+	}
+}
+
+func TestScanCacheFollowsRepairedManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "broken", "index.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, "broken", "manifest.json"), "{")
+
+	if _, ok := byID(Scan(dir))["broken"]; ok {
+		t.Fatal("broken plugin should be skipped")
+	}
+	writeFile(t, filepath.Join(dir, "broken", "manifest.json"), `{"name": "Fixed"}`)
+	plugin := byID(Scan(dir))["broken"]
+	if plugin.Name != "Fixed" {
+		t.Fatalf("repaired plugin = %#v", plugin)
+	}
+}
+
+func TestScanCacheFollowsAddedEntry(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "late"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := byID(Scan(dir))["late"]; ok {
+		t.Fatal("folder without an entry should be skipped")
+	}
+	writeFile(t, filepath.Join(dir, "late", "index.html"), "<html></html>")
+	if _, ok := byID(Scan(dir))["late"]; !ok {
+		t.Fatal("entry added later should appear")
+	}
+}
+
+func TestResponseETagSplitsInjectedHTML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "index.html")
+	writeFile(t, path, "<html></html>")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := ResponseETag(info, false)
+	injected := ResponseETag(info, true)
+	if plain == "" || injected == "" || plain == injected {
+		t.Fatalf("plain = %q, injected = %q", plain, injected)
+	}
+	if ResponseETag(info, false) != plain {
+		t.Fatal("etag changed without a file change")
+	}
+}
+
 func TestValidID(t *testing.T) {
 	ok := []string{"a", "jspaint", "excel-to-json", "A1._-z", strings.Repeat("x", 64)}
 	for _, id := range ok {

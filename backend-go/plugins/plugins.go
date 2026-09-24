@@ -3,12 +3,14 @@ package plugins
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"file-lite-go/config"
 	"file-lite-go/utils"
@@ -52,7 +54,35 @@ func ValidID(id string) bool {
 	return idPattern.MatchString(id)
 }
 
+// Scan lists plugins under dir. The result is reused until the directory listing,
+// a plugin directory, or a manifest.json changes. File bodies are not cached.
 func Scan(dir string) []Plugin {
+	key := filepath.Clean(dir)
+	scanMu.Lock()
+	defer scanMu.Unlock()
+
+	stamp, ok := directoryStamp(dir)
+	if !ok {
+		delete(scanCache, key)
+		return scanDir(dir)
+	}
+	if ent, hit := scanCache[key]; hit && ent.stamp == stamp {
+		return clonePlugins(ent.list)
+	}
+	list := scanDir(dir)
+	after, afterOK := directoryStamp(dir)
+	if scanCache == nil {
+		scanCache = map[string]scanCacheEntry{}
+	}
+	if afterOK && after == stamp {
+		scanCache[key] = scanCacheEntry{stamp: stamp, list: clonePlugins(list)}
+	} else {
+		delete(scanCache, key)
+	}
+	return clonePlugins(list)
+}
+
+func scanDir(dir string) []Plugin {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -120,6 +150,73 @@ func Find(dir, id string) (Plugin, bool) {
 		}
 	}
 	return Plugin{}, false
+}
+
+type scanCacheEntry struct {
+	stamp string
+	list  []Plugin
+}
+
+var (
+	scanMu    sync.Mutex
+	scanCache map[string]scanCacheEntry
+)
+
+// directoryStamp is a cheap fingerprint of the inputs Scan turns into plugin
+// metadata. It covers the directory listing, each plugin directory's mtime
+// (add or remove a file inside it), and each manifest's mtime and size
+// (editing manifest.json does not change the directory mtime).
+func directoryStamp(dir string) (string, bool) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", false
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "dir:%d\n", info.ModTime().UnixNano())
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if entry.IsDir() {
+			mt := int64(0)
+			if fi, infoErr := entry.Info(); infoErr == nil {
+				mt = fi.ModTime().UnixNano()
+			}
+			fmt.Fprintf(&b, "d %s %d %s\n", name, mt, manifestStamp(filepath.Join(dir, name, "manifest.json")))
+			continue
+		}
+		fmt.Fprintf(&b, "f %s\n", name)
+	}
+	return b.String(), true
+}
+
+func manifestStamp(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d:%d", fi.ModTime().UnixNano(), fi.Size())
+}
+
+func clonePlugins(in []Plugin) []Plugin {
+	if in == nil {
+		return nil
+	}
+	out := make([]Plugin, len(in))
+	for i, p := range in {
+		out[i] = p
+		if p.OpenWith != nil {
+			copied := make([]string, len(p.OpenWith))
+			copy(copied, p.OpenWith)
+			out[i].OpenWith = copied
+		}
+	}
+	return out
 }
 
 func (p Plugin) Resolve(urlPath string) (string, error) {

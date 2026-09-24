@@ -68,7 +68,19 @@ func serveAbsFile(c echo.Context, abs string, err error, inject bool) error {
 	if statErr != nil || info.IsDir() {
 		return c.NoContent(http.StatusNotFound)
 	}
-	if inject && strings.EqualFold(filepath.Ext(abs), ".html") {
+	// Files can be edited in place under stable URLs, so the browser must revalidate
+	// every time. The ETag is the file's size and mtime; entry HTML also includes the
+	// SDK revision because those bytes are not the file on disk. A match is a 304
+	// with no body, so the file is not read, injected, or compressed again.
+	injected := inject && strings.EqualFold(filepath.Ext(abs), ".html")
+	etag := plugins.ResponseETag(info, injected)
+	header := c.Response().Header()
+	header.Set("ETag", etag)
+	header.Set(echo.HeaderCacheControl, "private, max-age=0, must-revalidate")
+	if inm := c.Request().Header.Get("If-None-Match"); inm != "" && inm == etag {
+		return c.NoContent(http.StatusNotModified)
+	}
+	if injected {
 		body, readErr := os.ReadFile(abs)
 		if readErr != nil {
 			return c.NoContent(http.StatusNotFound)

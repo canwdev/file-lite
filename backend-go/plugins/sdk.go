@@ -2,11 +2,16 @@ package plugins
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
 const sdkTag = `<script src="/plugin-sdk.js"></script>`
+
+// sdkRevision is part of the entry HTML ETag. Bump it when InjectSDK's output changes
+// so a browser does not reuse a page injected by an older server.
+const sdkRevision = 1
 
 // InjectSDK inserts the plugin SDK before </head> (or </body> when there is no head).
 // A page that already references plugin-sdk.js is left unchanged.
@@ -30,6 +35,15 @@ func insertAt(html []byte, at int, text string) []byte {
 	out = append(out, text...)
 	out = append(out, html[at:]...)
 	return out
+}
+
+// ResponseETag is the validator for a plugin file response.
+// injected is set when the body is passed through InjectSDK.
+func ResponseETag(info os.FileInfo, injected bool) string {
+	if injected {
+		return fmt.Sprintf(`"%x-%x-%x"`, info.Size(), info.ModTime().UnixMilli(), sdkRevision)
+	}
+	return fmt.Sprintf(`"%x-%x"`, info.Size(), info.ModTime().UnixMilli())
 }
 
 // IsEntry reports whether abs is this plugin's entry file.
