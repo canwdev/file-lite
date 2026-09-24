@@ -1,14 +1,20 @@
 import type { ArchiveCompressFormat } from '@/store/capabilities'
-import { ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
+import { ElCheckbox, ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
 import { h, reactive } from 'vue'
 import { serverCapabilities } from '@/store/capabilities'
 import { createTask } from '@/store/tasks'
 import { focusNameField } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 
 export interface CompressPromptResult {
+  /** Destination file name, including the format extension. Empty when `separate` is set. */
   name: string
   format: string
+  ext: string
   password: string
+  /** One archive per selected item, named `prefix` + that item's stem + extension. */
+  separate: boolean
+  /** Optional text prepended to each item name when `separate` is set. */
+  prefix: string
 }
 
 export interface ExtractPromptResult {
@@ -16,10 +22,10 @@ export interface ExtractPromptResult {
   intoFolder: boolean
 }
 
-function archiveNameError(name: string) {
+function archiveNameError(name: string, optional = false) {
   const trimmed = name.trim()
   if (!trimmed)
-    return 'Archive name is required'
+    return optional ? '' : 'Archive name is required'
   if (trimmed === '.' || trimmed === '..' || /[/\\]/.test(trimmed))
     return 'Invalid archive name'
   if (trimmed.startsWith('.fl-part-'))
@@ -50,11 +56,26 @@ export function archiveStem(name: string, extensions: string[]) {
   return dot > 0 ? base.slice(0, dot) : base
 }
 
-export function defaultArchiveName(names: string[], ext: string) {
-  const suffix = ext.startsWith('.') ? ext : `.${ext}`
+/** Suggested archive name without the format extension. */
+export function defaultArchiveStem(names: string[], directoryName: string) {
   if (names.length === 1)
-    return `${archiveStem(names[0], [])}${suffix}`
-  return `Archive-${archiveStamp()}${suffix}`
+    return archiveStem(names[0], [])
+  const dir = directoryName.trim()
+  const prefix = dir && !archiveNameError(dir) ? dir : 'Archive'
+  return `${prefix}-${archiveStamp()}`
+}
+
+export function withFormatExt(name: string, ext: string) {
+  const suffix = ext.startsWith('.') ? ext : `.${ext}`
+  const trimmed = name.trim()
+  if (trimmed.toLowerCase().endsWith(suffix.toLowerCase()))
+    return trimmed
+  return trimmed + suffix
+}
+
+/** `prefix` + the item stem + the format extension. */
+export function separateArchiveName(prefix: string, entryName: string, ext: string) {
+  return withFormatExt(`${prefix.trim()}${archiveStem(entryName, [])}`, ext)
 }
 
 function archiveStamp(date = new Date()) {
@@ -75,16 +96,9 @@ function field(label: string, node: ReturnType<typeof h>) {
   }, [label, node])
 }
 
-function replaceFormatExt(name: string, from: string, to: string) {
-  if (!from || from.toLowerCase() === to.toLowerCase())
-    return name
-  if (name.toLowerCase().endsWith(from.toLowerCase()))
-    return name.slice(0, name.length - from.length) + to
-  return name
-}
-
 /**
  * Compress dialog: archive name, type, and an optional password.
+ * The name field shows the stem only; the format extension is appended on confirm.
  * Cancel rejects, matching the other file prompts.
  */
 export function showCompressDialog(defaultName: string): Promise<CompressPromptResult> {
@@ -92,6 +106,8 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
   const initial = formats[0]
   const form = reactive({
     name: defaultName,
+    prefix: '',
+    separate: false,
     format: initial?.id || 'zip',
     password: '',
   })
@@ -103,26 +119,32 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
       return
     const input = root.querySelector('input')
     if (input instanceof HTMLInputElement)
-      focusNameField(input, 'stem')
+      focusNameField(input, 'all')
   }
 
   const message = () => {
     const format = current()
     const nodes = [
-      field('Archive name', h(ElInput, {
+      h(ElCheckbox, {
+        'modelValue': form.separate,
+        'onUpdate:modelValue': (value: string | number | boolean) => { form.separate = Boolean(value) },
+      }, () => 'Compress separately'),
+      field(form.separate ? 'Prefix (optional)' : 'Archive name', h(ElInput, {
         'onVnodeMounted': scheduleNameFocus,
-        'modelValue': form.name,
-        'onUpdate:modelValue': (value: string) => { form.name = value },
+        'modelValue': form.separate ? form.prefix : form.name,
+        'onUpdate:modelValue': (value: string) => {
+          if (form.separate)
+            form.prefix = value
+          else
+            form.name = value
+        },
       })),
       field('Archive type', h(ElSelect, {
         'modelValue': form.format,
         'style': 'width: 100%;',
         'onUpdate:modelValue': (value: string) => {
-          const next = formats.find(item => item.id === value)
-          const prev = current()
-          if (next && prev)
-            form.name = replaceFormatExt(form.name, prev.ext, next.ext)
           form.format = value
+          const next = formats.find(item => item.id === value)
           if (next && !next.password)
             form.password = ''
         },
@@ -152,7 +174,7 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
     cancelButtonText: 'Cancel',
     beforeClose: (action: string, _instance: unknown, done: () => void) => {
       if (action === 'confirm') {
-        const error = archiveNameError(form.name)
+        const error = archiveNameError(form.separate ? form.prefix : form.name, form.separate)
         if (error) {
           window.$message?.error(error)
           return
@@ -163,13 +185,14 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
   }).then(() => {
     const format = current()
     const ext = format?.ext || '.zip'
-    let name = form.name.trim()
-    if (!name.toLowerCase().endsWith(ext.toLowerCase()))
-      name += ext
+    const separate = form.separate
     return {
-      name,
+      name: separate ? '' : withFormatExt(form.name, ext),
       format: format?.id || 'zip',
+      ext,
       password: format?.password ? form.password : '',
+      separate,
+      prefix: separate ? form.prefix.trim() : '',
     }
   })
 }

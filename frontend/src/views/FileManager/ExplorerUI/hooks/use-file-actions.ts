@@ -14,7 +14,7 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
-import { defaultArchiveName, matchesExtractExtension, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
+import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
@@ -272,17 +272,33 @@ export function useFileActions({
     if (!selectedItems.value.length)
       return
     try {
-      const ext = serverCapabilities.value.archiveCompressFormats[0]?.ext || '.zip'
-      const choice = await showCompressDialog(defaultArchiveName(selectedItems.value.map(item => item.name), ext))
+      const names = selectedItems.value.map(item => item.name)
+      const choice = await showCompressDialog(defaultArchiveStem(names, getLastDirName(basePath.value) || ''))
       isLoading.value = true
-      await createTask({
-        kind: 'compress',
-        fromPaths: [...selectedPaths.value],
-        toPath: normalizePath(joinPath(basePath.value, choice.name)),
-        format: choice.format,
-        password: choice.password || undefined,
-        onConflict: 'ask',
-      })
+      const password = choice.password || undefined
+      if (choice.separate) {
+        for (let i = 0; i < selectedItems.value.length; i++) {
+          const fileName = separateArchiveName(choice.prefix, selectedItems.value[i].name, choice.ext)
+          await createTask({
+            kind: 'compress',
+            fromPaths: [selectedPaths.value[i]],
+            toPath: normalizePath(joinPath(basePath.value, fileName)),
+            format: choice.format,
+            password,
+            onConflict: 'ask',
+          })
+        }
+      }
+      else {
+        await createTask({
+          kind: 'compress',
+          fromPaths: [...selectedPaths.value],
+          toPath: normalizePath(joinPath(basePath.value, choice.name)),
+          format: choice.format,
+          password,
+          onConflict: 'ask',
+        })
+      }
     }
     catch (error: any) {
       if (error === 'cancel' || error === 'close')
@@ -460,9 +476,9 @@ export function useFileActions({
           },
         ].filter(Boolean) as MenuItem[],
       },
+      sevenZipMenu(),
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
       { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
-      sevenZipMenu(),
       { label: 'Cut', icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
       { label: 'Copy', icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: 'More', icon: '', divided: true, children: [

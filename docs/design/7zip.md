@@ -59,7 +59,7 @@ If the task context is cancelled, the outcome is cancelled regardless of the exi
 
 The selection context menu has one **7-Zip** item between Download and Cut. **Compress...** and **Extract...** are its children. Extract is disabled unless every selected file's extension is in `archiveExtractExtensions`.
 
-Compress suggests `name.zip` for one file (`winmine.exe` becomes `winmine.zip`, the original suffix removed) and `Archive-YYYYMMDDHHmm.zip` for several. The name field is focused and the stem is selected. The dialog also picks the archive type.
+Compress suggests `name` for one file (`winmine.exe` becomes `winmine`; the format extension is added on confirm) and `folder-YYYYMMDDHHmm` for several, using the current folder name. The name field is focused and selected, and it does not show the extension. **Compress separately** writes one archive per selected item, prepending an optional prefix to each stem (`pre-` + `notes.txt` becomes `pre-notes.zip`). The dialog also picks the archive type. Each separate item is its own compress task.
 
 Extract asks for the current folder or a subfolder named after the archive (`./filename`). Several archives each get their own folder and share one password. Opening a supported file that has no app does the same, instead of the generic unsupported-file dialog.
 

@@ -30,12 +30,12 @@ test.describe('7-Zip', () => {
 
     await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
     const box = page.locator('.el-message-box')
-    const name = box.locator('input').first()
-    await expect(name).toHaveValue('plain.zip')
+    const name = box.locator('.el-input__inner').first()
+    await expect(name).toHaveValue('plain')
     await expect(name).toBeFocused()
     await expect.poll(() => name.evaluate((el) => {
       const input = el as HTMLInputElement
-      return input.selectionStart === 0 && input.selectionEnd === 'plain'.length
+      return input.selectionStart === 0 && input.selectionEnd === input.value.length
     })).toBe(true)
     await box.getByRole('button', { name: 'Compress' }).click()
 
@@ -61,7 +61,7 @@ test.describe('7-Zip', () => {
 
     await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
     const box = page.locator('.el-message-box')
-    await expect(box.locator('input').first()).toHaveValue('secret.zip')
+    await expect(box.locator('.el-input__inner').first()).toHaveValue('secret')
     await box.locator('input[type="password"]').fill('s3cret')
     await box.getByRole('button', { name: 'Compress' }).click()
     await expect.poll(() => fs.existsSync(path.join(emptyDir, 'secret.zip'))).toBe(true)
@@ -76,6 +76,28 @@ test.describe('7-Zip', () => {
 
     await expect(page.locator('.failure-dialog')).toContainText('Wrong password')
     expect(fs.existsSync(path.join(emptyDir, 'secret.txt'))).toBe(false)
+  })
+
+  test('compresses each selected file with a prefix', async ({ page }) => {
+    fs.writeFileSync(path.join(emptyDir, 'a.txt'), 'aaa')
+    fs.writeFileSync(path.join(emptyDir, 'b.txt'), 'bbb')
+    await openFolder(page, 'empty')
+    await row(page, 'a.txt').click()
+    await row(page, 'b.txt').click({ modifiers: ['Control'] })
+    if (!await openSevenZip(page, 'b.txt'))
+      test.skip()
+
+    await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
+    const box = page.locator('.el-message-box')
+    const name = box.locator('.el-input__inner').first()
+    await expect(name).toHaveValue(/^empty-\d{12}$/)
+    await box.getByText('Compress separately', { exact: true }).click()
+    await expect(name).toHaveValue('')
+    await name.fill('pre-')
+    await box.getByRole('button', { name: 'Compress' }).click()
+
+    await expect.poll(() => fs.existsSync(path.join(emptyDir, 'pre-a.zip'))).toBe(true)
+    await expect.poll(() => fs.existsSync(path.join(emptyDir, 'pre-b.zip'))).toBe(true)
   })
 })
 
