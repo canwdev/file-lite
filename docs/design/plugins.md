@@ -8,7 +8,7 @@ Static pages in the data directory's `plugins/` folder. The host scans that dire
 - Served files use `Cache-Control: private, max-age=0, must-revalidate` and an ETag from the file's size and modification time. Entry HTML also includes the SDK injection revision. Unchanged files answer 304.
 - A folder (with `index.html` or `manifest.json`) is served at `/plugins/{id}/...`.
 - A single `.html` file is not wrapped in an id: `/plugins/hello.html`. When a folder and a file share a name, the folder wins.
-- An id must match `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`. Anything that does not match, or that starts with `.`, is skipped.
+- A name can contain any characters. Entries whose names start with `.` are skipped. Only a folder or a single `.html` file becomes a plugin; other files in the plugins root are ignored. The folder or file name is percent-encoded in its URL.
 
 ## Contract
 

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -16,10 +16,7 @@ import (
 	"file-lite-go/utils"
 )
 
-var (
-	idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
-	ErrEscape = errors.New("path escapes plugin root")
-)
+var ErrEscape = errors.New("path escapes plugin root")
 
 type Manifest struct {
 	Name           string   `json:"name"`
@@ -48,10 +45,6 @@ type Plugin struct {
 
 func Dir() string {
 	return filepath.Join(config.DataBaseDir(), "plugins")
-}
-
-func ValidID(id string) bool {
-	return idPattern.MatchString(id)
 }
 
 // Scan lists plugins under dir. The result is reused until the directory listing,
@@ -110,10 +103,6 @@ func scanDir(dir string) []Plugin {
 	out := make([]Plugin, 0)
 	for _, entry := range dirEntries {
 		id := entry.Name()
-		if !ValidID(id) {
-			utils.LogWarnf("skip plugin %s: invalid id", id)
-			continue
-		}
 		plugin, ok := loadDirPlugin(filepath.Join(dir, id), id)
 		if ok {
 			out = append(out, plugin)
@@ -129,10 +118,6 @@ func scanDir(dir string) []Plugin {
 		if _, exists := dirs[id]; exists {
 			continue
 		}
-		if !ValidID(id) {
-			utils.LogWarnf("skip plugin %s: invalid id", name)
-			continue
-		}
 		out = append(out, loadFilePlugin(filepath.Join(dir, name), id, name))
 	}
 
@@ -141,9 +126,6 @@ func scanDir(dir string) []Plugin {
 }
 
 func Find(dir, id string) (Plugin, bool) {
-	if !ValidID(id) {
-		return Plugin{}, false
-	}
 	for _, plugin := range Scan(dir) {
 		if plugin.ID == id {
 			return plugin, true
@@ -296,7 +278,7 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 	plugin := Plugin{
 		ID:             id,
 		Name:           name,
-		EntryURL:       "/plugins/" + id + "/" + entry,
+		EntryURL:       pluginPath(id, entry),
 		OpenWith:       openWith,
 		SingleInstance: singleInstance,
 		Version:        version,
@@ -311,7 +293,7 @@ func loadFilePlugin(filePath, id, filename string) Plugin {
 	plugin := Plugin{
 		ID:             id,
 		Name:           id,
-		EntryURL:       "/plugins/" + filename,
+		EntryURL:       pluginPath(filename),
 		OpenWith:       []string{},
 		SingleInstance: false,
 		Version:        "",
@@ -364,7 +346,25 @@ func applyIcon(plugin *Plugin, icon string) {
 		utils.LogWarnf("plugin %s: icon escapes plugin root", plugin.ID)
 		return
 	}
-	plugin.IconURL = "/plugins/" + plugin.ID + "/" + rel
+	plugin.IconURL = pluginPath(plugin.ID, rel)
+}
+
+// pluginPath builds a /plugins URL, percent-encoding each segment so names
+// with spaces or non-ASCII characters stay a single path segment.
+func pluginPath(parts ...string) string {
+	var b strings.Builder
+	b.WriteString("/plugins")
+	for _, part := range parts {
+		part = strings.ReplaceAll(part, "\\", "/")
+		for _, seg := range strings.Split(part, "/") {
+			if seg == "" || seg == "." {
+				continue
+			}
+			b.WriteByte('/')
+			b.WriteString(url.PathEscape(seg))
+		}
+	}
+	return b.String()
 }
 
 func isIconPath(icon string) bool {

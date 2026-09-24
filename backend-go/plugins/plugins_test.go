@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,14 +160,38 @@ func TestScanSkipsBadManifest(t *testing.T) {
 	}
 }
 
-func TestScanSkipsInvalidID(t *testing.T) {
+func TestScanAllowsAnyName(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "has space", "index.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, "笔记.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, ".hidden", "index.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, ".secret.html"), "<html></html>")
+	writeFile(t, filepath.Join(dir, "notes.txt"), "nope")
 	writeFile(t, filepath.Join(dir, "ok", "index.html"), "<html></html>")
 
 	got := byID(Scan(dir))
-	if _, exists := got["has space"]; exists {
-		t.Fatal("invalid id should be skipped")
+	folder := got["has space"]
+	if folder.ID == "" {
+		t.Fatal("folder name with a space should be a plugin")
+	}
+	if folder.EntryURL != "/plugins/has%20space/index.html" {
+		t.Fatalf("entryUrl = %q", folder.EntryURL)
+	}
+	file := got["笔记"]
+	if file.ID == "" || !file.File {
+		t.Fatal("non-ascii html file should be a plugin")
+	}
+	if file.EntryURL != "/plugins/"+url.PathEscape("笔记.html") {
+		t.Fatalf("entryUrl = %q", file.EntryURL)
+	}
+	if _, exists := got[".hidden"]; exists {
+		t.Fatal("hidden folder should be skipped")
+	}
+	if _, exists := got[".secret"]; exists {
+		t.Fatal("hidden html file should be skipped")
+	}
+	if _, exists := got["notes"]; exists || len(got) != 3 {
+		t.Fatalf("non-html file should be ignored, got %#v", got)
 	}
 	if _, exists := got["ok"]; !exists {
 		t.Fatal("ok plugin should remain")
@@ -448,20 +473,5 @@ func TestResponseETagSplitsInjectedHTML(t *testing.T) {
 	}
 	if ResponseETag(info, false) != plain {
 		t.Fatal("etag changed without a file change")
-	}
-}
-
-func TestValidID(t *testing.T) {
-	ok := []string{"a", "jspaint", "excel-to-json", "A1._-z", strings.Repeat("x", 64)}
-	for _, id := range ok {
-		if !ValidID(id) {
-			t.Fatalf("%q should be valid", id)
-		}
-	}
-	bad := []string{"", "-no", ".hidden", "has space", "has/slash", strings.Repeat("x", 65)}
-	for _, id := range bad {
-		if ValidID(id) {
-			t.Fatalf("%q should be invalid", id)
-		}
 	}
 }

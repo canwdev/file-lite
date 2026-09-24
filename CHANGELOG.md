@@ -40,6 +40,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Features
 
 - **Plugins**: Plugins can be dropped into the server plugins folder, appear in the main menu, open in windows, and can read/write files and list directories (frontend, backend).
+- **Plugin names**: A plugin folder or HTML file can use any name. Names starting with `.` and other file types in the plugins folder are still ignored (backend).
 - **Tabs**: The explorer has built-in tabs that remember folder, selection, filter and scroll, can be reordered, split, merged, and moved between panes (frontend).
 - **Branch and grouping**: Branch view (Ctrl+B) flattens subdirectories for batch actions, and folders can be grouped by name, type, size or date in list and grid views (frontend, backend).
 - **Background tasks**: Copy, move, delete and duplicate run as background tasks visible in every open window, with conflict handling, retry of failed items, and in-place listing refreshes (frontend, backend).
