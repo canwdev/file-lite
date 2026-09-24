@@ -6,6 +6,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Color themes**: Each accent color uses a darker shade in light mode and a lighter shade in dark mode, and switching the mode applies the matching shade (frontend).
 - **Icons**: New icon set across the gallery, media player, video player, file viewer and text sync, with outline file icons and distinct icons for common file types (frontend).
 - **Grid badges**: Grid view shows each file’s default app badge, and plugins are listed in a submenu when no built-in app matches (frontend).
 - **Folder previews**: The folder tab on thumbnail previews is drawn as a folder-shaped trapezoid instead of a rounded bar (frontend).

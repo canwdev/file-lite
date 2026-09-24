@@ -293,7 +293,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: `Theme: ${settingsStore.value.themeMode}`,
+          label: `Theme: ${(settingsStore.value.themeMode || '').replace(/^./, c => c.toUpperCase())} ${settingsStore.value.colorTheme}`,
           icon: 'mdi mdi-theme-light-dark',
           children: [
           // Light/Dark theme
@@ -331,17 +331,21 @@ export function useFileLiteMenu() {
               },
             },
             // Color theme
-            ...colorThemeOptions.map(item => ({
-              label: item.label,
-              // icon: item.rgb === settingsStore.value.colorTheme ? 'mdi mdi-check' : '',
-              icon: mdiMenuIcon(
-                item.rgb === settingsStore.value.colorTheme ? 'checkbox-marked-circle' : 'checkbox-blank-circle',
-                { style: { color: `rgba(${item.rgb})` } },
-              ),
-              onClick: () => {
-                setGlobalTheme(item.rgb)
-              },
-            })),
+            ...colorThemeOptions.map((item) => {
+              const rgb = document.documentElement.classList.contains('dark')
+                ? item.rgb.dark
+                : item.rgb.light
+              return {
+                label: item.label,
+                icon: mdiMenuIcon(
+                  item.label === settingsStore.value.colorTheme ? 'checkbox-marked-circle' : 'checkbox-blank-circle',
+                  { style: { color: `rgba(${rgb})` } },
+                ),
+                onClick: () => {
+                  setGlobalTheme(item.label)
+                },
+              }
+            }),
           ],
         },
         {

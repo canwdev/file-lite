@@ -107,7 +107,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
     height: auto;
     visibility: hidden;
     cursor: pointer;
-    z-index: 10;
+    z-index: 2;
     @include when-panel-narrow {
       visibility: visible;
     }
