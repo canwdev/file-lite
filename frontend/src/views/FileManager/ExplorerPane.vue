@@ -312,12 +312,26 @@ async function runWithFileListAtPath(targetBasePath: string, action: (fileList: 
   action(fileListRef.value)
 }
 
+/**
+ * Tabs stay mounted, so every pane hears these events. Only the focused explorer
+ * pane may change directory; a file-selector pane is not a browsing tab.
+ */
+function acceptsExplorerReveal(): boolean {
+  return props.focused && !selectFileMode.value
+}
+
 // Listen for SELECT_COLLECTED event from App windows
 useExplorerBusOn(ExplorerEvents.SELECT_COLLECTED, async ({ basePath: targetBasePath, names }: { basePath: string, names: string[] }) => {
+  if (!acceptsExplorerReveal()) {
+    return
+  }
   await runWithFileListAtPath(targetBasePath, fileList => fileList.selectByNames(names))
 })
 
 useExplorerBusOn(ExplorerEvents.REVEAL_ITEM, async ({ basePath: targetBasePath, name }: { basePath: string, name: string }) => {
+  if (!acceptsExplorerReveal()) {
+    return
+  }
   await runWithFileListAtPath(targetBasePath, fileList => fileList.selectAndReveal(name))
 })
 

@@ -54,6 +54,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Locate in folder**: Locating a file from the gallery or playlist opens it in the focused tab and leaves the other tabs on their own paths (frontend).
 - **Root folder**: On Linux, opening the root (`/`) from the sidebar no longer breaks entering its subfolders or their previews (frontend).
 - **View refresh**: All open views refresh after upload, create, rename or save, and saved files update their size and modification time (backend, frontend).
 - **Copy progress**: Copy progress is no longer double-counted, and upload/download rows update their progress, percentage and speed (backend, frontend).
@@ -75,6 +76,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Engineering
 
+- **UPX**: Release builds compress Linux and Windows amd64 binaries with UPX before packing the zip, so those downloads are smaller. macOS and Windows ARM64 builds stay unpacked (backend).
 - **FS facade**: File reads and writes now go through one shared facade (`utils/fs`), so apps no longer import the file manager's internals or call the file API directly (frontend).
 - **Facade enforcement**: Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).
 - **Shared path rules**: The canonical path rules moved out of the file manager into the shared layer, because both the explorer and the storage facade need them (frontend).
