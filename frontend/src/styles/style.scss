@@ -92,6 +92,10 @@ body,
   right: var(--vgo-space-3) !important;
 }
 
+.el-message-box__message {
+  width: 100%;
+}
+
 // 竖向音量条的 popper 需要收窄
 .popover-volume {
   width: 60px !important;

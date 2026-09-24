@@ -6,6 +6,7 @@ import { ContextMenu } from '@canwdev/vgo-ui'
 import dayjs from 'dayjs'
 import { computed, h, ref } from 'vue'
 import { listPlugins } from '@/api/plugins'
+import { serverCapabilities } from '@/store/capabilities'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
@@ -13,6 +14,7 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
+import { defaultArchiveName, matchesExtractExtension, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath } from '../../utils'
 import { openProperties } from '../properties-window'
@@ -82,6 +84,7 @@ export function useFileActions({
           || (await showInputPrompt({
             title: 'Create File',
             value: `${dayjs().format('YYYYMMDD_HHmmss')}.txt`,
+            selectOnFocus: 'all',
           }))
       isLoading.value = true
       // 列表由服务端的 fs changed 补上，这里只负责等写入结束再选中新名字
@@ -101,6 +104,7 @@ export function useFileActions({
       const name = await showInputPrompt({
         title: 'Create Folder',
         value: `${dayjs().format('YYYYMMDD_HHmmss')}`,
+        selectOnFocus: 'all',
       })
       isLoading.value = true
       const target = normalizePath(joinPath(basePath.value, name))
@@ -129,7 +133,7 @@ export function useFileActions({
       name = (await showInputPrompt({
         title: 'Rename',
         value: baseName,
-        selectNameOnly: true,
+        selectOnFocus: 'stem',
       })).trim()
     }
     catch {
@@ -253,6 +257,84 @@ export function useFileActions({
         icon: currentId === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
         onClick: () => onPick(plugin),
       })),
+    }
+  }
+
+  function canExtractSelection() {
+    const extensions = serverCapabilities.value.archiveExtractExtensions
+    const items = selectedItems.value
+    if (!items.length || !extensions.length)
+      return false
+    return items.every(item => !item.isDirectory && matchesExtractExtension(item.name, extensions))
+  }
+
+  async function compressSelection() {
+    if (!selectedItems.value.length)
+      return
+    try {
+      const ext = serverCapabilities.value.archiveCompressFormats[0]?.ext || '.zip'
+      const choice = await showCompressDialog(defaultArchiveName(selectedItems.value.map(item => item.name), ext))
+      isLoading.value = true
+      await createTask({
+        kind: 'compress',
+        fromPaths: [...selectedPaths.value],
+        toPath: normalizePath(joinPath(basePath.value, choice.name)),
+        format: choice.format,
+        password: choice.password || undefined,
+        onConflict: 'ask',
+      })
+    }
+    catch (error: any) {
+      if (error === 'cancel' || error === 'close')
+        return
+      window.$message?.error(error?.message || 'Failed to start the task')
+    }
+    finally {
+      isLoading.value = false
+    }
+  }
+
+  async function extractSelection() {
+    if (!canExtractSelection())
+      return
+    try {
+      await startArchiveExtract(
+        [...selectedPaths.value],
+        selectedItems.value.map(item => item.name),
+        basePath.value,
+        (busy) => { isLoading.value = busy },
+      )
+    }
+    catch (error: any) {
+      if (error === 'cancel' || error === 'close')
+        return
+      window.$message?.error(error?.message || 'Failed to start the task')
+    }
+    finally {
+      isLoading.value = false
+    }
+  }
+
+  function sevenZipMenu(): MenuItem | null {
+    if (!serverCapabilities.value.archive)
+      return null
+    return {
+      label: '7-Zip',
+      icon: 'mdi mdi-zip-box',
+      divided: true,
+      children: [
+        {
+          label: 'Compress...',
+          icon: 'mdi mdi-archive-arrow-up-outline',
+          onClick: () => { void compressSelection() },
+        },
+        {
+          label: 'Extract...',
+          icon: 'mdi mdi-archive-arrow-down-outline',
+          disabled: !canExtractSelection(),
+          onClick: () => { void extractSelection() },
+        },
+      ],
     }
   }
 
@@ -380,6 +462,7 @@ export function useFileActions({
       },
       { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
       { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+      sevenZipMenu(),
       { label: 'Cut', icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
       { label: 'Copy', icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: 'More', icon: '', divided: true, children: [

@@ -437,10 +437,10 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     & + &::before {
       content: '';
       position: absolute;
-      left: 0;
+      left: calc(var(--vgo-space-1) * -1);
       top: 50%;
       width: 1px;
-      height: 30%;
+      height: 40%;
       transform: translateY(-50%);
       background-color: var(--vgo-border);
     }

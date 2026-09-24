@@ -31,6 +31,7 @@
   - Tabs and split view, list or grid, favourites and drives
   - Network shares and WSL distributions in the sidebar
   - Create, rename, copy, move and delete; drag-and-drop upload and download, including a folder as a ZIP
+  - Compress and extract with 7-Zip when it is installed, including a password and a choice of archive type ([7-Zip](./docs/design/7zip.md))
   - Image, video and music preview, and a text editor
   - Endless Gallery: a vertical feed of the current folder
   - Light, dark and system themes
@@ -101,6 +102,7 @@ bun run build
 - [Plugins](./docs/design/plugins.md)
 - [Tabs](./docs/design/explorer-tabs-design.md)
 - [Background file operations](./docs/design/async-file-operations-ws-design.md)
+- [7-Zip](./docs/design/7zip.md)
 - [Thumbnails](./docs/design/thumbnails.md)
 - [Storage and network paths](./docs/design/vfs-abstraction-design.md)
 - [End-to-end tests](./e2e/README.md)

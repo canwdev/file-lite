@@ -34,6 +34,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Clear local data**: The Clear Local Data dialog lists each kind of local data with its own checkbox, all selected by default, so only the ticked ones are cleared (frontend).
 - **Gallery background**: The Endless Gallery transparency checkerboard follows the theme, using light greys in light mode, and its navigation arrows keep dark buttons in every theme so they stay visible (frontend).
 - **Gallery keyboard**: In the End of gallery overlay, the arrow keys move focus between its buttons instead of only Tab; Home and End jump to the first and last item, and clicking the zoom percentage resets the zoom (frontend).
+- **New file and folder**: Create File and Create Folder focus the name and select the suggested text so it can be replaced immediately (frontend).
 
 ### Features
 
@@ -41,6 +42,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Tabs**: The explorer has built-in tabs that remember folder, selection, filter and scroll, can be reordered, split, merged, and moved between panes (frontend).
 - **Branch and grouping**: Branch view (Ctrl+B) flattens subdirectories for batch actions, and folders can be grouped by name, type, size or date in list and grid views (frontend, backend).
 - **Background tasks**: Copy, move, delete and duplicate run as background tasks visible in every open window, with conflict handling, retry of failed items, and in-place listing refreshes (frontend, backend).
+- **7-Zip**: When 7-Zip is installed, the file menu can compress into a format 7-Zip can create and extract into the current folder or a folder named after the archive. The suggested name drops the original extension and is focused with that part selected; several files use a timestamp, and opening a supported file with no app (including xlsx) asks where to extract (frontend, backend).
 - **Conflicts**: Uploads with existing names ask to replace, skip or keep both, and failed copy/move/delete reports list exactly which items failed (frontend, backend).
 - **Properties**: The Properties window shows icon, name, type, path, size, contained files, and created/modified dates, counting folder sizes in the background (frontend, backend).
 - **Access config**: `allowedRoots` restricts the file manager to listed folders; `startPath` is removed; `logLevel` replaces `enableLog` (backend).
@@ -54,6 +56,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Archive password**: Extracting an encrypted archive without a password reports that a password is required, instead of the 7-Zip copyright line (backend).
 - **Plugin files** cache: Plugin files revalidate on every request, so an edited page or script is picked up the next time the plugin opens, and an unchanged file is not downloaded again (backend).
 - **Locate in folder**: Locating a file from the gallery or playlist opens it in the focused tab and leaves the other tabs on their own paths (frontend).
 - **Root folder**: On Linux, opening the root (`/`) from the sidebar no longer breaks entering its subfolders or their previews (frontend).

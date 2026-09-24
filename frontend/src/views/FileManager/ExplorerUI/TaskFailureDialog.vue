@@ -91,10 +91,10 @@ async function handleRetry() {
             class="failure-item-icon"
             :name="item.status === 'conflict' ? 'help-circle-outline' : 'alert-circle-outline'"
           />
-          <span class="failure-item-name vgo-u-text-overflow" :title="item.fromPath">
+          <span class="failure-item-name vgo-u-text-overflow vgo-u-font-code" :title="item.fromPath">
             {{ itemLabel(item) }}
           </span>
-          <span class="failure-item-message vgo-u-text-overflow" :title="itemMessage(item)">
+          <span class="failure-item-message" :title="itemMessage(item)">
             {{ itemMessage(item) }}
           </span>
         </div>
@@ -149,9 +149,10 @@ async function handleRetry() {
   }
 
   .failure-item {
-    gap: var(--vgo-space-2);
+    gap: var(--vgo-space-3);
     padding: var(--vgo-space-1) var(--vgo-space-2);
     font-size: var(--vgo-font-sm);
+    cursor: initial;
 
     .failure-item-icon {
       flex-shrink: 0;

@@ -101,10 +101,13 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
 
   .file-checkbox {
     position: absolute;
-    top: var(--vgo-space-1);
-    left: var(--vgo-space-1);
+    top: 0;
+    left: 0;
+    width: var(--vgo-font-lg);
+    height: auto;
     visibility: hidden;
     cursor: pointer;
+    z-index: 10;
     @include when-panel-narrow {
       visibility: visible;
     }

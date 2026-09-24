@@ -31,6 +31,11 @@
     opacity: 0.25;
     pointer-events: none;
     transition: width var(--vgo-duration-fast) linear;
+
+    &.is-indeterminate {
+      width: 35%;
+      animation: transfer-indeterminate calc(var(--vgo-duration-base) * 8) ease-in-out infinite;
+    }
   }
 
   &.is-success &__progress {
@@ -108,4 +113,9 @@
     justify-content: flex-end;
     min-width: calc(var(--vgo-control-sm) * 2 + var(--vgo-space-1));
   }
+}
+
+@keyframes transfer-indeterminate {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
 }

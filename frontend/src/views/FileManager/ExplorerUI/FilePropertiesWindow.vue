@@ -120,10 +120,10 @@ function handleVisibleChange(visible: boolean) {
     <div class="properties-window">
       <div class="properties-header">
         <MdiIcon class="properties-header-icon" :name="iconClass" />
-        <span class="properties-header-name">{{ displayName }}</span>
+        <span class="properties-header-name vgo-u-font-code">{{ displayName }}</span>
       </div>
 
-      <div class="properties-rows">
+      <div class="properties-rows ">
         <div
           v-for="row in rows"
           :key="row.label"
@@ -131,7 +131,7 @@ function handleVisibleChange(visible: boolean) {
           :class="{ 'is-wide': row.wide }"
         >
           <span class="properties-label">{{ row.label }}:</span>
-          <span class="properties-value" :title="row.value || undefined">{{ displayValue(row) }}</span>
+          <span class="properties-value vgo-u-font-code">{{ displayValue(row) }}</span>
         </div>
       </div>
 
@@ -141,7 +141,7 @@ function handleVisibleChange(visible: boolean) {
 
       <div class="properties-footer">
         <button class="vgo-button vgo-button--primary" @click="closeProperties">
-          OK
+          Done
         </button>
       </div>
     </div>
@@ -178,7 +178,7 @@ function handleVisibleChange(visible: boolean) {
 .properties-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--vgo-space-1);
+  gap: var(--vgo-space-3);
 }
 
 .properties-row {

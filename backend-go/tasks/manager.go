@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +42,13 @@ type CreateParams struct {
 	FromPaths  []string
 	ToPath     string
 	OnConflict fileops.Policy
+	// Format is the compress type. Empty means zip. Extract ignores it.
+	Format string
+	// Password is kept on the task and never copied into a snapshot.
+	Password string
+	// IntoFolder extracts each archive into a subfolder of ToPath named after
+	// the archive. The subfolder is created when the task runs.
+	IntoFolder bool
 }
 
 // Manager 是所有任务的所有者。任务对所有已连接客户端可见、可取消。
@@ -219,6 +227,22 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 		}
 	}
 
+	if params.Kind == KindCompress || params.Kind == KindExtract {
+		if strings.ContainsAny(params.Password, "\r\n") {
+			return Snapshot{}, errors.New("Password must be a single line")
+		}
+	}
+	if params.Kind == KindCompress {
+		if err := validateCompress(&params); err != nil {
+			return Snapshot{}, err
+		}
+	}
+	if params.Kind == KindExtract {
+		if err := validateExtract(params); err != nil {
+			return Snapshot{}, err
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t := &task{
 		id:         newID(),
@@ -228,6 +252,9 @@ func (m *Manager) Create(params CreateParams) (Snapshot, error) {
 		isMove:     params.Kind == KindMove,
 		duplicate:  params.Kind == KindDuplicate,
 		onConflict: fileops.NormalizePolicy(string(params.OnConflict)),
+		format:     params.Format,
+		password:   params.Password,
+		intoFolder: params.IntoFolder,
 		ctx:        ctx,
 		cancel:     cancel,
 		state:      StateQueued,
@@ -334,6 +361,9 @@ func (m *Manager) Retry(id string) (Snapshot, error) {
 	copy(results, t.storedResults)
 	kind := t.kind
 	toPath := t.toPath
+	format := t.format
+	password := t.password
+	intoFolder := t.intoFolder
 	t.mu.Unlock()
 
 	if !state.IsTerminal() {
@@ -368,6 +398,9 @@ func (m *Manager) Retry(id string) (Snapshot, error) {
 		FromPaths:  paths,
 		ToPath:     toPath,
 		OnConflict: fileops.PolicyAsk,
+		Format:     format,
+		Password:   password,
+		IntoFolder: intoFolder,
 	})
 }
 
@@ -455,6 +488,11 @@ func (m *Manager) run(t *task) {
 		return
 	}
 	defer func() { <-m.sem }()
+
+	if t.kind == KindCompress || t.kind == KindExtract {
+		m.runArchive(t)
+		return
+	}
 
 	t.setState(StateScanning)
 	m.emit(Event{Type: EventUpdate, Task: t.snapshot()})

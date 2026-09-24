@@ -538,13 +538,13 @@ onBeforeUnmount(() => {
     }
 
     &::before {
-      left: 0;
+      left: -3px;
       width: 35%;
       border-top-left-radius: var(--vgo-radius);
     }
 
     &::after {
-      left: 35%;
+      left: calc(35% - 3px);
       width: 12%;
       // 直角三角形（左上 → 右下）：补出标签右侧向下的斜坡
       clip-path: polygon(0 0, 100% 100%, 0 100%);
@@ -610,12 +610,14 @@ onBeforeUnmount(() => {
     color: var(--vgo-on-primary);
     line-height: 1;
     pointer-events: none;
+    border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
 
     &--plain {
       border-radius: 0;
       background-color: transparent;
       color: inherit;
-    }
+      border: none;
+      }
   }
 }
 </style>

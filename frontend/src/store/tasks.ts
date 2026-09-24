@@ -296,6 +296,9 @@ export async function createTask(payload: {
   fromPaths: string[]
   toPath?: string
   onConflict?: ConflictPolicy
+  format?: string
+  password?: string
+  intoFolder?: boolean
 }): Promise<string> {
   const taskId = await awaitTaskAck(requestId => sendCreateTask(requestId, payload))
   locallyCreatedTasks.add(taskId)

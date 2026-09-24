@@ -52,6 +52,9 @@ type sharedWSTaskCreatePayload struct {
 	FromPaths  []string `json:"fromPaths"`
 	ToPath     string   `json:"toPath,omitempty"`
 	OnConflict string   `json:"onConflict,omitempty"`
+	Format     string   `json:"format,omitempty"`
+	Password   string   `json:"password,omitempty"`
+	IntoFolder bool     `json:"intoFolder,omitempty"`
 }
 
 type sharedWSTaskDecision struct {
@@ -124,6 +127,9 @@ func handleSharedWSTasksMessage(client *sharedWSClient, msg sharedWSTasksClientM
 			FromPaths:  msg.Task.FromPaths,
 			ToPath:     msg.Task.ToPath,
 			OnConflict: fileops.NormalizePolicy(msg.Task.OnConflict),
+			Format:     msg.Task.Format,
+			Password:   msg.Task.Password,
+			IntoFolder: msg.Task.IntoFolder,
 		})
 		if err != nil {
 			sendSharedWSError(client, "tasks", msg.RequestID, err.Error())

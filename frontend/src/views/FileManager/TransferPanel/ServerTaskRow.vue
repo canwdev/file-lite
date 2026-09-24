@@ -22,7 +22,11 @@ defineEmits<{
       'is-failed': task.state === 'failed' || task.state === 'partial',
     }"
   >
-    <div class="transfer-item__progress" :style="{ width: `${taskProgress(task) * 100}%` }" />
+    <div
+      class="transfer-item__progress"
+      :class="{ 'is-indeterminate': task.progress.indeterminate && !isTerminalState(task.state) }"
+      :style="task.progress.indeterminate ? undefined : { width: `${taskProgress(task) * 100}%` }"
+    />
 
     <div class="item-main">
       <StatusIcon
@@ -36,7 +40,7 @@ defineEmits<{
         </div>
         <div class="item-meta">
           <span class="message vgo-u-text-overflow" :title="taskMessage(task)">{{ taskMessage(task) }}</span>
-          <span class="percent">{{ (taskProgress(task) * 100).toFixed(0) }}%</span>
+          <span v-if="!task.progress.indeterminate" class="percent">{{ (taskProgress(task) * 100).toFixed(0) }}%</span>
         </div>
       </div>
 

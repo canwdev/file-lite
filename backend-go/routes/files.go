@@ -17,6 +17,7 @@ import (
 
 	"file-lite-go/config"
 	"file-lite-go/fileops"
+	"file-lite-go/sevenzip"
 	"file-lite-go/thumbnails"
 	"file-lite-go/types"
 	"file-lite-go/utils"
@@ -51,6 +52,11 @@ func getAuthInfo(c echo.Context) error {
 			// config 里没开 allowSelfUpdate 时，/api/update、/api/update/restart
 			// 与 /api/update/exit 根本没注册；前端据此决定要不要显示那几个菜单项。
 			"selfUpdate": config.Config().AllowSelfUpdate,
+			// archive is false until 7-Zip is found. The extension list is what
+			// Extract Here may offer; compress is always zip when archive is true.
+			"archive":                  sevenzip.Available(),
+			"archiveExtractExtensions": nonNilStrings(sevenzip.ExtractExtensions()),
+			"archiveCompressFormats":   nonNilFormats(sevenzip.CompressFormats()),
 		},
 		// allowedRoots 生效时的允许范围，空表示不限制。
 		// 前端用它把「为什么这里点不进去」讲清楚：一个没有说明的 403 只会让人以为坏了。
@@ -59,6 +65,20 @@ func getAuthInfo(c echo.Context) error {
 }
 
 func isExist(p string) bool { _, err := os.Stat(p); return err == nil }
+
+func nonNilStrings(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
+}
+
+func nonNilFormats(in []sevenzip.CompressFormat) []sevenzip.CompressFormat {
+	if in == nil {
+		return []sevenzip.CompressFormat{}
+	}
+	return in
+}
 
 func sanitizeUploadFilename(name string) (string, error) {
 	if name == "" || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {

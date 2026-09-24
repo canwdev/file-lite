@@ -1,42 +1,72 @@
-function getNameSelectionEnd(name: string) {
-  const dotIndex = name.lastIndexOf('.')
-  return dotIndex > 0 ? dotIndex : name.length
+export type NameFieldSelection = 'all' | 'stem'
+
+type NameField = HTMLInputElement | HTMLTextAreaElement
+
+function selectionEnd(value: string, selection: NameFieldSelection) {
+  if (selection === 'all')
+    return value.length
+  const dot = value.lastIndexOf('.')
+  return dot > 0 ? dot : value.length
 }
 
-function findMessageBoxInput() {
-  const box = document.querySelector('.el-message-box')
-  if (!box) {
-    return null
+function anotherFieldIsActive(input: NameField) {
+  const active = document.activeElement
+  const box = input.closest('.el-message-box')
+  return active instanceof HTMLElement
+    && !!box?.contains(active)
+    && active !== input
+    && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+}
+
+function applyNameSelection(input: NameField, selection: NameFieldSelection) {
+  input.focus()
+  if (document.activeElement !== input)
+    return false
+  input.setSelectionRange(0, selectionEnd(input.value, selection))
+  return true
+}
+
+function restoreNameSelection(input: NameField, selection: NameFieldSelection) {
+  if (!input.isConnected || document.activeElement !== input)
+    return
+  input.setSelectionRange(0, selectionEnd(input.value, selection))
+}
+
+function attemptNameFocus(input: NameField, selection: NameFieldSelection, retry: boolean) {
+  if (!input.isConnected || anotherFieldIsActive(input))
+    return
+  if (!applyNameSelection(input, selection)) {
+    if (retry)
+      setTimeout(attemptNameFocus, 0, input, selection, false)
+    return
   }
-  return box.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement | null
+  // The focus trap may focus the field again and drop the selection.
+  // Restore it once, and only while this field is still the active one.
+  if (retry)
+    setTimeout(restoreNameSelection, 0, input, selection)
 }
 
-function applyPromptNameSelection(initialValue: string) {
+/**
+ * Focus a message-box field and select its text.
+ * A confirm box focuses its button; this runs after that trap, then stops.
+ * It does not pull the caret back once another field in the box is active.
+ */
+export function focusNameField(input: NameField, selection: NameFieldSelection = 'stem') {
+  setTimeout(attemptNameFocus, 0, input, selection, true)
+}
+
+function whenMessageBoxFieldReady(apply: (input: NameField) => void) {
   let attempts = 0
-  const maxAttempts = 30
-
-  const apply = (input: HTMLInputElement | HTMLTextAreaElement) => {
-    const end = getNameSelectionEnd(input.value || initialValue)
-    input.focus()
-    input.setSelectionRange(0, end)
-  }
-
-  const trySelect = () => {
-    const input = findMessageBoxInput()
-    if (!input) {
-      if (++attempts < maxAttempts) {
-        requestAnimationFrame(trySelect)
-      }
+  const find = () => {
+    const input = document.querySelector('.el-message-box input, .el-message-box textarea')
+    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+      apply(input)
       return
     }
-
-    apply(input)
-    // Focus trap may reset selection after the dialog opens.
-    setTimeout(apply, 0, input)
-    setTimeout(apply, 50, input)
+    if (++attempts < 30)
+      requestAnimationFrame(find)
   }
-
-  requestAnimationFrame(trySelect)
+  requestAnimationFrame(find)
 }
 
 export function showInputPrompt(options: {
@@ -52,8 +82,8 @@ export function showInputPrompt(options: {
   type?: 'text' | 'number'
   // 是否允许空
   allowEmpty?: boolean
-  // 聚焦时仅选中主文件名（不含扩展名）
-  selectNameOnly?: boolean
+  // Focus the field and select its text. `all` selects everything; `stem` stops before the last dot.
+  selectOnFocus?: NameFieldSelection
 } = {}): Promise<string> {
   const {
     // 弹窗标题
@@ -68,7 +98,7 @@ export function showInputPrompt(options: {
     type = 'text',
     // 是否允许空
     allowEmpty = false,
-    selectNameOnly = false,
+    selectOnFocus,
   } = options
 
   return new Promise<string>((resolve, reject) => {
@@ -87,8 +117,8 @@ export function showInputPrompt(options: {
       cancelButtonText: 'Cancel',
     })
 
-    if (selectNameOnly) {
-      applyPromptNameSelection(value)
+    if (selectOnFocus) {
+      whenMessageBoxFieldReady(input => focusNameField(input, selectOnFocus))
     }
 
     dialogPromise

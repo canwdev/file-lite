@@ -16,6 +16,10 @@ export function taskKindIcon(kind: TaskKind) {
       return 'delete-outline'
     case 'duplicate':
       return 'content-duplicate'
+    case 'compress':
+      return 'archive-arrow-up-outline'
+    case 'extract':
+      return 'archive-arrow-down-outline'
     default:
       return 'content-copy'
   }
@@ -29,6 +33,10 @@ export function taskKindLabel(kind: TaskKind) {
       return 'Deleting'
     case 'duplicate':
       return 'Duplicating'
+    case 'compress':
+      return 'Compressing'
+    case 'extract':
+      return 'Extracting'
     default:
       return 'Copying'
   }
@@ -68,6 +76,8 @@ export function taskMessage(task: TaskSnapshot) {
     case 'failed':
       return task.error || 'Failed'
     case 'partial': {
+      if (task.error)
+        return task.error
       const parts = [`${task.stats.succeeded} done`]
       if (task.stats.skipped)
         parts.push(`${task.stats.skipped} skipped`)
@@ -78,6 +88,8 @@ export function taskMessage(task: TaskSnapshot) {
       return parts.join(', ')
     }
     default: {
+      if (task.progress.indeterminate)
+        return 'Working...'
       const done = task.progress.itemsDone
       const total = task.progress.itemsTotal
       const bytes = task.progress.bytesTotal > 0

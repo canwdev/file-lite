@@ -4,6 +4,8 @@ import { h } from 'vue'
 import MdiAlertCircle from '~icons/mdi/alert-circle'
 import MdiAlertCircleOutline from '~icons/mdi/alert-circle-outline'
 import MdiApplicationSettingsOutline from '~icons/mdi/application-settings-outline'
+import MdiArchiveArrowDownOutline from '~icons/mdi/archive-arrow-down-outline'
+import MdiArchiveArrowUpOutline from '~icons/mdi/archive-arrow-up-outline'
 import MdiArrowCollapseLeft from '~icons/mdi/arrow-collapse-left'
 import MdiArrowCollapseRight from '~icons/mdi/arrow-collapse-right'
 import MdiArrowDownBoldCircleOutline from '~icons/mdi/arrow-down-bold-circle-outline'
@@ -179,6 +181,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'file-question-outline': MdiFileQuestionOutline,
   'folder': MdiFolder,
   'zip-box': MdiZipBox,
+  'archive-arrow-up-outline': MdiArchiveArrowUpOutline,
+  'archive-arrow-down-outline': MdiArchiveArrowDownOutline,
   'file-image-outline': MdiFileImageOutline,
   'music-circle-outline': MdiMusicCircleOutline,
   'file-video-outline': MdiFileVideoOutline,

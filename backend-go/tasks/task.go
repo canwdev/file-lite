@@ -19,12 +19,14 @@ const (
 	KindMove      Kind = "move"
 	KindDelete    Kind = "delete"
 	KindDuplicate Kind = "duplicate"
+	KindCompress  Kind = "compress"
+	KindExtract   Kind = "extract"
 )
 
 // IsValidKind 判断类型是否受支持。
 func IsValidKind(k Kind) bool {
 	switch k {
-	case KindCopy, KindMove, KindDelete, KindDuplicate:
+	case KindCopy, KindMove, KindDelete, KindDuplicate, KindCompress, KindExtract:
 		return true
 	default:
 		return false
@@ -57,11 +59,14 @@ func (s State) IsTerminal() bool {
 
 // Progress 是任务进度。字节数只在有明确总量时有意义。
 type Progress struct {
-	ItemsTotal  int    `json:"itemsTotal"`
-	ItemsDone   int    `json:"itemsDone"`
-	BytesTotal  int64  `json:"bytesTotal"`
-	BytesDone   int64  `json:"bytesDone"`
-	CurrentPath string `json:"currentPath,omitempty"`
+	ItemsTotal int   `json:"itemsTotal"`
+	ItemsDone  int   `json:"itemsDone"`
+	BytesTotal int64 `json:"bytesTotal"`
+	BytesDone  int64 `json:"bytesDone"`
+	// Indeterminate is set when the worker cannot parse a percentage yet.
+	// BytesTotal stays 0 in that case so clients do not draw a fake 0%.
+	Indeterminate bool   `json:"indeterminate,omitempty"`
+	CurrentPath   string `json:"currentPath,omitempty"`
 }
 
 // Stats 是逐条结果的汇总。
@@ -141,6 +146,12 @@ type task struct {
 
 	onConflict fileops.Policy
 
+	// format and password are create-time inputs. They are not part of Snapshot:
+	// a password must not be broadcast to every connected client.
+	format     string
+	password   string
+	intoFolder bool
+
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -218,6 +229,26 @@ func (t *task) setTotals(items int, bytes int64) {
 	t.mu.Lock()
 	t.progress.ItemsTotal = items
 	t.progress.BytesTotal = bytes
+	t.mu.Unlock()
+}
+
+func (t *task) setIndeterminate() {
+	t.mu.Lock()
+	t.progress.Indeterminate = true
+	t.mu.Unlock()
+}
+
+func (t *task) setPercent(percent int) {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	t.mu.Lock()
+	t.progress.Indeterminate = false
+	t.progress.BytesTotal = 100
+	t.progress.BytesDone = int64(percent)
 	t.mu.Unlock()
 }
 

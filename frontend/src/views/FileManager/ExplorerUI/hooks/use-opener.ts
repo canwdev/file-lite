@@ -2,6 +2,7 @@ import type { MessageBoxData } from 'element-plus'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import { listPlugins, pluginList } from '@/api/plugins'
+import { serverCapabilities } from '@/store/capabilities'
 import { bytesToSize } from '@/utils'
 import { fs } from '@/utils/fs'
 import {
@@ -13,6 +14,7 @@ import {
 } from '@/utils/is'
 import { appListByOpenWith, getDefaultApp, getFileExt, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
+import { matchesExtractExtension, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { joinPath, normalizePath } from '../../utils'
 
 interface OpenAppInfo {
@@ -252,6 +254,22 @@ export function useOpener(basePath: { value: string }) {
       // 没有自定义默认、也不是匹配到的查看器：交给下面的「不支持类型」弹窗。
       // 必须排在 openSpecialApp 之前，否则 fallback 的 Browser 会被直接打开。
       const unsupportedFallback = !openWith && defaultOpenApp!.source === 'fallback'
+
+      if (
+        unsupportedFallback
+        && serverCapabilities.value.archive
+        && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
+      ) {
+        try {
+          await startArchiveExtract([absPath], [item.name], basePath.value)
+        }
+        catch (error: any) {
+          if (error === 'cancel' || error === 'close')
+            return
+          window.$message?.error(error?.message || 'Failed to start the task')
+        }
+        return
+      }
 
       if (unsupportedFallback) {
         window.$dialog

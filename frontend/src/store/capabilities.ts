@@ -10,11 +10,24 @@ export interface ServerCapabilities {
   videoThumbnail: boolean
   /** 后端允许替换自身二进制 / 重启 / 退出进程（config 里的 allowSelfUpdate） */
   selfUpdate: boolean
+  /** 本机能调用 7-Zip 做压缩和解压 */
+  archive: boolean
+  /** Extensions 7-Zip can open, with the dot, for example `.zip` or `.xlsx` */
+  archiveExtractExtensions: string[]
+  /** Archive types 7-Zip can create */
+  archiveCompressFormats: ArchiveCompressFormat[]
+}
+
+export interface ArchiveCompressFormat {
+  id: string
+  ext: string
+  label: string
+  password: boolean
 }
 
 function createDefaultCapabilities(): ServerCapabilities {
   // 保守默认：没拿到上报之前一律当作「不支持」，避免白发请求
-  return { videoThumbnail: false, selfUpdate: false }
+  return { videoThumbnail: false, selfUpdate: false, archive: false, archiveExtractExtensions: [], archiveCompressFormats: [] }
 }
 
 export const serverCapabilities = ref<ServerCapabilities>(createDefaultCapabilities())
@@ -38,6 +51,26 @@ export function setServerCapabilities(value?: Partial<ServerCapabilities> | null
   }
   if (value && typeof value.selfUpdate === 'boolean') {
     next.selfUpdate = value.selfUpdate
+  }
+  if (value && typeof value.archive === 'boolean') {
+    next.archive = value.archive
+  }
+  if (value && Array.isArray(value.archiveExtractExtensions)) {
+    next.archiveExtractExtensions = value.archiveExtractExtensions.filter(ext => typeof ext === 'string' && ext !== '')
+  }
+  if (value && Array.isArray(value.archiveCompressFormats)) {
+    next.archiveCompressFormats = value.archiveCompressFormats.filter(format =>
+      format
+      && typeof format.id === 'string'
+      && format.id !== ''
+      && typeof format.ext === 'string'
+      && format.ext !== '',
+    ).map(format => ({
+      id: format.id,
+      ext: format.ext,
+      label: typeof format.label === 'string' && format.label ? format.label : format.id,
+      password: Boolean(format.password),
+    }))
   }
   serverCapabilities.value = next
 }

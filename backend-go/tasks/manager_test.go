@@ -1,12 +1,16 @@
 package tasks
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"file-lite-go/fileops"
+	"file-lite-go/sevenzip"
 )
 
 func write(t *testing.T, path, content string) {
@@ -436,4 +440,81 @@ func TestInPlaceCopyDoesNotAskForConflict(t *testing.T) {
 	if read(t, src) != "alpha" {
 		t.Fatal("the original must be untouched")
 	}
+}
+
+func TestCompressHidesPasswordAndWritesZip(t *testing.T) {
+	sevenzip.ForceBinaryForTest("7z")
+	t.Cleanup(func() {
+		sevenzip.ResetProbeForTest()
+		sevenzip.SetRunnerForTest(nil)
+	})
+	var args []string
+	sevenzip.SetRunnerForTest(func(_ context.Context, _ string, _ string, got []string, onPercent func(int)) (int, string, error) {
+		args = append([]string(nil), got...)
+		if onPercent != nil {
+			onPercent(100)
+		}
+		for _, arg := range got {
+			if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "@") {
+				continue
+			}
+			if strings.HasSuffix(strings.ToLower(arg), ".zip") {
+				if err := os.WriteFile(arg, []byte("PK"), 0o644); err != nil {
+					return 1, "", err
+				}
+			}
+		}
+		return 0, "", nil
+	})
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	write(t, src, "hello")
+	dest := filepath.Join(dir, "a.txt.zip")
+
+	m, events := newTestManager(t, time.Minute)
+	snap, err := m.Create(CreateParams{
+		Kind:       KindCompress,
+		FromPaths:  []string{src},
+		ToPath:     dest,
+		Password:   "secret",
+		OnConflict: fileops.PolicyOverwrite,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "secret") {
+		t.Fatalf("password leaked into snapshot: %s", raw)
+	}
+
+	done := waitFor(t, events, EventDone, snap.ID)
+	if done.Task.State != StateSucceeded {
+		t.Fatalf("state = %s (%s)", done.Task.State, done.Task.Error)
+	}
+	doneRaw, _ := json.Marshal(done.Task)
+	if strings.Contains(string(doneRaw), "secret") {
+		t.Fatalf("password leaked into done event: %s", doneRaw)
+	}
+	if !fileops.ExistsAt(dest) {
+		t.Fatal("expected the zip to be published")
+	}
+	if !containsArg(args, "-psecret") || containsArg(args, "secret") {
+		t.Fatalf("password must be one -p argument: %#v", args)
+	}
+	if !containsArg(args, "-tzip") || !containsArg(args, "-bsp2") {
+		t.Fatalf("args = %#v", args)
+	}
+}
+
+func containsArg(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want {
+			return true
+		}
+	}
+	return false
 }

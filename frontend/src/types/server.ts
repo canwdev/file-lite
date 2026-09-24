@@ -119,7 +119,7 @@ export type SettingsServerMessage = SettingsResponseMessage | SettingsSyncMessag
  * 异步文件操作任务（scope: "tasks"）
  * ------------------------------------------------------------------ */
 
-export type TaskKind = 'copy' | 'move' | 'delete' | 'duplicate'
+export type TaskKind = 'copy' | 'move' | 'delete' | 'duplicate' | 'compress' | 'extract'
 
 export type TaskState
   = | 'queued'
@@ -148,6 +148,8 @@ export interface TaskProgress {
   itemsDone: number
   bytesTotal: number
   bytesDone: number
+  /** Set when 7-Zip has not emitted a percentage yet. */
+  indeterminate?: boolean
   currentPath?: string
 }
 
@@ -200,6 +202,12 @@ export interface TaskCreatePayload {
   fromPaths: string[]
   toPath?: string
   onConflict?: ConflictPolicy
+  /** Compress type id, for example `zip` or `7z`. */
+  format?: string
+  /** Optional archive password. It is not stored on the task snapshot. */
+  password?: string
+  /** Extract each archive into a subfolder named after it. */
+  intoFolder?: boolean
 }
 
 export interface TasksCreateMessage {
