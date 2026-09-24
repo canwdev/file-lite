@@ -71,10 +71,22 @@ jobs:
           go install github.com/akavel/rsrc@latest
           bun run icon
 
+      - name: Install UPX
+        # Pinned so a release does not pick up a newer packer by surprise.
+        # build.ts --upx compresses each binary before the zip is written.
+        # macOS and Windows ARM64 targets are left unpacked: current UPX cannot pack them.
+        run: |
+          set -euo pipefail
+          version=5.2.1
+          curl -fsSL -o /tmp/upx.tar.xz "https://github.com/upx/upx/releases/download/v${version}/upx-${version}-amd64_linux.tar.xz"
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          echo "/tmp/upx-${version}-amd64_linux" >> "$GITHUB_PATH"
+          "/tmp/upx-${version}-amd64_linux/upx" --version
+
       - name: Build Go binaries and pack release assets
         working-directory: backend-go
         # Also fails the release when frontend/src/enum/version.ts and backend-go/config/config.go disagree.
-        run: bun run ./scripts/build.ts --all --skip-frontend
+        run: bun run ./scripts/build.ts --all --skip-frontend --upx
 
       - name: Extract release notes from CHANGELOG
         if: steps.rel.outputs.prerelease == 'false'

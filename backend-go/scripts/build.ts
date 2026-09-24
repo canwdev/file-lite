@@ -13,6 +13,7 @@
 // prints this help instead of building. Options compose:
 //   --skip-frontend   reuse an existing backend-go/frontend-assets.tar.gz
 //   --skip-pack       build the binaries without writing the release zips
+//   --upx             compress each binary with UPX before packing (macOS and Windows ARM64 are skipped)
 //
 // The zip writer is dependency-free on purpose (same spirit as frontend/scripts/pack-frontend.mjs),
 // so packaging does not require any npm package to be installed.
@@ -97,11 +98,11 @@ function assertVersionSync(): string {
   return version
 }
 
-function run(command: string, args: string[], cwd: string, env?: Record<string, string>): Promise<void> {
+function run(command: string, args: string[], cwd: string, env?: Record<string, string>, okCodes: readonly number[] = [0]): Promise<void> {
   console.log(`\n> ${command} ${args.join(' ')}`)
   return new Promise((resolve, reject) => {
     spawn(command, args, { cwd, stdio: 'inherit', env: env ? { ...process.env, ...env } : process.env })
-      .on('close', code => (code === 0 ? resolve() : reject(new Error(`command failed with exit code ${code}: ${command} ${args.join(' ')}`))))
+      .on('close', code => (code !== null && okCodes.includes(code) ? resolve() : reject(new Error(`command failed with exit code ${code}: ${command} ${args.join(' ')}`))))
       .on('error', reject)
   })
 }
@@ -125,6 +126,38 @@ async function buildGo(target: Target): Promise<void> {
   })
 }
 
+/**
+ * Targets current UPX cannot pack. macOS packing has been disabled since 4.2.0
+ * (a packed binary does not run on macOS 13+). win64/arm64 is still unsupported.
+ */
+function upxSkipReason(target: Target): string | null {
+  if (target.goos === 'darwin') {
+    return 'current UPX does not produce binaries that run on macOS 13+'
+  }
+  if (target.goos === 'windows' && target.goarch === 'arm64') {
+    return 'current UPX does not support win64/arm64'
+  }
+  return null
+}
+
+function compressWithUpx(target: Target): Promise<void> {
+  const outFile = path.join(binDir, target.dir, `file-lite-go${target.ext}`)
+  const skipReason = upxSkipReason(target)
+  if (skipReason) {
+    console.log(`\n--- skipping UPX for ${target.dir}: ${skipReason} ---`)
+    return Promise.resolve()
+  }
+
+  console.log(`\n--- compressing with UPX: ${target.dir} ---`)
+  // Exit 2 is UPX's warning status; the file is still packed.
+  return run('upx', ['--best', outFile], backendGoDir, undefined, [0, 2]).catch((error: unknown) => {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      throw new Error('upx was not found on PATH; install UPX or omit --upx')
+    }
+    throw error
+  })
+}
+
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
   for (let n = 0; n < 256; n++) {
@@ -145,9 +178,12 @@ function crc32(buf: Buffer): number {
   return (c ^ 0xFFFFFFFF) >>> 0
 }
 
-// Fixed DOS timestamp (2024-01-01 00:00 UTC) keeps archives reproducible.
-const DOS_TIME = 0
-const DOS_DATE = ((2024 - 1980) << 9) | (1 << 5) | 1
+/** Local DOS date/time (2-second resolution) for the zip headers. */
+function dosTimestamp(date = new Date()): { time: number, date: number } {
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1)
+  const dosDate = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()
+  return { time, date: dosDate }
+}
 
 interface ZipEntry {
   /** Archive path, always with forward slashes. */
@@ -158,6 +194,7 @@ interface ZipEntry {
 }
 
 function createZip(entries: ZipEntry[]): Buffer {
+  const { time: dosTime, date: dosDate } = dosTimestamp()
   const localChunks: Buffer[] = []
   const centralChunks: Buffer[] = []
   let offset = 0
@@ -172,8 +209,8 @@ function createZip(entries: ZipEntry[]): Buffer {
     local.writeUInt16LE(20, 4) // version needed to extract
     local.writeUInt16LE(0x0800, 6) // flags: UTF-8 names
     local.writeUInt16LE(8, 8) // compression method: deflate
-    local.writeUInt16LE(DOS_TIME, 10)
-    local.writeUInt16LE(DOS_DATE, 12)
+    local.writeUInt16LE(dosTime, 10)
+    local.writeUInt16LE(dosDate, 12)
     local.writeUInt32LE(crc, 14)
     local.writeUInt32LE(compressed.length, 18)
     local.writeUInt32LE(entry.data.length, 22)
@@ -187,8 +224,8 @@ function createZip(entries: ZipEntry[]): Buffer {
     central.writeUInt16LE(20, 6) // version needed to extract
     central.writeUInt16LE(0x0800, 8) // flags: UTF-8 names
     central.writeUInt16LE(8, 10) // compression method: deflate
-    central.writeUInt16LE(DOS_TIME, 12)
-    central.writeUInt16LE(DOS_DATE, 14)
+    central.writeUInt16LE(dosTime, 12)
+    central.writeUInt16LE(dosDate, 14)
     central.writeUInt32LE(crc, 16)
     central.writeUInt32LE(compressed.length, 20)
     central.writeUInt32LE(entry.data.length, 24)
@@ -264,6 +301,7 @@ Targets (exactly one is required):
 Options:
   --skip-frontend   Reuse an existing backend-go/frontend-assets.tar.gz
   --skip-pack       Build the binaries without writing the release zips
+  --upx             Compress binaries with UPX before packing (macOS and Windows ARM64 are skipped)
   -h, --help        Show this help
 
 Examples:
@@ -271,6 +309,7 @@ Examples:
   bun run build:all                                   # same as --all --skip-pack
   bun run scripts/build.ts --current                  # current platform incl. release zip
   bun run scripts/build.ts --all --skip-frontend
+  bun run scripts/build.ts --all --skip-frontend --upx
 `)
 }
 
@@ -287,7 +326,7 @@ async function main(): Promise<void> {
     return
   }
 
-  const knownFlags = ['--current', '--all', '--skip-frontend', '--skip-pack']
+  const knownFlags = ['--current', '--all', '--skip-frontend', '--skip-pack', '--upx']
   const unknown = argv.filter(arg => !knownFlags.includes(arg))
   if (unknown.length > 0) {
     throw new Error(`unknown option(s): ${unknown.join(', ')}`)
@@ -303,6 +342,7 @@ async function main(): Promise<void> {
   }
   const skipFrontend = argv.includes('--skip-frontend')
   const skipPack = argv.includes('--skip-pack')
+  const useUpx = argv.includes('--upx')
 
   const version = assertVersionSync()
   console.log(`Version: ${version}`)
@@ -320,6 +360,9 @@ async function main(): Promise<void> {
 
   for (const target of targets) {
     await buildGo(target)
+    if (useUpx) {
+      await compressWithUpx(target)
+    }
     if (!skipPack) {
       packTarget(target, version)
     }
