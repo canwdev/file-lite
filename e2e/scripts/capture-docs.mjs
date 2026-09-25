@@ -286,7 +286,14 @@ async function waitForServer(timeoutMs = 60_000) {
   throw new Error(`server on ${BASE} did not come up within ${timeoutMs / 1000}s`)
 }
 
-async function fetchToken() {
+/**
+ * 登录并取回两个 cookie。
+ *
+ * 1.5.0 起凭证只走 HttpOnly cookie，响应体不再带 token（见后端 `authWithPassword`）：
+ * `file_lite_auth_token` 是 HttpOnly 凭证，`file_lite_session` 是可读的 CSRF 双提交值。
+ * 两个都要注入新上下文——只给前者，截图里的写操作（上传）会因缺 CSRF 头而 403。
+ */
+async function fetchAuthCookies() {
   const response = await fetch(`${BASE}/api/files/auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -295,11 +302,29 @@ async function fetchToken() {
   if (!response.ok) {
     throw new Error(`login failed with HTTP ${response.status}`)
   }
-  const data = await response.json()
-  if (!data?.token) {
-    throw new Error('login response had no token')
+  const wanted = new Set(['file_lite_auth_token', 'file_lite_session'])
+  // Node < 18.14 has no getSetCookie(); the fallback splits the merged header.
+  // Safe here because these cookies carry Max-Age, not an Expires date with a comma.
+  const rawCookies = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : (response.headers.get('set-cookie') ?? '').split(/,\s*(?=[^;=]+=)/)
+  const cookies = []
+  for (const header of rawCookies) {
+    const pair = header.split(';', 1)[0]
+    const eq = pair.indexOf('=')
+    if (eq < 0) {
+      continue
+    }
+    const name = pair.slice(0, eq).trim()
+    const value = pair.slice(eq + 1).trim()
+    if (wanted.has(name) && value) {
+      cookies.push({ name, value })
+    }
   }
-  return data.token
+  if (!cookies.some(cookie => cookie.name === 'file_lite_auth_token')) {
+    throw new Error('login response set no auth cookie')
+  }
+  return cookies
 }
 
 /** 把 PNG 缩到 OUT_WIDTH 宽写成 webp；没有 ffmpeg 就退回 PNG。 */
@@ -343,7 +368,7 @@ async function main() {
   })
 
   await waitForServer()
-  const token = await fetchToken()
+  const authCookies = await fetchAuthCookies()
   const { chromium } = await import('playwright')
   const browser = await chromium.launch({
     args: ['--force-color-profile=srgb', '--font-render-hinting=none', '--autoplay-policy=no-user-gesture-required'],
@@ -359,7 +384,7 @@ async function main() {
         deviceScaleFactor: 2,
         colorScheme: 'light',
       })
-      await context.addCookies([{ name: 'file_lite_auth_token', value: token, url: BASE }])
+      await context.addCookies(authCookies.map(cookie => ({ ...cookie, url: BASE })))
       // 网格图标默认 48px，缩略图太小；mergeDefaults 会把这一段并进本地设置
       await context.addInitScript(() => {
         localStorage.setItem('file_lite_local_settings_store', JSON.stringify({ iconSizeGrid: 200 }))
