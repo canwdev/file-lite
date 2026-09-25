@@ -220,20 +220,15 @@ func startServer() (*cli.ServerResult, error) {
 		}
 		frontendPort := config.FrontendPort()
 
-		ips := utils.PrintUrls(protocol, host, frontendPort, ticketParam)
+		utils.PrintUrls(protocol, host, frontendPort, ticketParam)
 		fmt.Println("IP Selector:")
 
-		localhostUrl := fmt.Sprintf("%s//127.0.0.1:%d", protocol, frontendPort)
-		encodedData, err := utils.EncodeIpSelectorParams(utils.IpSelectorParams{
-			IPs:      ips,
-			Port:     frontendPort,
-			Protocol: protocol,
-			Ticket:   ticket.Value,
-		})
-		if err != nil {
-			fmt.Println("Error encoding IP selector data:", err)
+		// The page itself is authenticated and fetches the address list from
+		// /api/files/ip-chooser; the URL only carries the regular login ticket.
+		urlIpSelector := fmt.Sprintf("%s//127.0.0.1:%d/ip", protocol, frontendPort)
+		if ticket.Value != "" {
+			urlIpSelector += "?ticket=" + ticket.Value
 		}
-		urlIpSelector := fmt.Sprintf("%s/ip?data=%s", localhostUrl, encodedData)
 		result.UrlIpSelector = urlIpSelector
 		fmt.Println(urlIpSelector)
 		fmt.Println("")

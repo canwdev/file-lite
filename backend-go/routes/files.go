@@ -29,6 +29,7 @@ func registerFiles(g *echo.Group) {
 	fileops.SetMounts(visibleDrives())
 
 	g.GET("/auth", func(c echo.Context) error { return getAuthInfo(c) })
+	g.POST("/ip-chooser", func(c echo.Context) error { return getIpChooserInfo(c) })
 	g.GET("/drives", func(c echo.Context) error { return getDrives(c) })
 	g.GET("/list", func(c echo.Context) error { return getFiles(c) }, etag.Etag())
 	g.POST("/create-dir", func(c echo.Context) error { return createDirectory(c) })
@@ -61,6 +62,25 @@ func getAuthInfo(c echo.Context) error {
 		// allowedRoots 生效时的允许范围，空表示不限制。
 		// 前端用它把「为什么这里点不进去」讲清楚：一个没有说明的 403 只会让人以为坏了。
 		"allowedRoots": fileops.AllowedRoots(),
+	})
+}
+
+// getIpChooserInfo mints a short-lived ticket and returns one login URL per
+// local address, so the frontend can render a QR code that signs another device
+// in without a password. Minting a credential is a write, hence POST; the
+// ticket lives for two minutes and the frontend refreshes it on demand.
+func getIpChooserInfo(c echo.Context) error {
+	ticket, err := config.NewAuthTicket()
+	if err != nil {
+		return err
+	}
+	protocol := "http:"
+	if config.IsHTTPS() {
+		protocol = "https:"
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"urls":      utils.BuildConnectionURLs(protocol, config.Host(), config.FrontendPort(), ticket.Value),
+		"expiresAt": ticket.ExpiresAt,
 	})
 }
 

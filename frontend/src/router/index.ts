@@ -32,7 +32,6 @@ const router = createRouter({
       component: () => import('@/views/IpChooser.vue'),
       meta: {
         title: 'IP Chooser',
-        skipLogin: true,
       },
     },
     {

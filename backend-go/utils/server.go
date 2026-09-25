@@ -65,6 +65,30 @@ func GetAvailableIPs(host string) []string {
 	return GetInterfaceIPs()
 }
 
+// BuildConnectionURLs returns one access URL per local address, loopback
+// included, optionally carrying a ticket. It is the single place that formats a
+// host for a URL (IPv6 needs brackets), shared by the startup banner and the IP
+// chooser API.
+func BuildConnectionURLs(protocol string, host string, port int, ticket string) []string {
+	ips := GetAvailableIPs(host)
+	if len(ips) == 0 && host != "" && host != "0.0.0.0" && host != "::" {
+		// Bound to one concrete address: GetAvailableIPs only enumerates
+		// interfaces for the wildcard host, so fall back to that address.
+		ips = []string{host}
+	}
+
+	suffix := ""
+	if ticket != "" {
+		suffix = "?ticket=" + ticket
+	}
+
+	urls := make([]string, 0, len(ips))
+	for _, ip := range ips {
+		urls = append(urls, fmt.Sprintf("%s//%s:%d%s", protocol, formatHostForURL(ip), port, suffix))
+	}
+	return urls
+}
+
 func PrintUrls(protocol string, host string, port int, authParam string) []string {
 	localhost := fmt.Sprintf("%s//127.0.0.1:%d", protocol, port)
 	fmt.Printf("Listening on: %s:%d\n%s%s\n", host, port, localhost, func() string {
@@ -75,19 +99,9 @@ func PrintUrls(protocol string, host string, port int, authParam string) []strin
 	}())
 
 	ips := GetAvailableIPs(host)
-
-	if len(ips) > 0 {
-		authSuffix := func() string {
-			if authParam == "" {
-				return ""
-			}
-			return "?" + authParam
-		}()
-
-		fmt.Printf("Available on:\n%s//%s:%d%s\n", protocol, formatHostForURL(ips[0]), port, authSuffix)
-		for i := 1; i < len(ips); i++ {
-			fmt.Printf("%s//%s:%d%s\n", protocol, formatHostForURL(ips[i]), port, authSuffix)
-		}
+	urls := BuildConnectionURLs(protocol, host, port, strings.TrimPrefix(authParam, "ticket="))
+	if len(urls) > 0 {
+		fmt.Printf("Available on:\n%s\n", strings.Join(urls, "\n"))
 	}
 	return ips
 }

@@ -144,6 +144,7 @@ async function handleExitBackend() {
 }
 
 export function useFileLiteMenu() {
+  const router = useRouter()
   const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
   const { isSupported: isFullscreenSupported, isFullscreen, toggleFullscreen } = useFullscreenToggle()
   const { clearCollection } = useCollection()
@@ -511,6 +512,13 @@ export function useFileLiteMenu() {
           divided: true,
           onClick: () => {
             toggleKeyboardShortcutsApp()
+          },
+        },
+        {
+          label: 'IP Chooser',
+          icon: 'mdi mdi-ip-network',
+          onClick: () => {
+            void router.push({ name: 'IpChooserView' })
           },
         },
         {
