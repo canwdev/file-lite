@@ -60,6 +60,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Sandboxed previews**: Streamed HTML and SVG files are sandboxed into a unique origin and sent with `nosniff`, so opening one can no longer run script on the app’s origin (frontend, backend).
+- **Command injection**: On Windows, the “reveal in host explorer” fallback opens the folder through the shell API instead of `cmd`, so a crafted folder name cannot execute a command (backend).
+- **Config permissions**: `config.json` is written owner-only, and an existing file is tightened on startup (backend).
 - **Archive password**: Extracting an encrypted archive without a password reports that a password is required, instead of the 7-Zip copyright line (backend).
 - **Plugin files** cache: Plugin files revalidate on every request, so an edited page or script is picked up the next time the plugin opens, and an unchanged file is not downloaded again (backend).
 - **Locate in folder**: Locating a file from the gallery or playlist opens it in the focused tab and leaves the other tabs on their own paths (frontend).

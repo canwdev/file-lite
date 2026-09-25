@@ -601,9 +601,31 @@ func getFileStream(c echo.Context) error {
 	}
 	c.Response().Header().Set("ETag", etagValue)
 	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=0, must-revalidate")
+	// Streamed files are untrusted. nosniff stops the browser from reinterpreting
+	// them, and an HTML/SVG document is sandboxed into a unique origin: served
+	// inline on this origin it could otherwise run script that reads the session
+	// cookie and calls the API.
+	h := c.Response().Header()
+	h.Set("X-Content-Type-Options", "nosniff")
+	if isActiveDocument(res.Path) {
+		h.Set("Content-Security-Policy", "sandbox allow-scripts")
+	}
 	name := fileops.BaseName(res.Path)
-	c.Response().Header().Set("Content-Disposition", utils.InlineDisposition(name))
+	h.Set("Content-Disposition", utils.InlineDisposition(name))
 	return c.File(osPath)
+}
+
+// activeDocumentExtensions are the extensions a browser renders as a document
+// that can execute script.
+var activeDocumentExtensions = map[string]bool{
+	".html":  true,
+	".htm":   true,
+	".xhtml": true,
+	".svg":   true,
+}
+
+func isActiveDocument(p string) bool {
+	return activeDocumentExtensions[strings.ToLower(filepath.Ext(p))]
 }
 
 // resolveDownloadPaths 把下载请求里的路径统一解析成本机路径。

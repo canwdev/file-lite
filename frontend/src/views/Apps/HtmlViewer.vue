@@ -29,6 +29,7 @@ watch(() => props.appParams, () => {
       v-if="src"
       class="html-viewer__frame"
       referrerpolicy="no-referrer"
+      sandbox="allow-scripts"
       :src="src"
     />
   </div>

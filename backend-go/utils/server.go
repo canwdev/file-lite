@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"net"
-	"os/exec"
-	"runtime"
 	"strings"
 )
 
@@ -104,25 +102,4 @@ func PrintUrls(protocol string, host string, port int, authParam string) []strin
 		fmt.Printf("Available on:\n%s\n", strings.Join(urls, "\n"))
 	}
 	return ips
-}
-
-func Opener(url string) error {
-	var cmd string
-	var args []string
-
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start", url}
-	case "darwin":
-		cmd = "open"
-		args = []string{url}
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
-		args = []string{url}
-	}
-	// Windows 上 cmd /c start 也是控制台程序，服务没有控制台时同样会闪一个黑窗口
-	command := exec.Command(cmd, args...)
-	HideConsoleWindow(command)
-	return command.Start()
 }

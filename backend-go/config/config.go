@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -127,7 +126,7 @@ func LoadConfig(allowCreate bool) error {
 	// 访问范围在读完 config.json 之后由启动路径打印（见 main.go 的 applyAllowedRoots）。
 
 	if allowCreate {
-		_ = os.MkdirAll(dataBaseDir, fs.ModePerm)
+		_ = os.MkdirAll(dataBaseDir, 0o700)
 	}
 
 	def := Cfg{
@@ -188,12 +187,16 @@ func LoadConfig(allowCreate bool) error {
 		if err != nil {
 			return fmt.Errorf("marshal config: %w", err)
 		}
-		if err := os.WriteFile(fp, b, 0644); err != nil {
+		if err := os.WriteFile(fp, b, 0o600); err != nil {
 			return fmt.Errorf("write config file %s: %w", fp, err)
 		}
+		hardenSecretFile(fp)
 	}
 	if _, err := os.Stat(fp); err == nil {
 		configInitialized = true
+		// Fix installs created before the mode was restricted: os.WriteFile keeps
+		// an existing file's mode, so this cannot wait for the next write.
+		hardenSecretFile(fp)
 	} else {
 		configInitialized = false
 	}
@@ -228,10 +231,20 @@ func SetSSLAndPersist(key, cert string) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := os.WriteFile(configFilePath, b, 0644); err != nil {
+	if err := os.WriteFile(configFilePath, b, 0o600); err != nil {
 		return fmt.Errorf("write config file %s: %w", configFilePath, err)
 	}
+	hardenSecretFile(configFilePath)
 	return nil
+}
+
+// hardenSecretFile limits config.json to its owner. It holds the plaintext
+// password and the JWT signing key, so it must not be world-readable; both
+// would let any local user sign in and mint valid tokens.
+func hardenSecretFile(path string) {
+	if err := os.Chmod(path, 0o600); err != nil {
+		fmt.Printf("warning: could not restrict permissions on %s: %v\n", path, err)
+	}
 }
 
 func generateJWTSecret() (string, error) {
