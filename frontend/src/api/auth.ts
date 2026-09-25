@@ -34,8 +34,9 @@ export function consumeTicket(ticket: string, remember: boolean) {
 }
 
 export function logout() {
+  // `isAuth` stays on so the interceptor echoes the session cookie as the CSRF
+  // header. The backend still allows logout without a session cookie.
   return service.post(`${baseURL}/auth/logout`, undefined, {
-    isAuth: false,
     isToast: false,
   } satisfies ServiceRequestConfig)
 }

@@ -208,8 +208,14 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		fromHeader := c.Request().Header.Get("Authorization")
 		token := fromHeader
 		if token == "" {
-			if ck, err := c.Cookie(AuthCookieName); err == nil {
-				token = ck.Value
+			// The auth and session cookies are issued and cleared as a pair, so an
+			// auth cookie without its session partner is a leftover (an older
+			// version, or a deleted cookie). Reject it: accepting it would allow
+			// reads while every write fails the CSRF check.
+			if authCookie, err := c.Cookie(AuthCookieName); err == nil && authCookie.Value != "" {
+				if session, err := c.Cookie(SessionCookieName); err == nil && session.Value != "" {
+					token = authCookie.Value
+				}
 			}
 		}
 		if token != "" && config.VerifyAuthJWT(token) {
@@ -226,6 +232,9 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 		authLimiter.recordFailure(ip)
+		// Drop cookies the server has already rejected so the browser stops
+		// replaying a dead credential on every request.
+		ClearAuthCookies(c)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
 	}
 }

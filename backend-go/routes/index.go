@@ -72,6 +72,14 @@ func authWithPassword(c echo.Context) error {
 }
 
 func logout(c echo.Context) error {
+	// Logout needs no session (an expired token must still be able to clear
+	// itself), but a live session cookie must pass the double-submit check so
+	// another site cannot force a logout.
+	if session, err := c.Cookie(middlewares.SessionCookieName); err == nil && session.Value != "" {
+		if c.Request().Header.Get(middlewares.CSRFTokenHeader) != session.Value {
+			return c.JSON(http.StatusForbidden, map[string]string{"message": "Forbidden"})
+		}
+	}
 	middlewares.ClearAuthCookies(c)
 	return c.NoContent(http.StatusNoContent)
 }
