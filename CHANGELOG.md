@@ -39,6 +39,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Auth**: The login token is kept in an HttpOnly cookie, so page scripts can no longer read it, the WebSocket URL no longer carries it, and logout clears it on the server (frontend, backend).
 - **IP Chooser**: The IP chooser opens from the main menu and loads its address list and QR code through an authenticated API call, so the QR code always carries a freshly issued login ticket instead of one encoded in the URL (frontend, backend).
 - **Plugins**: Plugins can be dropped into the server plugins folder, appear in the main menu, open in windows, and can read/write files and list directories (frontend, backend).
 - **Plugin names**: A plugin folder or HTML file can use any name. Names starting with `.` and other file types in the plugins folder are still ignored (backend).

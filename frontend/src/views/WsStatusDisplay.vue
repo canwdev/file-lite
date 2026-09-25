@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { sharedWsStatus } from '@/api/shared-ws'
-import { authToken } from '@/store/auth'
+import { authSession } from '@/store/auth'
 
 const statusText = computed(() => {
   switch (sharedWsStatus.value) {
@@ -15,7 +15,7 @@ const statusText = computed(() => {
   }
 })
 
-const visible = computed(() => !!authToken.value && sharedWsStatus.value !== 'connected')
+const visible = computed(() => !!authSession.value && sharedWsStatus.value !== 'connected')
 </script>
 
 <template>

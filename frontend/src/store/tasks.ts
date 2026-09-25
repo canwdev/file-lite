@@ -9,7 +9,7 @@ import type {
   TaskState,
 } from '@/types/server'
 import { ref, watch } from 'vue'
-import { ensureSharedWsConnected, sharedWsStatus, subscribeSharedWsMessage } from '@/api/shared-ws'
+import { closeSharedWs, ensureSharedWsConnected, sharedWsStatus, subscribeSharedWsMessage } from '@/api/shared-ws'
 import {
   newTaskRequestId,
   sendCancelTask,
@@ -19,7 +19,7 @@ import {
   sendResolveConflict,
   sendRetryTask,
 } from '@/api/tasks-ws'
-import { authToken } from '@/store/auth'
+import { authSession } from '@/store/auth'
 
 /* ============================ 任务列表状态 ============================ */
 /* 原来单独放在 task-state.ts；现在只有本模块一个消费者，合并回来。 */
@@ -561,13 +561,15 @@ watch(sharedWsStatus, (status) => {
   }
 }, { immediate: true })
 
-// 连接时机必须挂在**拿到 token 之后**，不能在模块求值时就连：
-// 本模块可能随登录页的模块图一起被求值，那时 `store/auth.ts` 还没把 cookie 里的
-// token 读出来，提前连接会得到一个必然失败的「No auth token」，而 `shared-ws` 的
-// 失败路径会顺带把 token 清掉 —— 表现就是「刷新一下就被踢回登录页」。
-watch(authToken, (token) => {
-  if (token) {
+// 连接时机必须挂在**拿到会话之后**，不能在模块求值时就连：本模块可能随登录页的
+// 模块图一起被求值，那时还没有会话，提前连接只会得到一个必然失败的结果。
+// 会话清空（登出）时主动断开，避免带着失效 cookie 反复重连。
+watch(authSession, (session) => {
+  if (session) {
     void ensureSharedWsConnected().catch(() => {})
+  }
+  else {
+    closeSharedWs()
   }
 }, { immediate: true })
 

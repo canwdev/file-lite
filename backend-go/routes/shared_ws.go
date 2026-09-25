@@ -13,11 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"file-lite-go/config"
+	"file-lite-go/middlewares"
 )
 
 const (
 	sharedWSPath              = "/api/ws"
-	sharedWSAuthCookieName    = "file_lite_auth_token"
 	sharedWSMaxConnectionsPer = 20
 
 	// 每个连接的出站队列长度。异步任务会高频推送进度，队列满时进度类消息
@@ -360,12 +360,12 @@ func releaseSharedWSIPConnection(ip string) {
 }
 
 func isSharedWSAuthenticated(c echo.Context) bool {
-	token := c.QueryParam("token")
+	// The browser sends the HttpOnly auth cookie on the same-origin handshake.
+	// A bearer header stays supported for non-browser clients; the token is no
+	// longer read from the query string, where it would leak into logs.
+	token := c.Request().Header.Get("Authorization")
 	if token == "" {
-		token = c.Request().Header.Get("Authorization")
-	}
-	if token == "" {
-		if cookie, err := c.Cookie(sharedWSAuthCookieName); err == nil {
+		if cookie, err := c.Cookie(middlewares.AuthCookieName); err == nil {
 			token = cookie.Value
 		}
 	}

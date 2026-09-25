@@ -13,7 +13,7 @@ declare global {
   interface Window {
     $message: SFCInstallWithContext<Message>
     $dialog: SFCInstallWithContext<ElMessageBox>
-    $logout: (clearToken?: boolean) => void
+    $logout: (clearServerSession?: boolean) => void
     __APP_READY__: boolean
     // $fsWebApi: typeof import('@/api/filesystem').fsWebApi
   }

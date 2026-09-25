@@ -63,11 +63,15 @@ export async function dismissFinishedTasks(page: Page) {
  *
  * 每个用例都是一个全新的浏览器上下文，本来要各登一次；但登录端点有
  * 「每 IP 每分钟 20 次」的限流（`middlewares/rate_limiter.go`），用例一多就会
- * 撞上 429，表现为一直停在登录页。第一个用例走真实登录表单，之后把拿到的
- * token cookie 直接写进新上下文，仍然是完整走一遍鉴权。
+ * 撞上 429，表现为一直停在登录页。第一个用例走真实登录表单，之后把拿到的两个
+ * cookie 直接写进新上下文，仍然是完整走一遍鉴权。
+ *
+ * 两个都要带上：`file_lite_auth_token` 是 HttpOnly 凭证，`file_lite_session`
+ * 是可读的 CSRF 双提交值——只注入前者，写操作会因缺 CSRF 头而 403。
  */
 const AUTH_TOKEN_COOKIE = 'file_lite_auth_token'
-let sharedAuthToken: string | null = null
+const AUTH_SESSION_COOKIE = 'file_lite_session'
+let sharedAuthCookies: { name: string, value: string }[] | null = null
 
 /**
  * 把夹具目录伪装成唯一的「盘」。
@@ -87,24 +91,29 @@ async function stubFixtureMounts(page: Page) {
 }
 
 export async function login(page: Page) {
-  if (sharedAuthToken) {
-    await page.context().addCookies([
-      { name: AUTH_TOKEN_COOKIE, value: sharedAuthToken, url: `http://127.0.0.1:${PORT}` },
-    ])
+  if (sharedAuthCookies) {
+    await page.context().addCookies(sharedAuthCookies.map(cookie => ({
+      ...cookie,
+      url: `http://127.0.0.1:${PORT}`,
+    })))
   }
 
   await stubFixtureMounts(page)
   await page.goto('/')
-  if (!sharedAuthToken) {
+  if (!sharedAuthCookies) {
     const password = page.locator('input[placeholder="Input password"]')
     await password.waitFor()
     await password.fill(PASSWORD)
     await page.getByRole('button', { name: 'Sign In' }).click()
-    sharedAuthToken = (await page.context().cookies())
-      .find(cookie => cookie.name === AUTH_TOKEN_COOKIE)?.value ?? null
   }
 
   await page.locator('.explorer-wrap').waitFor()
+  if (!sharedAuthCookies) {
+    const cookies = (await page.context().cookies())
+      .filter(cookie => cookie.name === AUTH_TOKEN_COOKIE || cookie.name === AUTH_SESSION_COOKIE)
+      .map(cookie => ({ name: cookie.name, value: cookie.value }))
+    sharedAuthCookies = cookies.length > 0 ? cookies : null
+  }
   await expect(row(page, 'source')).toBeVisible()
   // 用例共用同一台服务器：登录后先清掉历史任务，保证窗口与截图只反映当前用例
   await dismissFinishedTasks(page)

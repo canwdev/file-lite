@@ -11,16 +11,15 @@ import antfu from '@antfu/eslint-config'
  */
 const storageContract = {
   files: ['src/**/*.{ts,vue}'],
-  // `utils/fs` 是门面本身，`api/` 是定义处；登录相关的两个入口用的是
-  // `fsWebApi.auth` / `login` / `consumeTicket`——那是平台调用，不是文件操作，
-  // 不该被塞进存储门面，所以在契约里显式豁免。
-  ignores: ['src/utils/fs/**', 'src/api/**', 'src/router/index.ts', 'src/views/Login.vue'],
+  // `utils/fs` 是门面本身，`api/` 是定义处。认证接口（登录 / 换票 / 登出）独立在
+  // `api/auth.ts`，页面不再需要直接碰 `fsWebApi`，所以不再豁免任何页面文件。
+  ignores: ['src/utils/fs/**', 'src/api/**'],
   rules: {
     'no-restricted-imports': ['error', {
       paths: [{
         name: '@/api/filesystem',
         importNames: ['fsWebApi'],
-        message: '只有 @/utils/fs 可以直接用 fsWebApi。请改走门面（fs.list / fs.writeText / fs.url / fs.existingPaths …）；登录相关的 fsWebApi.auth / login / consumeTicket 请从 @/api/filesystem 具名导入。',
+        message: '只有 @/utils/fs 可以直接用 fsWebApi。请改走门面（fs.list / fs.writeText / fs.url / fs.existingPaths …）。',
       }],
     }],
   },

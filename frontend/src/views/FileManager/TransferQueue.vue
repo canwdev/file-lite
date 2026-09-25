@@ -5,7 +5,6 @@ import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import type { TaskItem } from '@/utils/task-queue'
 import { useStorage } from '@vueuse/core'
 import { isDev, LsKeys } from '@/enum'
-import { authToken } from '@/store/auth'
 import {
   cancelTask,
   dismissTask,
@@ -212,10 +211,8 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
 
   // 文件下载逻辑：用 pipeTo 连接网络读与磁盘写，由流标准实现背压，避免读远快于写导致
   // 大量缓冲在浏览器内、到 100% 后 close() 才集中刷盘。
+  // 同源 fetch 默认带上 HttpOnly 鉴权 cookie，不再手写 Authorization。
   const response = await fetch(fs.url(path), {
-    headers: {
-      Authorization: authToken.value,
-    },
     signal: abortController.signal,
   })
 

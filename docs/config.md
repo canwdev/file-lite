@@ -77,6 +77,7 @@ It is **not a sandbox**. The process still runs with the service account's permi
 ## Notes
 
 - `password` and `jwtToken` are secrets stored in plaintext. Do not commit `config.json` or share it.
+- The login token is kept in an HttpOnly cookie, so page scripts cannot read it and the WebSocket URL no longer carries it. Logging out asks the server to clear the cookie. Over plain HTTP the cookie still travels unencrypted — use `--with-tls` when that matters.
 - **By default, after login, every path the server process can access can be read and written** (`allowedRoots` empty). Run it only on a network you trust. Use `allowedCIDRs` to limit where clients come from, or `allowedRoots` to narrow the scope.
 - With `allowSelfUpdate` on, **any logged-in user** can upload and run an arbitrary binary, or restart or stop the service. Turn it on only on a network you trust, and pair it with `allowedCIDRs` when you need to. See [ip-allowlist.md](./ip-allowlist.md).
 - Restart the process after changing `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert`.

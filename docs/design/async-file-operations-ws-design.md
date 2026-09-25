@@ -92,7 +92,7 @@
 
 `backend-go/routes/shared_ws.go`：
 
-- 端点 `/api/ws`，鉴权支持 `?token=` / `Authorization` / cookie。
+- 端点 `/api/ws`，鉴权走 HttpOnly cookie 或 `Authorization`（token 不再从 query 读取，避免进日志）。
 - **按 `scope` 分发**：`switch scope { case "text-sync": ...; case "settings": ... }`（:110-127），新增 scope 只需加 case。
 - 每 IP 连接上限 20、Origin 校验、每客户端出站队列 + 单写协程（`sendSharedWSJSON` 只入队，慢客户端不阻塞广播）。
 - `settings` scope 已跑通「`requestId` 请求/响应 + 全客户端广播」范式（`shared_ws_settings.go`）。

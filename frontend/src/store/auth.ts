@@ -1,70 +1,35 @@
 import { useStorage } from '@vueuse/core'
 import Cookies from 'js-cookie'
-import { setSharedWsToken } from '@/api/shared-ws'
 import { LsKeys } from '@/enum'
 
-export const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
-
-const cookieOpts: Cookies.CookieAttributes = {
-  path: '/',
-  sameSite: 'strict',
-  secure: typeof location !== 'undefined' && location.protocol === 'https:',
-}
-
-const persistentCookieOpts: Cookies.CookieAttributes = {
-  ...cookieOpts,
-  expires: 365,
-}
+/**
+ * Readable session cookie, set and cleared by the backend next to the HttpOnly
+ * auth cookie. It is not a credential: the frontend uses it as a synchronous
+ * "logged in" hint and echoes it in the CSRF header.
+ */
+export const AUTH_SESSION_COOKIE_KEY = 'file_lite_session'
 
 export const rememberAuth = useStorage(LsKeys.REMEMBER_AUTH, true, localStorage, {
   listenToStorageChanges: true,
 })
 
-function readTokenFromCookie(): string {
-  return Cookies.get(AUTH_TOKEN_COOKIE_KEY) ?? ''
+/**
+ * Mirror of the readable session cookie.
+ *
+ * The auth token itself is an HttpOnly cookie that JavaScript can never read.
+ * This value answers "is there a session?", keys remote settings, and is what
+ * `service` echoes for the backend's CSRF double-submit check.
+ */
+export const authSession = ref(readAuthSession())
+
+export function readAuthSession(): string {
+  return Cookies.get(AUTH_SESSION_COOKIE_KEY) ?? ''
 }
 
-function writeAuthCookie(token: string) {
-  Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
-  Cookies.set(AUTH_TOKEN_COOKIE_KEY, token, rememberAuth.value ? persistentCookieOpts : cookieOpts)
+export function setAuthSession(value: string): void {
+  authSession.value = value
 }
 
-function migrateLegacyLocalStorage(): void {
-  if (typeof localStorage === 'undefined')
-    return
-  try {
-    const legacy = localStorage.getItem(AUTH_TOKEN_COOKIE_KEY)
-    if (legacy && !Cookies.get(AUTH_TOKEN_COOKIE_KEY)) {
-      Cookies.set(AUTH_TOKEN_COOKIE_KEY, legacy, persistentCookieOpts)
-      localStorage.removeItem(AUTH_TOKEN_COOKIE_KEY)
-    }
-  }
-  catch {
-    /* ignore private mode / quota */
-  }
+export function clearAuthSession(): void {
+  authSession.value = ''
 }
-
-migrateLegacyLocalStorage()
-
-export const authToken = ref(readTokenFromCookie())
-setSharedWsToken(authToken.value)
-
-watch(
-  authToken,
-  (value) => {
-    setSharedWsToken(value)
-    if (value) {
-      writeAuthCookie(value)
-    }
-    else {
-      Cookies.remove(AUTH_TOKEN_COOKIE_KEY, cookieOpts)
-    }
-  },
-  { flush: 'sync' },
-)
-
-watch(rememberAuth, () => {
-  if (authToken.value) {
-    writeAuthCookie(authToken.value)
-  }
-})

@@ -1,6 +1,10 @@
 import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 import axios from 'axios'
-import { authToken } from '@/store/auth'
+import Cookies from 'js-cookie'
+import { AUTH_SESSION_COOKIE_KEY } from '@/store/auth'
+
+const CSRF_HEADER = 'X-File-Lite-CSRF'
+const SAFE_METHODS = new Set(['get', 'head', 'options'])
 
 export interface ServiceRequestConfig extends AxiosRequestConfig {
   withCredentials?: boolean
@@ -22,11 +26,14 @@ function createService(): AxiosInstance {
 
       // window.$loadingBar.start()
       if (isAuth) {
-        if (!authToken.value) {
-          window.$logout?.(false)
-          throw new Error('No auth token')
+        // The HttpOnly auth cookie rides along on same-origin requests by
+        // itself. Only the readable session value must be echoed back for the
+        // double-submit check, and only on methods the backend treats as unsafe.
+        const method = (config.method ?? 'get').toLowerCase()
+        const session = Cookies.get(AUTH_SESSION_COOKIE_KEY)
+        if (session && !SAFE_METHODS.has(method)) {
+          config.headers[CSRF_HEADER] = session
         }
-        config.headers.Authorization = authToken.value
       }
 
       return config
@@ -57,8 +64,9 @@ function createService(): AxiosInstance {
       const isToast = requestConfig?.isToast ?? true
 
       if (response?.status === 401) {
-        console.log('[401] Authorization token 失效')
-        window.$logout?.(true)
+        console.log('[401] session expired')
+        // The server session is already gone; just drop local state.
+        window.$logout?.(false)
       }
 
       // extract backend message

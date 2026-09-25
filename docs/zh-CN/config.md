@@ -77,6 +77,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 ## 注意
 
 - `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
+- 登录 token 保存在 HttpOnly cookie 里，页面脚本读不到，WebSocket URL 里也不再带它；登出会请求服务端清除。明文 HTTP 下这个 cookie 仍然不加密传输，介意时请用 `--with-tls`。
 - **默认情况下，服务进程有权访问的每一个路径，登录后都能读写**（`allowedRoots` 为空时）。只在你信任的网络里运行；必要时配合 `allowedCIDRs` 限制来源，或用 `allowedRoots` 把范围收窄。
 - `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
 - 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。

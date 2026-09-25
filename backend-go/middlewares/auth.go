@@ -1,6 +1,9 @@
 package middlewares
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -104,9 +107,76 @@ func (l *ipLimiter) cleanupExpired(now time.Time) {
 
 var authLimiter = newIPLimiter()
 
-// authTokenCookieName must match frontend AUTH_TOKEN_COOKIE_KEY.
-const authTokenCookieName = "file_lite_auth_token"
-const csrfHeaderName = "X-File-Lite-CSRF"
+// Cookie and header names. AuthCookieName carries the JWT and is HttpOnly, so
+// JavaScript can never read or exfiltrate it. SessionCookieName is readable on
+// purpose: the frontend echoes it in CSRFTokenHeader for the double-submit
+// check and uses it as a synchronous "logged in" hint.
+const (
+	AuthCookieName    = "file_lite_auth_token"
+	SessionCookieName = "file_lite_session"
+	CSRFTokenHeader   = "X-File-Lite-CSRF"
+)
+
+const authSessionCookieMaxAge = 365 * 24 * 60 * 60
+
+// SetAuthCookies issues the HttpOnly auth token together with the readable
+// session value. remember picks a persistent cookie over a session cookie.
+func SetAuthCookies(c echo.Context, token string, remember bool) error {
+	session, err := newSessionID()
+	if err != nil {
+		return err
+	}
+	maxAge := 0
+	if remember {
+		maxAge = authSessionCookieMaxAge
+	}
+	secure := config.IsHTTPS()
+
+	c.SetCookie(&http.Cookie{
+		Name:     AuthCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   maxAge,
+	})
+	c.SetCookie(&http.Cookie{
+		Name:     SessionCookieName,
+		Value:    session,
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   maxAge,
+	})
+	return nil
+}
+
+// ClearAuthCookies expires both cookies. The HttpOnly token can only be removed
+// by the server, which is why logout has to be an endpoint.
+func ClearAuthCookies(c echo.Context) {
+	secure := config.IsHTTPS()
+	for _, name := range []string{AuthCookieName, SessionCookieName} {
+		c.SetCookie(&http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: name == AuthCookieName,
+			Secure:   secure,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   -1,
+		})
+	}
+}
+
+func newSessionID() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate session id: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
 
 func isSafeMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
@@ -136,17 +206,19 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusForbidden, map[string]any{"message": "Forbidden"})
 		}
 		fromHeader := c.Request().Header.Get("Authorization")
-		fromCookie := ""
 		token := fromHeader
 		if token == "" {
-			if ck, err := c.Cookie(authTokenCookieName); err == nil {
-				fromCookie = ck.Value
+			if ck, err := c.Cookie(AuthCookieName); err == nil {
 				token = ck.Value
 			}
 		}
 		if token != "" && config.VerifyAuthJWT(token) {
+			// Cookie-authenticated writes must pass the double-submit check; an
+			// explicit bearer token (curl / scripts) is exempt because a browser
+			// cannot be tricked into sending one.
 			if !config.IsExplicitDevMode() && fromHeader == "" && !isSafeMethod(c.Request().Method) {
-				if csrfToken := c.Request().Header.Get(csrfHeaderName); csrfToken == "" || csrfToken != fromCookie {
+				session, err := c.Cookie(SessionCookieName)
+				if err != nil || session.Value == "" || c.Request().Header.Get(CSRFTokenHeader) != session.Value {
 					return c.JSON(http.StatusForbidden, map[string]string{"message": "Forbidden"})
 				}
 			}

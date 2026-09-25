@@ -1,7 +1,6 @@
 import type { SettingsClientMessage, SharedWsClientMessage, SharedWsServerMessage } from '@/types/server'
-import Cookies from 'js-cookie'
+import { authSession } from '@/store/auth'
 
-const AUTH_TOKEN_COOKIE_KEY = 'file_lite_auth_token'
 const SHARED_WS_ENDPOINT = '/api/ws'
 const RECONNECT_DELAY_MS = 2000
 const REQUEST_TIMEOUT_MS = 10000
@@ -26,12 +25,7 @@ let sharedWs: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let connectPromise: Promise<WebSocket> | null = null
 let shouldReconnect = true
-let currentToken = ''
 let requestSequence = 0
-
-function getToken() {
-  return currentToken || Cookies.get(AUTH_TOKEN_COOKIE_KEY) || ''
-}
 
 function buildSharedWsUrl(): string {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -47,7 +41,7 @@ function clearPendingRequests(error: Error) {
 }
 
 function scheduleReconnect() {
-  if (!shouldReconnect || reconnectTimer || !getToken()) {
+  if (!shouldReconnect || reconnectTimer || !authSession.value) {
     return
   }
   sharedWsStatus.value = 'reconnecting'
@@ -110,7 +104,7 @@ function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (
     }
     connectPromise = null
     clearPendingRequests(new Error('WebSocket disconnected'))
-    if (shouldReconnect && getToken()) {
+    if (shouldReconnect && authSession.value) {
       scheduleReconnect()
     }
     else {
@@ -138,20 +132,18 @@ export async function ensureSharedWsConnected(): Promise<WebSocket> {
     return await connectPromise
   }
 
-  const token = getToken()
-  if (!token) {
-    console.warn(`${LOG_PREFIX} connect aborted: no auth token`)
-    throw new Error('No auth token')
+  if (!authSession.value) {
+    console.warn(`${LOG_PREFIX} connect aborted: no session`)
+    throw new Error('No session')
   }
 
   shouldReconnect = true
   sharedWsStatus.value = 'connecting'
   console.log(`${LOG_PREFIX} connecting to ${buildSharedWsUrl()}`)
   connectPromise = new Promise<WebSocket>((resolve, reject) => {
-    const url = new URL(buildSharedWsUrl())
-    url.searchParams.set('token', token)
-
-    const ws = new WebSocket(url)
+    // The HttpOnly auth cookie rides along on the same-origin handshake, so the
+    // token never appears in a URL.
+    const ws = new WebSocket(buildSharedWsUrl())
     sharedWs = ws
     bindSharedWs(ws, resolve, reject)
   })
@@ -174,21 +166,6 @@ export function closeSharedWs() {
     sharedWs.close()
   }
   sharedWs = null
-}
-
-export function setSharedWsToken(token: string) {
-  const prevToken = currentToken
-  currentToken = token
-  if (!token) {
-    console.log(`${LOG_PREFIX} token cleared`)
-    closeSharedWs()
-    return
-  }
-  shouldReconnect = true
-  if (prevToken && prevToken !== token) {
-    console.log(`${LOG_PREFIX} token changed, reconnecting`)
-    sharedWs?.close()
-  }
 }
 
 export async function sendSharedWsMessage(payload: SharedWsClientMessage) {

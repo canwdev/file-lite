@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { getCurrentScope, onScopeDispose } from 'vue'
 import { settingsApi } from '@/api/settings'
-import { authToken } from '@/store/auth'
+import { authSession } from '@/store/auth'
 
 interface UseRemoteSettingOptions<T> {
   key: string
@@ -19,7 +19,7 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
   const {
     key,
     createDefaultValue,
-    sessionRef = authToken,
+    sessionRef = authSession,
     normalize = value => (value as T),
     debounceMs = 120,
     deep = true,

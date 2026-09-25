@@ -18,6 +18,9 @@ func Register(api *echo.Group) {
 	api.GET("/ws", handleSharedWebSocket)
 	// 只有登录端点可能被爆破：严格限流 + 失败封禁都放在这里。
 	api.POST("/files/auth", authWithPassword, middlewares.LoginRateLimiter())
+	// Clearing cookies needs no session: an expired token must still be able to
+	// log out. Registered outside the authenticated `/files` group on purpose.
+	api.POST("/files/auth/logout", logout)
 	files := api.Group("/files")
 	files.Use(middlewares.AuthMiddleware)
 	registerFiles(files)
@@ -35,24 +38,40 @@ func authWithPassword(c echo.Context) error {
 	var body struct {
 		Password string `json:"password"`
 		Ticket   string `json:"ticket"`
+		Remember bool   `json:"remember"`
 	}
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
 	}
+
+	var token string
 	if body.Ticket != "" {
-		token, ok := config.ConsumeAuthTicket(body.Ticket)
+		t, ok := config.ConsumeAuthTicket(body.Ticket)
 		if !ok {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
 		}
-		return c.JSON(http.StatusOK, map[string]string{"token": token})
+		token = t
+	} else {
+		if body.Password != config.Config().Password {
+			utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
+			return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		}
+		t, err := config.NewAuthToken()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
+		}
+		token = t
 	}
-	if body.Password != config.Config().Password {
-		utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
-	}
-	token, err := config.NewAuthToken()
-	if err != nil {
+
+	// The credential leaves in an HttpOnly cookie; the body carries none, so an
+	// XSS cannot read the long-lived token out of the response or storage.
+	if err := middlewares.SetAuthCookies(c, token, body.Remember); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed"})
 	}
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
+	return c.JSON(http.StatusOK, map[string]any{"ok": true})
+}
+
+func logout(c echo.Context) error {
+	middlewares.ClearAuthCookies(c)
+	return c.NoContent(http.StatusNoContent)
 }

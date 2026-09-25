@@ -1,4 +1,3 @@
-import type { ServerCapabilities } from '@/store/capabilities'
 import type { IDrive, IEntry } from '@/types/server'
 import type { ServiceRequestConfig } from '@/utils/service'
 import qs from 'qs'
@@ -9,28 +8,7 @@ const baseURL = `/api/files`
 /** 上传同名冲突策略，与服务端 upload-file 的 onConflict 参数一致。 */
 export type UploadConflictPolicy = 'error' | 'overwrite' | 'keep-both'
 
-/** 登录态探测的响应，同时携带后端能力开关 */
-export interface IAuthInfo {
-  capabilities?: Partial<ServerCapabilities>
-  /**
-   * 服务端配置的文件访问范围（`allowedRoots`），空数组表示不限制。
-   *
-   * 后端只在配置了它时才收窄，此时范围之外的请求一律 403。前端拿到这个值是为了
-   * 把「为什么这里点不进去」讲清楚——一个没有说明的 403 只会让人以为坏了。
-   */
-  allowedRoots?: string[]
-}
-
 export const fsWebApi = {
-  async auth() {
-    return (await service.get(`${baseURL}/auth`)) as unknown as IAuthInfo
-  },
-  login(password: string) {
-    return service.post(`${baseURL}/auth`, { password }, { isAuth: false } satisfies ServiceRequestConfig) as Promise<{ token: string }>
-  },
-  consumeTicket(ticket: string) {
-    return service.post(`${baseURL}/auth`, { ticket }, { isAuth: false } satisfies ServiceRequestConfig) as Promise<{ token: string }>
-  },
   async getDrives() {
     return (await service.get(`${baseURL}/drives`)) as unknown as IDrive[]
   },

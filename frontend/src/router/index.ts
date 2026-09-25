@@ -1,10 +1,10 @@
 import type { RouteLocationNormalized } from 'vue-router'
 import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { fsWebApi } from '@/api/filesystem'
+import { consumeTicket, getAuthInfo } from '@/api/auth'
 import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
-import { authToken } from '@/store/auth'
+import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 import { setServerAllowedRoots, setServerCapabilities } from '@/store/capabilities'
 import { isUnauthorizedError } from '@/utils/auth-error'
 
@@ -45,7 +45,7 @@ const router = createRouter({
   ],
 })
 
-let verifiedAuthToken = ''
+let verifiedSession = ''
 
 function warmSettingsStore() {
   void ensureSettingsStoreInitialized().catch((error) => {
@@ -53,18 +53,21 @@ function warmSettingsStore() {
   })
 }
 
+/**
+ * Probe the session. The token is an HttpOnly cookie, so nothing can be checked
+ * locally: ask the backend and mirror the readable session cookie. A 401 is
+ * surfaced by the service interceptor, which sends the app back to the login.
+ */
 async function ensureAuthReady() {
-  if (!authToken.value) {
-    throw new Error('No auth token')
-  }
-  if (verifiedAuthToken === authToken.value) {
+  if (authSession.value && verifiedSession === authSession.value) {
     warmSettingsStore()
     return
   }
-  const info = await fsWebApi.auth()
+  const info = await getAuthInfo()
   setServerCapabilities(info?.capabilities)
   setServerAllowedRoots(info?.allowedRoots)
-  verifiedAuthToken = authToken.value
+  setAuthSession(readAuthSession())
+  verifiedSession = authSession.value
   warmSettingsStore()
 }
 
@@ -73,8 +76,8 @@ router.beforeEach(async (to) => {
 
   if (query.ticket) {
     try {
-      const res = await fsWebApi.consumeTicket(String(query.ticket))
-      authToken.value = res.token
+      await consumeTicket(String(query.ticket), rememberAuth.value)
+      setAuthSession(readAuthSession())
       delete query.ticket
       return {
         path: to.path,
@@ -95,7 +98,7 @@ router.beforeEach(async (to) => {
     }
   }
   if (to.meta.skipLogin) {
-    if (to.name === 'LoginView' && authToken.value) {
+    if (to.name === 'LoginView' && authSession.value) {
       try {
         await ensureAuthReady()
         return { name: 'HomeView' }
@@ -103,7 +106,7 @@ router.beforeEach(async (to) => {
       catch (error) {
         console.error(error)
         if (isUnauthorizedError(error)) {
-          authToken.value = ''
+          clearAuthSession()
         }
       }
     }

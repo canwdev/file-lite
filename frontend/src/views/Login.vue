@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import type { InputInstance } from 'element-plus'
 import { useStorage } from '@vueuse/core'
-import { fsWebApi } from '@/api/filesystem'
+import { consumeTicket, login } from '@/api/auth'
 import { LsKeys } from '@/enum'
-import { authToken, rememberAuth } from '@/store/auth'
+import { readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -31,8 +31,10 @@ const rememberLogin = computed({
 
 const inputPlaceholder = computed(() => activeTab.value === 'password' ? 'Input password' : 'Input ticket')
 
-async function finishLogin(res: { token: string }) {
-  authToken.value = res.token
+async function finishLogin() {
+  // The login response already set the session cookies; mirror the readable
+  // one so the rest of the app notices the new session.
+  setAuthSession(readAuthSession())
 
   if (route.query.redirect) {
     await router.push({ path: route.query.redirect as string })
@@ -48,9 +50,10 @@ async function doSubmit() {
   isSubmitting.value = true
   try {
     if (activeTab.value === 'password')
-      await finishLogin(await fsWebApi.login(inputValue.value))
+      await login(inputValue.value, Boolean(rememberAuth.value))
     else
-      await finishLogin(await fsWebApi.consumeTicket(inputValue.value))
+      await consumeTicket(inputValue.value, Boolean(rememberAuth.value))
+    await finishLogin()
   }
   catch (error) {
     console.error(error)
