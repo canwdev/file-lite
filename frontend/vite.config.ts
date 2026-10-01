@@ -92,6 +92,18 @@ export default defineConfig(() => {
           target: 'http://localhost:3111',
           changeOrigin: true,
         },
+        // 服务端渲染的页面必须转发给 Go：SPA 的 HTML5 回落会把这些路径一律回成
+        // index.html，经典界面（/ie、/ie/login、/ie/browse）在 dev 里根本打不开。
+        // /ip 本身是 SPA 路由，但票据链接 /ip?ticket=… 要看服务端行为，所以一起转发；
+        // 代价是这个路径拿到的是 Go 里内嵌的那份构建，只想调 SPA 页面时删掉即可。
+        '/ie': {
+          target: 'http://localhost:3111',
+          changeOrigin: true,
+        },
+        '/ip': {
+          target: 'http://localhost:3111',
+          changeOrigin: true,
+        },
       },
     },
     css: {

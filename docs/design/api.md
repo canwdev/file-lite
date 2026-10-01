@@ -760,9 +760,9 @@ These do not follow the resource rules above, on purpose:
   Ticket logins always issue a persistent cookie, because the ticket exists to sign
   another device in. `POST /ie/login` carries a `mode` field (`password` or `ticket`) so
   one form serves both, and the radio group is authoritative: with no `mode` the field
-  that was filled in decides. The login page hides the field that is not selected with a
-  `:checked` sibling rule, which IE8 ignores — there both fields stay visible and the
-  radio alone decides.
+  that was filled in decides. A tiny inline script hides the field that is not selected
+  (IE8 does not support `:checked`, which is why it is not done in CSS); with JavaScript
+  off both fields stay visible and the radio alone decides.
 
 ## 16. Change policy
 

@@ -103,6 +103,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Windows E2E runner**: The E2E runner works on Windows again: it used to spawn Playwright's `.bin` shim, which Windows refuses to execute when it is a `.cmd` (and Bun installs an `.exe`), so the suite died with `spawn EINVAL` before running a single test; it now runs Playwright's `cli.js` through `node` on every platform (engineering).
 - **Node version check**: The frontend build stops immediately with a message naming the required Node range when the running Node is too old, instead of failing deep inside rolldown with `ERR_INVALID_ARG_VALUE` (frontend).
 - **API contract**: The HTTP API is REST-shaped (`/api/session`, `/api/fs/*`, `/api/tasks`, `/api/settings`), every failure carries a stable error `code`, and the WebSocket only pushes (plus the text-sync channel); the contract lives in `docs/design/api.md`, and the two halves always ship together (frontend, backend).
+- **Dev server**: The Vite dev server proxies `/ie` and `/ip` to the backend, so the server-rendered classic interface can be opened while developing instead of being answered with the SPA shell (frontend).
 
 ## 1.4.5
 

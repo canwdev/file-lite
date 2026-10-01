@@ -11,15 +11,41 @@
 <form method="post" action="/ie/login" accept-charset="UTF-8">
 {{if .Error}}<p><b>{{.Error}}</b></p>{{end}}
 <input type="hidden" name="next" value="{{.Next}}">
-<div class="fields">
+<div class="fields" id="fields">
 <input id="mode-password" type="radio" name="mode" value="password"{{if ne .Mode "ticket"}} checked{{end}}><label for="mode-password" class="mode">Password</label>
 <input id="mode-ticket" type="radio" name="mode" value="ticket"{{if eq .Mode "ticket"}} checked{{end}}><label for="mode-ticket" class="mode">Ticket</label>
-<p class="row-password">Password: <input type="password" name="password" size="20"></p>
-<p class="row-ticket">Ticket: <input type="text" name="ticket" size="12" maxlength="16" value="{{.Ticket}}"></p>
+<p class="row-password" id="row-password">Password: <input type="password" name="password" size="20"></p>
+<p class="row-ticket" id="row-ticket">Ticket: <input type="text" name="ticket" size="12" maxlength="16" value="{{.Ticket}}"></p>
 </div>
 <p><label><input type="checkbox" name="remember" value="1" checked> Remember me</label></p>
 <p><input class="btn" type="submit" value="Sign in"></p>
 </form>
 </div>
+<script>
+/* 只显示选中的那种登录方式。用 JS 而不是 CSS 的 :checked 兄弟选择器，因为 IE8
+   不认识 :checked（整条规则被丢掉，两个输入框都会留着）。没有 JS 时两条都显示，
+   提交后由服务端按 radio 的 mode 决定用哪一个。 */
+(function () {
+  function apply() {
+    var radios = document.getElementsByName('mode')
+    var value = 'password'
+    var i
+    for (i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        value = radios[i].value
+      }
+    }
+    document.getElementById('row-password').style.display = value === 'password' ? 'block' : 'none'
+    document.getElementById('row-ticket').style.display = value === 'ticket' ? 'block' : 'none'
+  }
+
+  var fields = document.getElementById('fields')
+  if (fields) {
+    // 点 label 也会冒泡到这里；延后一拍再读 checked，免得读到点击前的状态。
+    fields.onclick = function () { setTimeout(apply, 0) }
+    apply()
+  }
+})()
+</script>
 </body>
 </html>
