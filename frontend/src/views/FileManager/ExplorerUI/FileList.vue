@@ -204,7 +204,6 @@ const emptyState = computed(() => {
       title: isBranchView.value ? 'Can\'t flatten this folder' : 'Can\'t open this folder',
       description: props.loadError,
       showClear: false,
-      showRetry: true,
     }
   }
 
@@ -216,7 +215,6 @@ const emptyState = computed(() => {
         ? 'No files in this folder or its subfolders.'
         : 'This folder is empty.',
       showClear: false,
-      showRetry: false,
     }
   }
 
@@ -226,7 +224,6 @@ const emptyState = computed(() => {
       title: 'No matches',
       description: 'No files match the current filter.',
       showClear: true,
-      showRetry: false,
     }
   }
 

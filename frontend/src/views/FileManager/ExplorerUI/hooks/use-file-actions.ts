@@ -1,5 +1,6 @@
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { Ref } from 'vue'
+import type { PropertiesTarget } from '../properties-window'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import { ContextMenu } from '@canwdev/vgo-ui'
@@ -17,7 +18,7 @@ import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath } from '../../utils'
-import { openProperties } from '../properties-window'
+import { openProperties, openPropertiesAggregate } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
 function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
@@ -76,6 +77,30 @@ export function useFileActions({
     if (!dirPrefix)
       return normalizePath(basePath.value)
     return normalizePath(joinPath(basePath.value, dirPrefix.replace(/\/$/, '')))
+  }
+
+  function propertyTargetOf(item: IEntry): PropertiesTarget {
+    return {
+      absPath: normalizePath(joinPath(basePath.value, item.name)),
+      name: item.name,
+      isDirectory: item.isDirectory,
+      ext: item.ext,
+      isLink: item.isLink,
+      item,
+    }
+  }
+
+  /** 单选看单条明细，多选把选中项聚合成一个统计窗口。 */
+  function handleShowProperties() {
+    const items = selectedItems.value
+    if (!items.length) {
+      return
+    }
+    if (items.length === 1) {
+      openProperties(propertyTargetOf(items[0]))
+      return
+    }
+    openPropertiesAggregate(items.map(propertyTargetOf))
   }
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -503,19 +528,10 @@ export function useFileActions({
         onClick: confirmDelete,
         divided: true,
       },
-      isSingle && {
+      {
         label: 'Properties',
         icon: 'mdi mdi-information-outline',
-        onClick: () => {
-          openProperties({
-            absPath: normalizePath(joinPath(basePath.value, selectedItem.name)),
-            name: selectedItem.name,
-            isDirectory: selectedItem.isDirectory,
-            ext: selectedItem.ext,
-            isLink: selectedItem.isLink,
-            item: selectedItem,
-          })
-        },
+        onClick: handleShowProperties,
       },
     ].filter(Boolean) as MenuItem[]
   })

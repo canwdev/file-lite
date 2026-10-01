@@ -273,7 +273,7 @@ test.describe('路径与挂载点', () => {
 })
 
 test.describe('列目录失败的呈现', () => {
-  test('失败时列表区显示原因并可重试，而不是「目录为空」', async ({ page }) => {
+  test('失败时列表区显示原因，而不是「目录为空」', async ({ page }) => {
     await login(page)
 
     await page.route('**/api/files/list**', route => route.fulfill({
@@ -290,12 +290,11 @@ test.describe('列目录失败的呈现', () => {
     await expect(empty).toContainText('Path not found')
     // 关键：不能把加载失败说成空目录
     await expect(empty).not.toContainText('This folder is empty')
-    await expect(empty.getByRole('button', { name: 'Try again' })).toBeVisible()
 
     await screenshot(page, '11-list-error')
   })
 
-  test('网络位置不可达时给出可重试的提示，而不是「文件不存在」', async ({ page }) => {
+  test('网络位置不可达时给出明确提示，而不是「文件不存在」', async ({ page }) => {
     await login(page)
 
     await page.route('**/api/files/list**', route => route.fulfill({
@@ -312,10 +311,9 @@ test.describe('列目录失败的呈现', () => {
     await expect(empty).toContainText('Network location is unreachable')
     // 「服务器不可达」不得被说成「文件没了」
     await expect(empty).not.toContainText('Path not found')
-    await expect(empty.getByRole('button', { name: 'Try again' })).toBeVisible()
   })
 
-  test('重试成功后错误消失、目录正常显示', async ({ page }) => {
+  test('一次列目录失败后可以用刷新恢复，目录正常显示', async ({ page }) => {
     await login(page)
 
     let failFirst = true
@@ -336,7 +334,9 @@ test.describe('列目录失败的呈现', () => {
 
     const empty = page.locator('.explorer-main:visible .explorer-empty-state')
     await expect(empty).toBeVisible()
-    await empty.getByRole('button', { name: 'Try again' }).click()
+
+    // 错误卡片不再提供重试按钮：用户用工具栏的刷新重新加载
+    await page.locator('.explorer-main:visible button[title^="Refresh"]').click()
 
     // 第二次放行真实请求：错误卡片消失，目录内容出来
     await expect(empty).toBeHidden()

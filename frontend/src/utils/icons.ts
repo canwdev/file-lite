@@ -65,6 +65,7 @@ import MdiFileDocumentPlusOutline from '~icons/mdi/file-document-plus-outline'
 import MdiFileExcelOutline from '~icons/mdi/file-excel-outline'
 import MdiFileImageOutline from '~icons/mdi/file-image-outline'
 import MdiFileMoveOutline from '~icons/mdi/file-move-outline'
+import MdiFileMultipleOutline from '~icons/mdi/file-multiple-outline'
 import MdiFileOutline from '~icons/mdi/file-outline'
 import MdiFilePdfOutline from '~icons/mdi/file-pdf-outline'
 import MdiFilePowerpointOutline from '~icons/mdi/file-powerpoint-outline'
@@ -291,6 +292,8 @@ export const mdiIconRegistry: Record<string, Component> = {
   'asterisk': MdiAsterisk,
   'file-document-outline': MdiFileDocumentOutline,
   'file-move-outline': MdiFileMoveOutline,
+  // 多选属性窗口的表头图标
+  'file-multiple-outline': MdiFileMultipleOutline,
   'file-outline': MdiFileOutline,
   'file-pdf-outline': MdiFilePdfOutline,
   'file-excel-outline': MdiFileExcelOutline,
