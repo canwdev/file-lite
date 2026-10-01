@@ -10,12 +10,12 @@
 <div class="title">File Lite</div>
 
 <div class="toolbar">
-<a class="btn" href="/ie">Top</a>
-{{if .Parent}}<a class="btn" href="/ie/browse?path={{.Parent | urlquery}}">Up</a>{{end}}
-<form class="inline" method="post" action="/ie/logout">
+<form class="inline right" method="post" action="/ie/logout">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input class="btn" type="submit" value="Sign out">
 </form>
+<a class="btn" href="/ie">Top</a>
+{{if .Parent}}<a class="btn" href="/ie/browse?path={{.Parent | urlquery}}">Up</a>{{end}}
 </div>
 
 <table class="layout"><tr>

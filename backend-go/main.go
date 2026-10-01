@@ -196,6 +196,9 @@ func startServer() (*cli.ServerResult, error) {
 		}
 		staticFS = memFS
 	}
+	// 票据登录要在静态资源之前拦下来：打印出来的登录链接落在根路径上，
+	// 那一路由 HTML5 回落处理，走不到路由。
+	routes.RegisterTicketLogin(e)
 	e.Use(frontendStaticMiddleware(staticFS))
 
 	routes.RegisterPluginStatic(e)

@@ -74,6 +74,99 @@ func TestIEClassicNeedsLogin(t *testing.T) {
 	if body := login.Body.String(); !strings.Contains(body, `action="/ie/login"`) || !strings.Contains(body, `name="password"`) {
 		t.Fatalf("登录页缺少表单：%s", body)
 	}
+	// Remember me 默认勾上（票据登录也是记住的，两边一致）。
+	if body := login.Body.String(); !strings.Contains(body, "checked") {
+		t.Fatalf("Remember me 应当默认勾上：%s", body)
+	}
+}
+
+// 票据登录：链接本身就能进，不需要先看表单再点一次。
+func TestIEClassicTicketLogin(t *testing.T) {
+	e := newIEServer()
+
+	ticket, err := config.NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{
+		"/ie?ticket=" + url.QueryEscape(ticket.Value),
+		"/ie/login?ticket=" + url.QueryEscape(ticket.Value),
+	} {
+		rec := ieCall(t, e, http.MethodGet, target, "", false)
+		if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/ie" {
+			t.Fatalf("%s = %d %q，期望 302 /ie", target, rec.Code, rec.Header().Get("Location"))
+		}
+		if !strings.Contains(strings.Join(rec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+			t.Fatalf("%s 没有换成会话 cookie", target)
+		}
+	}
+
+	// 过期 / 用过的票据：留在登录页并说明原因，而不是白屏或 401。
+	bad := ieCall(t, e, http.MethodGet, "/ie/login?ticket=not-a-ticket", "", false)
+	if bad.Code != http.StatusOK {
+		t.Fatalf("无效票据 = %d，期望停在登录页", bad.Code)
+	}
+	if !strings.Contains(bad.Body.String(), "expired") {
+		t.Fatalf("无效票据应当说明原因：%s", bad.Body.String())
+	}
+}
+
+// 打印出来的登录链接落在根路径上，SPA 需要 JS；这里验证服务端的兜底。
+func TestTicketLoginMiddleware(t *testing.T) {
+	newServer := func() *echo.Echo {
+		e := withAPIErrorHandler(echo.New())
+		RegisterTicketLogin(e)
+		// 模拟静态资源回落：任意方法都回一份 index.html。
+		e.Any("/", func(c echo.Context) error { return c.String(http.StatusOK, "spa") })
+		return e
+	}
+	call := func(e *echo.Echo, method, target, userAgent string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, target, nil)
+		if userAgent != "" {
+			req.Header.Set("User-Agent", userAgent)
+		}
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec
+	}
+	ticketURL := func(t *testing.T) string {
+		t.Helper()
+		ticket, err := config.NewAuthTicket()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return "/?ticket=" + url.QueryEscape(ticket.Value)
+	}
+
+	const ie8 = "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)"
+	const chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0"
+
+	// 老 IE：SPA 跑不起来，直接送进经典界面。
+	legacy := call(newServer(), http.MethodGet, ticketURL(t), ie8)
+	if legacy.Code != http.StatusFound || legacy.Header().Get("Location") != "/ie" {
+		t.Fatalf("IE 票据登录 = %d %q，期望 302 /ie", legacy.Code, legacy.Header().Get("Location"))
+	}
+	if !strings.Contains(strings.Join(legacy.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+		t.Fatal("IE 票据登录没有设置 cookie")
+	}
+
+	// 现代浏览器：回干净的根路径，SPA 照常启动。
+	modern := call(newServer(), http.MethodGet, ticketURL(t), chrome)
+	if modern.Code != http.StatusFound || modern.Header().Get("Location") != "/" {
+		t.Fatalf("现代浏览器票据登录 = %d %q，期望 302 /", modern.Code, modern.Header().Get("Location"))
+	}
+
+	// 无效票据：原样放行，交给 SPA 自己报错。
+	passthrough := call(newServer(), http.MethodGet, "/?ticket=nope", chrome)
+	if passthrough.Code != http.StatusOK || passthrough.Body.String() != "spa" {
+		t.Fatalf("无效票据应当放行 = %d %q", passthrough.Code, passthrough.Body.String())
+	}
+
+	// 只有 GET 消费票据。
+	posted := call(newServer(), http.MethodPost, ticketURL(t), chrome)
+	if posted.Code != http.StatusOK || posted.Body.String() != "spa" {
+		t.Fatalf("POST 不该被票据中间件拦下 = %d %q", posted.Code, posted.Body.String())
+	}
 }
 
 func TestIEClassicLoginLogout(t *testing.T) {

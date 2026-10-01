@@ -51,6 +51,9 @@ func RegisterIE(e *echo.Echo) {
 }
 
 func ieIndex(c echo.Context) error {
+	if handled, err := ieTicketLogin(c); handled || err != nil {
+		return err
+	}
 	if !ieAuthenticated(c) {
 		return c.Redirect(http.StatusFound, "/ie/login")
 	}
@@ -60,14 +63,39 @@ func ieIndex(c echo.Context) error {
 	return ieFail(c, http.StatusNotFound, "No drives")
 }
 
+// ieTicketLogin 处理 ?ticket=：票据本身就是一次性的登录凭据，GET 直接换会话并跳转，
+// 这样把打印出来的登录链接粘进 IE 就能直接进来，不必先看表单再点一次 Sign in。
+//
+// 无效 / 过期的票据返回 false，由调用方决定怎么说明（登录页会提示重新用密码登录）。
+func ieTicketLogin(c echo.Context) (bool, error) {
+	ticket := c.QueryParam("ticket")
+	if ticket == "" {
+		return false, nil
+	}
+	token, ok := config.ConsumeAuthTicket(ticket)
+	if !ok {
+		return false, nil
+	}
+	// 票据是发给「另一台设备」的，默认记住；与前端 rememberAuth 的缺省值一致。
+	if err := middlewares.SetAuthCookies(c, token, true); err != nil {
+		return false, err
+	}
+	return true, c.Redirect(http.StatusFound, "/ie")
+}
+
 func ieLoginPage(c echo.Context) error {
+	if handled, err := ieTicketLogin(c); handled || err != nil {
+		return err
+	}
 	if ieAuthenticated(c) {
 		return c.Redirect(http.StatusFound, "/ie")
 	}
-	return ieRender(c, http.StatusOK, "login.html", ieLoginView{
-		Next:   ieSafeNext(c.QueryParam("next")),
-		Ticket: c.QueryParam("ticket"),
-	})
+	view := ieLoginView{Next: ieSafeNext(c.QueryParam("next"))}
+	if c.QueryParam("ticket") != "" {
+		// 票据在手上却没换成会话：说明它过期或已经被用过了。
+		view.Error = "This login link has expired. Sign in with the password."
+	}
+	return ieRender(c, http.StatusOK, "login.html", view)
 }
 
 func ieLoginSubmit(c echo.Context) error {
@@ -75,9 +103,8 @@ func ieLoginSubmit(c echo.Context) error {
 	token, apiErr := authenticate(c, c.FormValue("password"), c.FormValue("ticket"))
 	if apiErr != nil {
 		return ieRender(c, apiErr.Status, "login.html", ieLoginView{
-			Next:   next,
-			Ticket: c.FormValue("ticket"),
-			Error:  apiErr.Message,
+			Next:  next,
+			Error: apiErr.Message,
 		})
 	}
 	if err := middlewares.SetAuthCookies(c, token, c.FormValue("remember") != ""); err != nil {
@@ -174,12 +201,50 @@ func ieDownload(c echo.Context) error {
 	return nil
 }
 
+// RegisterTicketLogin 让打印出来的登录链接在没有 JS 的浏览器里直接可用。
+//
+// SPA 在路由守卫里消费 ?ticket=，那条路需要 JS。这里在静态资源中间件**之前**拦下
+// 根路径上带有效票据的 GET：换成会话 cookie，然后按 User-Agent 选落点——老 IE 进
+// 经典界面（SPA 在 IE 上跑不起来），其它浏览器回干净的根路径。票据无效就原样放行，
+// 交给 SPA 自己处理（它的提示更完整）。
+//
+// 必须在注册静态资源中间件之前调用，否则 HTML5 回落会先回一份 index.html。
+func RegisterTicketLogin(e *echo.Echo) {
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Request().Method != http.MethodGet || c.Request().URL.Path != "/" {
+				return next(c)
+			}
+			ticket := c.QueryParam("ticket")
+			if ticket == "" {
+				return next(c)
+			}
+			token, ok := config.ConsumeAuthTicket(ticket)
+			if !ok {
+				return next(c)
+			}
+			if err := middlewares.SetAuthCookies(c, token, true); err != nil {
+				return next(c)
+			}
+			if isLegacyBrowser(c.Request().UserAgent()) {
+				return c.Redirect(http.StatusFound, "/ie")
+			}
+			return c.Redirect(http.StatusFound, "/")
+		}
+	})
+}
+
+// isLegacyBrowser 判断这是不是跑不动 SPA 的老浏览器。
+// IE 6-10 都带 "MSIE "，IE 11 只带 "Trident/"；Edge 与其它浏览器两者都没有。
+func isLegacyBrowser(userAgent string) bool {
+	return strings.Contains(userAgent, "MSIE ") || strings.Contains(userAgent, "Trident/")
+}
+
 // ---- 视图数据（字段必须导出，模板才能取） ----
 
 type ieLoginView struct {
-	Next   string
-	Ticket string
-	Error  string
+	Next  string
+	Error string
 }
 
 type ieErrorView struct {

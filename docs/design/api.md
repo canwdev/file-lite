@@ -754,6 +754,11 @@ These do not follow the resource rules above, on purpose:
   `readDirEntries`, `serveFileContent`) and the same favourites key
   (`file_lite_stared_path`) as the app, but it deliberately does not follow the
   resource/verb rules above — it is a form-driven UI, not an API.
+  A valid `?ticket=` is consumed server-side on `GET /ie`, `GET /ie/login` and the root
+  `GET /` (so the login URL printed at startup works without JavaScript; a root request
+  whose User-Agent contains `MSIE` or `Trident/` is sent on to `/ie` instead of the SPA).
+  Ticket logins always issue a persistent cookie, because the ticket exists to sign
+  another device in.
 
 ## 16. Change policy
 

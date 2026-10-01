@@ -61,7 +61,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Uploads**: A file is written straight to its destination, so a large upload no longer needs the same amount of free space a second time in a temporary folder and finishes sooner (frontend, backend).
 - **Upload conflicts**: The "file already exists" question is answered with one request for the whole batch instead of one per file, so the dialog appears immediately even for a large selection (frontend, backend).
 - **Startup**: Server-side settings are read in one request instead of one per key, and a setting is no longer written back when nothing actually changed (frontend).
-- **Classic UI**: A no-JavaScript HTML interface at `/ie`, laid out and styled like a Windows 95 window with a favourites/drives sidebar, covers sign in, folder browsing and download for old browsers such as IE8 (backend).
+- **Classic UI**: A no-JavaScript HTML interface at `/ie`, laid out and styled like a Windows 95 window with a favourites/drives sidebar, covers sign in (password or a login link), folder browsing and download for old browsers such as IE8 (backend).
 - **Hidden files**: Hidden files are shown by default in both the app and the classic interface (frontend).
 
 ### Fixes
