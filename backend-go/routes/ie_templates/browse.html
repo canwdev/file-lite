@@ -2,33 +2,54 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>{{.Path}} - File Lite</title>
-<style>table{border-collapse:collapse}th,td{border:1px solid #999;padding:1px 6px;text-align:left}</style>
+<title>File Lite - {{.Path}}</title>
+{{template "style"}}
 </head>
 <body>
-<form method="post" action="/ie/logout">
+<div class="win">
+<div class="title">File Lite</div>
+
+<div class="toolbar">
+<a class="btn" href="/ie">Top</a>
+{{if .Parent}}<a class="btn" href="/ie/browse?path={{.Parent | urlquery}}">Up</a>{{end}}
+<form class="inline" method="post" action="/ie/logout">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<input type="submit" value="Sign out">
+<input class="btn" type="submit" value="Sign out">
 </form>
+</div>
 
-<h3>Drives</h3>
-<ul>{{range .Drives}}<li><a href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>
+<table class="layout"><tr>
+<td class="side">
+<div class="group">Favourites</div>
+<div class="panel">
+{{if .Favourites}}<ul>{{range .Favourites}}<li><a class="side-link{{if eq . $.Path}} current{{end}}" title="{{.}}" href="/ie/browse?path={{. | urlquery}}">{{.}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
+</div>
+<div class="group">Drives</div>
+<div class="panel">
+<ul>{{range .Drives}}<li><a class="side-link{{if eq .Path $.Path}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>
+</div>
+</td>
 
-<h3>Favourites</h3>
-{{if .Favourites}}<ul>{{range .Favourites}}<li><a href="/ie/browse?path={{. | urlquery}}">{{.}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
-
-<h3>Location</h3>
-<p><code>{{.Path}}</code></p>
-<p><a href="/ie">[Top]</a>{{if .Parent}} <a href="/ie/browse?path={{.Parent | urlquery}}">[Up]</a>{{end}}</p>
-
-<table>
-<tr><th>Name</th><th>Size</th><th>Modified</th></tr>
+<td class="main">
+<div class="path">{{.Path}}</div>
+<div class="panel">
+<table class="list">
+<tr><th class="name">Name</th><th>Size</th><th>Modified</th></tr>
 {{range .Entries}}<tr>
-<td>{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
+<td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
 <td>{{.Size}}</td><td>{{.Time}}</td>
 </tr>
-{{end}}</table>
-
-{{if .PageInfo}}<p>{{if .PrevURL}}<a href="{{.PrevURL}}">[Prev]</a> {{end}}{{.PageInfo}}{{if .NextURL}} <a href="{{.NextURL}}">[Next]</a>{{end}}</p>{{end}}
+{{end}}
+</table>
+</div>
+<div class="status">
+<span>{{len .Entries}} shown</span>
+{{if .PageInfo}}<span>{{.PageInfo}}</span>{{end}}
+{{if .PrevURL}}<a class="btn" href="{{.PrevURL}}">Prev</a> {{end}}
+{{if .NextURL}}<a class="btn" href="{{.NextURL}}">Next</a>{{end}}
+</div>
+</td>
+</tr></table>
+</div>
 </body>
 </html>

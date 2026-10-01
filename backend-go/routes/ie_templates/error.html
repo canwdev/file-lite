@@ -3,10 +3,13 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>{{.Status}} - File Lite</title>
+{{template "style"}}
 </head>
 <body>
-<h1>{{.Status}}</h1>
+<div class="win dialog">
+<div class="title">File Lite - {{.Status}}</div>
 <p>{{.Message}}</p>
-<p><a href="/ie">[Top]</a> <a href="/ie/login">[Sign in]</a></p>
+<p><a class="btn" href="/ie">Top</a> <a class="btn" href="/ie/login">Sign in</a></p>
+</div>
 </body>
 </html>

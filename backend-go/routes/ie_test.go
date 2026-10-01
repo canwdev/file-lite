@@ -138,7 +138,7 @@ func TestIEClassicBrowseAndDownload(t *testing.T) {
 		t.Fatalf("浏览 = %d：%s", page.Code, page.Body.String())
 	}
 	body := page.Body.String()
-	for _, want := range []string{"visible.txt", ".hidden.txt", "sub/", "/ie/download?path=", "Drives", "Favourites", "[Top]"} {
+	for _, want := range []string{"visible.txt", ".hidden.txt", "sub/", "/ie/download?path=", "Drives", "Favourites", ">Top</a>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("页面里缺少 %q", want)
 		}
