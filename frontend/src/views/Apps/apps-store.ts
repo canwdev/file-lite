@@ -30,6 +30,7 @@ export const appsStoreState = reactive({
 
 const emptyInternalEntry: IEntry = {
   name: '',
+  path: '',
   ext: '',
   isDirectory: false,
   hidden: false,

@@ -2,7 +2,7 @@
  * 图片缩略图 IndexedDB 缓存(image-thumb-cache)
  *
  * 缩略图字节有两个来源,共用同一套指纹与 LRU:
- * - `server`:后端 `/api/files/thumbnail` 生成(Go 能解码的格式,见 regServerThumbFormat);
+ * - `server`:后端 `/api/fs/thumbnail` 生成(Go 能解码的格式,见 regServerThumbFormat);
  * - `client`:浏览器 canvas 阶梯降采样(后端解不了的 avif/heic,见 regClientCanvasThumbFormat)。
  *
  * - 命中:按 `(size, lastModified, 生成版本)` 指纹比对,文件改动后自动失效重新生成;

@@ -106,9 +106,18 @@ func TestDirChangesMoveRemovesSourceAndAddsDestination(t *testing.T) {
 	if len(dstChange.Added) != 1 || dstChange.Added[0].Name != "a.txt" {
 		t.Fatalf("expected a.txt added to dst, got %+v", dstChange)
 	}
+	if dstChange.Added[0].IsDirectory {
+		t.Fatalf("moved entry must not be a directory: %+v", dstChange.Added[0])
+	}
+	if len(dstChange.Removed) != 0 {
+		t.Fatalf("expected no removals in dst, got %v", dstChange.Removed)
+	}
 	srcChange := changeForDir(t, changes, srcDir)
 	if len(srcChange.Removed) != 1 || srcChange.Removed[0] != "a.txt" {
 		t.Fatalf("expected a.txt removed from src, got %+v", srcChange)
+	}
+	if len(srcChange.Added) != 0 {
+		t.Fatalf("expected no additions in src, got %+v", srcChange.Added)
 	}
 }
 

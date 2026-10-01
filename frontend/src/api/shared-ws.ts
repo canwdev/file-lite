@@ -1,43 +1,26 @@
-import type { SettingsClientMessage, SharedWsClientMessage, SharedWsServerMessage } from '@/types/server'
+import type { SharedWsClientMessage, SharedWsServerMessage } from '@/types/server'
 import { authSession } from '@/store/auth'
 
 const SHARED_WS_ENDPOINT = '/api/ws'
 const RECONNECT_DELAY_MS = 2000
-const REQUEST_TIMEOUT_MS = 10000
 const LOG_PREFIX = '[SharedWs]'
 
 type SharedWsListener = (message: SharedWsServerMessage) => void
-
-interface PendingRequest {
-  resolve: (message: SharedWsServerMessage) => void
-  reject: (error: Error) => void
-  timer: ReturnType<typeof setTimeout>
-}
 
 export const sharedWsConnected = ref(false)
 export type SharedWsStatus = 'connected' | 'connecting' | 'reconnecting' | 'disconnected'
 export const sharedWsStatus = ref<SharedWsStatus>('disconnected')
 
 const listeners = new Set<SharedWsListener>()
-const pendingRequests = new Map<string, PendingRequest>()
 
 let sharedWs: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let connectPromise: Promise<WebSocket> | null = null
 let shouldReconnect = true
-let requestSequence = 0
 
 function buildSharedWsUrl(): string {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${wsProtocol}//${window.location.host}${SHARED_WS_ENDPOINT}`
-}
-
-function clearPendingRequests(error: Error) {
-  for (const pending of pendingRequests.values()) {
-    clearTimeout(pending.timer)
-    pending.reject(error)
-  }
-  pendingRequests.clear()
 }
 
 function scheduleReconnect() {
@@ -60,24 +43,6 @@ function emitMessage(message: SharedWsServerMessage) {
   }
 }
 
-function handleServerMessage(message: SharedWsServerMessage) {
-  if ('requestId' in message && typeof message.requestId === 'string') {
-    const pending = pendingRequests.get(message.requestId)
-    if (pending && (message.type === 'response' || message.type === 'error')) {
-      clearTimeout(pending.timer)
-      pendingRequests.delete(message.requestId)
-      if (message.type === 'error') {
-        pending.reject(new Error(message.message))
-      }
-      else {
-        pending.resolve(message)
-      }
-      return
-    }
-  }
-  emitMessage(message)
-}
-
 function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (error: Error) => void) {
   ws.onopen = () => {
     sharedWsConnected.value = true
@@ -89,7 +54,7 @@ function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (
   ws.onmessage = (event) => {
     try {
       const message = JSON.parse(String(event.data)) as SharedWsServerMessage
-      handleServerMessage(message)
+      emitMessage(message)
     }
     catch {
       // ignore invalid payload
@@ -103,7 +68,6 @@ function bindSharedWs(ws: WebSocket, resolve: (ws: WebSocket) => void, reject: (
       sharedWs = null
     }
     connectPromise = null
-    clearPendingRequests(new Error('WebSocket disconnected'))
     if (shouldReconnect && authSession.value) {
       scheduleReconnect()
     }
@@ -160,7 +124,6 @@ export function closeSharedWs() {
   connectPromise = null
   sharedWsConnected.value = false
   sharedWsStatus.value = 'disconnected'
-  clearPendingRequests(new Error('WebSocket closed'))
   if (sharedWs) {
     console.log(`${LOG_PREFIX} closed intentionally`)
     sharedWs.close()
@@ -168,39 +131,14 @@ export function closeSharedWs() {
   sharedWs = null
 }
 
+/**
+ * 发送一条实时协作消息（text-sync）。
+ *
+ * 命令不再走这里：任务、设置、属性都是 HTTP 请求，这条连接只负责推送与 text-sync。
+ */
 export async function sendSharedWsMessage(payload: SharedWsClientMessage) {
   const ws = await ensureSharedWsConnected()
   ws.send(JSON.stringify(payload))
-}
-
-export async function requestSharedWs<T extends SharedWsServerMessage>(
-  payload:
-    | Omit<Extract<SettingsClientMessage, { type: 'get' }>, 'requestId'>
-    | Omit<Extract<SettingsClientMessage, { type: 'set' }>, 'requestId'>
-    | Omit<Extract<SettingsClientMessage, { type: 'delete' }>, 'requestId'>,
-): Promise<T> {
-  const requestId = `req_${Date.now()}_${requestSequence++}`
-  const message = {
-    ...payload,
-    requestId,
-  } as Extract<SharedWsClientMessage, { scope: 'settings' }>
-
-  await ensureSharedWsConnected()
-
-  return await new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pendingRequests.delete(requestId)
-      reject(new Error('WebSocket request timeout'))
-    }, REQUEST_TIMEOUT_MS)
-
-    pendingRequests.set(requestId, {
-      resolve: message => resolve(message as T),
-      reject,
-      timer,
-    })
-
-    sharedWs?.send(JSON.stringify(message))
-  })
 }
 
 export function subscribeSharedWsMessage(listener: SharedWsListener) {

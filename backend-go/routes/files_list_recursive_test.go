@@ -1,13 +1,9 @@
 package routes
 
 import (
-	"encoding/json"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"file-lite-go/types"
 )
 
 func TestListRecursiveFlattensFiles(t *testing.T) {
@@ -19,9 +15,9 @@ func TestListRecursiveFlattensFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, body := range map[string]string{
-		filepath.Join(dir, "root.txt"):               "root",
-		filepath.Join(dir, "a", "one.txt"):           "one",
-		filepath.Join(dir, "a", "b", "two.txt"):      "two",
+		filepath.Join(dir, "root.txt"):              "root",
+		filepath.Join(dir, "a", "one.txt"):          "one",
+		filepath.Join(dir, "a", "b", "two.txt"):     "two",
 		filepath.Join(dir, ".hidden", "secret.txt"): "secret",
 		filepath.Join(dir, "a", ".skip"):            "skip",
 	} {
@@ -30,22 +26,20 @@ func TestListRecursiveFlattensFiles(t *testing.T) {
 		}
 	}
 
-	e := newFilesServer()
-	target := "/api/files/list?path=" + url.QueryEscape(filepath.ToSlash(dir)) + "&recursive=1"
+	e := newRESTTestServer()
+	// 递归模式：目录自身不出现，name 恒为 basename，相对路径在 relativePath 里。
+	target := encodedEntryURL("/api/fs/directories", filepath.ToSlash(dir)) + "?recursive=1"
 	code, body := getJSON(t, e, target)
 	if code != 200 {
 		t.Fatalf("recursive list 应返回 200，得到 %d：%s", code, body)
 	}
-	var entries []types.Entry
-	if err := json.Unmarshal(body, &entries); err != nil {
-		t.Fatalf("响应不是条目数组: %v", err)
-	}
+	parsed := decodeListBody(t, body)
 	got := map[string]bool{}
-	for _, entry := range entries {
+	for _, entry := range parsed.Entries {
 		if entry.IsDirectory {
 			t.Fatalf("平铺列表不应包含目录 %q", entry.Name)
 		}
-		got[entry.Name] = true
+		got[entry.RelativePath] = true
 	}
 	for _, name := range []string{"root.txt", "a/one.txt", "a/b/two.txt"} {
 		if !got[name] {
@@ -62,13 +56,10 @@ func TestListRecursiveFlattensFiles(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("showHidden recursive list 应返回 200，得到 %d：%s", code, body)
 	}
-	entries = nil
-	if err := json.Unmarshal(body, &entries); err != nil {
-		t.Fatalf("响应不是条目数组: %v", err)
-	}
+	parsed = decodeListBody(t, body)
 	got = map[string]bool{}
-	for _, entry := range entries {
-		got[entry.Name] = true
+	for _, entry := range parsed.Entries {
+		got[entry.RelativePath] = true
 	}
 	if !got[".hidden/secret.txt"] || !got["a/.skip"] {
 		t.Fatalf("showHidden 应包含隐藏文件，得到 %#v", got)

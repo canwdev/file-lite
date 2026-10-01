@@ -7,17 +7,17 @@
 ## 接口
 
 ```
-GET /api/files/thumbnail?path=<绝对路径>&size=<边长>&kind=<image|video>
+GET /api/fs/thumbnail/<百分号编码的绝对路径>?size=<边长>&kind=<image|video>
 ```
 
-挂在 `/api/files` 之下，走与其他文件操作相同的鉴权（Cookie 或 `Authorization`）。
+挂在 `/api/fs` 之下，走与其他文件操作相同的鉴权（Cookie 或 `Authorization`）。路径是 URL 的最后一段，客户端必须整体百分号编码（见 docs/design/api.md §2）。
 
 | 参数 | 说明 |
 | --- | --- |
-| `path` | 必填，必须是存在的文件路径 |
+| 路径 | 必填，必须是存在的文件路径，放在 URL 里 |
 | `size` | 目标边长，规整到 `64 / 128 / 256 / 512`（向上取最近档），缺省 512 |
 | `kind` | `image`（缺省）走 imaging 解码；`video` 走 ffmpeg 抽帧 |
-| `m` | 仅作 HTTP 缓存标识，服务端**不信任**它，自己 `stat` 文件 |
+| （无） | 不需要调用方给 mtime：服务端自己 `stat` 文件，`ETag` 也由它算 |
 
 响应带 `ETag`（由 kind、生成参数版本、文件大小、mtime、边长组成）并支持 `If-None-Match` → `304`；`Cache-Control: private, max-age=0, must-revalidate`。
 
@@ -63,7 +63,7 @@ GET /api/files/thumbnail?path=<绝对路径>&size=<边长>&kind=<image|video>
 
 ### 能力上报
 
-`GET /api/files/auth` 兼作能力上报，前端启动时必调：
+`GET /api/session` 兼作能力上报，前端启动时必调：
 
 ```json
 { "capabilities": { "videoThumbnail": true } }

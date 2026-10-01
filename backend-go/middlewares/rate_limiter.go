@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"file-lite-go/apierr"
 )
 
 const (
@@ -68,7 +70,7 @@ func (l *requestLimiter) cleanupExpired(now time.Time) {
 
 var loginLimiter = newRequestLimiter(loginRateLimitMaxRequests, loginRateLimitWindow)
 
-// LoginRateLimiter throttles POST /api/files/auth per client IP and feeds the
+// LoginRateLimiter throttles POST /api/session per client IP and feeds the
 // shared failure ban. Password guessing is stopped at the only endpoint that can
 // be guessed; every other API call carries a valid JWT and is not capped by
 // request count, so bulk listing and transfers are never rejected.
@@ -81,17 +83,23 @@ func loginGuard(ban *ipLimiter, limiter *requestLimiter) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ip := clientIP(c)
 			if banned, _ := ban.check(ip); banned {
-				return c.JSON(http.StatusTooManyRequests, map[string]string{"message": "Too many attempts, please try again later."})
+				return apierr.Write(c, apierr.TooManyRequests("Too many attempts, please try again later."))
 			}
 			if !limiter.allow(ip) {
-				return c.JSON(http.StatusTooManyRequests, map[string]string{"message": "Too many requests, please try again later."})
+				return apierr.Write(c, apierr.TooManyRequests("Too many requests, please try again later."))
 			}
 
 			err := next(c)
+			// 错误可能已经写出（apierr.Write），也可能由集中处理器稍后渲染；
+			// 两条路径都要能看出这次登录失败，否则失败封禁会漏记。
+			status := c.Response().Status
+			if apiErr, ok := err.(*apierr.Error); ok {
+				status = apiErr.Status
+			}
 			switch {
-			case c.Response().Status == http.StatusUnauthorized:
+			case status == http.StatusUnauthorized:
 				ban.recordFailure(ip)
-			case c.Response().Status < http.StatusBadRequest:
+			case status >= http.StatusOK && status < http.StatusBadRequest:
 				ban.recordSuccess(ip)
 			}
 			return err

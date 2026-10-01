@@ -4,6 +4,7 @@ import { dateGroupKey, groupEntries, nameGroupKey, sizeGroupKey } from './group'
 
 function entry(partial: Partial<IEntry> & Pick<IEntry, 'name'>): IEntry {
   return {
+    path: `/${partial.name}`,
     ext: '',
     isDirectory: false,
     hidden: false,

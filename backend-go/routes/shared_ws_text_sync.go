@@ -31,16 +31,16 @@ func handleSharedWSTextSyncMessage(client *sharedWSClient, msg sharedWSTextSyncC
 		sharedWSJoinTextSyncChannel(client, msg.Channel)
 	case "update":
 		if client.textSyncChannel == "" || client.textSyncChannel != msg.Channel {
-			sendSharedWSError(client, "text-sync", "", "Channel mismatch")
+			sendSharedWSError(client, "text-sync", "Channel mismatch")
 			return
 		}
 		if len([]byte(msg.Text)) > sharedWSMaxTextBytes {
-			sendSharedWSError(client, "text-sync", "", "Text exceeds 65536 bytes")
+			sendSharedWSError(client, "text-sync", "Text exceeds 65536 bytes")
 			return
 		}
 		broadcastSharedWSTextSync(msg.Channel, msg.Text)
 	default:
-		sendSharedWSError(client, "text-sync", "", "Invalid payload")
+		sendSharedWSError(client, "text-sync", "Invalid payload")
 	}
 }
 

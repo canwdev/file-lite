@@ -1,7 +1,12 @@
 package types
 
 type Entry struct {
-	Name         string  `json:"name"`
+	Name string `json:"name"`
+	// Path 是 canonical 形态的完整路径（正斜杠）。前端直接把它当资源标识回传，
+	// 不再自己把目录和名字拼起来——拼接会在盘符、UNC 与转义上出错。
+	Path string `json:"path"`
+	// RelativePath 只在递归平铺列表里有值：相对被列出目录的路径。
+	RelativePath string  `json:"relativePath,omitempty"`
 	Ext          string  `json:"ext"`
 	IsDirectory  bool    `json:"isDirectory"`
 	IsLink       bool    `json:"isLink"`

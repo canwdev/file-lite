@@ -1,6 +1,6 @@
 # 7-Zip compress and extract
 
-Compress and extract run on the server through the system `7z` binary. There is no Go archive library and no shell: every argument is a separate `exec` parameter. The binary is probed the same way as ffmpeg. When it is missing, `/api/files/auth` reports `capabilities.archive: false` and the file menu does not show **7-Zip**.
+Compress and extract run on the server through the system `7z` binary. There is no Go archive library and no shell: every argument is a separate `exec` parameter. The binary is probed the same way as ffmpeg. When it is missing, `GET /api/session` reports `capabilities.archive: false` and the file menu does not show **7-Zip**.
 
 ## Probe
 

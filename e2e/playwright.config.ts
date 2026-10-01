@@ -42,7 +42,8 @@ export default defineConfig({
 
   webServer: {
     command: 'node scripts/start-app.mjs',
-    url: `http://127.0.0.1:${PORT}/api/`,
+    // 就绪探针要一个确定回 2xx、且不依赖会话的地址：/api/session 未登录是 401。
+    url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 240_000,
     stdout: 'pipe',

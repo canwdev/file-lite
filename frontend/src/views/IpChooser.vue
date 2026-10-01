@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core'
 import { useQRCode } from '@vueuse/integrations/useQRCode'
-import { getIpChooserInfo } from '@/api/ip-chooser'
+import { createLoginTicket } from '@/api/session'
 import { copyWithToast } from '@/utils'
 
 const currentUrl = ref('')
@@ -58,7 +58,7 @@ async function loadInfo() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const info = await getIpChooserInfo()
+    const info = await createLoginTicket()
     hostUrls.value = info.urls ?? []
     expiresAtMs.value = info.expiresAt ? new Date(info.expiresAt).getTime() : 0
     nowMs.value = Date.now()

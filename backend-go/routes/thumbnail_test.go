@@ -21,14 +21,20 @@ import (
 )
 
 func newThumbnailServer() *echo.Echo {
-	e := echo.New()
-	e.GET("/api/files/thumbnail", getThumbnail)
+	e := withAPIErrorHandler(echo.New())
+	e.GET("/api/fs/thumbnail/*", getThumbnailByPath)
 	return e
 }
 
 func requestThumbnail(t *testing.T, e *echo.Echo, q url.Values, ifNoneMatch string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/files/thumbnail?"+q.Encode(), nil)
+	path := q.Get("path")
+	q.Del("path")
+	target := encodedEntryURL("/api/fs/thumbnail", path)
+	if encoded := q.Encode(); encoded != "" {
+		target += "?" + encoded
+	}
+	req := httptest.NewRequest(http.MethodGet, target, nil)
 	if ifNoneMatch != "" {
 		req.Header.Set("If-None-Match", ifNoneMatch)
 	}
@@ -136,11 +142,11 @@ func TestGetThumbnailNormalizesEdge(t *testing.T) {
 }
 
 func TestAuthReportsCapabilities(t *testing.T) {
-	e := echo.New()
-	e.GET("/api/files/auth", getAuthInfo)
+	e := withAPIErrorHandler(echo.New())
+	e.GET("/api/session", sessionInfo)
 
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/files/auth", nil))
+	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/session", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}

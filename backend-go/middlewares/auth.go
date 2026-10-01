@@ -12,6 +12,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"file-lite-go/apierr"
 	"file-lite-go/config"
 )
 
@@ -203,7 +204,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		ip := clientIP(c)
 		banned, _ := authLimiter.check(ip)
 		if banned {
-			return c.JSON(http.StatusForbidden, map[string]any{"message": "Forbidden"})
+			return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 		}
 		fromHeader := c.Request().Header.Get("Authorization")
 		token := fromHeader
@@ -225,7 +226,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			if !config.IsExplicitDevMode() && fromHeader == "" && !isSafeMethod(c.Request().Method) {
 				session, err := c.Cookie(SessionCookieName)
 				if err != nil || session.Value == "" || c.Request().Header.Get(CSRFTokenHeader) != session.Value {
-					return c.JSON(http.StatusForbidden, map[string]string{"message": "Forbidden"})
+					return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 				}
 			}
 			authLimiter.recordSuccess(ip)
@@ -235,6 +236,6 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// Drop cookies the server has already rejected so the browser stops
 		// replaying a dead credential on every request.
 		ClearAuthCookies(c)
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
 	}
 }

@@ -1,51 +1,45 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
-// newUploadServer 注册上传与存在性检查两个端点。
+// newUploadServer 注册上传（PUT content）与存在性预检（POST entry-queries）两个端点。
 // 不加载 config：路径不再有访问范围限制，测试直接用 t.TempDir() 下的绝对路径。
 func newUploadServer() *echo.Echo {
-	e := echo.New()
-	e.POST("/api/files/upload-file", uploadFile)
-	e.POST("/api/files/exists", existsPaths)
+	e := withAPIErrorHandler(echo.New())
+	fs := e.Group("/api/fs")
+	fs.PUT("/content/*", putContent)
+	fs.POST("/entry-queries", queryEntries)
 	return e
 }
 
-func uploadRequest(t *testing.T, e *echo.Echo, path, filename, content, onConflict string) *httptest.ResponseRecorder {
+// putContentRequest 发一个 PUT /api/fs/content/{path}，请求体就是文件字节本身。
+//
+// onConflict 用新契约表达同名策略（docs/design/api.md §6）：
+//   - "" / "overwrite"  不带前置条件：覆盖已存在文件，不存在则新建
+//   - "error"           If-None-Match: *，只新建；已存在回 412
+//   - "keep-both"       ?onConflict=keep-both，已存在时改写成 "name (1).ext"
+func putContentRequest(t *testing.T, e *echo.Echo, path, content, onConflict string) *httptest.ResponseRecorder {
 	t.Helper()
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		t.Fatal(err)
+	target := encodedEntryURL("/api/fs/content", filepath.ToSlash(path))
+	if onConflict == "keep-both" {
+		target += "?onConflict=keep-both"
 	}
-	if _, err := part.Write([]byte(content)); err != nil {
-		t.Fatal(err)
+	req := httptest.NewRequest(http.MethodPut, target, strings.NewReader(content))
+	req.Header.Set(echo.HeaderContentType, "application/octet-stream")
+	if onConflict == "error" {
+		req.Header.Set("If-None-Match", "*")
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	// path 必须转义：文件名里带空格时，未转义的 URL 会被 httptest 当成非法请求行
-	endpoint := "/api/files/upload-file?path=" + url.QueryEscape(path)
-	if onConflict != "" {
-		endpoint += "&onConflict=" + onConflict
-	}
-	req := httptest.NewRequest(http.MethodPost, endpoint, &buf)
-	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
@@ -57,7 +51,7 @@ func existsRequest(t *testing.T, e *echo.Echo, paths []string) map[string][]stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/files/exists", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/fs/entry-queries", strings.NewReader(string(body)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -78,9 +72,9 @@ func readText(t *testing.T, p string) string {
 	return string(b)
 }
 
-// TestUploadDefaultRefusesToOverwrite 是这次修复的核心：
-// 缺省的 onConflict 必须拒绝同名写入，绝不静默截断用户已有的文件。
-func TestUploadDefaultRefusesToOverwrite(t *testing.T) {
+// TestUploadCreateOnlyPreconditionRefusesToOverwrite 是这条契约的核心：
+// 「别覆盖我的文件」由标准前置条件 If-None-Match: * 表达，命中时回 412 而不是静默截断。
+func TestUploadCreateOnlyPreconditionRefusesToOverwrite(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "a.txt")
 	if err := os.WriteFile(target, []byte("original"), 0644); err != nil {
@@ -88,9 +82,9 @@ func TestUploadDefaultRefusesToOverwrite(t *testing.T) {
 	}
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, target, "a.txt", "replacement", "")
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d (%s)", rec.Code, rec.Body.String())
+	rec := putContentRequest(t, e, target, "replacement", "error")
+	if rec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412, got %d (%s)", rec.Code, rec.Body.String())
 	}
 	if got := readText(t, target); got != "original" {
 		t.Fatalf("existing file must be untouched, got %q", got)
@@ -98,7 +92,7 @@ func TestUploadDefaultRefusesToOverwrite(t *testing.T) {
 	// 冲突时不能留下临时文件
 	entries, _ := os.ReadDir(dir)
 	for _, entry := range entries {
-		if len(entry.Name()) > 9 && entry.Name()[:9] == ".fl-part-" {
+		if strings.HasPrefix(entry.Name(), ".fl-part-") {
 			t.Fatalf("leftover temp file: %s", entry.Name())
 		}
 	}
@@ -112,7 +106,7 @@ func TestUploadOverwriteReplaces(t *testing.T) {
 	}
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, target, "a.txt", "replacement", "overwrite")
+	rec := putContentRequest(t, e, target, "replacement", "overwrite")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
 	}
@@ -129,9 +123,9 @@ func TestUploadKeepBothRenames(t *testing.T) {
 	}
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, target, "a.txt", "incoming", "keep-both")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	rec := putContentRequest(t, e, target, "incoming", "keep-both")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (%s)", rec.Code, rec.Body.String())
 	}
 
 	var body map[string]any
@@ -154,9 +148,9 @@ func TestUploadFreshFileStillWorks(t *testing.T) {
 	target := filepath.Join(dir, "fresh.txt")
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, target, "fresh.txt", "hello", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	rec := putContentRequest(t, e, target, "hello", "")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (%s)", rec.Code, rec.Body.String())
 	}
 	if got := readText(t, target); got != "hello" {
 		t.Fatalf("unexpected content %q", got)
@@ -168,7 +162,7 @@ func TestUploadRejectsReservedTempName(t *testing.T) {
 	target := filepath.Join(dir, ".fl-part-evil")
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, target, ".fl-part-evil", "x", "overwrite")
+	rec := putContentRequest(t, e, target, "x", "overwrite")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
@@ -181,27 +175,12 @@ func TestUploadAcceptsDotsInsideFilename(t *testing.T) {
 	dir := t.TempDir()
 
 	e := newUploadServer()
-	rec := uploadRequest(t, e, filepath.Join(dir, name), name, "audio", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	rec := putContentRequest(t, e, filepath.Join(dir, name), "audio", "")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d (%s)", rec.Code, rec.Body.String())
 	}
 	if got := readText(t, filepath.Join(dir, name)); got != "audio" {
 		t.Fatalf("unexpected content %q", got)
-	}
-}
-
-// 要挡的是「整个名字就是点」：filepath.Join(dest, "..") 会写到父目录，
-// Join(dest, ".") 就是 dest 自己。带目录的名字由 multipart 的 FileName()
-// 先取 Base，到不了这里。
-func TestUploadRejectsDotOnlyNames(t *testing.T) {
-	dir := t.TempDir()
-
-	e := newUploadServer()
-	for _, name := range []string{"..", "."} {
-		rec := uploadRequest(t, e, filepath.Join(dir, name), name, "x", "overwrite")
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("%q: expected 400, got %d (%s)", name, rec.Code, rec.Body.String())
-		}
 	}
 }
 
@@ -230,7 +209,7 @@ func TestSanitizeUploadFilename(t *testing.T) {
 	}
 }
 
-func TestExistsPathsReportsOnlyExisting(t *testing.T) {
+func TestEntryQueriesReportsOnlyExisting(t *testing.T) {
 	dir := t.TempDir()
 	present := filepath.Join(dir, "present.txt")
 	missing := filepath.Join(dir, "missing.txt")
@@ -239,8 +218,8 @@ func TestExistsPathsReportsOnlyExisting(t *testing.T) {
 	}
 
 	e := newUploadServer()
-	out := existsRequest(t, e, []string{present, missing})
-	if len(out["existing"]) != 1 || out["existing"][0] != present {
+	out := existsRequest(t, e, []string{filepath.ToSlash(present), filepath.ToSlash(missing)})
+	if len(out["existing"]) != 1 || out["existing"][0] != filepath.ToSlash(present) {
 		t.Fatalf("expected only the present path, got %v", out["existing"])
 	}
 }

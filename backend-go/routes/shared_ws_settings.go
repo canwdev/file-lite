@@ -31,43 +31,6 @@ func StopSharedWSServices() {
 	stopTaskManager()
 }
 
-func handleSharedWSSettingsMessage(client *sharedWSClient, msg sharedWSSettingsClientMessage) {
-	var (
-		value any
-		err   error
-	)
-
-	switch msg.Type {
-	case "get":
-		value, err = utils.GetSettingsValue(msg.Key)
-	case "set":
-		value, err = utils.SetSettingsValue(msg.Key, msg.Value)
-	case "delete":
-		value, err = utils.DeleteSettingsValue(msg.Key)
-	default:
-		sendSharedWSError(client, "settings", msg.RequestID, "Invalid payload")
-		return
-	}
-
-	if err != nil {
-		sendSharedWSError(client, "settings", msg.RequestID, "Settings request failed")
-		return
-	}
-
-	sendSharedWSJSON(client, map[string]any{
-		"scope":     "settings",
-		"type":      "response",
-		"requestId": msg.RequestID,
-		"action":    msg.Type,
-		"key":       msg.Key,
-		"value":     value,
-	})
-
-	if msg.Type == "set" || msg.Type == "delete" {
-		broadcastSharedWSSettings(msg.Key, value)
-	}
-}
-
 func broadcastSharedWSSettings(key string, value any) {
 	clients := snapshotSharedWSClients()
 	message := map[string]any{

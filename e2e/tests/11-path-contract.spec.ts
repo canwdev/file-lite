@@ -4,6 +4,7 @@ import {
   filesDir,
   login,
   openFolder,
+  requestedListingPath,
   row,
   screenshot,
   selectItem,
@@ -184,8 +185,8 @@ test.describe('路径与挂载点', () => {
     await login(page)
 
     const seen: string[] = []
-    await page.route('**/api/files/list**', async (route) => {
-      seen.push(new URL(route.request().url()).searchParams.get('path') ?? '')
+    await page.route('**/api/fs/directories/**', async (route) => {
+      seen.push(requestedListingPath(route.request().url()))
       await route.fulfill({
         status: 404,
         contentType: 'application/json',
@@ -209,8 +210,8 @@ test.describe('路径与挂载点', () => {
     await login(page)
 
     const seen: string[] = []
-    await page.route('**/api/files/list**', async (route) => {
-      seen.push(new URL(route.request().url()).searchParams.get('path') ?? '')
+    await page.route('**/api/fs/directories/**', async (route) => {
+      seen.push(requestedListingPath(route.request().url()))
       await route.fulfill({
         status: 404,
         contentType: 'application/json',
@@ -233,13 +234,13 @@ test.describe('路径与挂载点', () => {
     await login(page)
 
     // 真实环境里这是 BitLocker 未解锁的盘：盘符在，但读不到卷标也读不到容量。
-    await page.route('**/api/files/drives', route => route.fulfill({
+    await page.route('**/api/volumes', route => route.fulfill({
       json: [
         { label: 'Files', path: mountRoot, kind: 'volume' },
         { label: 'BitLocker (H:)', path: 'H:', kind: 'locked' },
       ],
     }))
-    await page.route('**/api/files/list**', route => route.fulfill({
+    await page.route('**/api/fs/directories/**', route => route.fulfill({
       status: 423,
       contentType: 'application/json',
       body: JSON.stringify({
@@ -276,7 +277,7 @@ test.describe('列目录失败的呈现', () => {
   test('失败时列表区显示原因，而不是「目录为空」', async ({ page }) => {
     await login(page)
 
-    await page.route('**/api/files/list**', route => route.fulfill({
+    await page.route('**/api/fs/directories/**', route => route.fulfill({
       status: 404,
       contentType: 'application/json',
       body: JSON.stringify({ message: 'Path not found' }),
@@ -297,7 +298,7 @@ test.describe('列目录失败的呈现', () => {
   test('网络位置不可达时给出明确提示，而不是「文件不存在」', async ({ page }) => {
     await login(page)
 
-    await page.route('**/api/files/list**', route => route.fulfill({
+    await page.route('**/api/fs/directories/**', route => route.fulfill({
       status: 503,
       headers: { 'Retry-After': '3' },
       contentType: 'application/json',
@@ -317,7 +318,7 @@ test.describe('列目录失败的呈现', () => {
     await login(page)
 
     let failFirst = true
-    await page.route('**/api/files/list**', async (route) => {
+    await page.route('**/api/fs/directories/**', async (route) => {
       if (failFirst) {
         failFirst = false
         await route.fulfill({
@@ -349,7 +350,7 @@ test.describe('列目录失败的呈现', () => {
     await selectItem(page, 'a.txt')
 
     // 同目录刷新失败：旧列表是有效的，不该被错误卡片顶掉
-    await page.route('**/api/files/list**', route => route.fulfill({
+    await page.route('**/api/fs/directories/**', route => route.fulfill({
       status: 500,
       contentType: 'application/json',
       body: JSON.stringify({ message: 'Failed to read the path' }),

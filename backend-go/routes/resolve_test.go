@@ -1,11 +1,10 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,13 +22,6 @@ import (
 // HTTP 契约：非法路径 400、不存在 404、网络位置不可用 503、BitLocker 未解锁 423，
 // 四者不得互相冒充。设计依据见 docs/design/vfs-abstraction-design.md §5.3。
 
-// newFilesServer 注册文件路由（会顺带填充挂载表）。
-func newFilesServer() *echo.Echo {
-	e := echo.New()
-	registerFiles(e.Group("/api/files"))
-	return e
-}
-
 // getJSON 发一个 GET 并返回状态码与响应体。
 func getJSON(t *testing.T, e *echo.Echo, target string) (int, []byte) {
 	t.Helper()
@@ -38,24 +30,10 @@ func getJSON(t *testing.T, e *echo.Echo, target string) (int, []byte) {
 	return rec.Code, rec.Body.Bytes()
 }
 
-// postJSON 发一个 JSON POST，用于 rename / create-dir 这类带 body 的端点。
-func postJSON(t *testing.T, e *echo.Echo, target string, payload any) *httptest.ResponseRecorder {
-	t.Helper()
-	body, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	return rec
-}
-
 // `..` 逃逸必须 400，且错误信息不得回显用户输入的完整路径。
 func TestListRejectsEscapeWith400(t *testing.T) {
-	e := newFilesServer()
-	code, body := getJSON(t, e, "/api/files/list?path="+url.QueryEscape("/data/../../etc"))
+	e := newRESTTestServer()
+	code, body := getJSON(t, e, encodedEntryURL("/api/fs/directories", "/data/../../etc"))
 	if code != http.StatusBadRequest {
 		t.Fatalf("越根路径应返回 400，得到 %d：%s", code, body)
 	}
@@ -83,30 +61,27 @@ func TestListAllowsPathOutsideAnyMount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := newFilesServer()
+	e := newRESTTestServer()
 	// 注册路由时会把真实枚举结果填进挂载表；这里换成一份「什么都匹配不到」的表，
 	// 验证解析器不会因为「没有归属的挂载点」而拒绝一条合法绝对路径。
 	fileops.SetMounts(nil)
 	t.Cleanup(func() { fileops.SetMounts(nil) })
 
-	code, body := getJSON(t, e, "/api/files/list?path="+url.QueryEscape(filepath.ToSlash(dir)))
+	code, body := getJSON(t, e, encodedEntryURL("/api/fs/directories", filepath.ToSlash(dir)))
 	if code != http.StatusOK {
 		t.Fatalf("未匹配挂载点的绝对路径必须仍可列目录，得到 %d：%s", code, body)
 	}
-	var entries []types.Entry
-	if err := json.Unmarshal(body, &entries); err != nil {
-		t.Fatalf("响应不是条目数组: %v", err)
-	}
-	if len(entries) != 1 || entries[0].Name != "a.txt" {
-		t.Fatalf("期望列出 a.txt，得到 %+v", entries)
+	parsed := decodeListBody(t, body)
+	if len(parsed.Entries) != 1 || parsed.Entries[0].Name != "a.txt" {
+		t.Fatalf("期望列出 a.txt，得到 %+v", parsed.Entries)
 	}
 }
 
 // 不存在的路径是 404，不是 500、也不是 503。
 func TestListMissingPathIs404(t *testing.T) {
-	e := newFilesServer()
+	e := newRESTTestServer()
 	missing := filepath.ToSlash(filepath.Join(t.TempDir(), "nope"))
-	code, body := getJSON(t, e, "/api/files/list?path="+url.QueryEscape(missing))
+	code, body := getJSON(t, e, encodedEntryURL("/api/fs/directories", missing))
 	if code != http.StatusNotFound {
 		t.Fatalf("不存在的路径应返回 404，得到 %d：%s", code, body)
 	}
@@ -118,7 +93,7 @@ func TestListMissingPathIs404(t *testing.T) {
 // 网络不可达 ⇒ 503 + Retry-After；如果内核明确说 ENOENT，仍然是 404。
 // 两种结果都算通过——测试要钉的是「503 不能被误报成 404」，不是逼着内核报错。
 func TestNetworkFailureIs503Not404(t *testing.T) {
-	e := newFilesServer()
+	e := newRESTTestServer()
 	fileops.SetMounts([]types.Drive{
 		{Label: "net", Path: "//127.0.0.1/nonexistent-share", Kind: types.DriveKindNetwork},
 	})
@@ -126,7 +101,7 @@ func TestNetworkFailureIs503Not404(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet,
-		"/api/files/list?path="+url.QueryEscape("//127.0.0.1/nonexistent-share/dir"), nil)
+		encodedEntryURL("/api/fs/directories", "//127.0.0.1/nonexistent-share/dir"), nil)
 	e.ServeHTTP(rec, req)
 
 	switch rec.Code {
@@ -155,8 +130,8 @@ func TestResolvePathContract(t *testing.T) {
 	for _, p := range bad {
 		if _, httpErr := resolvePath(p); httpErr == nil {
 			t.Errorf("resolvePath(%q) 应当报错", p)
-		} else if httpErr.Code != http.StatusBadRequest {
-			t.Errorf("resolvePath(%q) 的状态码 = %d，期望 400", p, httpErr.Code)
+		} else if httpErr.Status != http.StatusBadRequest {
+			t.Errorf("resolvePath(%q) 的状态码 = %d，期望 400", p, httpErr.Status)
 		}
 	}
 	good := []string{
@@ -190,9 +165,9 @@ func TestFSErrorStatusMapping(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, _ := fsErrorStatus(c.err, c.network)
+			got := fsError(c.err, c.network).Status
 			if got != c.want {
-				t.Fatalf("fsErrorStatus(%v, network=%v) = %d，期望 %d", c.err, c.network, got, c.want)
+				t.Fatalf("fsError(%v, network=%v) = %d，期望 %d", c.err, c.network, got, c.want)
 			}
 		})
 	}
@@ -231,7 +206,8 @@ func TestFSErrorStatusBitLocker(t *testing.T) {
 	}
 	err := &os.PathError{Op: "CreateFile", Path: `H:\`, Err: locked}
 
-	status, message := fsErrorStatus(err, false)
+	apiErr := fsError(err, false)
+	status, message := apiErr.Status, apiErr.Message
 	if status != http.StatusLocked {
 		t.Fatalf("BitLocker 锁定应为 423，得到 %d（message=%q）", status, message)
 	}
@@ -244,20 +220,24 @@ func TestFSErrorStatusBitLocker(t *testing.T) {
 	}
 }
 
-// 目录不能重命名进自己的子树——那会把源搬到一半再删掉。
-func TestRenameIntoOwnSubtreeIsRejected(t *testing.T) {
+// 目录不能移动进自己的子树——那会把源搬到一半再删掉。
+//
+// 跨目录移动现在是任务（POST /api/tasks, kind=move），校验在任务管理器入口完成；
+// PATCH /api/fs/entries 只改名，不接受目标目录。
+func TestMoveIntoOwnSubtreeIsRejected(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src")
 	if err := os.MkdirAll(filepath.Join(src, "sub"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	e := echo.New()
-	e.POST("/api/files/rename", renamePath)
-	rec := postJSON(t, e, "/api/files/rename", map[string]string{
-		"fromPath": filepath.ToSlash(src),
-		"toPath":   filepath.ToSlash(filepath.Join(src, "sub", "moved")),
-	})
+	stopTaskManager()
+	startTaskManager()
+	t.Cleanup(stopTaskManager)
+
+	e := newCommandTestServer()
+	rec := restRequest(t, e, http.MethodPost, "/api/tasks",
+		moveTaskBody(src, filepath.Join(src, "sub", "moved")), nil)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("移进自己的子树应返回 400，得到 %d：%s", rec.Code, rec.Body.String())
@@ -270,7 +250,7 @@ func TestRenameIntoOwnSubtreeIsRejected(t *testing.T) {
 // 符号链接指向源之外时不得被误判成「源之内」——反过来，父路径里含链接时词法判断
 // 与实际指向一致。这里锁定住这条边界：源是 dir/src，链接 link 指向 dir，
 // 目标 dir/src/back/target 词法上在 src 之内，必须被拒。
-func TestRenameThroughSymlinkStaysLexical(t *testing.T) {
+func TestMoveThroughSymlinkStaysLexical(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src")
 	if err := os.MkdirAll(src, 0755); err != nil {
@@ -281,23 +261,30 @@ func TestRenameThroughSymlinkStaysLexical(t *testing.T) {
 		t.Skipf("无法创建符号链接（%v），跳过", err)
 	}
 
-	e := echo.New()
-	e.POST("/api/files/rename", renamePath)
-	rec := postJSON(t, e, "/api/files/rename", map[string]string{
-		"fromPath": filepath.ToSlash(src),
+	stopTaskManager()
+	startTaskManager()
+	t.Cleanup(stopTaskManager)
+
+	e := newCommandTestServer()
+	rec := restRequest(t, e, http.MethodPost, "/api/tasks",
 		// 目标不存在，所以这是「移进自己的子树」而不是「目标已存在」。
-		"toPath": filepath.ToSlash(filepath.Join(link, "target")),
-	})
+		moveTaskBody(src, filepath.Join(link, "target")), nil)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("经链接移进自己的子树应返回 400，得到 %d：%s", rec.Code, rec.Body.String())
 	}
 }
 
+// moveTaskBody 构造一条 move 任务请求（canonical 路径）。
+func moveTaskBody(from, to string) string {
+	return fmt.Sprintf(`{"kind":"move","fromPaths":[%q],"toPath":%q}`,
+		filepath.ToSlash(from), filepath.ToSlash(to))
+}
+
 // getDrives 的每一项都必须带 kind，且 Home 排第一（前端据此选图标与显示容量）。
 func TestDrivesCarryKindAndHomeFirst(t *testing.T) {
-	e := newFilesServer()
-	code, body := getJSON(t, e, "/api/files/drives")
+	e := newRESTTestServer()
+	code, body := getJSON(t, e, "/api/volumes")
 	if code != http.StatusOK {
 		t.Fatalf("drives 返回 %d：%s", code, body)
 	}

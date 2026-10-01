@@ -294,7 +294,7 @@ async function waitForServer(timeoutMs = 60_000) {
  * 两个都要注入新上下文——只给前者，截图里的写操作（上传）会因缺 CSRF 头而 403。
  */
 async function fetchAuthCookies() {
-  const response = await fetch(`${BASE}/api/files/auth`, {
+  const response = await fetch(`${BASE}/api/session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: DOCS_PASSWORD }),

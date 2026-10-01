@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { InputInstance } from 'element-plus'
 import { useStorage } from '@vueuse/core'
-import { consumeTicket, login } from '@/api/auth'
+import { consumeTicket, login } from '@/api/session'
 import { LsKeys } from '@/enum'
 import { readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 

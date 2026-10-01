@@ -2,11 +2,12 @@ package middlewares
 
 import (
 	"fmt"
-	"net/http"
 	"net/netip"
 	"strings"
 
 	"github.com/labstack/echo/v4"
+
+	"file-lite-go/apierr"
 )
 
 // IPAllowlist restricts requests to the CIDRs configured in config.json's
@@ -95,7 +96,7 @@ func (a *IPAllowlist) Middleware() echo.MiddlewareFunc {
 			}
 			ip, ok := remoteIP(c)
 			if !ok || !a.allows(ip) {
-				return c.JSON(http.StatusForbidden, map[string]string{"message": "Forbidden"})
+				return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 			}
 			return next(c)
 		}

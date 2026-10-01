@@ -17,11 +17,14 @@ import (
 // 「解析器认识的挂载点」会悄悄漂移。这里把两者钉在一起。
 func TestMountTableMatchesDrivesEndpoint(t *testing.T) {
 	// 只注册文件路由，避免把 WebSocket / 任务管理器一起拉起来。
-	e := echo.New()
-	registerFiles(e.Group("/api/files"))
+	e := withAPIErrorHandler(echo.New())
+	e.GET("/api/volumes", getDrives)
+	// registerREST 在注册文件路由时会用同一份枚举结果填充挂载表；这里复现同一件事，
+	// 否则「挂载表与侧边栏同源」这条契约就没有被测到。
+	fileops.SetMounts(visibleDrives())
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/files/drives", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/volumes", nil)
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("drives 端点返回 %d：%s", rec.Code, rec.Body.String())

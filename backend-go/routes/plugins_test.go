@@ -13,7 +13,7 @@ import (
 
 func requestPluginFile(t *testing.T, abs string, inject bool, ifNoneMatch string) *httptest.ResponseRecorder {
 	t.Helper()
-	e := echo.New()
+	e := withAPIErrorHandler(echo.New())
 	e.GET("/f", func(c echo.Context) error {
 		return serveAbsFile(c, abs, nil, inject)
 	})

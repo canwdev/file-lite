@@ -77,17 +77,33 @@ let sharedAuthCookies: { name: string, value: string }[] | null = null
  * 把夹具目录伪装成唯一的「盘」。
  *
  * 1.5.0 起后端不再有 `safeBaseDir`，也不再有 `startPath`：首次打开进入
- * `/api/files/drives` 的**第一个位置**（真实环境下是 Home）。所以用例需要的
+ * `/api/volumes` 的**第一个位置**（真实环境下是 Home）。所以用例需要的
  * 「夹具目录就是根」由这里在测试侧接管，而不是改动生产行为：
  *
- * - `drives` 只报夹具目录，于是侧边栏第一项、首次打开进入的目录、以及各用例里
+ * - `volumes` 只报夹具目录，于是侧边栏第一项、首次打开进入的目录、以及各用例里
  *   `.drive-list__item').first()` 这个「回根」入口都落在夹具根上。
  *
  * 注：真实盘列表是整个文件系统（Home + 各卷 + WSL + 网络位置），不适合当测试根。
  */
 async function stubFixtureMounts(page: Page) {
   const drive = { label: 'Files', path: filesDir, kind: 'volume' }
-  await page.route('**/api/files/drives', route => route.fulfill({ json: [drive] }))
+  await page.route('**/api/volumes', route => route.fulfill({ json: [drive] }))
+}
+
+/**
+ * 从一次列表请求的 URL 里取回它请求的 canonical 路径。
+ *
+ * 路径是 URL 的最后一段，整体百分号编码（`/` 编成 `%2F`），所以要解码一次才能
+ * 和测试里的路径比较。用例用它断言前端究竟发了什么。
+ */
+export function requestedListingPath(requestUrl: string): string {
+  const url = new URL(requestUrl)
+  const prefix = '/api/fs/directories/'
+  const index = url.pathname.indexOf(prefix)
+  if (index === -1) {
+    return ''
+  }
+  return decodeURIComponent(url.pathname.slice(index + prefix.length))
 }
 
 export async function login(page: Page) {

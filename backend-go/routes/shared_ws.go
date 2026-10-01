@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 
+	"file-lite-go/apierr"
 	"file-lite-go/config"
 	"file-lite-go/middlewares"
 )
@@ -26,6 +27,9 @@ const (
 	sharedWSWriteWait      = 10 * time.Second
 	sharedWSPongWait       = 60 * time.Second
 	sharedWSPingPeriod     = 25 * time.Second
+	// 入站消息只剩 text-sync 的短文本（命令都走 HTTP）：给一个上限，
+	// 免得一条畸形消息就把连接的内存吃光。
+	sharedWSMaxMessageBytes = 256 << 10
 )
 
 var (
@@ -105,30 +109,10 @@ func (c *sharedWSClient) writeLoop() {
 	}
 }
 
-type sharedWSBaseMessage struct {
-	Scope string `json:"scope"`
-	Type  string `json:"type"`
-}
-
 type sharedWSTextSyncClientMessage struct {
 	Type    string `json:"type"`
 	Channel string `json:"channel"`
 	Text    string `json:"text,omitempty"`
-}
-
-type sharedWSSettingsClientMessage struct {
-	Type      string `json:"type"`
-	RequestID string `json:"requestId"`
-	Key       string `json:"key"`
-	Value     any    `json:"value,omitempty"`
-}
-
-type sharedWSSettingsSetEnvelope struct {
-	Scope     string           `json:"scope"`
-	Type      string           `json:"type"`
-	RequestID string           `json:"requestId"`
-	Key       string           `json:"key"`
-	Value     *json.RawMessage `json:"value"`
 }
 
 func handleSharedWebSocket(c echo.Context) error {
@@ -136,12 +120,12 @@ func handleSharedWebSocket(c echo.Context) error {
 		return c.NoContent(http.StatusNotFound)
 	}
 	if !isSharedWSAuthenticated(c) {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
 	}
 
 	ip := c.RealIP()
 	if !acquireSharedWSIPConnection(ip) {
-		return c.JSON(http.StatusTooManyRequests, map[string]string{"message": "Too Many Requests"})
+		return apierr.Write(c, apierr.TooManyRequests("Too many connections"))
 	}
 	defer releaseSharedWSIPConnection(ip)
 
@@ -163,6 +147,7 @@ func handleSharedWebSocket(c echo.Context) error {
 	defer client.close()
 
 	// 心跳：读超时由 pong 续期，半死连接会被清理，连接计数随之释放
+	conn.SetReadLimit(sharedWSMaxMessageBytes)
 	_ = conn.SetReadDeadline(time.Now().Add(sharedWSPongWait))
 	conn.SetPongHandler(func(string) error {
 		return conn.SetReadDeadline(time.Now().Add(sharedWSPongWait))
@@ -177,53 +162,15 @@ func handleSharedWebSocket(c echo.Context) error {
 			return nil
 		}
 
-		scope, err := parseSharedWSMessageScope(raw)
+		// 入站只有实时协作：任务、设置、属性测量的命令全部走 HTTP
+		// （见 docs/design/api.md §11）。这条连接只负责推送。
+		msg, err := parseSharedWSTextSyncMessage(raw)
 		if err != nil {
-			sendSharedWSError(client, "ws", "", err.Error())
+			sendSharedWSError(client, "text-sync", err.Error())
 			continue
 		}
-
-		switch scope {
-		case "text-sync":
-			msg, err := parseSharedWSTextSyncMessage(raw)
-			if err != nil {
-				sendSharedWSError(client, "text-sync", "", err.Error())
-				continue
-			}
-			handleSharedWSTextSyncMessage(client, msg)
-		case "settings":
-			msg, err := parseSharedWSSettingsMessage(raw)
-			if err != nil {
-				sendSharedWSError(client, "settings", "", err.Error())
-				continue
-			}
-			handleSharedWSSettingsMessage(client, msg)
-		case "tasks":
-			msg, err := parseSharedWSTasksMessage(raw)
-			if err != nil {
-				sendSharedWSError(client, "tasks", "", err.Error())
-				continue
-			}
-			handleSharedWSTasksMessage(client, msg)
-		case "properties":
-			msg, err := parseSharedWSPropertiesMessage(raw)
-			if err != nil {
-				sendSharedWSError(client, "properties", "", err.Error())
-				continue
-			}
-			handleSharedWSPropertiesMessage(client, msg)
-		default:
-			sendSharedWSError(client, "ws", "", "Invalid payload")
-		}
+		handleSharedWSTextSyncMessage(client, msg)
 	}
-}
-
-func parseSharedWSMessageScope(raw []byte) (string, error) {
-	var msg sharedWSBaseMessage
-	if err := json.Unmarshal(raw, &msg); err != nil {
-		return "", err
-	}
-	return msg.Scope, nil
 }
 
 func parseSharedWSTextSyncMessage(raw []byte) (sharedWSTextSyncClientMessage, error) {
@@ -240,45 +187,6 @@ func parseSharedWSTextSyncMessage(raw []byte) (sharedWSTextSyncClientMessage, er
 	return msg, nil
 }
 
-func parseSharedWSSettingsMessage(raw []byte) (sharedWSSettingsClientMessage, error) {
-	var base sharedWSBaseMessage
-	if err := json.Unmarshal(raw, &base); err != nil {
-		return sharedWSSettingsClientMessage{}, err
-	}
-
-	switch base.Type {
-	case "get", "delete":
-		var msg sharedWSSettingsClientMessage
-		if err := json.Unmarshal(raw, &msg); err != nil {
-			return sharedWSSettingsClientMessage{}, err
-		}
-		if msg.RequestID == "" || msg.Key == "" {
-			return sharedWSSettingsClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
-		}
-		return msg, nil
-	case "set":
-		var envelope sharedWSSettingsSetEnvelope
-		if err := json.Unmarshal(raw, &envelope); err != nil {
-			return sharedWSSettingsClientMessage{}, err
-		}
-		if envelope.RequestID == "" || envelope.Key == "" || envelope.Value == nil {
-			return sharedWSSettingsClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
-		}
-		var value any
-		if err := json.Unmarshal(*envelope.Value, &value); err != nil {
-			return sharedWSSettingsClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
-		}
-		return sharedWSSettingsClientMessage{
-			Type:      envelope.Type,
-			RequestID: envelope.RequestID,
-			Key:       envelope.Key,
-			Value:     value,
-		}, nil
-	default:
-		return sharedWSSettingsClientMessage{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
-	}
-}
-
 func sharedWSRegisterClient(client *sharedWSClient) {
 	sharedWSState.Lock()
 	defer sharedWSState.Unlock()
@@ -291,8 +199,6 @@ func sharedWSUnregisterClient(client *sharedWSClient) {
 
 	delete(sharedWSState.clients, client)
 	sharedWSUnregisterTextSyncClientLocked(client)
-	// 连接断开后，它仍在跑的目录大小统计没有接收方了，立即终止
-	cancelSharedWSPropertiesScanForClient(client)
 }
 
 func snapshotSharedWSClients() []*sharedWSClient {
@@ -323,16 +229,14 @@ func sendSharedWSJSONDroppable(client *sharedWSClient, payload any) {
 	client.enqueue(raw, true)
 }
 
-func sendSharedWSError(client *sharedWSClient, scope, requestID, message string) {
-	payload := map[string]any{
+// sendSharedWSError 只用于协议层错误（消息解析不了、text-sync 频道不合法）。
+// 命令已经走 HTTP，它们的失败由响应体的 code/message 给出，不需要在这里关联请求。
+func sendSharedWSError(client *sharedWSClient, scope, message string) {
+	sendSharedWSJSON(client, map[string]any{
 		"scope":   scope,
 		"type":    "error",
 		"message": message,
-	}
-	if requestID != "" {
-		payload["requestId"] = requestID
-	}
-	sendSharedWSJSON(client, payload)
+	})
 }
 
 func acquireSharedWSIPConnection(ip string) bool {

@@ -1,10 +1,10 @@
-import type { IEntry, PropertiesMetaMessage, PropertiesResultMessage } from '@/types/server'
+import type { MeasurementState } from '@/api/measurements'
+import type { IEntry, MeasurementsMessage } from '@/types/server'
 import { computed, ref } from 'vue'
-import { newPropertiesRequestId, sendPropertiesCancel, sendPropertiesGet } from '@/api/properties-ws'
-import { subscribeSharedWsMessage } from '@/api/shared-ws'
+import { createMeasurement, deleteMeasurement, subscribeMeasurements } from '@/api/measurements'
 
-/** meta 与 result 合并后的窗口数据；type 只用于区分阶段。 */
-export type PropertiesInfo = Partial<Omit<PropertiesMetaMessage, 'type'>> & { type?: 'meta' | 'result' }
+/** 窗口数据：progress 是目录的即时信息，result 是终态（文件直接就是终态）。 */
+export type PropertiesInfo = Partial<MeasurementsMessage>
 
 export interface PropertiesTarget {
   /** 目标的绝对路径（行选中来自 basePath + name，空白处来自当前目录） */
@@ -50,18 +50,26 @@ export const propertiesError = ref<string | null>(null)
 /** 多选窗口 = 聚合模式。 */
 export const propertiesIsMulti = computed(() => propertiesItems.value.length > 0)
 
-let currentRequestId: string | null = null
-/** 多选时待测量的目录下标队列；服务端每个连接同时只跑一个统计，只能串行。 */
+/** 当前测量的 id；推送里带的是它，不匹配的一律丢弃。 */
+let currentMeasurementId: string | null = null
+
+/**
+ * 打开序号。POST 还没回来时用户又打开 / 关闭了窗口，用它认出「没人要的测量」并删掉，
+ * 否则它会一直在后台走完。
+ */
+let openSequence = 0
+
+/** 多选时待测量的目录下标队列；窗口一次只测一个，聚合结果才好逐个累加。 */
 let pendingDirectoryIndices: number[] = []
 /** 当前正在测量的条目下标。 */
 let measuringIndex: number | null = null
 
-function cancelCurrentRequest() {
-  if (!currentRequestId) {
+function cancelCurrentMeasurement() {
+  if (!currentMeasurementId) {
     return
   }
-  void sendPropertiesCancel(currentRequestId).catch(() => {})
-  currentRequestId = null
+  void deleteMeasurement(currentMeasurementId).catch(() => {})
+  currentMeasurementId = null
 }
 
 function resetAggregateState() {
@@ -84,13 +92,20 @@ function createAggregateItem(target: PropertiesTarget): PropertiesAggregateItem 
   }
 }
 
+/** REST 的创建响应没有 scope/type：补一个，让模板只认一种形状。 */
+function toPropertiesInfo(state: MeasurementState): PropertiesInfo {
+  return { ...state, type: state.complete ? 'result' : 'progress' }
+}
+
 /**
  * 打开属性窗口：窗口立即出现，文件用列表里的本地数据直接展示；
  * 目录的递归大小由服务端后台统计，完成后经 WS 推回刷新（期间显示 Loading...）。
  */
 export function openProperties(target: PropertiesTarget) {
-  cancelCurrentRequest()
+  cancelCurrentMeasurement()
   resetAggregateState()
+  const sequence = ++openSequence
+
   propertiesTarget.value = target
   propertiesData.value = {}
   propertiesItems.value = []
@@ -103,10 +118,19 @@ export function openProperties(target: PropertiesTarget) {
   }
 
   propertiesLoading.value = true
-  const requestId = newPropertiesRequestId()
-  currentRequestId = requestId
-  void sendPropertiesGet(requestId, target.absPath).catch((error: any) => {
-    if (currentRequestId !== requestId) {
+  void createMeasurement(target.absPath).then((state) => {
+    if (sequence !== openSequence) {
+      // 窗口已经关了或换了目标：这次测量没人收了
+      void deleteMeasurement(state.id).catch(() => {})
+      return
+    }
+    currentMeasurementId = state.id
+    propertiesData.value = toPropertiesInfo(state)
+    if (state.complete) {
+      propertiesLoading.value = false
+    }
+  }).catch((error: any) => {
+    if (sequence !== openSequence) {
       return
     }
     propertiesError.value = error?.message || 'Unable to load properties'
@@ -119,8 +143,10 @@ export function openProperties(target: PropertiesTarget) {
  * 每测完一个就把大小与条目数累加进窗口。
  */
 export function openPropertiesAggregate(targets: PropertiesTarget[]) {
-  cancelCurrentRequest()
+  cancelCurrentMeasurement()
   resetAggregateState()
+  openSequence += 1
+
   propertiesTarget.value = null
   propertiesData.value = {}
   propertiesItems.value = targets.map(createAggregateItem)
@@ -139,11 +165,11 @@ export function openPropertiesAggregate(targets: PropertiesTarget[]) {
   measureNextDirectory()
 }
 
-/** 串行测量目录：服务端每连接只保留一个统计任务，并发请求会互相取消。 */
+/** 串行测量目录：逐个累加才好在中途显示「已测完几个」。 */
 function measureNextDirectory() {
   measuringIndex = pendingDirectoryIndices.shift() ?? null
   if (measuringIndex == null) {
-    currentRequestId = null
+    currentMeasurementId = null
     propertiesLoading.value = false
     return
   }
@@ -154,10 +180,16 @@ function measureNextDirectory() {
     return
   }
 
-  const requestId = newPropertiesRequestId()
-  currentRequestId = requestId
-  void sendPropertiesGet(requestId, item.target.absPath).catch((error: any) => {
-    if (currentRequestId !== requestId) {
+  const sequence = openSequence
+  void createMeasurement(item.target.absPath).then((state) => {
+    if (sequence !== openSequence) {
+      void deleteMeasurement(state.id).catch(() => {})
+      return
+    }
+    currentMeasurementId = state.id
+    applyAggregateState(toPropertiesInfo(state))
+  }).catch((error: any) => {
+    if (sequence !== openSequence) {
       return
     }
     item.error = error?.message || 'Unable to load properties'
@@ -166,43 +198,34 @@ function measureNextDirectory() {
   })
 }
 
-function failCurrentAggregate(message: string) {
-  const item = measuringIndex == null ? null : propertiesItems.value[measuringIndex]
-  if (item) {
-    item.error = message
-    item.measured = true
-    measureNextDirectory()
-    return
-  }
-  propertiesError.value = message
-  propertiesLoading.value = false
-}
-
-function applyAggregateMessage(msg: PropertiesMetaMessage | PropertiesResultMessage) {
+/** 把一次测量结果并入当前聚合条目；未完成就什么都不做。 */
+function applyAggregateState(state: PropertiesInfo) {
   const item = measuringIndex == null ? null : propertiesItems.value[measuringIndex]
   if (!item) {
     measureNextDirectory()
     return
   }
 
-  if (msg.lastModified) {
-    item.lastModified = msg.lastModified
+  if (state.lastModified) {
+    item.lastModified = state.lastModified
   }
-  if (msg.birthtime) {
-    item.birthtime = msg.birthtime
+  if (state.birthtime) {
+    item.birthtime = state.birthtime
   }
-  if (msg.type === 'result') {
-    item.size = msg.size
-    item.fileCount = msg.fileCount ?? null
-    item.folderCount = msg.folderCount ?? null
-    item.complete = msg.complete
-    item.measured = true
-    measureNextDirectory()
+  if (state.type !== 'result') {
+    return
   }
+  item.size = state.size ?? null
+  item.fileCount = state.fileCount ?? null
+  item.folderCount = state.folderCount ?? null
+  item.complete = state.complete ?? false
+  item.measured = true
+  measureNextDirectory()
 }
 
 export function closeProperties() {
-  cancelCurrentRequest()
+  openSequence += 1
+  cancelCurrentMeasurement()
   resetAggregateState()
   propertiesVisible.value = false
   propertiesTarget.value = null
@@ -212,31 +235,16 @@ export function closeProperties() {
   propertiesLoading.value = false
 }
 
-subscribeSharedWsMessage((msg) => {
-  if (msg.scope !== 'properties' || !currentRequestId) {
-    return
-  }
-  if (msg.type === 'error') {
-    if (msg.requestId !== currentRequestId) {
-      return
-    }
-    if (propertiesIsMulti.value) {
-      failCurrentAggregate(msg.message)
-      return
-    }
-    propertiesError.value = msg.message
-    propertiesLoading.value = false
-    return
-  }
-  if (msg.requestId !== currentRequestId) {
+subscribeMeasurements((message) => {
+  if (!currentMeasurementId || message.id !== currentMeasurementId) {
     return
   }
   if (propertiesIsMulti.value) {
-    applyAggregateMessage(msg)
+    applyAggregateState(message)
     return
   }
-  propertiesData.value = { ...propertiesData.value, ...msg }
-  if (msg.type === 'result') {
+  propertiesData.value = { ...propertiesData.value, ...message }
+  if (message.type === 'result') {
     propertiesLoading.value = false
   }
 })

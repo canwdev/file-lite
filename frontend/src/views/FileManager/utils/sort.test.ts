@@ -5,6 +5,7 @@ import { composeSortMode, parseSortMode, sortEntries } from './sort'
 
 function entry(partial: Partial<IEntry> & Pick<IEntry, 'name'>): IEntry {
   return {
+    path: `/${partial.name}`,
     ext: '',
     isDirectory: false,
     hidden: false,

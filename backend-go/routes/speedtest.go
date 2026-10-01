@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+
+	"file-lite-go/apierr"
 )
 
 const speedTestOneMB int64 = 1024 * 1024
@@ -47,9 +49,9 @@ func speedTestUpload(c echo.Context) error {
 	bytes, err := io.Copy(io.Discard, body)
 	if err != nil {
 		if strings.Contains(err.Error(), "http: request body too large") {
-			return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"message": "Payload Too Large"})
+			return apierr.PayloadTooLarge("Payload Too Large")
 		}
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
+		return apierr.BadRequest(apierr.CodeBadRequest, "Bad Request")
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

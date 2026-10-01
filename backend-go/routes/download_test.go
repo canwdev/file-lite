@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/labstack/echo/v4"
 )
 
 // TestDownloadResolvesSpecialFilenames 锁住一个真实报过的 bug：
@@ -28,8 +26,7 @@ func TestDownloadResolvesSpecialFilenames(t *testing.T) {
 		"中文 文件.txt",
 	}
 
-	e := echo.New()
-	e.GET("/api/files/download", downloadPath)
+	e := newRESTTestServer()
 
 	for _, name := range names {
 		full := filepath.Join(dir, name)
@@ -37,7 +34,7 @@ func TestDownloadResolvesSpecialFilenames(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		target := "/api/files/download?path=" + url.QueryEscape(full)
+		target := "/api/fs/downloads?paths=" + url.QueryEscape(filepath.ToSlash(full))
 		req := httptest.NewRequest(http.MethodGet, target, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
@@ -69,9 +66,9 @@ func TestDownloadMultiPartQuery(t *testing.T) {
 		}
 	}
 
-	e := echo.New()
-	e.GET("/api/files/download", downloadPath)
-	target := "/api/files/download?paths=" + url.QueryEscape(first) + "&paths=" + url.QueryEscape(second)
+	e := newRESTTestServer()
+	target := "/api/fs/downloads?paths=" + url.QueryEscape(filepath.ToSlash(first)) +
+		"&paths=" + url.QueryEscape(filepath.ToSlash(second))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
 

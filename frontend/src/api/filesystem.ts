@@ -3,72 +3,134 @@ import type { ServiceRequestConfig } from '@/utils/service'
 import qs from 'qs'
 import service from '@/utils/service'
 
-const baseURL = `/api/files`
+/**
+ * 把 canonical 路径编码进 URL 的最后一段。
+ *
+ * 路径是资源标识，必须整体百分号编码（见 docs/design/api.md §2）：encodeURIComponent
+ * 会把 "/" 编成 %2F，而服务端在原始路径上匹配路由，所以它不会变成目录分隔符。
+ *
+ * 这是全项目唯一拼这些 URL 的地方——包括给 `<img>` / `<video>` / `<a download>` 用的
+ * 那些，调用点不要自己拼路径。
+ */
+function entryUrl(representation: string, path: string): string {
+  return `/api/fs/${representation}/${encodeURIComponent(path)}`
+}
 
-/** 上传同名冲突策略，与服务端 upload-file 的 onConflict 参数一致。 */
+/** 列目录的响应（docs/design/api.md §6）。 */
+export interface ListResult {
+  path: string
+  offset: number
+  limit: number
+  total: number
+  truncated?: boolean
+  entries: IEntry[]
+}
+
+/** 上传同名冲突策略。 */
 export type UploadConflictPolicy = 'error' | 'overwrite' | 'keep-both'
 
 export const fsWebApi = {
+  /** 侧边栏里的可导航位置（卷 / 网络位置 / Home）。 */
   async getDrives() {
-    return (await service.get(`${baseURL}/drives`)) as unknown as IDrive[]
-  },
-  async getList(params: { path: string, recursive?: boolean, showHidden?: boolean } = { path: '' }, config: ServiceRequestConfig = {}) {
-    const { path, recursive, showHidden } = params
-    return await service.get(`${baseURL}/list`, {
-      params: {
-        path,
-        ...(recursive ? { recursive: 1, showHidden: showHidden ? 1 : 0 } : {}),
-      },
-      ...config,
-    }) as unknown as IEntry[]
-  },
-  createDir(params: { path: string, ignoreExisted?: boolean }) {
-    return service.post(`${baseURL}/create-dir`, params)
+    return (await service.get(`/api/volumes`)) as unknown as IDrive[]
   },
   /**
-   * 上传，创建或写入文件。
-   * `onConflict` 决定同名时的行为：`error`（缺省，服务端返回 409）、
-   * `overwrite`、`keep-both`（改名为 name (1).ext）。
+   * 列目录。`recursive` 把子目录里的文件摊平（`relativePath` 是相对路径，`name`
+   * 是 basename）；`offset`/`limit` 是非递归列表的分页。
    */
-  uploadFile(
-    params: { path: string, file: File, onConflict?: UploadConflictPolicy },
+  async getList(
+    params: { path: string, recursive?: boolean, showHidden?: boolean, offset?: number, limit?: number } = { path: '' },
     config: ServiceRequestConfig = {},
   ) {
-    const { path, file, onConflict } = params
-    const formData = new FormData()
-    formData.append('file', file)
+    const { path, recursive, showHidden, offset, limit } = params
+    return await service.get(entryUrl('directories', path), {
+      params: {
+        ...(recursive ? { recursive: 1, showHidden: showHidden ? 1 : 0 } : {}),
+        ...(offset ? { offset } : {}),
+        ...(limit ? { limit } : {}),
+      },
+      ...config,
+    }) as unknown as ListResult
+  },
+  /** 单个条目的元数据，供改名 / 原地变更之后只刷新一行。 */
+  async getEntry(path: string) {
+    return (await service.get(entryUrl('entries', path))) as unknown as { path: string, entry: IEntry }
+  },
+  // ---- 写入端点 ----
 
-    return service.post(`${baseURL}/upload-file`, formData, {
-      params: { path, onConflict },
+  /** 建目录（含缺失的父级）。幂等：已存在时服务端回 200，新建回 201。 */
+  createDir(params: { path: string }) {
+    return service.put(entryUrl('directories', params.path))
+  },
+  /**
+   * 写入一个文件：请求体就是文件内容（PUT），不是 multipart。
+   *
+   * 同名策略用标准前置条件表达：
+   *   - `error`      → `If-None-Match: *`，已存在时服务端回 412（前端据此弹冲突对话框）
+   *   - `overwrite`  → 不带前置条件，直接覆盖
+   *   - `keep-both`  → `?onConflict=keep-both`，服务端改写成 "name (1).ext"
+   *
+   * `ifMatch` 用于「只有文件没被别人改过才覆盖」，值来自列表或 HEAD 的 ETag。
+   */
+  uploadFile(
+    params: { path: string, file: File, onConflict?: UploadConflictPolicy, ifMatch?: string },
+    config: ServiceRequestConfig = {},
+  ) {
+    const { path, file, onConflict, ifMatch } = params
+    const headers: Record<string, string> = {}
+    if (onConflict === 'error') {
+      headers['If-None-Match'] = '*'
+    }
+    if (ifMatch) {
+      headers['If-Match'] = ifMatch
+    }
+
+    return service.put(entryUrl('content', path), file, {
+      ...(onConflict === 'keep-both' ? { params: { onConflict: 'keep-both' } } : {}),
+      headers,
       ...config,
     })
   },
-  /** 批量查询路径是否存在，用于上传前的冲突预检（文件夹上传也能覆盖到嵌套路径）。 */
-  async checkExists(paths: string[]) {
-    return (await service.post(`${baseURL}/exists`, { paths })) as unknown as { existing: string[] }
+  /**
+   * 批量回答「这些路径现在存在吗」，供上传前的冲突对话框一次问清一批。
+   *
+   * 服务端按 canonical 路径查，回显的是调用方传进来的原字符串（调用方要拿它做
+   * 等值比较）；写的时候仍由 PUT 的前置条件兜底，所以这个答案只用于展示。
+   */
+  async queryEntries(paths: string[]) {
+    return (await service.post(`/api/fs/entry-queries`, { paths })) as unknown as { existing: string[] }
   },
+  /**
+   * 改名（同目录内换名字）。跨目录移动属于任务，不走这里。
+   *
+   * 服务端只接受名称，所以这里把目标路径的最后一段取出来；调用方两边都在同一目录，
+   * 因此不存在解析歧义。
+   */
   renameEntry(params: { fromPath: string, toPath: string }) {
-    return service.post(`${baseURL}/rename`, params)
+    const normalized = params.toPath.replace(/\\/g, '/')
+    const index = normalized.lastIndexOf('/')
+    const name = index === -1 ? normalized : normalized.slice(index + 1)
+    return service.patch(entryUrl('entries', params.fromPath), { name })
   },
+  /** 在宿主机的文件管理器里打开若干路径。 */
   openInHostExplorer(params: { paths: string[] }) {
-    return service.post(`${baseURL}/open-in-host-explorer`, params)
+    return service.post(`/api/host/reveals`, params)
   },
   /**
    * 下载地址。传入的必须是**未经编码**的绝对路径，编码在这里统一做一次。
-   * （曾经由调用方先 encodeURIComponent、这里再拼/再编码，导致单路径与多路径的
-   * 编码次数不一致，服务端只好补一次解码，反而把文件名里的 "+" 解成了空格。）
+   *
+   * 单选文件由服务端直接给字节，目录或多选打包成 zip——调用方不必先判断目标是哪种。
    */
   getDownloadUrl(paths: string[]) {
-    if (paths.length === 1) {
-      return `${baseURL}/download?path=${encodeURIComponent(paths[0])}`
-    }
-
     const query = qs.stringify({ paths }, { arrayFormat: 'repeat' })
-    return `${baseURL}/download?${query}`
+    return `/api/fs/downloads?${query}`
   },
-  stream(path: string, config: ServiceRequestConfig = {}, noCache = true) {
-    return service.get(`${baseURL}/stream`, {
-      params: { path, t: noCache ? Date.now() : 0 },
+  /**
+   * 读取文件字节。缓存由服务端的 ETag 负责：文件没变就是 304，不要塞时间戳
+   * 去绕缓存（那会让每次预览都重新下载整份文件）。
+   */
+  stream(path: string, config: ServiceRequestConfig = {}) {
+    return service.get(entryUrl('content', path), {
       ...config,
     })
   },
@@ -76,27 +138,20 @@ export const fsWebApi = {
     if (!path) {
       return ''
     }
-    return `${baseURL}/stream?path=${encodeURIComponent(path)}`
+    return entryUrl('content', path)
   },
   /**
    * 后端生成的缩略图地址。`kind` 区分图片来源（图片 / ffmpeg 视频封面），
-   * 它参与后端的缓存键与 ETag。
-   * `m` 只是给 HTTP 缓存/日志做标识，服务端会自己 stat 文件，不信任这个值。
+   * 它参与后端的缓存键与 ETag。服务端自己 stat 文件，不信任调用方给的时间戳。
    */
-  getThumbnailUrl(path: string, size: number, lastModified = 0, kind: 'image' | 'video' = 'image') {
+  getThumbnailUrl(path: string, size: number, kind: 'image' | 'video' = 'image') {
     if (!path) {
       return ''
     }
-    const params = new URLSearchParams({ path, size: String(size) })
+    const params = new URLSearchParams({ size: String(size) })
     if (kind !== 'image') {
       params.set('kind', kind)
     }
-    if (lastModified > 0) {
-      params.set('m', String(lastModified))
-    }
-    return `${baseURL}/thumbnail?${params}`
+    return `${entryUrl('thumbnail', path)}?${params}`
   },
 }
-
-// window.$fsWebApi = fsWebApi
-// console.log('window.$fsWebApi available')

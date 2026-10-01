@@ -1,5 +1,14 @@
 export interface IEntry {
   name: string
+  /**
+   * canonical 形态的完整路径（正斜杠），由服务端给出。
+   *
+   * 递归平铺列表里 `name` 是 basename，相对被列出目录的路径在 `relativePath`；
+   * 需要落到文件系统的路径一律用这个字段，不要再把目录和 name 拼起来。
+   */
+  path: string
+  /** 仅递归平铺列表有值：相对被列出目录的路径。 */
+  relativePath?: string
   ext: string
   isDirectory: boolean
   /** 是否为链接：符号链接 / Windows 目录链接（junction）/ 硬链接 */
@@ -61,7 +70,6 @@ export interface WsErrorMessage {
   scope: WsScope
   type: 'error'
   message: string
-  requestId?: string
 }
 
 export interface TextSyncSyncMessage {
@@ -73,39 +81,6 @@ export interface TextSyncSyncMessage {
 
 export type TextSyncServerMessage = TextSyncSyncMessage | WsErrorMessage
 
-export interface SettingsGetMessage {
-  scope: 'settings'
-  type: 'get'
-  requestId: string
-  key: string
-}
-
-export interface SettingsSetMessage {
-  scope: 'settings'
-  type: 'set'
-  requestId: string
-  key: string
-  value: unknown
-}
-
-export interface SettingsDeleteMessage {
-  scope: 'settings'
-  type: 'delete'
-  requestId: string
-  key: string
-}
-
-export type SettingsClientMessage = SettingsGetMessage | SettingsSetMessage | SettingsDeleteMessage
-
-export interface SettingsResponseMessage {
-  scope: 'settings'
-  type: 'response'
-  requestId: string
-  action: 'get' | 'set' | 'delete'
-  key: string
-  value: unknown | null
-}
-
 export interface SettingsSyncMessage {
   scope: 'settings'
   type: 'sync'
@@ -113,7 +88,7 @@ export interface SettingsSyncMessage {
   value: unknown | null
 }
 
-export type SettingsServerMessage = SettingsResponseMessage | SettingsSyncMessage | WsErrorMessage
+export type SettingsServerMessage = SettingsSyncMessage | WsErrorMessage
 
 /* ------------------------------------------------------------------ *
  * 异步文件操作任务（scope: "tasks"）
@@ -210,68 +185,10 @@ export interface TaskCreatePayload {
   intoFolder?: boolean
 }
 
-export interface TasksCreateMessage {
-  scope: 'tasks'
-  type: 'create'
-  requestId: string
-  task: TaskCreatePayload
-}
-
-export interface TasksCancelMessage {
-  scope: 'tasks'
-  type: 'cancel'
-  taskId: string
-}
-
-export interface TasksDismissMessage {
-  scope: 'tasks'
-  type: 'dismiss'
-  taskId: string
-}
-
-export interface TasksResolveMessage {
-  scope: 'tasks'
-  type: 'resolve'
-  taskId: string
-  policy?: ConflictPolicy
-  applyToAll?: boolean
-  items?: { relativePath: string, policy: ConflictPolicy }[]
-}
-
-export interface TasksListMessage {
-  scope: 'tasks'
-  type: 'list'
-  requestId: string
-}
-
-/** 用失败 / 冲突的条目重新创建一个任务（路径由服务端从完整结果里取）。 */
-export interface TasksRetryMessage {
-  scope: 'tasks'
-  type: 'retry'
-  requestId: string
-  taskId: string
-}
-
-export type TasksClientMessage
-  = | TasksCreateMessage
-    | TasksCancelMessage
-    | TasksDismissMessage
-    | TasksResolveMessage
-    | TasksListMessage
-    | TasksRetryMessage
-
-export interface TasksResponseMessage {
-  scope: 'tasks'
-  type: 'response'
-  requestId: string
-  taskId: string
-}
-
 export interface TasksSnapshotMessage {
   scope: 'tasks'
   type: 'snapshot'
   tasks: TaskSnapshot[]
-  requestId?: string
 }
 
 /** 新任务登记：所有客户端都会收到，用来把任务加进列表。 */
@@ -317,8 +234,7 @@ export interface TasksRemovedMessage {
 }
 
 export type TasksServerMessage
-  = | TasksResponseMessage
-    | TasksSnapshotMessage
+  = | TasksSnapshotMessage
     | TasksCreatedMessage
     | TasksUpdateMessage
     | TasksConflictMessage
@@ -349,31 +265,18 @@ export interface FsChangedMessage {
 export type FsServerMessage = FsChangedMessage | WsErrorMessage
 
 /**
- * 属性窗口（scope: "properties"）。
- * `meta` 是目录的即时信息（名字 / 时间），`result` 是最终结果：
- * 文件立即返回，目录由服务端后台递归统计完再推。
+ * 目录大小测量（scope: "measurements"）。
+ *
+ * 命令走 HTTP（`POST /api/fs/measurements`），`progress` 是目录的即时信息
+ * （名字 / 时间，大小还没算出来），`result` 是终态：文件在建的时候就已经是 result，
+ * 目录由服务端后台递归统计完再推。
  */
-export interface PropertiesGetMessage {
-  scope: 'properties'
-  type: 'get'
-  requestId: string
+export interface MeasurementsMessage {
+  scope: 'measurements'
+  type: 'progress' | 'result'
+  id: string
   path: string
-}
-
-export interface PropertiesCancelMessage {
-  scope: 'properties'
-  type: 'cancel'
-  requestId: string
-}
-
-export type PropertiesClientMessage = PropertiesGetMessage | PropertiesCancelMessage
-
-export interface PropertiesMetaMessage {
-  scope: 'properties'
-  type: 'meta'
-  requestId: string
   name: string
-  path: string
   ext: string
   isDirectory: boolean
   isLink: boolean
@@ -385,20 +288,13 @@ export interface PropertiesMetaMessage {
   complete: boolean
 }
 
-export interface PropertiesResultMessage extends Omit<PropertiesMetaMessage, 'type'> {
-  type: 'result'
-}
-
-export type PropertiesServerMessage = PropertiesMetaMessage | PropertiesResultMessage | WsErrorMessage
+export type MeasurementsServerMessage = MeasurementsMessage | WsErrorMessage
 
 export type SharedWsClientMessage
   = | TextSyncClientMessage
-    | SettingsClientMessage
-    | TasksClientMessage
-    | PropertiesClientMessage
 export type SharedWsServerMessage
   = | TextSyncServerMessage
     | SettingsServerMessage
     | TasksServerMessage
     | FsServerMessage
-    | PropertiesServerMessage
+    | MeasurementsServerMessage

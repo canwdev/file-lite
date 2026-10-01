@@ -114,7 +114,7 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
         name,
         key: absPath,
         mode: 'server',
-        url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified),
+        url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE),
         fallbackUrl: streamUrl,
         size,
         lastModified,
@@ -148,7 +148,7 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
       name,
       key: absPath,
       mode: 'server',
-      url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, lastModified, 'video'),
+      url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, 'video'),
       size,
       lastModified,
     }

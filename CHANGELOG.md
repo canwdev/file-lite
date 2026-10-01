@@ -58,6 +58,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Docs**: The README and the top-level configuration guides are available in Chinese as well as English.
 - **README**: The README is shorter for new users: about 10MB, a Windows double-click install, and every document listed once at the bottom.
 - **Plugins**: Plugin pages are served cross-origin isolated, so a plugin can use WebAssembly threads (SharedArrayBuffer) (frontend, backend).
+- **Uploads**: A file is written straight to its destination, so a large upload no longer needs the same amount of free space a second time in a temporary folder and finishes sooner (frontend, backend).
+- **Upload conflicts**: The "file already exists" question is answered with one request for the whole batch instead of one per file, so the dialog appears immediately even for a large selection (frontend, backend).
 
 ### Fixes
 
@@ -97,6 +99,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **E2E polling**: Waiting for an asynchronous result in the E2E suite no longer fails spuriously: `expect.poll` gives up as soon as its callback throws, so those checks read through a helper that returns null instead.
 - **Windows E2E runner**: The E2E runner works on Windows again: it used to spawn Playwright's `.bin` shim, which Windows refuses to execute when it is a `.cmd` (and Bun installs an `.exe`), so the suite died with `spawn EINVAL` before running a single test; it now runs Playwright's `cli.js` through `node` on every platform (engineering).
 - **Node version check**: The frontend build stops immediately with a message naming the required Node range when the running Node is too old, instead of failing deep inside rolldown with `ERR_INVALID_ARG_VALUE` (frontend).
+- **API contract**: The HTTP API is REST-shaped (`/api/session`, `/api/fs/*`, `/api/tasks`, `/api/settings`), every failure carries a stable error `code`, and the WebSocket only pushes (plus the text-sync channel); the contract lives in `docs/design/api.md`, and the two halves always ship together (frontend, backend).
 
 ## 1.4.5
 

@@ -11,7 +11,6 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mattn/go-isatty v0.0.20
 	github.com/minio/selfupdate v0.6.0
-	github.com/pablor21/echo-etag/v4 v4.0.4-0.20230225220934-502235038145
 	golang.org/x/image v0.15.0
 	golang.org/x/sys v0.15.0
 )

@@ -1,7 +1,6 @@
 package fileops
 
 import (
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -40,6 +39,16 @@ type PublishOptions struct {
 // 只能从这里观察。生产路径上就是 (*os.File).Sync。
 var syncBeforePublish = func(f *os.File) error { return f.Sync() }
 
+// tempPathError 把临时文件路径从消息里换掉，同时保留错误链。
+type tempPathError struct {
+	msg   string
+	cause error
+}
+
+func (e *tempPathError) Error() string { return e.msg }
+
+func (e *tempPathError) Unwrap() error { return e.cause }
+
 // PublishFile 是「目标同目录临时文件 + 原子改名」的唯一实现。
 //
 // 复制和上传都必须走这里，保证磁盘上永远不存在半个文件：写入过程中进程被杀、
@@ -58,6 +67,9 @@ func PublishFile(dst string, opts PublishOptions, write func(w io.Writer) error)
 
 	// 底层错误会带上临时文件名。临时文件是实现细节，不该出现在用户看到的报错里，
 	// 所以统一把消息里的临时路径换回目标路径。
+	//
+	// 换消息不能丢掉错误链：调用方还要靠 errors.Is 分辨「父目录不存在」（404）与
+	// 「写不进去」（500），把 *os.PathError 压成 errors.New 会让两者都变成同一类错误。
 	hideTemp := func(err error) error {
 		if err == nil {
 			return nil
@@ -66,7 +78,7 @@ func PublishFile(dst string, opts PublishOptions, write func(w io.Writer) error)
 		if !strings.Contains(msg, tmp) {
 			return err
 		}
-		return errors.New(strings.ReplaceAll(msg, tmp, dst))
+		return &tempPathError{msg: strings.ReplaceAll(msg, tmp, dst), cause: err}
 	}
 
 	published := false

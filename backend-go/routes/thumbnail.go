@@ -9,10 +9,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"file-lite-go/apierr"
 	"file-lite-go/thumbnails"
 )
 
-// getThumbnail 返回服务端生成的缩略图（二进制，直接可作 <img src>）。
+// getThumbnailByPath 实现 GET /api/fs/thumbnail/{path}：服务端生成的缩略图
+// （二进制，直接可作 <img src>）。
 //
 // kind=image（默认）走 imaging 解码；kind=video 走 ffmpeg 抽帧（需要 ffmpeg）。
 // 后端不持久化：结果只进 thumbnails 包的进程内 LRU。
@@ -22,11 +24,15 @@ import (
 //   - 422 源图超过上限         → 前端显示类型图标，不把超大文件推给浏览器
 //   - 501 能力未启用（无 ffmpeg）→ 前端按「能力关闭」处理，不算这个文件出错
 //   - 503 解码槽位排队超时     → 前端显示类型图标，但可重试
-func getThumbnail(c echo.Context) error {
-	raw := c.QueryParam("path")
-	if raw == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "path parameter is required"})
+func getThumbnailByPath(c echo.Context) error {
+	raw, apiErr := entryPath(c)
+	if apiErr != nil {
+		return apiErr
 	}
+	return thumbnailFor(c, raw)
+}
+
+func thumbnailFor(c echo.Context, raw string) error {
 	res, httpErr := resolvePath(raw)
 	if httpErr != nil {
 		return httpErr
@@ -35,14 +41,10 @@ func getThumbnail(c echo.Context) error {
 
 	fi, err := os.Stat(osPath)
 	if err != nil {
-		status, message := fsErrorStatus(err, res.Network())
-		if status == http.StatusInternalServerError {
-			message = "File not found"
-		}
-		return jsonFSError(c, status, message)
+		return fsError(err, res.Network())
 	}
 	if fi.IsDir() {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "File not found"})
+		return apierr.NotFound(apierr.CodePathNotFound, "File not found")
 	}
 
 	kind := thumbnails.ParseKind(c.QueryParam("kind"))
@@ -62,17 +64,17 @@ func getThumbnail(c echo.Context) error {
 			// 客户端已断开（滚动出视野触发了 abort）：没有写响应的意义。
 			return c.NoContent(http.StatusRequestTimeout)
 		case errors.Is(err, thumbnails.ErrNotFound):
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "File not found"})
+			return apierr.NotFound(apierr.CodePathNotFound, "File not found")
 		case errors.Is(err, thumbnails.ErrUnavailable):
-			return c.JSON(http.StatusNotImplemented, map[string]string{"message": "Feature unavailable"})
+			return apierr.New(http.StatusNotImplemented, apierr.CodeFeatureUnavailable, "Feature unavailable")
 		case errors.Is(err, thumbnails.ErrUnsupported):
-			return c.JSON(http.StatusUnsupportedMediaType, map[string]string{"message": "Unsupported media format"})
+			return apierr.New(http.StatusUnsupportedMediaType, apierr.CodeUnsupportedMedia, "Unsupported media format")
 		case errors.Is(err, thumbnails.ErrTooLarge):
-			return c.JSON(http.StatusUnprocessableEntity, map[string]string{"message": "Media is too large"})
+			return apierr.New(http.StatusUnprocessableEntity, apierr.CodeMediaTooLarge, "Media is too large")
 		case errors.Is(err, thumbnails.ErrBusy):
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"message": "Server is busy"})
+			return apierr.ServiceUnavailable(apierr.CodeServerBusy, "Server is busy")
 		default:
-			return c.JSON(http.StatusInternalServerError, map[string]string{"message": err.Error()})
+			return apierr.Internal(apierr.CodeInternal, "Failed to generate the thumbnail")
 		}
 	}
 

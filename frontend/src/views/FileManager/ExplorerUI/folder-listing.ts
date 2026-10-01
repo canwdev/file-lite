@@ -40,7 +40,7 @@ function finishRead() {
 
 async function fetchRawList(path: string): Promise<IEntry[]> {
   try {
-    // 走门面而不是直接调 `/api/files/list`：列表读取只有一个入口。
+    // 走门面而不是直接调 `/api/fs/directories`：列表读取只有一个入口。
     return await fs.list(path)
   }
   catch {

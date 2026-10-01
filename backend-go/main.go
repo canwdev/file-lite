@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mattn/go-isatty"
 
+	"file-lite-go/apierr"
 	"file-lite-go/cli"
 	"file-lite-go/config"
 	"file-lite-go/fileops"
@@ -147,6 +148,8 @@ func startServer() (*cli.ServerResult, error) {
 
 	e := echo.New()
 	e.HideBanner = true
+	// 所有错误统一渲染成 docs/design/api.md §12 的形状（code + message + details）。
+	e.HTTPErrorHandler = apierr.Handler
 	e.Use(utils.AccessLog())
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {

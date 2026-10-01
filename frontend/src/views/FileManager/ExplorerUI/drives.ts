@@ -29,7 +29,7 @@ function normalizeDrives(list: IDrive[] | null | undefined): IDrive[] {
  *
  * 最后这条是修一个真实问题：侧边栏与资源管理器面板的首次加载是同一帧发起的，
  * 而侧边栏走的是 `force = true`（用户点刷新按钮也是）。过去 `force` 会无脑再发一次，
- * 于是一次启动就有两条 `GET /api/files/drives`。
+ * 于是一次启动就有两条 `GET /api/volumes`。
  */
 export function loadDrives(force = false): Promise<IDrive[]> {
   if (inflight) {

@@ -1,18 +1,12 @@
 package routes
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"testing"
-
-	"github.com/labstack/echo/v4"
-
-	"file-lite-go/types"
 )
 
 // 边界归一化：`\`、重复斜杠、"." 与 ".." 都应当落到同一个目录上。
@@ -29,8 +23,7 @@ func TestListAcceptsNonCanonicalPathSpellings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := echo.New()
-	e.GET("/api/files/list", getFiles)
+	e := newRESTTestServer()
 
 	// 每一种写法都应当列到同一个目录。
 	spellings := []string{
@@ -44,18 +37,15 @@ func TestListAcceptsNonCanonicalPathSpellings(t *testing.T) {
 	for _, spelling := range spellings {
 		t.Run(spelling, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/api/files/list?path="+url.QueryEscape(spelling), nil)
+			req := httptest.NewRequest(http.MethodGet, encodedEntryURL("/api/fs/directories", spelling), nil)
 			e.ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("path=%q 返回 %d：%s", spelling, rec.Code, rec.Body.String())
 			}
-			var entries []types.Entry
-			if err := json.Unmarshal(rec.Body.Bytes(), &entries); err != nil {
-				t.Fatalf("响应不是条目数组: %v", err)
-			}
-			names := make([]string, 0, len(entries))
-			for _, en := range entries {
+			parsed := decodeList(t, rec)
+			names := make([]string, 0, len(parsed.Entries))
+			for _, en := range parsed.Entries {
 				names = append(names, en.Name)
 			}
 			sort.Strings(names)
@@ -72,8 +62,7 @@ func TestListAcceptsNonCanonicalPathSpellings(t *testing.T) {
 // 原样丢给 os.Stat，于是报的是 404「文件不存在」——把「你的路径写法不合法」说成了
 // 「这个文件没了」，用户会去找一个根本不该存在的文件。
 func TestListRejectsBadPaths(t *testing.T) {
-	e := echo.New()
-	e.GET("/api/files/list", getFiles)
+	e := newRESTTestServer()
 
 	cases := []struct {
 		name string
@@ -88,7 +77,7 @@ func TestListRejectsBadPaths(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/api/files/list?path="+url.QueryEscape(c.path), nil)
+			req := httptest.NewRequest(http.MethodGet, encodedEntryURL("/api/fs/directories", c.path), nil)
 			e.ServeHTTP(rec, req)
 			if rec.Code != c.want {
 				t.Fatalf("path=%q 返回 %d，期望 %d：%s", c.path, rec.Code, c.want, rec.Body.String())

@@ -1,7 +1,7 @@
 import type { RouteLocationNormalized } from 'vue-router'
 import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { consumeTicket, getAuthInfo } from '@/api/auth'
+import { consumeTicket, getSession } from '@/api/session'
 import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
@@ -63,7 +63,7 @@ async function ensureAuthReady() {
     warmSettingsStore()
     return
   }
-  const info = await getAuthInfo()
+  const info = await getSession()
   setServerCapabilities(info?.capabilities)
   setServerAllowedRoots(info?.allowedRoots)
   setAuthSession(readAuthSession())

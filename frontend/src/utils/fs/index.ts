@@ -46,7 +46,7 @@ export function canWrite(_path: string): Promise<{ ok: boolean, reason?: string 
 /** 该路径是否已存在（上传 / 复制前的冲突预检用）。 */
 async function exists(path: string): Promise<boolean> {
   try {
-    const { existing } = await fsWebApi.checkExists([path])
+    const { existing } = await fsWebApi.queryEntries([path])
     return existing.includes(path)
   }
   catch {
@@ -81,7 +81,7 @@ export async function writeFile(
   }
 
   const file = data instanceof File ? data : new File([data], name)
-  await fsWebApi.uploadFile({
+  const result = await fsWebApi.uploadFile({
     path,
     file,
     onConflict: conflict === 'keep-both' ? 'keep-both' : conflict === 'error' ? 'error' : 'overwrite',
@@ -90,22 +90,47 @@ export async function writeFile(
     onUploadProgress: options.onProgress
       ? (event: { loaded?: number }) => options.onProgress?.(event.loaded ?? 0)
       : undefined,
-  })
-  return { ok: true, path, name }
+  }) as unknown as { path?: string, name?: string }
+  // keep-both 会被服务端改名：落点以响应为准，不能回显请求里的名字。
+  return { ok: true, path: result?.path ?? path, name: result?.name ?? name }
 }
 
-/** 列目录。`recursive` 把子目录里的文件摊成一份列表（Name 为相对路径），供资源管理器的平铺视图使用。 */
+/** 列目录。`recursive` 把子目录里的文件摊成一份列表，供资源管理器的平铺视图使用。 */
 export async function list(path: string, options?: {
   showHidden?: boolean
   recursive?: boolean
   signal?: AbortSignal
 }): Promise<IEntry[]> {
-  const result = await fsWebApi.getList({
-    path,
-    recursive: options?.recursive,
-    showHidden: options?.showHidden,
-  }, { isToast: false, signal: options?.signal })
-  return Array.isArray(result) ? (result as IEntry[]) : []
+  // 服务端按页返回（默认一页 2000 条）；这里把剩余页取完，调用方拿到的仍是整份列表。
+  // 排序 / 分组 / 过滤都在客户端做，少一页就会静默少几行——所以必须取完。
+  const entries: IEntry[] = []
+  let offset = 0
+  for (;;) {
+    const result = await fsWebApi.getList({
+      path,
+      recursive: options?.recursive,
+      showHidden: options?.showHidden,
+      offset,
+    }, { isToast: false, signal: options?.signal })
+    const batch = Array.isArray(result?.entries) ? result.entries : []
+    entries.push(...batch)
+
+    // 递归平铺不分页（顺序不可续），一次就是全部。
+    const total = result?.total ?? entries.length
+    if (options?.recursive || batch.length === 0 || entries.length >= total) {
+      break
+    }
+    offset = entries.length
+  }
+
+  if (!options?.recursive) {
+    return entries
+  }
+
+  // 平铺列表的显示名与身份一直是「相对路径」：同名文件可能来自不同子目录，
+  // 只留 basename 会让选中、排序、去重撞在一起。服务端现在同时给 relativePath 与
+  // canonical path，这里只把显示名换回相对路径，落到文件系统时用 path。
+  return entries.map(entry => ({ ...entry, name: entry.relativePath ?? entry.name }))
 }
 
 /** 文件的访问地址（HTTP URL）。 */
@@ -116,7 +141,7 @@ export function url(path: string): string {
 /** 创建目录。 */
 export async function mkdir(path: string, options: { recursive?: boolean } = {}): Promise<void> {
   void options
-  await fsWebApi.createDir({ path, ignoreExisted: true })
+  await fsWebApi.createDir({ path })
 }
 
 /** 重命名 / 移动（服务端）。 */
@@ -127,11 +152,21 @@ export async function rename(fromPath: string, toPath: string): Promise<void> {
 /**
  * 批量判断路径是否存在（上传 / 复制前的冲突预检）。
  *
- * 后端没有批量接口就逐条问。
+ * 一次请求问完一批：服务端自己并发 stat，比每个文件问一次省掉 N-1 次往返。
+ * 写的时候仍由 PUT 的前置条件兜底，所以这里只用于展示冲突对话框。
  */
 export async function existingPaths(paths: string[]): Promise<string[]> {
-  const flags = await Promise.all(paths.map(path => exists(path)))
-  return paths.filter((_, index) => flags[index])
+  if (!paths.length) {
+    return []
+  }
+  try {
+    const { existing } = await fsWebApi.queryEntries(paths)
+    return paths.filter(path => existing.includes(path))
+  }
+  catch {
+    // 预检失败不该阻断操作：交给真正的写入去报错
+    return []
+  }
 }
 
 /** 下载地址（多路径会打包成 zip，由后端决定）。 */

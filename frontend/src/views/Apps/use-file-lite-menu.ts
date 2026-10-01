@@ -3,7 +3,7 @@ import type { IEntry } from '@/types/server'
 import { useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { ElCheckbox } from 'element-plus'
 import { listPlugins, refreshPlugins } from '@/api/plugins'
-import { applyUpdate, exitBackend, restartBackend } from '@/api/update'
+import { applyUpdate, exitBackend, restartBackend } from '@/api/server'
 import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
 import { useFullscreenToggle } from '@/hooks/use-fullscreen'
@@ -40,6 +40,7 @@ async function handleSetTitle() {
 
 const internalSpeedTestEntry: IEntry = {
   name: 'SpeedTest',
+  path: '',
   ext: '',
   isDirectory: false,
   hidden: false,

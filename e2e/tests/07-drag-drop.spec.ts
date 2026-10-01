@@ -150,7 +150,7 @@ test.describe('拖拽', () => {
 
     // 把 inbox 与 archive 伪装成两个不同的卷：默认从「移动」变成「复制」。
     // 登录后才挂路由，再点侧边栏的 Reload drives 强制刷新共享缓存。
-    await page.route('**/api/files/drives', route => route.fulfill({
+    await page.route('**/api/volumes', route => route.fulfill({
       json: [
         { label: 'Inbox', path: `${dragInboxDir}/` },
         { label: 'Archive', path: `${dragArchiveDir}/` },

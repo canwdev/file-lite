@@ -56,17 +56,17 @@ func TestResolvePathOutsideBaseIsForbidden(t *testing.T) {
 	outside := filepath.ToSlash(filepath.Dir(baseCanonical))
 	if _, httpErr := resolvePath(outside); httpErr == nil {
 		t.Fatal("允许根之外应当报错")
-	} else if httpErr.Code != http.StatusForbidden {
-		t.Fatalf("状态码 = %d，期望 403", httpErr.Code)
-	} else if msg, _ := httpErr.Message.(string); msg == "" {
+	} else if httpErr.Status != http.StatusForbidden {
+		t.Fatalf("状态码 = %d，期望 403", httpErr.Status)
+	} else if httpErr.Message == "" {
 		t.Fatal("403 消息里应当说明边界在哪")
 	}
 
 	// 形态错误仍然是 400，不能被范围检查抢走。
 	if _, httpErr := resolvePath("relative/dir"); httpErr == nil {
 		t.Fatal("相对路径应当报错")
-	} else if httpErr.Code != http.StatusBadRequest {
-		t.Fatalf("相对路径的状态码 = %d，期望 400（形态问题优先于范围问题）", httpErr.Code)
+	} else if httpErr.Status != http.StatusBadRequest {
+		t.Fatalf("相对路径的状态码 = %d，期望 400（形态问题优先于范围问题）", httpErr.Status)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestForbiddenMessageShowsBaseButNotRequestPath(t *testing.T) {
 	if httpErr == nil {
 		t.Fatal("范围外路径应当报错")
 	}
-	msg, _ := httpErr.Message.(string)
+	msg := httpErr.Message
 	if !contains(msg, onlyBase(t)) {
 		t.Errorf("消息里应当写明允许根，得到 %q", msg)
 	}
@@ -98,7 +98,7 @@ func TestForbiddenMessageListsAllBases(t *testing.T) {
 	if httpErr == nil {
 		t.Fatal("范围外路径应当报错")
 	}
-	msg, _ := httpErr.Message.(string)
+	msg := httpErr.Message
 	for _, base := range fileops.AllowedRoots() {
 		if !contains(msg, base) {
 			t.Errorf("消息里少了 %q，得到 %q", base, msg)
@@ -253,7 +253,7 @@ func TestVisibleDrivesKeepsBaseThatIsItselfAMountRoot(t *testing.T) {
 // visibleDrives 必须**幂等**：挂载表由它的结果建立，而它又被 /drives 反复调用。
 //
 // 这是实际反馈的那个 bug：判据去问了挂载表「允许根是不是已经有自己的根」。第一次
-// 调用把合成的允许根项写进表里（registerFiles 就是这么做的），第二次就答「已经有」，
+// 调用把合成的允许根项写进表里（registerREST 就是这么做的），第二次就答「已经有」，
 // 于是 /drives 原样返回全盘列表——侧边栏又出现 D:，点进去 403。
 // 单看一次调用是发现不了的，必须连调两次。
 func TestVisibleDrivesIsIdempotent(t *testing.T) {
@@ -273,7 +273,7 @@ func TestVisibleDrivesIsIdempotent(t *testing.T) {
 	}
 
 	first := visibleDrives()
-	// 模拟 registerFiles：把第一次的结果装进挂载表，再问第二次。
+	// 模拟 registerREST：把第一次的结果装进挂载表，再问第二次。
 	fileops.SetMounts(first)
 	second := visibleDrives()
 
@@ -350,14 +350,14 @@ func TestVisibleDrivesSynthesizesBaseMount(t *testing.T) {
 	}
 }
 
-// allowedRoots 要出现在 /auth 的响应里：前端需要一个途径把「为什么点不进去」讲清楚，
-// 否则一个没有说明的 403 只会让人以为坏了。
-func TestAuthInfoReportsAllowedRoots(t *testing.T) {
-	e := echo.New()
+// allowedRoots 要出现在 GET /api/session 的响应里：前端需要一个途径把
+// 「为什么点不进去」讲清楚，否则一个没有说明的 403 只会让人以为坏了。
+func TestSessionInfoReportsAllowedRoots(t *testing.T) {
+	e := withAPIErrorHandler(echo.New())
 	call := func() map[string]any {
 		rec := httptest.NewRecorder()
-		c := e.NewContext(httptest.NewRequest(http.MethodGet, "/api/files/auth", nil), rec)
-		if err := getAuthInfo(c); err != nil {
+		c := e.NewContext(httptest.NewRequest(http.MethodGet, "/api/session", nil), rec)
+		if err := sessionInfo(c); err != nil {
 			t.Fatal(err)
 		}
 		var body map[string]any

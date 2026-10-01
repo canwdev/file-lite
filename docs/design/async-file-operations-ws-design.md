@@ -5,6 +5,12 @@
 > 冲突策略（overwrite / skip / keep-both、Windows 式目录合并）在本文 §4，没有单独的冲突文档。
 > 关联：多选拖拽已实现（`ExplorerUI/entry-drag.ts`）；多标签页与拆分视图见
 > [`docs/design/explorer-tabs-design.md`](./explorer-tabs-design.md)。
+>
+> **后续变更（接口层面）**：任务的命令面已从 WebSocket 改成 HTTP
+> （`POST /api/tasks`、`DELETE /api/tasks/{id}`、`POST /api/tasks/{id}/retries`、
+> `POST /api/tasks/{id}/resolutions`），WebSocket 只负责推送任务事件。本文里描述的
+> `scope:"tasks"` 命令消息是当时的形态，现行契约见
+> [`docs/design/api.md`](./api.md) §7 与 §11。
 
 ## 0. 已确认的决策
 

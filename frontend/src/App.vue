@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { logout } from '@/api/auth'
+import { logout } from '@/api/session'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
 import { clearAuthSession } from '@/store/auth'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
