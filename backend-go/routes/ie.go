@@ -55,7 +55,12 @@ func ieIndex(c echo.Context) error {
 		return err
 	}
 	if !ieAuthenticated(c) {
-		return c.Redirect(http.StatusFound, "/ie/login")
+		target := "/ie/login"
+		// 票据没换成会话就带着它去登录页：那里会选中票据那一栏并说明原因。
+		if ticket := c.QueryParam("ticket"); ticket != "" {
+			target += "?ticket=" + url.QueryEscape(ticket)
+		}
+		return c.Redirect(http.StatusFound, target)
 	}
 	if drives := visibleDrives(); len(drives) > 0 {
 		return c.Redirect(http.StatusFound, ieBrowseURL(drives[0].Path, 1))
@@ -66,7 +71,7 @@ func ieIndex(c echo.Context) error {
 // ieTicketLogin 处理 ?ticket=：票据本身就是一次性的登录凭据，GET 直接换会话并跳转，
 // 这样把打印出来的登录链接粘进 IE 就能直接进来，不必先看表单再点一次 Sign in。
 //
-// 无效 / 过期的票据返回 false，由调用方决定怎么说明（登录页会提示重新用密码登录）。
+// 无效 / 过期的票据返回 false，由调用方决定怎么说明（登录页会选中票据栏并回填）。
 func ieTicketLogin(c echo.Context) (bool, error) {
 	ticket := c.QueryParam("ticket")
 	if ticket == "" {
@@ -90,27 +95,67 @@ func ieLoginPage(c echo.Context) error {
 	if ieAuthenticated(c) {
 		return c.Redirect(http.StatusFound, "/ie")
 	}
-	view := ieLoginView{Next: ieSafeNext(c.QueryParam("next"))}
-	if c.QueryParam("ticket") != "" {
-		// 票据在手上却没换成会话：说明它过期或已经被用过了。
-		view.Error = "This login link has expired. Sign in with the password."
+	next := ieSafeNext(c.QueryParam("next"))
+	ticket := c.QueryParam("ticket")
+	if ticket == "" {
+		return ieLoginForm(c, http.StatusOK, next, "", "", "password")
 	}
-	return ieRender(c, http.StatusOK, "login.html", view)
+	// 链接里的票据没换成会话：多半过期了，或者被更新的票据顶掉了。
+	return ieLoginForm(c, http.StatusOK, next,
+		"This login link has expired. Enter the ticket again, or sign in with the password.",
+		ticket, "ticket")
 }
 
 func ieLoginSubmit(c echo.Context) error {
 	next := ieSafeNext(c.FormValue("next"))
-	token, apiErr := authenticate(c, c.FormValue("password"), c.FormValue("ticket"))
+	mode := c.FormValue("mode")
+	password := c.FormValue("password")
+	ticket := c.FormValue("ticket")
+	// 没有 mode 的提交（脚本、书签、老书签）：谁填了就用谁。
+	if mode != "password" && mode != "ticket" {
+		if ticket != "" {
+			mode = "ticket"
+		} else {
+			mode = "password"
+		}
+	}
+
+	var (
+		token  string
+		apiErr *apierr.Error
+	)
+	switch mode {
+	case "ticket":
+		if ticket == "" {
+			// 空字段是「没填完」，不是一次凭据尝试：400 不计入失败封禁。
+			return ieLoginForm(c, http.StatusBadRequest, next, "Enter the ticket.", "", "ticket")
+		}
+		// radio 是权威：选了票据就不看密码字段，反之亦然。
+		token, apiErr = authenticate(c, "", ticket)
+	default:
+		if password == "" {
+			return ieLoginForm(c, http.StatusBadRequest, next, "Enter the password.", "", "password")
+		}
+		token, apiErr = authenticate(c, password, "")
+	}
 	if apiErr != nil {
-		return ieRender(c, apiErr.Status, "login.html", ieLoginView{
-			Next:  next,
-			Error: apiErr.Message,
-		})
+		return ieLoginForm(c, apiErr.Status, next, apiErr.Message, ticket, mode)
 	}
 	if err := middlewares.SetAuthCookies(c, token, c.FormValue("remember") != ""); err != nil {
 		return ieFail(c, http.StatusInternalServerError, "Failed")
 	}
 	return c.Redirect(http.StatusFound, next)
+}
+
+// ieLoginForm 渲染登录表单。mode 决定哪个 radio 选中，ticket 用于票据登录失败后回填
+// （8 位票据手打容易错，让用户能改而不是重来）。
+func ieLoginForm(c echo.Context, status int, next, errMsg, ticket, mode string) error {
+	return ieRender(c, status, "login.html", ieLoginView{
+		Next:   next,
+		Error:  errMsg,
+		Ticket: ticket,
+		Mode:   mode,
+	})
 }
 
 func ieLogout(c echo.Context) error {
@@ -242,9 +287,13 @@ func isLegacyBrowser(userAgent string) bool {
 
 // ---- 视图数据（字段必须导出，模板才能取） ----
 
+// ieLoginView 是登录表单的数据。Mode 决定哪个 radio 选中（password / ticket），
+// Ticket 用于票据那一栏的回填。
 type ieLoginView struct {
-	Next  string
-	Error string
+	Next   string
+	Error  string
+	Ticket string
+	Mode   string
 }
 
 type ieErrorView struct {

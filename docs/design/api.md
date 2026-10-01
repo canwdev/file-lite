@@ -758,7 +758,11 @@ These do not follow the resource rules above, on purpose:
   `GET /` (so the login URL printed at startup works without JavaScript; a root request
   whose User-Agent contains `MSIE` or `Trident/` is sent on to `/ie` instead of the SPA).
   Ticket logins always issue a persistent cookie, because the ticket exists to sign
-  another device in.
+  another device in. `POST /ie/login` carries a `mode` field (`password` or `ticket`) so
+  one form serves both, and the radio group is authoritative: with no `mode` the field
+  that was filled in decides. The login page hides the field that is not selected with a
+  `:checked` sibling rule, which IE8 ignores — there both fields stay visible and the
+  radio alone decides.
 
 ## 16. Change policy
 

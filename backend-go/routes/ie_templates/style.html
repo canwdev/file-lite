@@ -31,5 +31,12 @@ input[type=password],input[type=text]{background:#fff;border:2px solid;border-co
 .status span{border:1px solid;border-color:#808080 #fff #fff #808080;padding:0 6px;margin-right:4px}
 .dialog{width:300px;margin:60px auto}
 .dialog p{margin:8px}
+.fields{margin:8px}
+.fields .mode{margin-right:12px}
+.fields p{margin:6px 0 0}
+/* 现代浏览器里只显示选中的那种登录方式；IE8 不支持 :checked，它会把这条规则整条
+   丢掉，两条输入框都留着——提交时由 radio 的值决定用哪一个。 */
+#mode-password:checked ~ .row-ticket{display:none}
+#mode-ticket:checked ~ .row-password{display:none}
 </style>
 {{end}}

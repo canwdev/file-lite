@@ -111,6 +111,80 @@ func TestIEClassicTicketLogin(t *testing.T) {
 	}
 }
 
+// 登录页提供 password / ticket 两种方式，由 radio 决定，服务端按选中的那一栏校验。
+func TestIEClassicLoginFormModes(t *testing.T) {
+	e := newIEServer()
+
+	page := ieCall(t, e, http.MethodGet, "/ie/login", "", false)
+	body := page.Body.String()
+	if !strings.Contains(body, `value="password" checked`) {
+		t.Fatalf("默认应当选中密码登录：%s", body)
+	}
+	if !strings.Contains(body, `value="ticket"`) {
+		t.Fatalf("缺少票据选项：%s", body)
+	}
+
+	// 链接里的票据无效：选中票据栏、回填输入、说明原因。
+	bad := ieCall(t, e, http.MethodGet, "/ie/login?ticket=deadbeef", "", false)
+	if bad.Code != http.StatusOK {
+		t.Fatalf("无效票据 = %d，期望停在登录页", bad.Code)
+	}
+	badBody := bad.Body.String()
+	for _, want := range []string{`value="ticket" checked`, `value="deadbeef"`, "expired"} {
+		if !strings.Contains(badBody, want) {
+			t.Errorf("无效票据页缺少 %q", want)
+		}
+	}
+}
+
+func TestIEClassicLoginSubmitModes(t *testing.T) {
+	e := newIEServer()
+	ticket, err := config.NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 选了票据：成功换会话并跳转。
+	ok := ieCall(t, e, http.MethodPost, "/ie/login",
+		"mode=ticket&ticket="+url.QueryEscape(ticket.Value)+"&next=/ie", false)
+	if ok.Code != http.StatusFound {
+		t.Fatalf("票据登录 = %d：%s", ok.Code, ok.Body.String())
+	}
+	if !strings.Contains(strings.Join(ok.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+		t.Fatal("票据登录应当设置 cookie")
+	}
+
+	// 选了票据却没填：400，不算一次凭据尝试（不进失败封禁）。
+	empty := ieCall(t, e, http.MethodPost, "/ie/login", "mode=ticket", false)
+	if empty.Code != http.StatusBadRequest || !strings.Contains(empty.Body.String(), "Enter the ticket") {
+		t.Fatalf("空票据 = %d：%s", empty.Code, empty.Body.String())
+	}
+
+	// radio 是权威：选了密码就必须用密码，表单里带着有效票据也不能绕过。
+	spare, err := config.NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bypass := ieCall(t, e, http.MethodPost, "/ie/login",
+		"mode=password&password=wrong&ticket="+url.QueryEscape(spare.Value), false)
+	if bypass.Code != http.StatusUnauthorized {
+		t.Fatalf("选密码时不该用票据登录 = %d", bypass.Code)
+	}
+	if len(bypass.Header().Values("Set-Cookie")) != 0 {
+		t.Fatal("失败的密码登录不该设置 cookie")
+	}
+
+	// 没带 mode 的老式提交：谁填了用谁。
+	legacyTicket, err := config.NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := ieCall(t, e, http.MethodPost, "/ie/login", "ticket="+url.QueryEscape(legacyTicket.Value), false)
+	if legacy.Code != http.StatusFound {
+		t.Fatalf("无 mode 的票据提交 = %d", legacy.Code)
+	}
+}
+
 // 打印出来的登录链接落在根路径上，SPA 需要 JS；这里验证服务端的兜底。
 func TestTicketLoginMiddleware(t *testing.T) {
 	newServer := func() *echo.Echo {
