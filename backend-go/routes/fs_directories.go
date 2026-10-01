@@ -69,23 +69,43 @@ func listDirectory(c echo.Context) error {
 func listDirectoryFlat(c echo.Context, res fileops.Resolved, dir string) error {
 	offset, limit := listPageParams(c)
 
-	entries, err := os.ReadDir(dir)
+	entries, err := readDirEntries(res, dir)
 	if err != nil {
 		return fsError(err, res.Network())
 	}
 
-	// 内部临时文件（复制中）永远不出现在列表里。
-	filtered := entries[:0]
-	for _, e := range entries {
-		if utils.IsReservedTempName(e.Name()) {
-			continue
-		}
-		filtered = append(filtered, e)
+	page := sliceEntries(entries, offset, limit)
+	if page == nil {
+		page = []types.Entry{}
 	}
-	total := len(filtered)
-	page := slicePage(filtered, offset, limit)
+	return c.JSON(http.StatusOK, listResponse{
+		Path:    res.Path,
+		Offset:  offset,
+		Limit:   limit,
+		Total:   len(entries),
+		Entries: page,
+	})
+}
 
-	res2 := make([]types.Entry, len(page))
+// readDirEntries 读一个目录并返回全部条目：过滤掉内部临时文件、并发 stat。
+//
+// 不分页、不排序、不过滤隐藏项——JSON 接口按页切、经典 HTML 界面按名字排，
+// 两者共用这一份读取。dir 是本机形态路径，res 用来决定并发档位与条目前缀。
+func readDirEntries(res fileops.Resolved, dir string) ([]types.Entry, error) {
+	raw, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	// 内部临时文件（复制中）永远不出现在列表里。
+	filtered := raw[:0]
+	for _, e := range raw {
+		if !utils.IsReservedTempName(e.Name()) {
+			filtered = append(filtered, e)
+		}
+	}
+
+	out := make([]types.Entry, len(filtered))
 
 	type statJob struct {
 		index int
@@ -95,8 +115,8 @@ func listDirectoryFlat(c echo.Context, res fileops.Resolved, dir string) error {
 	// 并发档位由路径所属的挂载点决定：本机卷 64，网络位置 6。
 	// 一千个文件按 64 并发在 SMB 上就是上千次网络往返，会把共享打到超时。
 	workerCount := res.ReadDirConcurrency()
-	if len(page) < workerCount {
-		workerCount = len(page)
+	if len(filtered) < workerCount {
+		workerCount = len(filtered)
 	}
 	var wg sync.WaitGroup
 
@@ -109,30 +129,21 @@ func listDirectoryFlat(c echo.Context, res fileops.Resolved, dir string) error {
 				ep := filepath.Join(dir, name)
 				st, statErr := os.Stat(ep)
 				if statErr != nil {
-					res2[job.index] = entryFromStatError(job.entry, statErr)
+					out[job.index] = entryFromStatError(job.entry, statErr)
 				} else {
-					res2[job.index] = entryFromStat(name, st, ep, job.entry.Type()&os.ModeSymlink != 0)
+					out[job.index] = entryFromStat(name, st, ep, job.entry.Type()&os.ModeSymlink != 0)
 				}
-				res2[job.index].Path = canonicalChild(res.Path, name)
+				out[job.index].Path = canonicalChild(res.Path, name)
 			}
 		}()
 	}
-	for i, e := range page {
+	for i, e := range filtered {
 		jobs <- statJob{index: i, entry: e}
 	}
 	close(jobs)
 	wg.Wait()
 
-	if res2 == nil {
-		res2 = []types.Entry{}
-	}
-	return c.JSON(http.StatusOK, listResponse{
-		Path:    res.Path,
-		Offset:  offset,
-		Limit:   limit,
-		Total:   total,
-		Entries: res2,
-	})
+	return out, nil
 }
 
 // listPageParams 解析 offset / limit。畸形值按「没给」处理：分页参数不该让整个
@@ -152,7 +163,7 @@ func listPageParams(c echo.Context) (int, int) {
 	return offset, limit
 }
 
-func slicePage(entries []os.DirEntry, offset, limit int) []os.DirEntry {
+func sliceEntries(entries []types.Entry, offset, limit int) []types.Entry {
 	if offset >= len(entries) {
 		return nil
 	}

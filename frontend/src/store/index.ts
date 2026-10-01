@@ -53,7 +53,8 @@ function createDefaultLocalSettingsStore() {
     reduceMotion: false,
     /** 左侧导航（explorer-sidebar）是否显示 */
     sidebarVisible: true,
-    showHidden: false,
+    /** 默认显示隐藏文件：点的名字大多是配置目录，藏起来反而要来回切。 */
+    showHidden: true,
     /** 排序后是否把文件夹排在文件前面 */
     sortFoldersFirst: true,
     isGridView: false,

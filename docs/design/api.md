@@ -745,6 +745,15 @@ These do not follow the resource rules above, on purpose:
 - **`PUT /api/fs/content/{path}` may answer with a different `Location`** when
   `keep-both` renamed the file or the server had to sanitize the name. The response
   body is authoritative.
+- **`/ie/*` is a second, HTML-only surface** for browsers without JavaScript (IE8 and
+  friends): `GET /ie` (redirect to the first location), `GET|POST /ie/login`,
+  `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/download?path=`. It renders
+  HTML instead of JSON, so it can only use GET and POST forms and it authenticates with
+  the same session cookies; the logout form carries the session value in a `csrf` field
+  instead of the `X-File-Lite-CSRF` header. It reuses the same internals (`authenticate`,
+  `readDirEntries`, `serveFileContent`) and the same favourites key
+  (`file_lite_stared_path`) as the app, but it deliberately does not follow the
+  resource/verb rules above — it is a form-driven UI, not an API.
 
 ## 16. Change policy
 

@@ -128,7 +128,11 @@ func frontendStaticMiddleware(staticFS http.FileSystem) echo.MiddlewareFunc {
 	return middleware.StaticWithConfig(middleware.StaticConfig{
 		Skipper: func(c echo.Context) bool {
 			path := c.Request().URL.Path
-			return strings.HasPrefix(path, "/api") || strings.HasPrefix(path, "/plugins")
+			// /ie 是经典（无 JS）界面：它必须落到自己的路由，而不是被 HTML5 回落
+			// 当成 SPA 路径回一份 index.html。
+			return strings.HasPrefix(path, "/api") ||
+				strings.HasPrefix(path, "/plugins") ||
+				strings.HasPrefix(path, "/ie")
 		},
 		Root:       ".",
 		Index:      "index.html",
@@ -195,6 +199,7 @@ func startServer() (*cli.ServerResult, error) {
 	e.Use(frontendStaticMiddleware(staticFS))
 
 	routes.RegisterPluginStatic(e)
+	routes.RegisterIE(e)
 
 	api := e.Group("/api")
 	// 认证后的 API 不按请求数限流（大目录遍历会发起大量 list 请求）；

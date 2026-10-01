@@ -92,23 +92,9 @@ func authWithPassword(c echo.Context) error {
 		return apierr.Write(c, apierr.BadRequest(apierr.CodeBadRequest, "Bad Request"))
 	}
 
-	var token string
-	if body.Ticket != "" {
-		t, ok := config.ConsumeAuthTicket(body.Ticket)
-		if !ok {
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
-		}
-		token = t
-	} else {
-		if body.Password != config.Config().Password {
-			utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
-		}
-		t, err := config.NewAuthToken()
-		if err != nil {
-			return apierr.Write(c, apierr.Internal(apierr.CodeInternal, "Failed"))
-		}
-		token = t
+	token, apiErr := authenticate(c, body.Password, body.Ticket)
+	if apiErr != nil {
+		return apierr.Write(c, apiErr)
 	}
 
 	// The credential leaves in an HttpOnly cookie; the body carries none, so an
@@ -117,6 +103,28 @@ func authWithPassword(c echo.Context) error {
 		return apierr.Write(c, apierr.Internal(apierr.CodeInternal, "Failed"))
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"ok": true})
+}
+
+// authenticate 校验密码或一次性票据，返回要写进 cookie 的 token。
+//
+// JSON 接口与经典 HTML 界面共用它：两边只是响应的形态不同，凭据怎么验必须只有一处。
+func authenticate(c echo.Context, password, ticket string) (string, *apierr.Error) {
+	if ticket != "" {
+		token, ok := config.ConsumeAuthTicket(ticket)
+		if !ok {
+			return "", apierr.Unauthorized("Unauthorized")
+		}
+		return token, nil
+	}
+	if password != config.Config().Password {
+		utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
+		return "", apierr.Unauthorized("Unauthorized")
+	}
+	token, err := config.NewAuthToken()
+	if err != nil {
+		return "", apierr.Internal(apierr.CodeInternal, "Failed")
+	}
+	return token, nil
 }
 
 func logout(c echo.Context) error {

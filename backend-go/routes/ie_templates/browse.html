@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>{{.Path}} - File Lite</title>
+<style>table{border-collapse:collapse}th,td{border:1px solid #999;padding:1px 6px;text-align:left}</style>
+</head>
+<body>
+<form method="post" action="/ie/logout">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<input type="submit" value="Sign out">
+</form>
+
+<h3>Drives</h3>
+<ul>{{range .Drives}}<li><a href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>
+
+<h3>Favourites</h3>
+{{if .Favourites}}<ul>{{range .Favourites}}<li><a href="/ie/browse?path={{. | urlquery}}">{{.}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
+
+<h3>Location</h3>
+<p><code>{{.Path}}</code></p>
+<p><a href="/ie">[Top]</a>{{if .Parent}} <a href="/ie/browse?path={{.Parent | urlquery}}">[Up]</a>{{end}}</p>
+
+<table>
+<tr><th>Name</th><th>Size</th><th>Modified</th></tr>
+{{range .Entries}}<tr>
+<td>{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
+<td>{{.Size}}</td><td>{{.Time}}</td>
+</tr>
+{{end}}</table>
+
+{{if .PageInfo}}<p>{{if .PrevURL}}<a href="{{.PrevURL}}">[Prev]</a> {{end}}{{.PageInfo}}{{if .NextURL}} <a href="{{.NextURL}}">[Next]</a>{{end}}</p>{{end}}
+</body>
+</html>
