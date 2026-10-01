@@ -32,9 +32,29 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
   let applyingRemoteState = false
   let stopSubscription: (() => void) | null = null
 
+  /** 序列化一份值，用于比较「有没有真的变」。设置项都很小，字符串比较足够。 */
+  function snapshot(value: T): string {
+    try {
+      return JSON.stringify(value) ?? 'undefined'
+    }
+    catch {
+      // 循环引用没法比较：当作每次都不同，宁可多写一次也不要漏写。
+      return String(Math.random())
+    }
+  }
+
+  /**
+   * 最近一次已知的服务端内容（读回来的、或写成功的）。
+   *
+   * 有了它就不会把刚读到的值原样写回去：组件在初始化后做一次没实际改动的赋值
+   * （归一化、剪枝、去重）曾经都会白跑一次 PUT。
+   */
+  let lastSyncedSnapshot = snapshot(state.value)
+
   function applyRemoteState(value: unknown) {
     applyingRemoteState = true
     state.value = normalize(value)
+    lastSyncedSnapshot = snapshot(state.value)
     queueMicrotask(() => {
       applyingRemoteState = false
     })
@@ -61,8 +81,14 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
     if (!sessionRef.value || initializedSession !== sessionRef.value) {
       return
     }
+    const current = snapshot(state.value)
+    if (current === lastSyncedSnapshot) {
+      // 与服务端已知内容一致：这次「变化」是本地归一化造成的，不值得一次往返。
+      return
+    }
     try {
       await settingsApi.setItem(key, state.value)
+      lastSyncedSnapshot = current
     }
     catch (error) {
       console.error(error)

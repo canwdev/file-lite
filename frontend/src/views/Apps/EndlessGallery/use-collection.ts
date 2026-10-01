@@ -91,9 +91,14 @@ export function useCollection() {
    * present in the given set of existing file names.
    */
   function pruneDirectory(basePath: string, existingNames: Set<string>): void {
-    collection.value = collection.value.filter(
+    const next = collection.value.filter(
       item => item.basePath !== basePath || existingNames.has(item.name),
     )
+    // 什么都没剪掉就不要赋值：赋值会让 useRemoteSetting 把整份收藏回写一次，
+    // 「打开画廊」于是变成一次 GET + 一次内容完全没变的 PUT。
+    if (next.length !== collection.value.length) {
+      collection.value = next
+    }
   }
 
   return {

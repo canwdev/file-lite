@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { logout } from '@/api/session'
+import { resetSettingsCache } from '@/api/settings'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
 import { clearAuthSession } from '@/store/auth'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
@@ -20,6 +21,8 @@ window.$logout = (clearServerSession = true) => {
     void logout().catch(() => {})
   }
   clearAuthSession()
+  // 设置缓存是按会话读回来的：不清掉，下一个登录的人会先看到上一个人的值。
+  resetSettingsCache()
   router.push({ name: 'LoginView' })
 }
 </script>
