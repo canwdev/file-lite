@@ -34,15 +34,28 @@
 <div class="pathrow">
 <form method="get" action="/ie/browse">
 <input type="text" class="pathinput" name="path" value="{{.Path}}">
-<input class="btn" type="submit" value="Go">
+<input class="btn pathgo" type="submit" value="Go">
+</form>
+</div>
+<div class="uploadrow">
+<form class="inline right" method="post" action="/ie/mkdir?path={{.Path | urlquery}}">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<input type="text" name="name" size="10">
+<input class="btn" type="submit" value="New folder">
+</form>
+<form class="inline" method="post" enctype="multipart/form-data" action="/ie/upload?path={{.Path | urlquery}}">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<input type="file" name="files" multiple>
+<input class="btn" type="submit" value="Upload">
 </form>
 </div>
 <div class="panel">
 <table class="list">
-<tr><th class="name">Name</th><th>Size</th><th>Modified</th></tr>
+<tr><th class="name">Name</th><th>Size</th><th>Modified</th><th class="act">Actions</th></tr>
 {{range .Entries}}<tr>
 <td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
 <td>{{.Size}}</td><td>{{.Time}}</td>
+<td class="act"><a href="/ie/rename?path={{.Path | urlquery}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}">Delete</a></td>
 </tr>
 {{end}}
 </table>
@@ -50,6 +63,7 @@
 <div class="status">
 <span>{{len .Entries}} shown</span>
 {{if .PageInfo}}<span>{{.PageInfo}}</span>{{end}}
+{{if .Notice}}<span>{{.Notice}}</span>{{end}}
 {{if .PrevURL}}<a class="btn" href="{{.PrevURL}}">Prev</a> {{end}}
 {{if .NextURL}}<a class="btn" href="{{.NextURL}}">Next</a>{{end}}
 </div>

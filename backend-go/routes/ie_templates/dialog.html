@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>File Lite - {{.Title}}</title>
+{{template "style"}}
+</head>
+<body>
+<div class="win dialog">
+<div class="title">File Lite - {{.Title}}</div>
+<form method="post" action="{{.Action}}">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+{{if .Message}}<p>{{.Message}}</p>{{end}}
+{{if .FieldLabel}}<p>{{.FieldLabel}} <input type="text" name="name" value="{{.Field}}" size="24"></p>{{end}}
+<p><input class="btn" type="submit" value="{{.Submit}}"> <a class="btn" href="{{.Cancel}}">Cancel</a></p>
+</form>
+</div>
+</body>
+</html>

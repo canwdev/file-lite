@@ -747,22 +747,45 @@ These do not follow the resource rules above, on purpose:
   body is authoritative.
 - **`/ie/*` is a second, HTML-only surface** for old browsers (IE8 and
   friends): `GET /ie` (redirect to the first location), `GET|POST /ie/login`,
-  `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/download?path=`. It renders
+  `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/download?path=`,
+  `POST /ie/upload?path=`, `POST /ie/mkdir?path=`, `GET|POST /ie/rename?path=`,
+  `GET|POST /ie/delete?path=`. It renders
   HTML instead of JSON, so it can only use GET and POST forms and it authenticates with
   the same session cookies; the logout form carries the session value in a `csrf` field
   instead of the `X-File-Lite-CSRF` header. It reuses the same internals (`authenticate`,
-  `readDirEntries`, `serveFileContent`) and the same favourites key
+  `readDirEntries`, `serveFileContent`, `createDirectory`, `renameEntry`,
+  `fileops.RemoveEntry`) and the same favourites key
   (`file_lite_stared_path`) as the app, but it deliberately does not follow the
   resource/verb rules above — it is a form-driven UI, not an API.
   A valid `?ticket=` is consumed server-side on `GET /ie`, `GET /ie/login` and the root
   `GET /` (so the login URL printed at startup works without JavaScript; a root request
   whose User-Agent contains `MSIE` or `Trident/` is sent on to `/ie` instead of the SPA).
+  The app shell falls back on its own too: a browser that lacks the features the SPA needs,
+  or a page that failed to load, is offered a link to `/ie` — with the query string intact,
+  so a `?ticket=` survives — rather than being redirected, and `<noscript>` offers the same
+  link when JavaScript is off.
   Ticket logins always issue a persistent cookie, because the ticket exists to sign
   another device in. `POST /ie/login` carries a `mode` field (`password` or `ticket`) so
   one form serves both, and the radio group is authoritative: with no `mode` the field
   that was filled in decides. A tiny inline script hides the field that is not selected
   (IE8 does not support `:checked`, which is why it is not done in CSS); with JavaScript
   off both fields stay visible and the radio alone decides.
+  `POST /ie/upload?path=` takes one `files` field: the input carries `multiple`, which old
+  browsers simply ignore, so the same form uploads many files at once or one at a time.
+  Parts are read from a `multipart.Reader` and streamed straight into `PublishFile` (no
+  temporary copy), the target directory comes from the query rather than a field so that
+  reading fields cannot materialize the upload, and the `csrf` field must arrive before
+  any file part — a file first is rejected instead of guessed. The answer is a 302 back to
+  the directory with a one-line `notice`; files that already exist are skipped unless
+  `?onConflict=overwrite` or `keep-both` is given, and a filename that is not valid UTF-8
+  is decoded as GBK first, because IE sends filenames in the system code page.
+  `POST /ie/mkdir`, `/ie/rename` and `/ie/delete` all take a `csrf` field and answer with
+  the same kind of 302 + `notice`. Rename and delete render a confirmation page on `GET`
+  (the per-row links in the list are GETs, so following one can never destroy anything),
+  and delete refuses a location root — a drive, a mount point, or a syntactic root. The
+  rename and delete rules are the ones the JSON API already uses; the delete itself is
+  `fileops.RemoveEntry`, the same implementation the task queue calls, so a symlink or a
+  hard link is removed without following it.
 
 ## 16. Change policy
 

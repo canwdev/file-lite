@@ -6,7 +6,7 @@ body{background:#008080;color:#000;margin:8px;font:12px Tahoma,"MS Sans Serif","
 a{color:#000080}
 .win{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;padding:2px}
 .title{background:#000080;color:#fff;font-weight:bold;padding:2px 4px;margin-bottom:2px}
-.toolbar{border-bottom:1px solid #808080;padding:2px 0 4px;overflow:hidden}
+.toolbar{border-bottom:1px solid #808080;padding:4px;margin-bottom:4px;overflow:hidden}
 .btn{background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;color:#000;padding:1px 8px;text-decoration:none;display:inline-block;zoom:1}
 .btn:active{border-color:#808080 #fff #fff #808080}
 .inline{display:inline}
@@ -22,12 +22,25 @@ input[type=password],input[type=text]{background:#fff;border:2px solid;border-co
 .panel p{margin:2px}
 .side-link{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-decoration:none;padding:0 2px}
 .current{background:#000080;color:#fff}
-.pathrow{margin-bottom:4px}
-.pathinput{width:75%}
+/* 路径框：输入框占满除 Go 以外的整行。IE8 没有 flexbox，所以靠「容器右侧留一条
+   56px 车道 + Go 绝对定位到行尾」实现；输入框用 display:block 去掉行盒的半行距，
+   这样它的上边缘就是容器内容区的上边缘，Go 的 top:0 才能和它对齐。
+   输入框自带 2px 边框与左右各 2px 内边距，会吃掉车道里的一点点，无伤大雅。 */
+.pathrow{position:relative;padding-right:50px;margin-bottom:4px}
+.pathinput{display:block;width:100%}
+.pathgo{position:absolute;right:0;top:0}
+/* 上传与新建文件夹一左一右：右边那组浮动到行尾（空间不够时自动落到下一行并仍然靠右，
+   不会把页面撑宽）。一组内部不折行，免得按钮和它的输入框分家。文件框是系统控件，
+   比别的控件高，统一按中线对齐才不会把整行拉得参差不齐。 */
+.uploadrow{overflow:hidden;margin-bottom:4px}
+.uploadrow form{white-space:nowrap;margin-right:12px}
+.uploadrow form.right{margin-right:0;margin-left:12px}
+.uploadrow input{vertical-align:middle}
 .list{width:100%;border-collapse:collapse;background:#fff}
 .list th{background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;padding:1px 6px;text-align:left}
 .list td{border-bottom:1px solid #dfdfdf;padding:1px 6px;white-space:nowrap}
 .list .name{width:100%}
+.list .act{white-space:nowrap}
 .status{border:2px solid;border-color:#fff #808080 #808080 #fff;padding:2px 4px;margin-top:4px}
 .status span{border:1px solid;border-color:#808080 #fff #fff #808080;padding:0 6px;margin-right:4px}
 .dialog{width:300px;margin:60px auto}

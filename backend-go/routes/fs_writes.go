@@ -46,14 +46,7 @@ func putDirectory(c echo.Context) error {
 	}
 
 	// 先记下缺的每一级：MkdirAll 可能建到一半才失败，已经落盘的那些也要通知。
-	missing := absentDirs(res.Path)
-	err := os.MkdirAll(osPath, 0755)
-	changes := &listingChangeSet{}
-	for _, dir := range missing {
-		changes.add(dir)
-	}
-	changes.broadcast()
-	if err != nil {
+	if err := createDirectory(res); err != nil {
 		return fsError(err, res.Network())
 	}
 
@@ -62,6 +55,21 @@ func putDirectory(c echo.Context) error {
 		payload["entry"] = entry
 	}
 	return c.JSON(http.StatusCreated, payload)
+}
+
+// createDirectory 建目录（含缺失的父级），并把受影响的层级广播出去。
+//
+// JSON 接口（PUT /api/fs/directories/{path}）与经典界面的「新建文件夹」共用这一处：
+// MkdirAll 可能建到一半才失败，所以先记下缺的每一级，落盘的也要通知。
+func createDirectory(res fileops.Resolved) error {
+	missing := absentDirs(res.Path)
+	err := os.MkdirAll(res.OSPath(), 0755)
+	changes := &listingChangeSet{}
+	for _, dir := range missing {
+		changes.add(dir)
+	}
+	changes.broadcast()
+	return err
 }
 
 // ---- PATCH /api/fs/entries/{path} ----
@@ -86,62 +94,76 @@ func patchEntry(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return apierr.BadRequest(apierr.CodeBadRequest, "Bad Request")
 	}
-	name := strings.TrimSpace(body.Name)
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
-		return apierr.BadRequest(apierr.CodeInvalidName, "Invalid name")
-	}
-	if utils.IsReservedTempName(name) {
-		return apierr.BadRequest(apierr.CodeInvalidName, "Invalid name")
+
+	toPath, apiErr := renameEntry(res, body.Name)
+	if apiErr != nil {
+		return apiErr
 	}
 
-	// 名字没变：改名是幂等的，直接回当前条目。
+	srcDir := fileops.DirName(res.Path)
+	dstDir := fileops.DirName(toPath)
+	entry, ok := statEntry(toPath)
+	if !ok {
+		// 改名已经成功但读不出新条目：只给目录，让前端整表刷新，别只删掉旧名字。
+		broadcastFSChanged(uniqueDirs(srcDir, dstDir), nil)
+		return c.JSON(http.StatusOK, map[string]string{"path": toPath})
+	}
+	changes := &listingChangeSet{}
+	changes.remove(srcDir, fileops.BaseName(res.Path))
+	changes.add(toPath)
+	changes.broadcast()
+	return c.JSON(http.StatusOK, map[string]any{"path": toPath, "entry": entry})
+}
+
+// renameEntry 把条目改名成同目录下的 name（不含分隔符），返回改名后的路径。
+//
+// JSON 接口（PATCH /api/fs/entries/{path}）与经典界面的重命名共用这一份规则：
+// 名字校验、幂等的同名、冲突、目录不能移进自己的子目录，都在这里。
+// 跨目录移动属于任务（POST /api/tasks 的 move），不在这里做——那样同一件事就有了
+// 两个入口，冲突策略与进度也会各走一套。
+func renameEntry(res fileops.Resolved, name string) (string, *apierr.Error) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return "", apierr.BadRequest(apierr.CodeInvalidName, "Invalid name")
+	}
+	if utils.IsReservedTempName(name) {
+		return "", apierr.BadRequest(apierr.CodeInvalidName, "Invalid name")
+	}
+
+	// 名字没变：改名是幂等的，但仍然要确认路径存在。
 	if name == fileops.BaseName(res.Path) {
-		entry, ok := statEntry(res.Path)
-		if !ok {
-			return apierr.NotFound(apierr.CodePathNotFound, "Path not found")
+		if !isExist(res.OSPath()) {
+			return "", apierr.NotFound(apierr.CodePathNotFound, "Path not found")
 		}
-		return c.JSON(http.StatusOK, map[string]any{"path": res.Path, "entry": entry})
+		return res.Path, nil
 	}
 
 	toPath := canonicalChild(fileops.DirName(res.Path), name)
 	to, apiErr := resolvePath(toPath)
 	if apiErr != nil {
-		return apiErr
+		return "", apiErr
 	}
 
 	fromOS, toOS := res.OSPath(), to.OSPath()
 	if !isExist(fromOS) {
-		return apierr.NotFound(apierr.CodePathNotFound, "Source path not found")
+		return "", apierr.NotFound(apierr.CodePathNotFound, "Source path not found")
 	}
 	if isExist(toOS) {
-		return apierr.Conflict(apierr.CodeConflict, "Destination path already exists")
+		return "", apierr.Conflict(apierr.CodeConflict, "Destination path already exists")
 	}
 	fromInfo, err := os.Stat(fromOS)
 	if err != nil {
-		return fsError(err, res.Network())
+		return "", fsError(err, res.Network())
 	}
 	// 词法判断，两侧都已经是 canonical 路径；大小写不折叠是有意的取舍
 	// （见 utils.IsPathInsideOrEqual 的注释）。
 	if fromInfo.IsDir() && utils.IsPathInsideOrEqual(toOS, fromOS) {
-		return apierr.BadRequest(apierr.CodeOutOfScope, "The destination folder is a subfolder of the source folder")
+		return "", apierr.BadRequest(apierr.CodeOutOfScope, "The destination folder is a subfolder of the source folder")
 	}
 	if err := os.Rename(fromOS, toOS); err != nil {
-		return fsError(err, res.Network() || to.Network())
+		return "", fsError(err, res.Network() || to.Network())
 	}
-
-	srcDir := fileops.DirName(res.Path)
-	dstDir := fileops.DirName(to.Path)
-	entry, ok := statEntry(to.Path)
-	if !ok {
-		// 改名已经成功但读不出新条目：只给目录，让前端整表刷新，别只删掉旧名字。
-		broadcastFSChanged(uniqueDirs(srcDir, dstDir), nil)
-		return c.JSON(http.StatusOK, map[string]string{"path": to.Path})
-	}
-	changes := &listingChangeSet{}
-	changes.remove(srcDir, fileops.BaseName(res.Path))
-	changes.add(to.Path)
-	changes.broadcast()
-	return c.JSON(http.StatusOK, map[string]any{"path": to.Path, "entry": entry})
+	return to.Path, nil
 }
 
 // ---- PUT /api/fs/content/{path} ----

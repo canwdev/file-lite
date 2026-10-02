@@ -61,7 +61,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Uploads**: A file is written straight to its destination, so a large upload no longer needs the same amount of free space a second time in a temporary folder and finishes sooner (frontend, backend).
 - **Upload conflicts**: The "file already exists" question is answered with one request for the whole batch instead of one per file, so the dialog appears immediately even for a large selection (frontend, backend).
 - **Startup**: Server-side settings are read in one request instead of one per key, and a setting is no longer written back when nothing actually changed (frontend).
-- **Classic UI**: The `/ie` HTML interface, laid out and styled like a Windows 95 window with a favourites/drives sidebar, covers sign in (a password or a login ticket picked in the same form), folder browsing and download for old browsers such as IE8 (backend).
+- **Fallback**: A browser that cannot run the app, or one with JavaScript turned off, is now given a link to the classic `/ie` interface instead of a dead-end message (frontend).
+- **Classic UI**: The `/ie` HTML interface, laid out and styled like a Windows 95 window with a favourites/drives sidebar, gives old browsers such as IE8 sign-in (a password or a login ticket picked in the same form), folder browsing and download (backend).
+- **Classic UI files**: The same interface can upload files, create a folder, rename and delete; deleting opens its own confirmation page first (backend).
 - **Hidden files**: Hidden files are shown by default in both the app and the classic interface (frontend).
 
 ### Fixes

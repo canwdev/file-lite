@@ -1,14 +1,19 @@
 package routes
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
 
@@ -38,16 +43,84 @@ func ieCall(t *testing.T, e *echo.Echo, method, target, form string, withAuth bo
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	}
 	if withAuth {
-		token, err := config.NewAuthToken()
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
-		req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+		ieAuthCookies(t, req)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
+}
+
+// ieAuthCookies 给请求带上与浏览器相同的两个 cookie。
+func ieAuthCookies(t *testing.T, req *http.Request) {
+	t.Helper()
+	token, err := config.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+}
+
+// ieUploadPart 描述一个 multipart part：普通字段，或一个文件（file 原样进 header，
+// 好让测试能塞进 IE 那种非 UTF-8 的文件名）。
+type ieUploadPart struct {
+	name   string
+	value  string
+	isFile bool
+	file   string
+}
+
+// ieUploadForm 拼一个 multipart 请求体，part 顺序就是传进来的顺序。
+func ieUploadForm(t *testing.T, parts []ieUploadPart) (body, contentType string) {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	for _, part := range parts {
+		if !part.isFile {
+			if err := writer.WriteField(part.name, part.value); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		header := textproto.MIMEHeader{}
+		header.Set("Content-Disposition",
+			fmt.Sprintf(`form-data; name="%s"; filename="%s"`, part.name, part.file))
+		header.Set("Content-Type", "application/octet-stream")
+		section, err := writer.CreatePart(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := section.Write([]byte(part.value)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String(), writer.FormDataContentType()
+}
+
+// iePostRaw 发一个自带 body 与 Content-Type 的 POST。
+func iePostRaw(t *testing.T, e *echo.Echo, target, body, contentType string, withAuth bool) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, contentType)
+	if withAuth {
+		ieAuthCookies(t, req)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+// ieNoticeOf 从重定向的 Location 里取出 notice。
+func ieNoticeOf(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	location, err := url.Parse(rec.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("Location 解析失败：%v", err)
+	}
+	return location.Query().Get("notice")
 }
 
 func TestIEClassicNeedsLogin(t *testing.T) {
@@ -223,6 +296,295 @@ func TestIEClassicSidebarLabelsAndPathForm(t *testing.T) {
 	for _, want := range []string{`action="/ie/browse"`, `name="path"`, `value="Go"`, `value="` + filepath.ToSlash(dir) + `"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("路径框缺少 %q", want)
+		}
+	}
+}
+
+// 多选上传：一个 file 输入框带 multiple，服务端按 part 顺序流式收下。
+func TestIEClassicUpload(t *testing.T) {
+	dir := t.TempDir()
+	slash := filepath.ToSlash(dir)
+	body, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "sess"},
+		{name: "files", value: "alpha", isFile: true, file: "a.txt"},
+		{name: "files", value: "beta", isFile: true, file: "b.txt"},
+	})
+
+	e := newIEServer()
+	rec := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash), body, contentType, true)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("上传 = %d：%s", rec.Code, rec.Body.String())
+	}
+	if location := rec.Header().Get("Location"); !strings.HasPrefix(location, "/ie/browse?path=") {
+		t.Fatalf("上传后应当回到目录，得到 %q", location)
+	}
+	if notice := ieNoticeOf(t, rec); !strings.Contains(notice, "Uploaded 2") {
+		t.Fatalf("notice = %q", notice)
+	}
+	for name, want := range map[string]string{"a.txt": "alpha", "b.txt": "beta"} {
+		got, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("%s 没写进去：%v", name, err)
+		}
+		if string(got) != want {
+			t.Errorf("%s 内容 = %q，期望 %q", name, got, want)
+		}
+	}
+
+	// 没有会话 cookie 时不该收任何东西。
+	anon := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash), body, contentType, false)
+	if anon.Code != http.StatusFound || !strings.HasPrefix(anon.Header().Get("Location"), "/ie/login") {
+		t.Fatalf("未登录上传 = %d %q", anon.Code, anon.Header().Get("Location"))
+	}
+}
+
+// 同名策略、CSRF 与越界：都要在**写之前**挡住。
+func TestIEClassicUploadGuards(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "dest")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	slash := filepath.ToSlash(dir)
+
+	// 已存在：默认跳过，原内容不动，notice 说明被跳过。
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	body, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "sess"},
+		{name: "files", value: "new", isFile: true, file: "a.txt"},
+	})
+	e := newIEServer()
+	rec := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash), body, contentType, true)
+	if notice := ieNoticeOf(t, rec); !strings.Contains(notice, "skipped 1") {
+		t.Fatalf("已有同名文件时应当跳过：%q", notice)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "a.txt")); string(got) != "old" {
+		t.Errorf("跳过的文件被改了：%q", got)
+	}
+
+	// ?onConflict=overwrite 覆盖，?onConflict=keep-both 另存。
+	overwrite, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "sess"},
+		{name: "files", value: "new", isFile: true, file: "a.txt"},
+	})
+	iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash)+"&onConflict=overwrite", overwrite, contentType, true)
+	if got, _ := os.ReadFile(filepath.Join(dir, "a.txt")); string(got) != "new" {
+		t.Errorf("overwrite 没生效：%q", got)
+	}
+
+	keepBoth, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "sess"},
+		{name: "files", value: "copy", isFile: true, file: "a.txt"},
+	})
+	iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash)+"&onConflict=keep-both", keepBoth, contentType, true)
+	if _, err := os.Stat(filepath.Join(dir, "a (1).txt")); err != nil {
+		t.Errorf("keep-both 应当另存为 a (1).txt：%v", err)
+	}
+
+	// CSRF 不对：403，且一个字节都不写。
+	wrongCSRF, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "not-the-session"},
+		{name: "files", value: "x", isFile: true, file: "csrf-miss.txt"},
+	})
+	forbidden := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash), wrongCSRF, contentType, true)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("CSRF 不对 = %d，期望 403", forbidden.Code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "csrf-miss.txt")); !os.IsNotExist(err) {
+		t.Error("CSRF 没过却写了文件")
+	}
+
+	// 文件排在 csrf 之前：顺序保证不了就 fail closed。
+	reordered, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "files", value: "x", isFile: true, file: "reordered.txt"},
+		{name: "csrf", value: "sess"},
+	})
+	early := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash), reordered, contentType, true)
+	if early.Code != http.StatusForbidden {
+		t.Fatalf("文件先到 = %d，期望 403", early.Code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "reordered.txt")); !os.IsNotExist(err) {
+		t.Error("未校验的 part 被写了")
+	}
+
+	// 目标在允许根之外：403 HTML。
+	withBases(t, dir)
+	outside := iePostRaw(t, newIEServer(), "/ie/upload?path="+url.QueryEscape(filepath.ToSlash(base)), body, contentType, true)
+	if outside.Code != http.StatusForbidden {
+		t.Fatalf("越界上传 = %d，期望 403", outside.Code)
+	}
+
+	// 目标不是目录：400。
+	notDir := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(slash+"/a.txt"), body, contentType, true)
+	if notDir.Code != http.StatusBadRequest {
+		t.Fatalf("往文件上上传 = %d，期望 400", notDir.Code)
+	}
+}
+
+// IE 发来的文件名是系统 ANSI 代码页（中文 Windows 是 GBK），落盘前要转成 UTF-8。
+func TestIEClassicUploadGBKFilename(t *testing.T) {
+	dir := t.TempDir()
+	gbkName := "\xb1\xa8\xb8\xe6.txt" // GBK 的「报告.txt」，不是合法 UTF-8
+	body, contentType := ieUploadForm(t, []ieUploadPart{
+		{name: "csrf", value: "sess"},
+		{name: "files", value: "report", isFile: true, file: gbkName},
+	})
+
+	e := newIEServer()
+	rec := iePostRaw(t, e, "/ie/upload?path="+url.QueryEscape(filepath.ToSlash(dir)), body, contentType, true)
+	if rec.Code != http.StatusFound {
+		t.Fatalf("上传 = %d：%s", rec.Code, rec.Body.String())
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "报告.txt")); err != nil || string(got) != "report" {
+		t.Fatalf("GBK 文件名没转成 UTF-8：err=%v got=%q", err, got)
+	}
+}
+
+func TestDecodeUploadFilename(t *testing.T) {
+	if got := decodeUploadFilename("plain.txt"); got != "plain.txt" {
+		t.Errorf("合法 UTF-8 不该被动：%q", got)
+	}
+	if got := decodeUploadFilename("报告.txt"); got != "报告.txt" {
+		t.Errorf("UTF-8 中文不该被动：%q", got)
+	}
+	if got := decodeUploadFilename("\xb1\xa8\xb8\xe6.txt"); got != "报告.txt" {
+		t.Errorf("GBK 应当被解码：%q", got)
+	}
+	// 既非 UTF-8 也解不出 GBK：退化成替换非法字节，而不是留一个坏名字。
+	if got := decodeUploadFilename("\xff\xfe.txt"); !utf8.ValidString(got) {
+		t.Errorf("兜底结果仍是非法 UTF-8：%q", got)
+	}
+}
+
+// 新建文件夹、重命名、删除：都是表单 + PRG，删除必须先过一次确认页。
+func TestIEClassicMkdirRenameDelete(t *testing.T) {
+	dir := t.TempDir()
+	slash := filepath.ToSlash(dir)
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "tree", "inner"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	e := newIEServer()
+
+	// 新建文件夹。
+	created := ieCall(t, e, http.MethodPost, "/ie/mkdir?path="+url.QueryEscape(slash), "csrf=sess&name=photos", true)
+	if notice := ieNoticeOf(t, created); !strings.Contains(notice, "Created folder photos") {
+		t.Fatalf("mkdir notice = %q", notice)
+	}
+	if st, err := os.Stat(filepath.Join(dir, "photos")); err != nil || !st.IsDir() {
+		t.Fatalf("目录没建出来：%v", err)
+	}
+
+	// 重名、越界名、CSRF 不对：都只回一行说明，不建东西。
+	again := ieCall(t, e, http.MethodPost, "/ie/mkdir?path="+url.QueryEscape(slash), "csrf=sess&name=photos", true)
+	if notice := ieNoticeOf(t, again); !strings.Contains(notice, "already exists") {
+		t.Errorf("重名 notice = %q", notice)
+	}
+	escape := ieCall(t, e, http.MethodPost, "/ie/mkdir?path="+url.QueryEscape(slash), "csrf=sess&name=../evil", true)
+	if notice := ieNoticeOf(t, escape); !strings.Contains(notice, "Invalid folder name") {
+		t.Errorf("越界名 notice = %q", notice)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "evil")); !os.IsNotExist(err) {
+		t.Error("越界建目录了")
+	}
+	noCSRF := ieCall(t, e, http.MethodPost, "/ie/mkdir?path="+url.QueryEscape(slash), "csrf=nope&name=sneaky", true)
+	if noCSRF.Code != http.StatusForbidden {
+		t.Errorf("CSRF 不对 = %d，期望 403", noCSRF.Code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "sneaky")); !os.IsNotExist(err) {
+		t.Error("CSRF 没过却建了目录")
+	}
+
+	// 改名对话框：GET 不写任何东西，输入框预填当前名字。
+	dialog := ieCall(t, e, http.MethodGet, "/ie/rename?path="+url.QueryEscape(slash+"/a.txt"), "", true)
+	if dialog.Code != http.StatusOK || !strings.Contains(dialog.Body.String(), `value="a.txt"`) {
+		t.Fatalf("改名页 = %d：%s", dialog.Code, dialog.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "a.txt")); err != nil {
+		t.Fatal("GET 不该动文件")
+	}
+
+	renamed := ieCall(t, e, http.MethodPost, "/ie/rename?path="+url.QueryEscape(slash+"/a.txt"), "csrf=sess&name=b.txt", true)
+	if notice := ieNoticeOf(t, renamed); !strings.Contains(notice, "Renamed a.txt to b.txt") {
+		t.Fatalf("rename notice = %q", notice)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "b.txt")); err != nil {
+		t.Fatalf("改名没生效：%v", err)
+	}
+
+	// 改成已存在的名字：说明冲突，源文件不能消失。
+	conflict := ieCall(t, e, http.MethodPost, "/ie/rename?path="+url.QueryEscape(slash+"/b.txt"), "csrf=sess&name=photos", true)
+	if notice := ieNoticeOf(t, conflict); !strings.Contains(notice, "already exists") {
+		t.Errorf("冲突 notice = %q", notice)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "b.txt")); err != nil {
+		t.Error("冲突时源文件不该消失")
+	}
+
+	// 删除确认页：GET 只问不做；目录那页要说明会连内容一起删。
+	confirm := ieCall(t, e, http.MethodGet, "/ie/delete?path="+url.QueryEscape(slash+"/b.txt"), "", true)
+	if confirm.Code != http.StatusOK || !strings.Contains(confirm.Body.String(), "cannot be undone") {
+		t.Fatalf("确认页 = %d：%s", confirm.Code, confirm.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "b.txt")); err != nil {
+		t.Fatal("确认页不该删东西")
+	}
+	treeConfirm := ieCall(t, e, http.MethodGet, "/ie/delete?path="+url.QueryEscape(slash+"/tree"), "", true)
+	if !strings.Contains(treeConfirm.Body.String(), "everything inside") {
+		t.Error("目录的确认页应当说明会删掉里面所有东西")
+	}
+
+	// POST 才真删：文件、以及带内容的目录。
+	deleted := ieCall(t, e, http.MethodPost, "/ie/delete?path="+url.QueryEscape(slash+"/b.txt"), "csrf=sess", true)
+	if notice := ieNoticeOf(t, deleted); !strings.Contains(notice, "Deleted b.txt") {
+		t.Fatalf("delete notice = %q", notice)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "b.txt")); !os.IsNotExist(err) {
+		t.Error("文件没删掉")
+	}
+	ieCall(t, e, http.MethodPost, "/ie/delete?path="+url.QueryEscape(slash+"/tree"), "csrf=sess", true)
+	if _, err := os.Stat(filepath.Join(dir, "tree")); !os.IsNotExist(err) {
+		t.Error("目录没连内容一起删掉")
+	}
+
+	// 未登录：什么都不做。
+	anon := ieCall(t, e, http.MethodPost, "/ie/delete?path="+url.QueryEscape(slash+"/photos"), "csrf=sess", false)
+	if anon.Code != http.StatusFound || !strings.HasPrefix(anon.Header().Get("Location"), "/ie/login") {
+		t.Fatalf("未登录删除 = %d %q", anon.Code, anon.Header().Get("Location"))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "photos")); err != nil {
+		t.Error("未登录却删了目录")
+	}
+
+	// 位置根不给删。把允许范围收窄到临时目录，那个目录本身就是枚举出来的位置——
+	// 即便这条保护将来失效，代价也只是删掉一个测试临时目录。
+	scoped := t.TempDir()
+	withBases(t, scoped)
+	refused := ieCall(t, newIEServer(), http.MethodPost,
+		"/ie/delete?path="+url.QueryEscape(filepath.ToSlash(scoped)), "csrf=sess", true)
+	if notice := ieNoticeOf(t, refused); !strings.Contains(notice, "Refusing to delete") {
+		t.Errorf("位置根 notice = %q", notice)
+	}
+	if _, err := os.Stat(scoped); err != nil {
+		t.Error("位置根被删了")
+	}
+}
+
+func TestIEIsRoot(t *testing.T) {
+	drives := []types.Drive{{Path: "/", Label: "/"}, {Path: "/home/user", Label: "Home"}}
+	for _, p := range []string{"/", "//host/share", "/home/user"} {
+		if !ieIsRoot(p, drives) {
+			t.Errorf("%s 应当算位置根", p)
+		}
+	}
+	for _, p := range []string{"/tmp", "/home/user/docs"} {
+		if ieIsRoot(p, drives) {
+			t.Errorf("%s 不该算位置根", p)
 		}
 	}
 }

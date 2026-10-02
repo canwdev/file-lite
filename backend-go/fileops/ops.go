@@ -173,6 +173,14 @@ func removeEntrySafely(p string) error {
 	return os.RemoveAll(p)
 }
 
+// RemoveEntry 删除一个条目：文件、链接，或目录（连同其中的全部内容）。
+//
+// 这是任务队列之外需要「当场删掉」时的入口，语义与任务队列的删除完全相同——
+// 链接与硬链接只删自己，绝不跟着链接递归下去。经典界面（/ie）的删除确认页用它。
+func RemoveEntry(p string) error {
+	return removeEntrySafely(p)
+}
+
 type runState struct {
 	ctx  context.Context
 	opts Options
