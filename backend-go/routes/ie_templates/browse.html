@@ -38,12 +38,12 @@
 </form>
 </div>
 <div class="uploadrow">
-<form class="inline right" method="post" action="/ie/mkdir?path={{.Path | urlquery}}">
+<form class="inline right" method="post" action="/ie/mkdir?path={{.Path | urlquery}}{{if gt .Page 1}}&amp;page={{.Page}}{{end}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="text" name="name" size="10">
 <input class="btn" type="submit" value="New folder">
 </form>
-<form class="inline" method="post" enctype="multipart/form-data" action="/ie/upload?path={{.Path | urlquery}}">
+<form class="inline" method="post" enctype="multipart/form-data" action="/ie/upload?path={{.Path | urlquery}}{{if gt .Page 1}}&amp;page={{.Page}}{{end}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="file" name="files" multiple>
 <input class="btn" type="submit" value="Upload">
@@ -55,7 +55,7 @@
 {{range .Entries}}<tr>
 <td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
 <td>{{.Size}}</td><td>{{.Time}}</td>
-<td class="act"><a href="/ie/rename?path={{.Path | urlquery}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}">Delete</a></td>
+<td class="act"><a href="/ie/rename?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Delete</a></td>
 </tr>
 {{end}}
 </table>

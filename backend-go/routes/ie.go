@@ -205,6 +205,19 @@ func ieBrowse(c echo.Context) error {
 	})
 
 	page := iePageParam(c)
+	// 页码越界（手输的，或者刚把最后一页删空）：跳到真正存在的那一页，而不是渲染一个
+	// 空表格、也不是在地址栏里留一个不存在的页码。notice 照旧带过去，否则操作结果就丢了。
+	lastPage := (len(entries) + iePageSize - 1) / iePageSize
+	if lastPage < 1 {
+		lastPage = 1
+	}
+	if page > lastPage {
+		target := ieBrowseURL(res.Path, lastPage)
+		if notice := c.QueryParam("notice"); notice != "" {
+			target += "&notice=" + url.QueryEscape(notice)
+		}
+		return c.Redirect(http.StatusFound, target)
+	}
 	start := (page - 1) * iePageSize
 	if start > len(entries) {
 		start = len(entries)
@@ -220,6 +233,7 @@ func ieBrowse(c echo.Context) error {
 		CSRF:   ieCSRF(c),
 		Parent: ieParent(res.Path, drives),
 		Notice: ieNotice(c),
+		Page:   page,
 	}
 	for _, drive := range drives {
 		view.Drives = append(view.Drives, ieLink{Path: drive.Path, Label: fileops.BaseName(drive.Path)})
@@ -289,6 +303,7 @@ func ieUpload(c echo.Context) error {
 	}
 
 	onConflict := c.QueryParam("onConflict")
+	page := iePageParam(c)
 	csrfOK := false
 	stats := &ieUploadStats{}
 	changes := &listingChangeSet{}
@@ -378,7 +393,7 @@ func ieUpload(c echo.Context) error {
 	}
 
 	// PRG：刷新不会重传，IE8 那个「是否重新提交表单？」也不会弹出来。
-	return ieBackTo(c, dir.Path, stats.notice())
+	return ieBackTo(c, dir.Path, page, stats.notice())
 }
 
 // ieMkdir 新建文件夹。表单只有 csrf 与 name，读普通字段就够了——不像上传那样要绕开
@@ -388,24 +403,25 @@ func ieMkdir(c echo.Context) error {
 	if apiErr != nil {
 		return ieError(c, apiErr)
 	}
+	page := iePageParam(c)
 	if !ieCheckCSRF(c) {
 		return ieFail(c, http.StatusForbidden, "Forbidden")
 	}
 	name, nameErr := sanitizeUploadFilename(c.FormValue("name"))
 	if nameErr != nil || utils.IsReservedTempName(name) {
-		return ieBackTo(c, dir.Path, "Invalid folder name")
+		return ieBackTo(c, dir.Path, page, "Invalid folder name")
 	}
 	res, apiErr := resolvePath(canonicalChild(dir.Path, name))
 	if apiErr != nil {
 		return ieError(c, apiErr)
 	}
 	if isExist(res.OSPath()) {
-		return ieBackTo(c, dir.Path, name+" already exists")
+		return ieBackTo(c, dir.Path, page, name+" already exists")
 	}
 	if err := createDirectory(res); err != nil {
-		return ieBackTo(c, dir.Path, "Could not create "+name+": "+err.Error())
+		return ieBackTo(c, dir.Path, page, "Could not create "+name+": "+err.Error())
 	}
-	return ieBackTo(c, dir.Path, "Created folder "+name)
+	return ieBackTo(c, dir.Path, page, "Created folder "+name)
 }
 
 // ieRenamePage 渲染改名对话框。GET 不写任何东西，所以列表里的链接点错了也没有代价。
@@ -415,15 +431,16 @@ func ieRenamePage(c echo.Context) error {
 		return ieError(c, apiErr)
 	}
 	name := fileops.BaseName(res.Path)
+	page := iePageParam(c)
 	return ieRender(c, http.StatusOK, "dialog.html", ieDialogView{
 		Title:      "Rename",
-		Action:     "/ie/rename?path=" + url.QueryEscape(res.Path),
+		Action:     "/ie/rename?path=" + url.QueryEscape(res.Path) + iePageQuery(page),
 		CSRF:       ieCSRF(c),
 		Message:    "Rename " + name + ":",
 		FieldLabel: "New name:",
 		Field:      name,
 		Submit:     "Rename",
-		Cancel:     ieBrowseURL(fileops.DirName(res.Path), 1),
+		Cancel:     ieBrowseURL(fileops.DirName(res.Path), page),
 	})
 }
 
@@ -434,17 +451,18 @@ func ieRename(c echo.Context) error {
 	}
 	dir := fileops.DirName(res.Path)
 	oldName := fileops.BaseName(res.Path)
+	page := iePageParam(c)
 	if !ieCheckCSRF(c) {
 		return ieFail(c, http.StatusForbidden, "Forbidden")
 	}
 	newPath, apiErr := renameEntry(res, c.FormValue("name"))
 	if apiErr != nil {
-		return ieBackTo(c, dir, oldName+": "+apiErr.Message)
+		return ieBackTo(c, dir, page, oldName+": "+apiErr.Message)
 	}
 	if newPath == res.Path {
-		return ieBackTo(c, dir, "Name unchanged")
+		return ieBackTo(c, dir, page, "Name unchanged")
 	}
-	return ieBackTo(c, dir, "Renamed "+oldName+" to "+fileops.BaseName(newPath))
+	return ieBackTo(c, dir, page, "Renamed "+oldName+" to "+fileops.BaseName(newPath))
 }
 
 // ieDeletePage 是删除的确认页：真正动手的是 POST，所以列表里那个链接（GET）永远
@@ -455,17 +473,18 @@ func ieDeletePage(c echo.Context) error {
 		return ieError(c, apiErr)
 	}
 	name := fileops.BaseName(res.Path)
+	page := iePageParam(c)
 	message := "Delete " + name + "? This cannot be undone."
 	if st, err := os.Stat(res.OSPath()); err == nil && st.IsDir() {
 		message = "Delete folder " + name + " and everything inside it? This cannot be undone."
 	}
 	return ieRender(c, http.StatusOK, "dialog.html", ieDialogView{
 		Title:   "Delete",
-		Action:  "/ie/delete?path=" + url.QueryEscape(res.Path),
+		Action:  "/ie/delete?path=" + url.QueryEscape(res.Path) + iePageQuery(page),
 		CSRF:    ieCSRF(c),
 		Message: message,
 		Submit:  "Delete",
-		Cancel:  ieBrowseURL(fileops.DirName(res.Path), 1),
+		Cancel:  ieBrowseURL(fileops.DirName(res.Path), page),
 	})
 }
 
@@ -476,21 +495,22 @@ func ieDelete(c echo.Context) error {
 	}
 	dir := fileops.DirName(res.Path)
 	name := fileops.BaseName(res.Path)
+	page := iePageParam(c)
 	if !ieCheckCSRF(c) {
 		return ieFail(c, http.StatusForbidden, "Forbidden")
 	}
 	if ieIsRoot(res.Path, visibleDrives()) {
 		// 位置根不给删：那等于把整个界面拆了，而且经典界面没有任何恢复手段。
-		return ieBackTo(c, dir, "Refusing to delete "+name)
+		return ieBackTo(c, dir, page, "Refusing to delete "+name)
 	}
 	// 与任务队列同一个删除实现：链接与硬链接只删自己，不跟着递归。
 	if err := fileops.RemoveEntry(res.OSPath()); err != nil {
-		return ieBackTo(c, dir, "Could not delete "+name+": "+err.Error())
+		return ieBackTo(c, dir, page, "Could not delete "+name+": "+err.Error())
 	}
 	changes := &listingChangeSet{}
 	changes.remove(dir, name)
 	changes.broadcast()
-	return ieBackTo(c, dir, "Deleted "+name)
+	return ieBackTo(c, dir, page, "Deleted "+name)
 }
 
 // ieIsRoot 判断这是不是一个「位置根」：语法根（"/"、"//host/share"）或枚举出来的
@@ -640,8 +660,12 @@ type ieDialogView struct {
 }
 
 type ieBrowseView struct {
-	Path       string
-	CSRF       string
+	Path string
+	CSRF string
+	// Page 是当前页码：模板把它接在行内操作与上传 / 新建的 URL 后面，做完之后回到同一页。
+	// 这里不能在 Go 侧拼好 "&page=N" 再插值——href 里 `?` 之后是 URL 查询上下文，
+	// html/template 会把整个值再转义一次（`&` 变 %26）。
+	Page       int
 	Drives     []ieLink
 	Favourites []ieLink
 	Parent     string
@@ -695,9 +719,20 @@ func ieCheckCSRF(c echo.Context) bool {
 	return session != "" && c.FormValue("csrf") == session
 }
 
-// ieBackTo 回到目录并带上一行结果说明（PRG：刷新不会把刚才那一步再做一遍）。
-func ieBackTo(c echo.Context, dirPath, notice string) error {
-	return c.Redirect(http.StatusFound, ieBrowseURL(dirPath, 1)+"&notice="+url.QueryEscape(notice))
+// ieBackTo 回到目录（原来那一页）并带上一行结果说明。
+//
+// PRG：刷新不会把刚才那一步再做一遍。页码沿用操作前的那一页——在第 3 页删掉一个文件
+// 不该被扔回第 1 页；那一页已经被删空的话，浏览时会自己回落到最后一页。
+func ieBackTo(c echo.Context, dirPath string, page int, notice string) error {
+	return c.Redirect(http.StatusFound, ieBrowseURL(dirPath, page)+"&notice="+url.QueryEscape(notice))
+}
+
+// iePageQuery 生成接在 URL 后面的页码后缀，第 1 页留空（与 ieBrowseURL 一致）。
+func iePageQuery(page int) string {
+	if page <= 1 {
+		return ""
+	}
+	return "&page=" + strconv.Itoa(page)
 }
 
 // ieNotice 读 PRG 带回来的一行结果（上传统计之类），截断后原样交给模板转义。

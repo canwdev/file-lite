@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -572,6 +573,85 @@ func TestIEClassicMkdirRenameDelete(t *testing.T) {
 	}
 	if _, err := os.Stat(scoped); err != nil {
 		t.Error("位置根被删了")
+	}
+}
+
+// 翻页位置要留住：在第 2 页改名 / 删除之后仍然回到第 2 页。
+func TestIEClassicKeepsPage(t *testing.T) {
+	dir := t.TempDir()
+	// 超过一页（iePageSize）才有"第 2 页"这回事。
+	for i := 0; i <= iePageSize; i++ {
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%03d.txt", i)), []byte("x"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slash := filepath.ToSlash(dir)
+	// 升序排完，第 1 页是 f000..f499，第 2 页只有 f500。
+	last := filepath.Join(slash, "f500.txt")
+
+	e := newIEServer()
+	page2 := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(slash)+"&page=2", "", true)
+	body := page2.Body.String()
+	if !strings.Contains(body, "page 2/2") {
+		t.Fatalf("第 2 页没渲染出来：%s", body)
+	}
+	if !strings.Contains(body, "&amp;page=2") {
+		t.Error("第 2 页的行内操作链接应当带上页码")
+	}
+	if !strings.Contains(body, "path="+url.QueryEscape(slash)+"&amp;page=2") {
+		t.Error("第 2 页的上传 / 新建表单应当带上页码")
+	}
+
+	// 确认页把页码带进表单（Go 侧拼的 URL，`&` 可能被转义成 &amp;）。
+	confirm := ieCall(t, e, http.MethodGet, "/ie/delete?path="+url.QueryEscape(last)+"&page=2", "", true)
+	if confirmBody := html.UnescapeString(confirm.Body.String()); !strings.Contains(confirmBody, "page=2") {
+		t.Fatalf("确认页应当把页码带下去：%s", confirmBody)
+	}
+
+	renamed := ieCall(t, e, http.MethodPost,
+		"/ie/rename?path="+url.QueryEscape(last)+"&page=2", "csrf=sess&name=f500-renamed.txt", true)
+	if location := renamed.Header().Get("Location"); !strings.Contains(location, "page=2") {
+		t.Fatalf("改名后应当回到第 2 页，得到 %q", location)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "f500-renamed.txt")); err != nil {
+		t.Fatalf("改名没生效：%v", err)
+	}
+
+	// 把改名后的那个条目删掉：501 → 500 条，第 2 页随之消失。
+	renamedPath := filepath.Join(slash, "f500-renamed.txt")
+	deleted := ieCall(t, e, http.MethodPost, "/ie/delete?path="+url.QueryEscape(renamedPath)+"&page=2", "csrf=sess", true)
+	if location := deleted.Header().Get("Location"); !strings.Contains(location, "page=2") {
+		t.Fatalf("删除后应当回到第 2 页，得到 %q", location)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "f500-renamed.txt")); !os.IsNotExist(err) {
+		t.Error("文件没删掉")
+	}
+
+	// 第 2 页被删空之后：跳回干净的第 1 页（地址栏不留一个不存在的页码），
+	// 而不是渲染一个空表格。
+	empty := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(slash)+"&page=2", "", true)
+	if location := empty.Header().Get("Location"); empty.Code != http.StatusFound || strings.Contains(location, "page=") {
+		t.Fatalf("页码越界应当跳回第 1 页，得到 %d %q", empty.Code, location)
+	}
+
+	// 手输一个离谱的页码也一样，而且带上来的 notice 不能丢。
+	over := ieCall(t, e, http.MethodGet,
+		"/ie/browse?path="+url.QueryEscape(slash)+"&page=99&notice=hello", "", true)
+	overLocation := over.Header().Get("Location")
+	if over.Code != http.StatusFound || strings.Contains(overLocation, "page=") || !strings.Contains(overLocation, "notice=hello") {
+		t.Fatalf("越界跳转应当丢掉页码、留住 notice，得到 %d %q", over.Code, overLocation)
+	}
+
+	// 跳过去之后落在第 1 页，内容正常。
+	landed := ieCall(t, e, http.MethodGet, overLocation, "", true)
+	if body := landed.Body.String(); !strings.Contains(body, "f000.txt") || !strings.Contains(body, "500 shown") {
+		t.Fatalf("跳转后的第 1 页应当正常渲染：%s", body)
+	}
+
+	// 上传 / 新建也沿用它：第 1 页不带页码后缀。
+	one := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(slash), "", true)
+	if strings.Contains(one.Body.String(), "&amp;page=") {
+		t.Error("第 1 页不该出现页码后缀")
 	}
 }
 

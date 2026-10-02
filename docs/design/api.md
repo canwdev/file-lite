@@ -786,6 +786,10 @@ These do not follow the resource rules above, on purpose:
   rename and delete rules are the ones the JSON API already uses; the delete itself is
   `fileops.RemoveEntry`, the same implementation the task queue calls, so a symlink or a
   hard link is removed without following it.
+  Those same endpoints, plus `/ie/upload`, carry the `page` the caller was on (the links
+  and form actions are rendered with it) and answer with a redirect back to that page; a
+  `page` that no longer exists is a 302 to the last one that does, with the `notice` kept,
+  rather than an empty listing.
 
 ## 16. Change policy
 
