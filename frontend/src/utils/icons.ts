@@ -119,6 +119,7 @@ import MdiMenu from '~icons/mdi/menu'
 import MdiMenuDown from '~icons/mdi/menu-down'
 import MdiMenuUp from '~icons/mdi/menu-up'
 import MdiMicrosoft from '~icons/mdi/microsoft'
+import MicrosoftInternetExplorer from '~icons/mdi/microsoft-internet-explorer'
 import MdiMicrosoftWindows from '~icons/mdi/microsoft-windows'
 import MdiMinus from '~icons/mdi/minus'
 import MdiMonitorEye from '~icons/mdi/monitor-eye'
@@ -335,6 +336,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'link-variant': MdiLinkVariant,
   'delete-sweep': MdiDeleteSweep,
   'ip-network': MdiIpNetwork,
+  'microsoft-internet-explorer': MicrosoftInternetExplorer,
   'home': MdiHome,
   'wifi': MdiWifi,
   'keyboard-outline': MdiKeyboardOutline,

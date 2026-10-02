@@ -523,6 +523,13 @@ export function useFileLiteMenu() {
           },
         },
         {
+          label: 'Legacy page for IE8...',
+          icon: 'mdi mdi-microsoft-internet-explorer',
+          onClick: () => {
+            window.open('/ie')
+          },
+        },
+        {
           label: `${PKG_NAME} v${VERSION}`,
           icon: 'mdi mdi-github',
           onClick: () => {
