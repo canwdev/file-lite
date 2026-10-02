@@ -16,6 +16,7 @@ import (
 	"file-lite-go/fileops"
 	"file-lite-go/middlewares"
 	"file-lite-go/types"
+	"file-lite-go/utils"
 )
 
 func newIEServer() *echo.Echo {
@@ -182,6 +183,47 @@ func TestIEClassicLoginSubmitModes(t *testing.T) {
 	legacy := ieCall(t, e, http.MethodPost, "/ie/login", "ticket="+url.QueryEscape(legacyTicket.Value), false)
 	if legacy.Code != http.StatusFound {
 		t.Fatalf("无 mode 的票据提交 = %d", legacy.Code)
+	}
+}
+
+// 侧栏只显示最后一段文件夹名（完整路径留在 title 里），路径框可以手输并点 Go 跳转。
+func TestIEClassicSidebarLabelsAndPathForm(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	favourite := filepath.ToSlash(filepath.Join(dir, "deep", "notes"))
+
+	// 收藏是只读展示，键与前端 LsKeys.STARED_PATH 一致。
+	if _, err := utils.SetSettingsValue(ieStaredPathKey, []any{favourite}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = utils.DeleteSettingsValue(ieStaredPathKey) })
+
+	e := newIEServer()
+	page := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(filepath.ToSlash(dir)), "", true)
+	body := page.Body.String()
+
+	if !strings.Contains(body, `title="`+favourite+`"`) {
+		t.Errorf("收藏项应当把完整路径放进 title")
+	}
+	if !strings.Contains(body, `>notes</a>`) {
+		t.Errorf("收藏项应当只显示最后一段文件夹名")
+	}
+
+	// 驱动器同样只显示最后一段。
+	if drives := visibleDrives(); len(drives) > 0 {
+		label := fileops.BaseName(drives[0].Path)
+		if !strings.Contains(body, `>`+label+`</a>`) {
+			t.Errorf("驱动器项应当只显示 %q", label)
+		}
+	}
+
+	// 路径框 + Go：GET 表单，手输路径后由服务端渲染目标目录。
+	for _, want := range []string{`action="/ie/browse"`, `name="path"`, `value="Go"`, `value="` + filepath.ToSlash(dir) + `"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("路径框缺少 %q", want)
+		}
 	}
 }
 

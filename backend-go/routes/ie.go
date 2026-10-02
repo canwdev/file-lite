@@ -21,10 +21,11 @@ import (
 	"file-lite-go/utils"
 )
 
-// 经典界面：给 IE8 这类没有 JS 的浏览器用的纯 HTML 版本。
+// 经典界面：给 IE8 这类老浏览器用的 HTML 版本。
 //
-// 只有登录 / 登出 / 浏览 / 下载，全部靠表单和链接，没有一行 JS、没有预览。
-// 它挂在 /ie 下，与 /api 的 JSON 接口、SPA 的静态资源并存，共用一个会话 cookie。
+// 只有登录 / 登出 / 浏览 / 下载，靠表单与链接完成；JS 只用在登录页切换两种登录方式，
+// 关掉 JS 其余功能照常可用（降级为两条输入框都显示，由 radio 的值决定用哪一个）。
+// 没有预览。它挂在 /ie 下，与 /api 的 JSON 接口、SPA 的静态资源并存，共用一个会话 cookie。
 // 见 docs/design/api.md §15。
 
 //go:embed ie_templates/*.html
@@ -204,11 +205,15 @@ func ieBrowse(c echo.Context) error {
 
 	drives := visibleDrives()
 	view := ieBrowseView{
-		Path:       res.Path,
-		CSRF:       ieCSRF(c),
-		Drives:     drives,
-		Favourites: ieFavourites(),
-		Parent:     ieParent(res.Path, drives),
+		Path:   res.Path,
+		CSRF:   ieCSRF(c),
+		Parent: ieParent(res.Path, drives),
+	}
+	for _, drive := range drives {
+		view.Drives = append(view.Drives, ieLink{Path: drive.Path, Label: fileops.BaseName(drive.Path)})
+	}
+	for _, favourite := range ieFavourites() {
+		view.Favourites = append(view.Favourites, ieLink{Path: favourite, Label: fileops.BaseName(favourite)})
 	}
 	for _, entry := range entries[start:end] {
 		view.Entries = append(view.Entries, ieEntryView{
@@ -246,7 +251,7 @@ func ieDownload(c echo.Context) error {
 	return nil
 }
 
-// RegisterTicketLogin 让打印出来的登录链接在没有 JS 的浏览器里直接可用。
+// RegisterTicketLogin 让打印出来的登录链接在经典界面里直接可用。
 //
 // SPA 在路由守卫里消费 ?ticket=，那条路需要 JS。这里在静态资源中间件**之前**拦下
 // 根路径上带有效票据的 GET：换成会话 cookie，然后按 User-Agent 选落点——老 IE 进
@@ -309,11 +314,18 @@ type ieEntryView struct {
 	Time  string
 }
 
+// ieLink 是侧栏里的一项：链接指向完整 Path，显示的 Label 只取最后一段（完整路径放在
+// title 里，鼠标悬停还能看到；根路径没有最后一段，fileops.BaseName 会退回 "/" 或 "C:"）。
+type ieLink struct {
+	Path  string
+	Label string
+}
+
 type ieBrowseView struct {
 	Path       string
 	CSRF       string
-	Drives     []types.Drive
-	Favourites []string
+	Drives     []ieLink
+	Favourites []ieLink
 	Parent     string
 	Entries    []ieEntryView
 	PrevURL    string

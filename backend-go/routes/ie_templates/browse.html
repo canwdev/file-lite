@@ -22,7 +22,7 @@
 <td class="side">
 <div class="group">Favourites</div>
 <div class="panel">
-{{if .Favourites}}<ul>{{range .Favourites}}<li><a class="side-link{{if eq . $.Path}} current{{end}}" title="{{.}}" href="/ie/browse?path={{. | urlquery}}">{{.}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
+{{if .Favourites}}<ul>{{range .Favourites}}<li><a class="side-link{{if eq .Path $.Path}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
 </div>
 <div class="group">Drives</div>
 <div class="panel">
@@ -31,7 +31,12 @@
 </td>
 
 <td class="main">
-<div class="path">{{.Path}}</div>
+<div class="pathrow">
+<form method="get" action="/ie/browse">
+<input type="text" class="pathinput" name="path" value="{{.Path}}">
+<input class="btn" type="submit" value="Go">
+</form>
+</div>
 <div class="panel">
 <table class="list">
 <tr><th class="name">Name</th><th>Size</th><th>Modified</th></tr>

@@ -1,6 +1,6 @@
 {{define "style"}}
 <style>
-/* 这套界面是给没有 JS 的老浏览器（IE8）看的，没有 vgo-ui 令牌可用，
+/* 这套界面是给老浏览器（IE8）看的：没有 vgo-ui 令牌可用，
    所以在这里手写一小份 Win95 风格的复古样式：灰底、双色浮雕、方角。 */
 body{background:#008080;color:#000;margin:8px;font:12px Tahoma,"MS Sans Serif","Microsoft YaHei",SimSun,sans-serif;scrollbar-face-color:#c0c0c0;scrollbar-track-color:#dfdfdf;scrollbar-arrow-color:#000;scrollbar-shadow-color:#808080;scrollbar-highlight-color:#fff;scrollbar-3dlight-color:#dfdfdf;scrollbar-darkshadow-color:#000}
 a{color:#000080}
@@ -22,7 +22,8 @@ input[type=password],input[type=text]{background:#fff;border:2px solid;border-co
 .panel p{margin:2px}
 .side-link{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-decoration:none;padding:0 2px}
 .current{background:#000080;color:#fff}
-.path{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:1px 4px;margin-bottom:4px;overflow:hidden;white-space:nowrap}
+.pathrow{margin-bottom:4px}
+.pathinput{width:75%}
 .list{width:100%;border-collapse:collapse;background:#fff}
 .list th{background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;padding:1px 6px;text-align:left}
 .list td{border-bottom:1px solid #dfdfdf;padding:1px 6px;white-space:nowrap}

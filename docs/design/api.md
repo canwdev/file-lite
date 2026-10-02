@@ -745,7 +745,7 @@ These do not follow the resource rules above, on purpose:
 - **`PUT /api/fs/content/{path}` may answer with a different `Location`** when
   `keep-both` renamed the file or the server had to sanitize the name. The response
   body is authoritative.
-- **`/ie/*` is a second, HTML-only surface** for browsers without JavaScript (IE8 and
+- **`/ie/*` is a second, HTML-only surface** for old browsers (IE8 and
   friends): `GET /ie` (redirect to the first location), `GET|POST /ie/login`,
   `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/download?path=`. It renders
   HTML instead of JSON, so it can only use GET and POST forms and it authenticates with

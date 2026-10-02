@@ -128,7 +128,7 @@ func frontendStaticMiddleware(staticFS http.FileSystem) echo.MiddlewareFunc {
 	return middleware.StaticWithConfig(middleware.StaticConfig{
 		Skipper: func(c echo.Context) bool {
 			path := c.Request().URL.Path
-			// /ie 是经典（无 JS）界面：它必须落到自己的路由，而不是被 HTML5 回落
+			// /ie 是经典界面：它必须落到自己的路由，而不是被 HTML5 回落
 			// 当成 SPA 路径回一份 index.html。
 			return strings.HasPrefix(path, "/api") ||
 				strings.HasPrefix(path, "/plugins") ||
