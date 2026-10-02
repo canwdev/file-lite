@@ -1,5 +1,7 @@
 (function () {
   var shown = false
+  // 经典界面：服务端渲染的纯 HTML（/ie），老浏览器和关掉 JS 的浏览器都能用。
+  var classicUrl = '/ie'
 
   function getUnsupportedReason() {
     var ua = navigator.userAgent || ''
@@ -16,10 +18,19 @@
     return err ? (err.message || String(err)) : 'Unknown error'
   }
 
+  // 链接带上原来的查询串，免得 ?ticket= 这类参数丢掉（/ie 自己也认票据）。
+  function classicTarget() {
+    return classicUrl + (window.location.search || '')
+  }
+
   function showMessage(message, force) {
     var root = document.getElementById('app')
-    var p
-    if (shown || (!force && window.__APP_READY__) || !root)
+    var p, hint, link
+    if (!root)
+      return
+    // force 的那条（老浏览器判定）比先前那条泛泛的报错更准确，允许它覆盖；
+    // 其它情况只显示第一条。
+    if (!force && (shown || window.__APP_READY__))
       return
 
     shown = true
@@ -29,6 +40,18 @@
     p.style.paddingRight = '20px'
     p.appendChild(document.createTextNode(message))
     root.appendChild(p)
+
+    // 只给入口，不替用户跳走：5 秒那个定时器也可能只是"加载慢"，自动跳转会把
+    // 一个其实还能用的页面抢走。
+    hint = document.createElement('p')
+    hint.style.paddingLeft = '20px'
+    hint.style.paddingRight = '20px'
+    link = document.createElement('a')
+    link.href = classicTarget()
+    link.appendChild(document.createTextNode('Open the classic interface'))
+    hint.appendChild(link)
+    hint.appendChild(document.createTextNode(' — it works in older browsers.'))
+    root.appendChild(hint)
   }
 
   function showError(event) {

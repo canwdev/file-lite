@@ -16,6 +16,10 @@
 
   <body class="vgo-theme-default vgo-u-scrollbar">
     <div id="app"></div>
+    <noscript>
+      <!-- 完全关掉 JS 时 error-fallback.js 也跑不了，所以这里留一条明路。 -->
+      <p>This app needs JavaScript. <a href="/ie">Open the classic interface</a> instead.</p>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
