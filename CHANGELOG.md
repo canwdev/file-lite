@@ -68,6 +68,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Zip dates**: Downloaded zip archives keep each file’s modification time, so entries no longer appear without a date (backend).
 - **Sandboxed previews**: Streamed HTML and SVG files are sandboxed into a unique origin and sent with `nosniff`, so opening one can no longer run script on the app’s origin (frontend, backend).
 - **Command injection**: On Windows, the “reveal in host explorer” fallback opens the folder through the shell API instead of `cmd`, so a crafted folder name cannot execute a command (backend).
 - **Config permissions**: `config.json` is written owner-only, and an existing file is tightened on startup (backend).
