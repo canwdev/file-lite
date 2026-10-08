@@ -367,9 +367,9 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
     scope: shortcutScope,
     combo: 'escape',
     description: 'Close overlay',
+    disabled: computed(() => edgeOverlay.value == null),
     handler: () => {
-      if (edgeOverlay.value)
-        edgeOverlay.value = null
+      edgeOverlay.value = null
     },
   })
 

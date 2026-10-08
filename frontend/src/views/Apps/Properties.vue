@@ -1,28 +1,34 @@
 <script setup lang="ts">
+import type { AppParams } from './apps'
 import type { IEntry } from '@/types/server'
-import { ViewPortWindow } from '@canwdev/vgo-ui'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import MdiIcon from '@/components/MdiIcon.vue'
 import { bytesToSize, formatDate } from '@/utils'
-import { getFileIconClass } from './file-icons'
-import { getEntryTypeLabel } from './file-type'
-import {
-  closeProperties,
+import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
+import { getEntryTypeLabel } from '@/views/FileManager/ExplorerUI/file-type'
+import { propertiesTargetsFromParams, useProperties } from './properties'
+
+const props = defineProps<{ appParams: AppParams }>()
+
+const emit = defineEmits<{
+  exit: []
+  setTitle: [title: string]
+}>()
+
+const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
+
+const targets = computed(() => propertiesTargetsFromParams(props.appParams))
+const {
   propertiesData,
   propertiesError,
   propertiesIsMulti,
   propertiesItems,
   propertiesLoading,
   propertiesTarget,
-  propertiesVisible,
-} from './properties-window'
-
-const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
+} = useProperties(targets)
 
 const target = computed(() => propertiesTarget.value)
 const data = computed(() => propertiesData.value)
-
-// ---- 单选 ----
 
 const displayName = computed(() => data.value.name || target.value?.name || '')
 const isDirectory = computed(() => data.value.isDirectory ?? target.value?.isDirectory ?? false)
@@ -41,8 +47,6 @@ const sizeBytes = computed(() => {
   }
   return target.value?.item?.size ?? null
 })
-
-// ---- 多选聚合 ----
 
 const multiCount = computed(() => propertiesItems.value.length)
 const multiFileCount = computed(() => propertiesItems.value.filter(item => !item.target.isDirectory).length)
@@ -159,7 +163,6 @@ const containsText = computed(() => {
   if (files == null || folders == null) {
     return null
   }
-  // 统计超时 / 被截断时只保证「至少这么多」
   const prefix = data.value.type === 'result' && data.value.complete === false ? 'More than ' : ''
   return `${prefix}${files} files, ${folders} folders`
 })
@@ -205,8 +208,6 @@ const rows = computed<PropertyRow[]>(() => {
   return list
 })
 
-// ---- 头部与状态 ----
-
 const titleText = computed(() => (propertiesIsMulti.value ? 'Properties' : `${displayName.value} Properties`))
 const headerIcon = computed(() => (propertiesIsMulti.value ? 'file-multiple-outline' : iconClass.value))
 const headerName = computed(() => (propertiesIsMulti.value ? `${multiCount.value} items selected` : displayName.value))
@@ -227,81 +228,65 @@ const displayError = computed(() => {
   return failed ? `Could not read ${failed} of ${multiCount.value} items` : null
 })
 
+watch(
+  [() => props.appParams, titleText],
+  () => emit('setTitle', titleText.value),
+  { immediate: true },
+)
+
 function displayValue(row: PropertyRow) {
   if (row.value != null) {
     return row.value
   }
   return propertiesLoading.value ? 'Loading...' : '—'
 }
-
-function handleVisibleChange(visible: boolean) {
-  if (visible) {
-    propertiesVisible.value = true
-  }
-  else {
-    closeProperties()
-  }
-}
 </script>
 
 <template>
-  <ViewPortWindow
-    :visible="propertiesVisible"
-    :allow-maximum="false"
-    :allow-minimum="false"
-    init-center
-    :init-win-options="{ width: 'min(460px, 92vw)', height: 'auto' }"
-    @update:visible="handleVisibleChange"
-    @on-close="closeProperties"
-  >
-    <template #titleBarLeft>
-      <MdiIcon name="information-outline" />
-      <span class="properties-title">{{ titleText }}</span>
-    </template>
+  <div class="properties-app">
+    <div class="properties-header">
+      <MdiIcon class="properties-header-icon" :name="headerIcon" />
+      <span
+        class="properties-header-name"
+        :class="{ 'vgo-u-font-code': !propertiesIsMulti }"
+      >{{ headerName }}</span>
+    </div>
 
-    <div class="properties-window">
-      <div class="properties-header">
-        <MdiIcon class="properties-header-icon" :name="headerIcon" />
-        <span
-          class="properties-header-name"
-          :class="{ 'vgo-u-font-code': !propertiesIsMulti }"
-        >{{ headerName }}</span>
-      </div>
-
-      <div class="properties-rows ">
-        <div
-          v-for="row in rows"
-          :key="row.label"
-          class="properties-row"
-          :class="{ 'is-wide': row.wide }"
-        >
-          <span class="properties-label">{{ row.label }}:</span>
-          <span class="properties-value vgo-u-font-code">{{ displayValue(row) }}</span>
-        </div>
-      </div>
-
-      <div v-if="measureProgress" class="properties-progress">
-        {{ measureProgress }}
-      </div>
-
-      <div v-if="displayError" class="properties-error">
-        {{ displayError }}
-      </div>
-
-      <div class="properties-footer">
-        <button class="vgo-button vgo-button--primary" @click="closeProperties">
-          Done
-        </button>
+    <div class="properties-rows">
+      <div
+        v-for="row in rows"
+        :key="row.label"
+        class="properties-row"
+        :class="{ 'is-wide': row.wide }"
+      >
+        <span class="properties-label">{{ row.label }}:</span>
+        <span class="properties-value vgo-u-font-code">{{ displayValue(row) }}</span>
       </div>
     </div>
-  </ViewPortWindow>
+
+    <div v-if="measureProgress" class="properties-progress">
+      {{ measureProgress }}
+    </div>
+
+    <div v-if="displayError" class="properties-error">
+      {{ displayError }}
+    </div>
+
+    <div class="properties-footer">
+      <button class="vgo-button vgo-button--primary" @click="emit('exit')">
+        Done
+      </button>
+    </div>
+  </div>
 </template>
 
 <style scoped lang="scss">
-.properties-window {
+.properties-app {
   display: flex;
   flex-direction: column;
   gap: var(--vgo-space-3);
+  box-sizing: border-box;
+  min-height: 100%;
   padding: var(--vgo-space-3);
 }
 
@@ -365,5 +350,6 @@ function handleVisibleChange(visible: boolean) {
 .properties-footer {
   display: flex;
   justify-content: flex-end;
+  margin-top: auto;
 }
 </style>

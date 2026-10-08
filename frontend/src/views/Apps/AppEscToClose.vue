@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * App 窗口统一关窗：Alt+W（与标签关闭同键；有活动 App 时外壳标签键会让路）。
- * 挂在内容之后；各 App 不要再拦截 Alt+W。
+ * Closes the active app window on Esc. Mounted after the app content, so an
+ * app shortcut registered first (the gallery overlay) can take the key while
+ * it is enabled. Menus and dialogs keep Esc for themselves.
  */
 import { useShortcut } from '@/hooks/use-shortcut'
 
@@ -13,18 +14,24 @@ const emit = defineEmits<{
   close: []
 }>()
 
-function isMessageBoxOpen() {
-  return !!document.querySelector('.el-message-box')
+function isPopupOpen() {
+  const nodes = document.querySelectorAll('.el-message-box, .el-overlay, .vgo-context-menu')
+  return [...nodes].some((node) => {
+    if (!(node instanceof HTMLElement))
+      return false
+    const style = getComputedStyle(node)
+    return style.display !== 'none' && style.visibility !== 'hidden'
+  })
 }
 
 useShortcut({
   scope: props.scope,
-  combo: 'alt+w',
+  combo: 'escape',
   description: 'Close window',
   allowInInput: true,
   preventDefault: false,
   handler: (event) => {
-    if (isMessageBoxOpen())
+    if (isPopupOpen())
       return
     event.preventDefault()
     emit('close')

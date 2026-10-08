@@ -143,6 +143,10 @@ func TestTaskRESTLifecycle(t *testing.T) {
 	if removed.Code != http.StatusNoContent {
 		t.Fatalf("删除任务 status = %d，期望 204：%s", removed.Code, removed.Body.String())
 	}
+	again := restRequest(t, e, http.MethodDelete, "/api/tasks/"+snap.ID, "", nil)
+	if again.Code != http.StatusNoContent {
+		t.Fatalf("再次删除任务 status = %d，期望 204：%s", again.Code, again.Body.String())
+	}
 	gone := restRequest(t, e, http.MethodGet, "/api/tasks/"+snap.ID, "", nil)
 	if gone.Code != http.StatusNotFound || decodeError(t, gone).Code != apierr.CodeTaskNotFound {
 		t.Fatalf("删除后应当 404 task_not_found：%d %s", gone.Code, gone.Body.String())

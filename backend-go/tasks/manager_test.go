@@ -193,6 +193,9 @@ func TestTaskDeleteAndList(t *testing.T) {
 	if len(m.List()) != 0 {
 		t.Fatal("dismiss should remove the task")
 	}
+	if removed := waitFor(t, events, EventRemoved, snap.ID); removed.Task.ID != snap.ID {
+		t.Fatalf("dismiss should broadcast removal, got %s", removed.Task.ID)
+	}
 }
 
 func TestCreateRejectsUnsafeDestination(t *testing.T) {

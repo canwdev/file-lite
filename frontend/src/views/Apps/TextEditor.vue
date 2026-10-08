@@ -41,25 +41,27 @@ interface FileTooLarge {
 const fileTooLarge = ref<FileTooLarge | null>(null)
 
 async function focusEditor() {
-  const focusTarget = () => editRef.value ?? wrapRef.value
-
   const tryFocus = () => {
-    const el = focusTarget()
-    if (!el) {
+    const el = editRef.value
+    if (!el)
       return false
-    }
     el.focus({ preventScroll: true })
     return document.activeElement === el
   }
 
   for (const delay of [0, 50, 150, 300]) {
-    await new Promise(resolve => setTimeout(resolve, delay))
+    if (delay)
+      await new Promise(resolve => setTimeout(resolve, delay))
     await nextTick()
-    if (tryFocus()) {
+    if (tryFocus())
       return
-    }
   }
 }
+
+watch(editRef, (el) => {
+  if (el)
+    void focusEditor()
+})
 
 async function confirmUnsavedChanges(message: string) {
   try {
@@ -130,9 +132,6 @@ async function openFile() {
     if (openController === controller) {
       openController = null
       isLoading.value = false
-      if (!controller.signal.aborted) {
-        await focusEditor()
-      }
     }
   }
 }
@@ -192,15 +191,15 @@ async function handleSaveFile() {
   }
 }
 
-async function handleExit() {
-  if (isChanged.value) {
-    const confirmed = await confirmUnsavedChanges('Changes not saved. Continue to exit?')
-    if (!confirmed) {
-      return
-    }
-  }
-  emit('exit')
+async function confirmDismiss() {
+  if (!isChanged.value)
+    return true
+  // prevent esc close the confirm dialog
+  await new Promise(resolve => setTimeout(resolve, 100))
+  return confirmUnsavedChanges('Changes not saved. Continue to exit?')
 }
+
+defineExpose({ confirmDismiss })
 
 const menuOptions = computed((): MenuBarOptions => {
   return {
@@ -226,7 +225,7 @@ const menuOptions = computed((): MenuBarOptions => {
       },
       {
         label: 'Exit',
-        onClick: handleExit,
+        onClick: () => emit('exit'),
       },
     ],
   }

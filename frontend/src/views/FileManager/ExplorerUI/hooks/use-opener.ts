@@ -155,7 +155,6 @@ function checkTooLargeFileDialog(item: IEntry, bytes: number) {
 const FILE_SIZE_LIMITS: Partial<Record<OpenWithEnum, number>> = {
   [OpenWithEnum.TextEditor]: 1024 * 1024,
   [OpenWithEnum.HtmlViewer]: 100 * 1024 * 1024,
-  [OpenWithEnum.EndlessGallery]: 100 * 1024 * 1024,
 }
 
 export function useOpener(basePath: { value: string }) {
@@ -255,23 +254,9 @@ export function useOpener(basePath: { value: string }) {
       // 必须排在 openSpecialApp 之前，否则 fallback 的 Browser 会被直接打开。
       const unsupportedFallback = !openWith && defaultOpenApp!.source === 'fallback'
 
-      if (
-        unsupportedFallback
-        && serverCapabilities.value.archive
-        && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
-      ) {
-        try {
-          await startArchiveExtract([absPath], [item.name], basePath.value)
-        }
-        catch (error: any) {
-          if (error === 'cancel' || error === 'close')
-            return
-          window.$message?.error(error?.message || 'Failed to start the task')
-        }
-        return
-      }
-
       if (unsupportedFallback) {
+        const canExtract = serverCapabilities.value.archive
+          && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
         window.$dialog
           .confirm(
             `Continue to view? ${item.name}`,
@@ -279,16 +264,27 @@ export function useOpener(basePath: { value: string }) {
             {
               type: 'info',
               confirmButtonText: 'Open in Browser',
-              cancelButtonText: 'File Viewer',
+              cancelButtonText: canExtract ? 'Extract...' : 'File Viewer',
               distinguishCancelAndClose: true,
             },
           )
           .then(() => {
             openInBrowser()
           })
-          .catch((action: MessageBoxData) => {
-            if (action === 'cancel') {
+          .catch(async (action: MessageBoxData) => {
+            if (action !== 'cancel')
+              return
+            if (!canExtract) {
               openApp(OpenWithEnum.FileViewer)
+              return
+            }
+            try {
+              await startArchiveExtract([absPath], [item.name], basePath.value)
+            }
+            catch (error: any) {
+              if (error === 'cancel' || error === 'close')
+                return
+              window.$message?.error(error?.message || 'Failed to start the task')
             }
           })
         return

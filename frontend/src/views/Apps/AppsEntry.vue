@@ -9,6 +9,7 @@ import { appMetaByName, Apps } from './apps'
 import {
   appsStoreState,
   closeAppWindow,
+  consumeReturnFocus,
   setAppWindowActive,
   syncAppWindowRefs,
 } from './apps-store'
@@ -17,6 +18,8 @@ import PluginIcon from './PluginIcon.vue'
 
 const vpWindowRefs = ref<unknown[]>([])
 const appContainerRefs = new Map<string, HTMLElement | null>()
+const appInstances = new Map<string, { confirmDismiss?: () => Promise<boolean> | boolean }>()
+const closeInFlight = new Set<string>()
 
 watch(
   () => appsStoreState.windows.map(w => w.id),
@@ -31,6 +34,36 @@ function appMeta(win: AppWindowState) {
   return win.appName ? appMetaByName[win.appName] : undefined
 }
 
+const DEFAULT_WINDOW_SIZE = {
+  width: 'min(960px, 90vw)',
+  height: 'min(720px, 85vh)',
+}
+
+function initCenter(win: AppWindowState) {
+  return !appMeta(win)?.chrome?.cascade
+}
+
+function initWinOptions(win: AppWindowState) {
+  const chrome = appMeta(win)?.chrome
+  const options = {
+    width: chrome?.width ?? DEFAULT_WINDOW_SIZE.width,
+    height: chrome?.height ?? DEFAULT_WINDOW_SIZE.height,
+  }
+  if (!chrome?.cascade) {
+    return options
+  }
+  const slot = appsStoreState.windows
+    .filter(item => item.appName === win.appName && !item.isClosing)
+    .indexOf(win)
+  const step = 32
+  const index = Math.max(0, slot)
+  return {
+    ...options,
+    left: `${48 + index * step}px`,
+    top: `${56 + index * step}px`,
+  }
+}
+
 function dockTitle(win: AppWindowState) {
   return win.appTitle || win.plugin?.name || appMeta(win)?.name || win.appParams.item.name
 }
@@ -39,8 +72,47 @@ function windowTitle(win: AppWindowState) {
   return win.appTitle || win.plugin?.name || appMeta(win)?.name
 }
 
-function handleClose(win: AppWindowState) {
-  closeAppWindow(win.id)
+function setAppInstance(id: string, el: unknown) {
+  if (el && typeof el === 'object' && typeof (el as { confirmDismiss?: unknown }).confirmDismiss === 'function') {
+    appInstances.set(id, el as { confirmDismiss: () => Promise<boolean> | boolean })
+    return
+  }
+  appInstances.delete(id)
+}
+
+function focusReturnedFile(win: AppWindowState, fallback: HTMLElement) {
+  const name = win.appParams.item?.name
+  const list = fallback.closest('.explorer-list-wrap')
+  if (name && list) {
+    const item = list.querySelector(`[data-name="${CSS.escape(name)}"]`)
+    if (item instanceof HTMLElement) {
+      if (!item.matches('button, a, input, textarea, select, [tabindex]'))
+        item.tabIndex = -1
+      item.focus({ preventScroll: true })
+      return
+    }
+  }
+  fallback.focus({ preventScroll: true })
+}
+
+/** Close button, title-icon double-click, Esc, and the app's own Exit share this. */
+async function requestClose(win: AppWindowState) {
+  if (win.isClosing || closeInFlight.has(win.id))
+    return
+  closeInFlight.add(win.id)
+  try {
+    const confirmed = await appInstances.get(win.id)?.confirmDismiss?.()
+    if (confirmed === false)
+      return
+    const othersOpen = appsStoreState.windows.some(item => item.id !== win.id && !item.isClosing)
+    const back = othersOpen ? null : consumeReturnFocus(win.id)
+    closeAppWindow(win.id)
+    if (back)
+      focusReturnedFile(win, back)
+  }
+  finally {
+    closeInFlight.delete(win.id)
+  }
 }
 
 function setAppContainerRef(id: string, el: unknown) {
@@ -53,8 +125,14 @@ function setAppContainerRef(id: string, el: unknown) {
 }
 
 function focusAppContainer(id: string, attempts = 3) {
+  const win = appsStoreState.windows.find(item => item.id === id)
+  if (!win || win.isClosing)
+    return
   const el = appContainerRefs.get(id)
   if (el?.isConnected) {
+    const active = document.activeElement
+    if (active instanceof Node && el.contains(active) && active !== el)
+      return
     el.focus({ preventScroll: true })
     return
   }
@@ -130,13 +208,10 @@ watch(
     :visible="!win.minimized && !win.isClosing"
     :allow-maximum="true"
     :allow-minimum="true"
-    :init-center="true"
-    :init-win-options="{
-      width: 'min(960px, 90vw)',
-      height: 'min(720px, 85vh)',
-    }"
+    :init-center="initCenter(win)"
+    :init-win-options="initWinOptions(win)"
     @on-active="handleWindowActive(win)"
-    @on-close="handleClose(win)"
+    @on-close="requestClose(win)"
     @on-restored="handleWindowRestored(win)"
   >
     <template #titleBarLeft>
@@ -145,14 +220,14 @@ watch(
         :plugin="win.plugin"
         class="title-icon"
         @click.stop
-        @dblclick.stop="handleClose(win)"
+        @dblclick.stop="requestClose(win)"
       />
       <MdiIcon
         v-else
         :name="appMeta(win)?.icon"
         class="title-icon"
         @click.stop
-        @dblclick.stop="handleClose(win)"
+        @dblclick.stop="requestClose(win)"
       />
       <span class="title-text">{{ windowTitle(win) }}</span>
     </template>
@@ -168,20 +243,21 @@ watch(
           v-if="win.plugin"
           :plugin="win.plugin"
           :app-params="win.appParams"
-          @exit="handleClose(win)"
+          @exit="requestClose(win)"
           @set-title="(val: string) => { win.appTitle = val }"
         />
         <component
           :is="Apps[win.appName]"
           v-else-if="win.appName"
+          :ref="(el: unknown) => setAppInstance(win.id, el)"
           :app-params="win.appParams"
-          @exit="handleClose(win)"
+          @exit="requestClose(win)"
           @set-title="(val: string) => { win.appTitle = val }"
           @select-items="(names: string[]) => handleSelectItems(win, names)"
           @locate-item="(name: string) => handleLocateItem(win, name)"
           @update-app-params="(params: AppParams) => { win.appParams = params }"
         />
-        <AppEscToClose :scope="`app:${win.id}`" @close="handleClose(win)" />
+        <AppEscToClose :scope="`app:${win.id}`" @close="requestClose(win)" />
       </div>
     </ShortcutScopeProvider>
   </ViewPortWindow>

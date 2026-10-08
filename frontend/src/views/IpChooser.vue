@@ -87,55 +87,55 @@ function handleGo(url: string) {
 
 <template>
   <div class="ip-chooser">
-    <div class="ip-title">
-      <RouterLink :to="{ name: 'HomeView' }">
-        <i-mdi-home style="font-size: 26px" />
-      </RouterLink>
-    </div>
+    <div class="ip-frame">
+      <div class="ip-head">
+        <RouterLink class="vgo-button vgo-button--text vgo-button--icon" :to="{ name: 'HomeView' }" title="Home">
+          <i-mdi-home class="vgo-u-icon-lg" />
+        </RouterLink>
+      </div>
 
-    <div v-if="loading" class="ip-status vgo-empty">
-      Loading…
-    </div>
-    <div v-else-if="errorMessage" class="ip-status vgo-empty">
-      <span>{{ errorMessage }}</span>
-      <button class="vgo-button vgo-button--sm" @click="loadInfo">
-        Retry
-      </button>
-    </div>
-    <div v-else-if="!hostUrls.length" class="ip-status vgo-empty">
-      <span>No reachable address was found.</span>
-      <button class="vgo-button vgo-button--sm" @click="loadInfo">
-        Refresh
-      </button>
-    </div>
+      <div v-if="loading" class="ip-status vgo-empty">
+        Loading…
+      </div>
+      <div v-else-if="errorMessage" class="ip-status vgo-empty">
+        <span>{{ errorMessage }}</span>
+        <button class="vgo-button vgo-button--sm" @click="loadInfo">
+          Retry
+        </button>
+      </div>
+      <div v-else-if="!hostUrls.length" class="ip-status vgo-empty">
+        <span>No reachable address was found.</span>
+        <button class="vgo-button vgo-button--sm" @click="loadInfo">
+          Refresh
+        </button>
+      </div>
 
-    <div v-else class="ip-chooser-main vgo-panel vgo-u-font-code">
-      <div class="left-box">
-        <div
-          v-for="url in hostUrls"
-          :key="url"
-          class="vgo-list-item url-item"
-          :class="{ 'is-active': url === currentUrl }"
-          @click="currentUrl = url"
-        >
-          <span class="url-text-main">{{ url }}</span>
-
-          <div class="vgo-u-flex-wrap-center">
-            <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Copy" @click="copyWithToast(url)">
-              <i-mdi-content-copy />
-            </button>
-            <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Open" @click="handleGo(url)">
-              <i-mdi-open-in-new />
-            </button>
+      <!-- One body for both widths: the list scrolls, the QR column stays.
+           Narrow screens stack the column above the list via `order`. -->
+      <div v-else class="ip-body vgo-u-font-code">
+        <div class="ip-list vgo-panel vgo-u-scrollbar">
+          <div
+            v-for="url in hostUrls"
+            :key="url"
+            class="vgo-list-item url-item"
+            :class="{ 'is-active': url === currentUrl }"
+            @click="currentUrl = url"
+          >
+            <span class="url-text">{{ url }}</span>
+            <div class="url-actions">
+              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Copy" @click="copyWithToast(url)">
+                <i-mdi-content-copy />
+              </button>
+              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Open" @click="handleGo(url)">
+                <i-mdi-open-in-new />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="right-box">
-        <div class="qr-img-wrap">
-          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img">
-          <div class="url-text">
-            <textarea v-model="currentUrl" class="vgo-input" placeholder="QR Code generator" />
-          </div>
+
+        <aside class="ip-side vgo-panel">
+          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" alt="Login QR code">
+          <textarea v-model="currentUrl" class="vgo-input url-field" rows="2" placeholder="QR Code generator" />
           <div class="qr-meta">
             <span v-if="isExpired" class="vgo-badge vgo-badge--danger">Expired</span>
             <span v-else-if="expiresAtMs" class="ip-expiry">Expires in {{ remainingLabel }}</span>
@@ -144,7 +144,7 @@ function handleGo(url: string) {
               Refresh
             </button>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   </div>
@@ -153,99 +153,139 @@ function handleGo(url: string) {
 <style lang="scss" scoped>
 .ip-chooser {
   height: 100%;
-  overflow: auto;
-  padding: 20px 20px;
+  overflow: hidden;
+  padding: var(--vgo-space-4);
   box-sizing: border-box;
 
-  @media screen and (max-width: 500px) {
-    padding: 10px;
+  @media screen and (max-width: 719px) {
+    padding: var(--vgo-space-2);
+  }
+}
+
+.ip-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vgo-space-3);
+  height: 100%;
+  max-width: 1100px;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.ip-head {
+  flex: none;
+}
+
+.ip-status {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--vgo-space-2);
+  align-items: center;
+  justify-content: center;
+}
+
+// Shared by both breakpoints. The list is the scrollport; the QR column
+// keeps its own box and only scrolls if the viewport is shorter than the code.
+.ip-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--vgo-space-4);
+  min-height: 0;
+}
+
+.ip-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.url-item {
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--vgo-space-3);
+
+  & + & {
+    border-top: 1px solid var(--vgo-border);
+  }
+}
+
+.url-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--vgo-space-1);
+  word-break: break-all;
+}
+
+.url-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.ip-side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--vgo-space-3);
+  align-items: center;
+  order: -1;
+  // Leave the list a few rows. The code itself only scrolls when the window is shorter than that.
+  max-height: calc(100% - 8rem);
+  padding: var(--vgo-space-4);
+  overflow: auto;
+}
+
+.qr-img {
+  width: min(16rem, 100%);
+  height: auto;
+  border-radius: var(--vgo-radius);
+  image-rendering: pixelated;
+}
+
+.url-field {
+  width: 100%;
+  min-height: calc(var(--vgo-control-lg) * 2);
+  font-size: var(--vgo-font-md);
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.qr-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vgo-space-2);
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-expiry {
+  font-size: var(--vgo-font-sm);
+}
+
+@media screen and (min-width: 720px) {
+  .ip-body {
+    flex-direction: row;
+    align-items: flex-start;
   }
 
-  .ip-title {
-    text-align: center;
-    font-size: var(--vgo-font-lg);
-    margin-bottom: var(--vgo-space-4);
+  // Grow across the row, but only as tall as the addresses — capped so a long list scrolls on its own.
+  .ip-list {
+    flex: 1;
+    align-self: flex-start;
+    min-width: 0;
+    max-height: 100%;
   }
 
-  .ip-status {
-    max-width: 600px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--vgo-space-2);
-  }
-
-  .ip-chooser-main {
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-    display: flex;
-    flex-direction: column;
-
-    .left-box {
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--vgo-border);
-
-      .url-item {
-        padding: var(--vgo-space-4);
-        justify-content: space-between;
-
-        .url-text-main {
-          word-break: break-all;
-        }
-      }
-    }
-
-    .right-box {
-      flex: 1;
-      padding: var(--vgo-space-4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      .qr-img-wrap {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-
-        .qr-img {
-          max-width: 256px;
-          width: 100%;
-          height: auto;
-          display: flex;
-          margin: 0 auto;
-          border-radius: var(--vgo-radius);
-          image-rendering: pixelated;
-        }
-
-        .url-text {
-          margin-top: var(--vgo-space-2);
-          text-align: center;
-
-          .vgo-input {
-            font-size: var(--vgo-font-md);
-            width: 100%;
-            line-height: 1;
-            height: 60px;
-          }
-        }
-
-        .qr-meta {
-          margin-top: var(--vgo-space-2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: var(--vgo-space-2);
-
-          .ip-expiry {
-            font-size: var(--vgo-font-sm);
-          }
-        }
-      }
-    }
+  .ip-side {
+    position: sticky;
+    top: 0;
+    flex: none;
+    align-self: flex-start;
+    order: 0;
+    width: 20rem;
+    max-height: 100%;
   }
 }
 </style>

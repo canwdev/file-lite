@@ -516,10 +516,10 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'IP Chooser',
+          label: 'IP Chooser...',
           icon: 'mdi mdi-ip-network',
           onClick: () => {
-            void router.push({ name: 'IpChooserView' })
+            window.open(router.resolve({ name: 'IpChooserView' }).href, '_blank')
           },
         },
         {

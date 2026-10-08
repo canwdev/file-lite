@@ -6,6 +6,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Extract**: Opening an unsupported archive offers Extract... in the unsupported-file dialog (frontend).
+- **IP Chooser**: On a wide screen the address list scrolls on the left and the QR code stays on the right; on a narrow screen the QR code sits above a scrolling list (frontend).
+- **App windows**: Pressing Esc closes the active app window. In the gallery, Esc first closes the end-of-gallery overlay (frontend).
+- **Properties**: Properties opens as its own small window, not maximised, and each selection opens another one that can be minimised (frontend).
 - **Color themes**: Each accent color uses a darker shade in light mode and a lighter shade in dark mode, and switching the mode applies the matching shade (frontend).
 - **Icons**: New icon set across the gallery, media player, video player, file viewer and text sync, with outline file icons and distinct icons for common file types (frontend).
 - **Grid badges**: Grid view shows each file’s default app badge, and plugins are listed in a submenu when no built-in app matches (frontend).
@@ -40,7 +44,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Features
 
 - **Auth**: The login token is kept in an HttpOnly cookie, so page scripts can no longer read it, the WebSocket URL no longer carries it, and logout clears it on the server (frontend, backend).
-- **IP Chooser**: The IP chooser opens from the main menu and loads its address list and QR code through an authenticated API call, so the QR code always carries a freshly issued login ticket instead of one encoded in the URL (frontend, backend).
+- **IP Chooser**: The IP chooser opens from the main menu in a new page, so the file manager stays on its current folder. It loads its address list and QR code through an authenticated API call, so the QR code always carries a freshly issued login ticket instead of one encoded in the URL (frontend, backend).
+- **Leave guard**: While an upload, download, or task is still running, refreshing, closing, or leaving for another page asks you to stay (frontend).
 - **Plugins**: Plugins can be dropped into the server plugins folder, appear in the main menu, open in windows, and can read/write files and list directories (frontend, backend).
 - **Plugin names**: A plugin folder or HTML file can use any name. Names starting with `.` and other file types in the plugins folder are still ignored (backend).
 - **Tabs**: The explorer has built-in tabs that remember folder, selection, filter and scroll, can be reordered, split, merged, and moved between panes (frontend).
@@ -68,6 +73,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Text editor**: Opening a file focuses the editor. Esc, the window close button, a double-click on the title icon, and Exit all ask before closing when the file has unsaved changes (frontend).
+- **App focus**: Closing an app with Esc returns focus to the file item that was focused when the app opened (frontend).
+- **Finished tasks**: Clearing a completed task that was already removed no longer returns 404, and the row leaves the list without a refresh (frontend, backend).
+- **Task progress**: A finished task with no progress tick, such as a quick delete, shows 100% next to Done (frontend).
+- **Multi-select properties**: The aggregated Properties window no longer stays on “Measuring folders… 0 / N” after a folder has already been counted (frontend).
+- **Folder open**: Double-clicking a folder name while that folder is still opening no longer appends the name again and requests a missing path (frontend).
 - **Zip dates**: Downloaded zip archives keep each file’s modification time, so entries no longer appear without a date (backend).
 - **Sandboxed previews**: Streamed HTML and SVG files are sandboxed into a unique origin and sent with `nosniff`, so opening one can no longer run script on the app’s origin (frontend, backend).
 - **Command injection**: On Windows, the “reveal in host explorer” fallback opens the folder through the shell API instead of `cmd`, so a crafted folder name cannot execute a command (backend).

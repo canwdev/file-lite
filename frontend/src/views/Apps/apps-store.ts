@@ -28,6 +28,25 @@ export const appsStoreState = reactive({
   activeId: '',
 })
 
+/** File-list element that had focus when this window was opened. */
+const focusReturn = new Map<string, HTMLElement>()
+
+function rememberExplorerFocus(id: string) {
+  const previous = document.activeElement
+  if (!(previous instanceof HTMLElement))
+    return
+  if (!previous.closest('.explorer-list-wrap'))
+    return
+  focusReturn.set(id, previous)
+}
+
+/** Take the file-list element to refocus after this window closes. */
+export function consumeReturnFocus(id: string) {
+  const el = focusReturn.get(id)
+  focusReturn.delete(id)
+  return el instanceof HTMLElement && el.isConnected ? el : null
+}
+
 const emptyInternalEntry: IEntry = {
   name: '',
   path: '',
@@ -52,7 +71,7 @@ function createWindowState(
     appTitle: plugin?.name ?? '',
     appParams,
     minimized: false,
-    maximized: true,
+    maximized: appName ? (appMetaByName[appName]?.chrome?.maximized ?? true) : true,
     isClosing: false,
     windowRef: null,
   }
@@ -81,6 +100,7 @@ function getReusablePluginWindow(plugin: PluginInfo): AppWindowState | undefined
 export function openAppWindow(appName: AppName, appParams: AppParams) {
   const reusableWin = getReusableAppWindow(appName)
   if (reusableWin) {
+    rememberExplorerFocus(reusableWin.id)
     reusableWin.appParams = appParams
     reusableWin.appTitle = ''
     setAppWindowActive(reusableWin)
@@ -89,6 +109,7 @@ export function openAppWindow(appName: AppName, appParams: AppParams) {
   }
 
   const win = createWindowState(appName, appParams)
+  rememberExplorerFocus(win.id)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id
 }
@@ -102,6 +123,7 @@ export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
   }
   const reusableWin = getReusablePluginWindow(plugin)
   if (reusableWin) {
+    rememberExplorerFocus(reusableWin.id)
     reusableWin.plugin = plugin
     reusableWin.appParams = params
     reusableWin.appTitle = params.absPath ? params.item.name : plugin.name
@@ -111,6 +133,7 @@ export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
   }
 
   const win = createWindowState(null, params, plugin)
+  rememberExplorerFocus(win.id)
   appsStoreState.windows.push(win)
   appsStoreState.activeId = win.id
 }
@@ -177,6 +200,7 @@ export function closeAppWindow(id: string) {
 
   const win = appsStoreState.windows[idx]
   const wasActive = appsStoreState.activeId === id
+  focusReturn.delete(id)
   win.isClosing = true
 
   setTimeout(() => {

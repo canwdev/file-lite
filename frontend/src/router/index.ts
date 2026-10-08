@@ -6,7 +6,9 @@ import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 import { setServerAllowedRoots, setServerCapabilities } from '@/store/capabilities'
+import { isTerminalState, taskList } from '@/store/tasks'
 import { isUnauthorizedError } from '@/utils/auth-error'
+import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -71,7 +73,76 @@ async function ensureAuthReady() {
   warmSettingsStore()
 }
 
-router.beforeEach(async (to) => {
+/** An upload, download, or server task is still running in this page. */
+function hasActiveWork() {
+  if ((transferQueue.value?.activeCount.value ?? 0) > 0) {
+    return true
+  }
+  return taskList.value.some(task => !task.debug && !isTerminalState(task.state))
+}
+
+const leaveMessage = 'An upload, download, or task is still running. Stay on this page until it finishes.'
+
+/** One question at a time, shared by the route guard and logout. */
+let leavePrompt: Promise<boolean> | null = null
+/**
+ * Set once the user chooses Leave, so the navigation that follows (and a
+ * redirect inside it) does not ask again. Cleared when that navigation lands.
+ */
+let leaveGranted = false
+
+/**
+ * Refresh and close use the browser prompt. In-app route changes use the same
+ * question, and closing the dialog keeps the current page.
+ */
+function confirmLeave(): Promise<boolean> {
+  if (leavePrompt) {
+    return leavePrompt
+  }
+  const dialog = window.$dialog
+  const asking = dialog?.confirm
+    ? dialog.confirm(leaveMessage, 'Work in progress', {
+        type: 'warning',
+        confirmButtonText: 'Stay',
+        cancelButtonText: 'Leave',
+        distinguishCancelAndClose: true,
+      }).then(() => false, (action: unknown) => action === 'cancel')
+    : Promise.resolve(window.confirm(leaveMessage))
+  const pending = asking.finally(() => {
+    leavePrompt = null
+  })
+  leavePrompt = pending
+  return pending
+}
+
+/** True when this page may be left. Stay, or closing the dialog, returns false. */
+export function confirmLeaveIfNeeded(): Promise<boolean> {
+  if (!hasActiveWork() || leaveGranted) {
+    return Promise.resolve(true)
+  }
+  return confirmLeave().then((leave) => {
+    if (leave) {
+      leaveGranted = true
+    }
+    return leave
+  })
+}
+
+window.addEventListener('beforeunload', (event) => {
+  if (!hasActiveWork()) {
+    return
+  }
+  event.preventDefault()
+  event.returnValue = ''
+})
+
+router.beforeEach(async (to, from) => {
+  // The first load has no previous page. Same-path updates (ticket, navPath)
+  // do not unload the file manager.
+  if (from.name && to.path !== from.path && !(await confirmLeaveIfNeeded())) {
+    return false
+  }
+
   const query = { ...to.query }
 
   if (query.ticket) {
@@ -138,7 +209,11 @@ export function applyDocumentTitle(route: RouteLocationNormalized = router.curre
   document.title = custom ? `${custom} - ${base}` : base
 }
 
-router.afterEach((to) => {
+router.afterEach((to, _from, failure) => {
+  if (failure) {
+    return
+  }
+  leaveGranted = false
   applyDocumentTitle(to)
 })
 

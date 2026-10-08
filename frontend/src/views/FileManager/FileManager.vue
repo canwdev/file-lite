@@ -16,7 +16,6 @@ import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
 import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
-import FilePropertiesWindow from './ExplorerUI/FilePropertiesWindow.vue'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
 import FileSidebar from './FileSidebar.vue'
@@ -511,7 +510,6 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
 
     <ConflictDialog />
     <TaskFailureDialog />
-    <FilePropertiesWindow />
 
     <!-- 文件选择器 -->
     <div v-if="selectFileMode && selectorPaneRef?.hasFileList" class="vgo-u-surface explorer-bottom-wrap">

@@ -228,6 +228,12 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
 
   // 打开文件或文件夹
   const handleOpen = async ({ item, list = [], openWith }: { item: IEntry, list: IEntry[], openWith?: string }) => {
+    // The name opens on click, so a double-click delivers another open while the
+    // first listing is still running. basePath has already moved, and joining the
+    // name again requests /dir/name/name.
+    if (item.isDirectory && isLoading.value) {
+      return
+    }
     const path = normalizePath(joinPath(basePath.value, item.name))
     if (item.isDirectory) {
       await handleOpenPath(path, true)

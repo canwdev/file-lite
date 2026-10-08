@@ -491,7 +491,8 @@ after a reconnect.
 ### `DELETE /api/tasks/{id}`
 
 Cancels a task that is still running, or removes a finished one from the list. Both
-return `204`. `404` when the id is unknown.
+return `204`. Deleting an id that is already gone is also `204`. `GET` of an unknown
+id is still `404` `task_not_found`.
 
 ### `POST /api/tasks/{id}/retries`
 

@@ -13,6 +13,7 @@ import { closeSharedWs, ensureSharedWsConnected, sharedWsStatus, subscribeShared
 import {
   createTask as apiCreateTask,
   deleteTask as apiDeleteTask,
+  isTaskNotFound,
   listTasks as apiListTasks,
   resolveTask as apiResolveTask,
   retryTask as apiRetryTask,
@@ -298,6 +299,8 @@ export function isDebugTask(taskId: string) {
  * `patchTask` 找不到任务而触发无谓的全量对账。
  */
 const tasksPendingRemoval = new Set<string>()
+/** Dismiss already sent for this id. A second Clear finished must not DELETE again. */
+const dismissRequested = new Set<string>()
 
 /** 把任务从列表里彻底拿掉（含它占着的冲突弹窗与失败清单）。 */
 function removeTaskLocally(taskId: string) {
@@ -322,18 +325,37 @@ export function cancelTask(taskId: string) {
   tasksPendingRemoval.add(taskId)
   removeTaskLocally(taskId)
   return apiDeleteTask(taskId).catch((error) => {
-    // 没发出去（多半是连接断了）：放回来，交给重连后的全量快照对账
     tasksPendingRemoval.delete(taskId)
+    if (isTaskNotFound(error)) {
+      return
+    }
+    // 没发出去（多半是连接断了）：放回来，交给重连后的全量快照对账
     console.error('[tasks] cancel failed', error)
   })
 }
 
 export function dismissTask(taskId: string) {
   if (isDebugTask(taskId)) {
-    taskList.value = taskList.value.filter(task => task.id !== taskId)
+    removeTaskLocally(taskId)
     return
   }
-  return apiDeleteTask(taskId)
+  // The panel dismisses a successful task as soon as it finishes. Clear finished
+  // can run again on the same id; a second DELETE used to 404 and the row stayed.
+  removeTaskLocally(taskId)
+  tasksPendingRemoval.add(taskId)
+  if (dismissRequested.has(taskId)) {
+    return
+  }
+  dismissRequested.add(taskId)
+  return apiDeleteTask(taskId).catch((error) => {
+    if (isTaskNotFound(error)) {
+      return
+    }
+    dismissRequested.delete(taskId)
+    tasksPendingRemoval.delete(taskId)
+    console.error('[tasks] dismiss failed', error)
+    void refreshTasksFromServer()
+  })
 }
 
 /**

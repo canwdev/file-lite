@@ -427,6 +427,7 @@ func (m *Manager) Dismiss(id string) error {
 		}
 	}
 	m.mu.Unlock()
+	m.emit(Event{Type: EventRemoved, Task: Snapshot{ID: id}})
 	return nil
 }
 
@@ -438,7 +439,6 @@ func (m *Manager) get(id string) *task {
 
 func (m *Manager) pruneCompleted() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	completed := 0
 	for _, id := range m.order {
 		t := m.tasks[id]
@@ -453,10 +453,12 @@ func (m *Manager) pruneCompleted() {
 		}
 	}
 	if completed <= m.opts.MaxCompleted {
+		m.mu.Unlock()
 		return
 	}
 	excess := completed - m.opts.MaxCompleted
 	kept := m.order[:0]
+	var dropped []string
 	for _, id := range m.order {
 		t := m.tasks[id]
 		if t == nil {
@@ -468,11 +470,16 @@ func (m *Manager) pruneCompleted() {
 		if terminal && excess > 0 {
 			excess--
 			delete(m.tasks, id)
+			dropped = append(dropped, id)
 			continue
 		}
 		kept = append(kept, id)
 	}
 	m.order = kept
+	m.mu.Unlock()
+	for _, id := range dropped {
+		m.emit(Event{Type: EventRemoved, Task: Snapshot{ID: id}})
+	}
 }
 
 // run 是任务的执行主体。

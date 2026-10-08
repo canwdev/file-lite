@@ -114,6 +114,8 @@ const (
 	EventUpdate   EventType = "update"
 	EventConflict EventType = "conflict"
 	EventDone     EventType = "done"
+	// EventRemoved is sent after a finished task is dismissed, so every client drops the row.
+	EventRemoved EventType = "removed"
 )
 
 // Event 是管理器向传输层发出的结构化事件。

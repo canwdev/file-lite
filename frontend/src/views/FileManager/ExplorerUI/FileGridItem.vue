@@ -23,8 +23,17 @@ const props = withDefaults(defineProps<{
   isDropTarget: false,
 })
 
-defineEmits(['open', 'select'])
+const emit = defineEmits(['open', 'select'])
 const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
+
+function openFromName(event: MouseEvent) {
+  // The first click already opened this item. The second click of a double-click
+  // must not open it again.
+  if (event.detail > 1) {
+    return
+  }
+  emit('open', { item: props.item })
+}
 </script>
 
 <template>
@@ -50,7 +59,7 @@ const { iconClass, titleDesc, nameDisplay } = useFileItem(props)
       :class="{
         error: item.error,
       }"
-      @click.stop="$emit('open', { item })" @dblclick.stop
+      @click.stop="openFromName" @dblclick.stop
     >{{
       nameDisplay
     }}</span>

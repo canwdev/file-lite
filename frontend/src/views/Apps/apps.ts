@@ -19,6 +19,7 @@ export enum InternalAppEnum {
   SpeedTest = 'SpeedTest',
   TextSync = 'TextSync',
   KeyboardShortcuts = 'KeyboardShortcuts',
+  Properties = 'Properties',
 }
 
 export type AppName = OpenWithEnum | InternalAppEnum
@@ -30,12 +31,23 @@ export interface AppParams {
   list: IEntry[]
 }
 
+/** How an app's window opens. Omitted fields keep the shared app-window defaults. */
+export interface AppChrome {
+  /** Start maximised. Defaults to true. */
+  maximized?: boolean
+  width?: string
+  height?: string
+  /** Step each new window down and to the right instead of stacking on one spot. */
+  cascade?: boolean
+}
+
 export interface AppListItem {
   name: string
   openWith: OpenWithEnum
   icon: string
   component: Component
   singleInstance?: boolean
+  chrome?: AppChrome
 }
 
 export interface InternalAppListItem {
@@ -44,6 +56,7 @@ export interface InternalAppListItem {
   icon: string
   component: Component
   singleInstance?: boolean
+  chrome?: AppChrome
 }
 
 export const AppList: AppListItem[] = [
@@ -118,6 +131,18 @@ export const InternalAppList: InternalAppListItem[] = [
     icon: 'mdi mdi-keyboard-outline',
     component: defineAsyncComponent(() => import('./KeyboardShortcuts.vue')),
     singleInstance: true,
+  },
+  {
+    name: 'Properties',
+    appName: InternalAppEnum.Properties,
+    icon: 'mdi mdi-information-outline',
+    component: defineAsyncComponent(() => import('./Properties.vue')),
+    chrome: {
+      maximized: false,
+      width: 'min(460px, 92vw)',
+      height: 'auto',
+      cascade: true,
+    },
   },
 ]
 

@@ -44,6 +44,11 @@ export function taskKindLabel(kind: TaskKind) {
 
 /** 0-1 的进度：有字节总量就按字节，否则按条目数（删除任务就没有字节总量）。 */
 export function taskProgress(task: TaskSnapshot) {
+  // A finished delete often never gets a progress tick, so itemsDone stays 0
+  // and the row would read "Done 0%".
+  if (task.state === 'succeeded') {
+    return 1
+  }
   const { bytesTotal, bytesDone, itemsTotal, itemsDone } = task.progress
   if (bytesTotal > 0) {
     return Math.min(bytesDone / bytesTotal, 1)
@@ -51,7 +56,7 @@ export function taskProgress(task: TaskSnapshot) {
   if (itemsTotal > 0) {
     return Math.min(itemsDone / itemsTotal, 1)
   }
-  return task.state === 'succeeded' ? 1 : 0
+  return 0
 }
 
 export function taskTarget(task: TaskSnapshot) {

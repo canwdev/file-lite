@@ -1,8 +1,8 @@
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { Ref } from 'vue'
-import type { PropertiesTarget } from '../properties-window'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
+import type { PropertiesTarget } from '@/views/Apps/properties'
 import { ContextMenu } from '@canwdev/vgo-ui'
 import dayjs from 'dayjs'
 import { computed, h, ref } from 'vue'
@@ -15,10 +15,10 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
+import { showProperties } from '@/views/Apps/properties'
 import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath } from '../../utils'
-import { openProperties, openPropertiesAggregate } from '../properties-window'
 import { getDefaultOpenApp } from './use-opener'
 
 function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
@@ -96,11 +96,7 @@ export function useFileActions({
     if (!items.length) {
       return
     }
-    if (items.length === 1) {
-      openProperties(propertyTargetOf(items[0]))
-      return
-    }
-    openPropertiesAggregate(items.map(propertyTargetOf))
+    showProperties(items.map(propertyTargetOf))
   }
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -402,11 +398,11 @@ export function useFileActions({
           label: 'Properties',
           icon: 'mdi mdi-information-outline',
           onClick: () => {
-            openProperties({
+            showProperties([{
               absPath: basePath.value,
               name: getLastDirName(basePath.value) || basePath.value,
               isDirectory: true,
-            })
+            }])
           },
         },
       ]

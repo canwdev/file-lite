@@ -224,17 +224,48 @@ async function shotTextEditor(page) {
   await settle(page, 600)
 }
 
-/** 08 属性窗口：文件夹的递归体积由服务端后台统计。 */
+/** 把一扇属性窗口摆到视口坐标。拖标题栏会被贴边吸附打断，截图直接写位置。 */
+async function placeWindow(window, x, y) {
+  await window.evaluate((el, pos) => {
+    el.style.left = `${pos.x}px`
+    el.style.top = `${pos.y}px`
+  }, { x, y })
+}
+
+/** 08 属性窗口：每个选中项各开一扇小窗，可同时摆开。 */
 async function shotProperties(page) {
   await goToRoot(page)
-  await row(page, 'Pictures').click({ button: 'right' })
-  await page.locator('.vgo-context-menu__item', { hasText: 'Properties' }).click()
-  const window = page.locator('.properties-window')
-  await expect(window).toBeVisible()
-  await expect(window.locator('.properties-row', { hasText: 'Contains' }).locator('.properties-value'))
-    .toContainText('files', { timeout: 30_000 })
-  await expect(window.locator('.properties-row', { hasText: 'Size' }).locator('.properties-value'))
-    .not.toHaveText('Loading...')
+  const names = ['Pictures', 'Documents', 'Music']
+  for (const [index, name] of names.entries()) {
+    await row(page, name).click({ button: 'right' })
+    // 菜单项在视口外时 Playwright 会先滚动再点，而滚动会把菜单关掉。直接派发点击。
+    const item = page.locator('.vgo-context-menu__item', { hasText: 'Properties' })
+    await expect(item).toBeVisible()
+    await item.evaluate(el => el.click())
+    const opened = page.locator('.app-window').last()
+    await expect(opened.locator('.properties-app')).toBeVisible()
+    await expect(opened).not.toHaveClass(/is-maximized/)
+    const box = await opened.boundingBox()
+    if (!box || box.width > 520) {
+      throw new Error(`properties window for ${name} is ${Math.round(box?.width ?? 0)}×${Math.round(box?.height ?? 0)}, expected about 460px wide`)
+    }
+    // Keep the file list clear until every window is open.
+    await placeWindow(opened, 960, 48 + index * 24)
+  }
+  const windows = page.locator('.app-window')
+  await expect(windows).toHaveCount(3)
+  const placements = [
+    [28, 56],
+    [490, 150],
+    [940, 250],
+  ]
+  for (const [index, win] of (await windows.all()).entries()) {
+    await expect(win.locator('.properties-row', { hasText: 'Contains' }).locator('.properties-value'))
+      .toContainText('files', { timeout: 30_000 })
+    await expect(win.locator('.properties-row', { hasText: 'Size' }).locator('.properties-value'))
+      .not.toHaveText('Loading...')
+    await placeWindow(win, placements[index][0], placements[index][1])
+  }
   await settle(page, 500)
 }
 

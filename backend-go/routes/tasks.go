@@ -105,7 +105,9 @@ func deleteTaskAPI(c echo.Context) error {
 	id := c.Param("id")
 	snap, ok := findTaskSnapshot(m, id)
 	if !ok {
-		return apierr.NotFound(apierr.CodeTaskNotFound, "Task not found")
+		// Already dismissed, or cleared twice. Deleting a missing task is not an
+		// error: the row is gone, which is what Clear finished asked for.
+		return c.NoContent(http.StatusNoContent)
 	}
 
 	if snap.State.IsTerminal() {

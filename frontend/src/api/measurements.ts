@@ -14,6 +14,11 @@ export async function createMeasurement(path: string): Promise<MeasurementState>
   return (await service.post('/api/fs/measurements', { path }, { isToast: false })) as unknown as MeasurementState
 }
 
+/** Current state. The create response can be stale, and a push can arrive before the client knows the id. */
+export async function getMeasurement(id: string): Promise<MeasurementState> {
+  return (await service.get(`/api/fs/measurements/${encodeURIComponent(id)}`, { isToast: false })) as unknown as MeasurementState
+}
+
 /** 取消并忘记一个测量。窗口关闭 / 换目标时调用。 */
 export async function deleteMeasurement(id: string): Promise<void> {
   await service.delete(`/api/fs/measurements/${encodeURIComponent(id)}`, { isToast: false })

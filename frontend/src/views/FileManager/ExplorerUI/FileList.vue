@@ -251,9 +251,17 @@ const tableColumns = computed(() => {
             'span',
             {
               class: `title-text vgo-u-text-overflow ${item.error ? 'error' : ''}`,
-              onClick: (e) => {
+              onClick: (e: MouseEvent) => {
                 e.stopPropagation()
+                // The first click already opened this item. The second click of a
+                // double-click, and the row's dblclick, must not open it again.
+                if (e.detail > 1) {
+                  return
+                }
                 emit('open', { item })
+              },
+              onDblclick: (e: MouseEvent) => {
+                e.stopPropagation()
               },
             },
             item.name,
@@ -2169,6 +2177,9 @@ defineExpose({
 
   :deep(.vgo-list-item) {
     cursor: default;
+    &:focus {
+      outline: 1px dashed;
+    }
   }
 }
 </style>

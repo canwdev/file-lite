@@ -137,6 +137,15 @@ func broadcastTaskEvent(ev tasks.Event) {
 			sendSharedWSJSON(c, payload)
 		}
 		broadcastFSChanged(changedPathsForTask(ev.Task), dirChangesForTask(ev.Task, ev.TopLevel))
+	case tasks.EventRemoved:
+		payload := map[string]any{
+			"scope":  "tasks",
+			"type":   "removed",
+			"taskId": ev.Task.ID,
+		}
+		for _, c := range clients {
+			sendSharedWSJSON(c, payload)
+		}
 	}
 }
 

@@ -9,11 +9,18 @@ import service from '@/utils/service'
  * 调用方显示的就是后端那句话，而不是 axios 的 "Request failed with status code 400"。
  */
 function taskError(error: unknown): Error {
+  const status = (error as { response?: { status?: number } })?.response?.status
   const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
-  if (message) {
-    return new Error(message)
+  const err = new Error(message || (error instanceof Error ? error.message : 'Task request failed'))
+  if (typeof status === 'number') {
+    Object.assign(err, { status })
   }
-  return error instanceof Error ? error : new Error('Task request failed')
+  return err
+}
+
+/** DELETE of a task the server has already dropped. */
+export function isTaskNotFound(error: unknown) {
+  return typeof error === 'object' && error !== null && (error as { status?: number }).status === 404
 }
 
 /** 创建一个任务，返回它的快照（含 id）。 */
