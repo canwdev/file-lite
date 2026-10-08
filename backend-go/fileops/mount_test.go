@@ -240,6 +240,7 @@ func TestReadDirConcurrencyTiers(t *testing.T) {
 	setMountsFrom(mountsFromDrives([]types.Drive{
 		{Label: "z", Path: "Z:", Kind: types.DriveKindNetwork},
 		{Label: "c", Path: "C:", Kind: types.DriveKindVolume},
+		{Label: "d", Path: "D:", Kind: types.DriveKindOptical},
 	}))
 
 	netRes, err := Resolve("Z:/photos")
@@ -250,12 +251,23 @@ func TestReadDirConcurrencyTiers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	optRes, err := Resolve("D:/photos")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if netRes.ReadDirConcurrency() >= localRes.ReadDirConcurrency() {
 		t.Fatalf("网络档位 %d 不应大于等于本机档位 %d",
 			netRes.ReadDirConcurrency(), localRes.ReadDirConcurrency())
 	}
 	if netRes.ReadDirConcurrency() < 1 {
 		t.Fatalf("并发档位必须为正，得到 %d", netRes.ReadDirConcurrency())
+	}
+	if !optRes.Optical() {
+		t.Fatal("D: should resolve as optical")
+	}
+	if optRes.ReadDirConcurrency() >= localRes.ReadDirConcurrency() {
+		t.Fatalf("光盘档位 %d 不应大于等于本机档位 %d",
+			optRes.ReadDirConcurrency(), localRes.ReadDirConcurrency())
 	}
 }
 
@@ -333,11 +345,11 @@ func TestBaseNameAndDirName(t *testing.T) {
 	}
 
 	dirCases := map[string]string{
-		"/data/a.txt":      "/data",
-		"/data/sub":        "/data",
-		"/data":            "/",
-		"/":                "/",
-		"C:/Users/me":      "C:/Users",
+		"/data/a.txt": "/data",
+		"/data/sub":   "/data",
+		"/data":       "/",
+		"/":           "/",
+		"C:/Users/me": "C:/Users",
 		// 盘符根必须带斜杠："C:" 是驱动器**相对**路径（靠进程当前目录解释），
 		// 拿它去 os.Stat / 拼子路径都会指错位置。"C:" 与 "C:/" 都归一化成 "C:"，
 		// 因为 canonical 的盘符根写法就是不带尾斜杠的 "C:"。

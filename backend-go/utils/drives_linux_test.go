@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"file-lite-go/types"
 )
 
 // 用一份接近真实 /proc/mounts 的内容验证过滤与解析。
@@ -67,7 +69,7 @@ func TestPseudoFileSystemsAreFiltered(t *testing.T) {
 
 	kept := map[string]bool{}
 	for _, e := range entries {
-		if pseudoFileSystems[e.fsType] || isPlatformInternal(e.mountPoint) {
+		if _, ok := mountKind(e); !ok {
 			continue
 		}
 		kept[e.mountPoint] = true
@@ -89,6 +91,30 @@ func TestPseudoFileSystemsAreFiltered(t *testing.T) {
 	for _, unwanted := range []string{"/usr/lib/wsl/drivers"} {
 		if kept[unwanted] {
 			t.Errorf("%s 是 WSL 内部挂载，不该出现在驱动器列表里", unwanted)
+		}
+	}
+}
+
+func TestOpticalFileSystemsAreListed(t *testing.T) {
+	const mounts = `/dev/sr0 /mnt/cdrom iso9660 ro 0 0
+/dev/sr1 /mnt/dvd udf ro 0 0
+/dev/loop0 /snap/core squashfs ro 0 0
+`
+	entries, err := parseMounts(writeTempMounts(t, mounts))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		kind, ok := mountKind(e)
+		switch e.fsType {
+		case "iso9660", "udf":
+			if !ok || kind != types.DriveKindOptical {
+				t.Errorf("%s (%s) should be an optical volume, kind=%q ok=%v", e.mountPoint, e.fsType, kind, ok)
+			}
+		case "squashfs":
+			if ok {
+				t.Errorf("squashfs is a compressed image, not a disc; it should stay filtered")
+			}
 		}
 	}
 }

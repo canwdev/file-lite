@@ -11,6 +11,7 @@
  * - 歌单每一行由自己的 IntersectionObserver 在进入可视区时请求（见 PlaylistItem）；
  * - `Disable Preview` 打开时完全不取图并回收已有封面；重新打开时补当前曲目，
  *   可见的行由各自的 observer 重新请求；
+ * - 光盘上的曲目同样不取封面。卷列表后到时，已经取到的封面会收掉；
  * - 换列表（`playFromList`）/ 关窗时回收 objectURL。
  *
  * 每个窗口（storeId）一份控制器，objectURL 不跨窗口共享 —— 两个窗口同时显示同一张图
@@ -23,6 +24,7 @@ import { localSettingsStore } from '@/store'
 import { fs } from '@/utils/fs'
 import { resolveAudioCover } from '@/utils/image-thumb-cache'
 import { requestPreviewLoad } from '@/utils/preview-load-queue'
+import { driveList, isOpticalPath } from '@/views/FileManager/ExplorerUI/drives'
 
 type MediaStore = ReturnType<typeof useMediaStore>
 
@@ -58,7 +60,7 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
     if (!item || item.type !== 'music') {
       return
     }
-    if (localSettingsStore.value.disablePreview) {
+    if (localSettingsStore.value.disablePreview || isOpticalPath(item.absPath)) {
       return
     }
     if (item.cover || noCover.has(item.absPath) || inflight.has(item.absPath)) {
@@ -141,6 +143,22 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
       request(mediaStore.mediaItem)
     },
   )
+
+  // 卷列表后到（或用户点了刷新）时，光盘上已经发出去的封面请求要停掉。
+  // 不整表 releaseAll：那会把硬盘上的封面也清掉。
+  watch(driveList, () => {
+    for (const item of mediaStore.playingList) {
+      if (!isOpticalPath(item.absPath))
+        continue
+      const pending = inflight.get(item.absPath)
+      if (pending) {
+        pending.abort.abort()
+        pending.stopQueue()
+        inflight.delete(item.absPath)
+      }
+      item.releaseCoverObjectUrl()
+    }
+  })
 
   return { request, releaseAll }
 }

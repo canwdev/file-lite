@@ -50,6 +50,25 @@ func TestGetWindowsDrivesShape(t *testing.T) {
 	}
 }
 
+func TestKindFromDriveType(t *testing.T) {
+	if got := kindFromDriveType(driveCDROM, false); got != types.DriveKindOptical {
+		t.Errorf("DRIVE_CDROM = %q, want optical", got)
+	}
+	if got := kindFromDriveType(driveRemote, false); got != types.DriveKindNetwork {
+		t.Errorf("DRIVE_REMOTE = %q, want network", got)
+	}
+	if got := kindFromDriveType(3, true); got != types.DriveKindNetwork {
+		t.Errorf("fixed disk that is a UNC link = %q, want network", got)
+	}
+	if got := kindFromDriveType(3, false); got != types.DriveKindVolume {
+		t.Errorf("fixed disk = %q, want volume", got)
+	}
+	// A CD-ROM is not a UNC link. The drive type wins.
+	if got := kindFromDriveType(driveCDROM, true); got != types.DriveKindOptical {
+		t.Errorf("DRIVE_CDROM with uncLink = %q, want optical", got)
+	}
+}
+
 // isDriveLetter 判断 "C:" 形态。
 func isDriveLetter(p string) bool {
 	return len(p) == 2 && p[1] == ':' && p[0] >= 'A' && p[0] <= 'Z'

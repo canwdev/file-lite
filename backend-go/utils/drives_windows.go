@@ -24,7 +24,27 @@ var (
 )
 
 // GetDriveTypeW 的返回值（winbase.h）。
-const driveRemote = 4
+const (
+	driveRemote = 4
+	driveCDROM  = 5
+)
+
+// kindFromDriveType maps a GetDriveType result. A UNC directory link is not a
+// remote drive to GetDriveType (it looks like a fixed disk), so that case is
+// passed in separately.
+func kindFromDriveType(driveType int, uncLink bool) string {
+	switch driveType {
+	case driveRemote:
+		return types.DriveKindNetwork
+	case driveCDROM:
+		return types.DriveKindOptical
+	default:
+		if uncLink {
+			return types.DriveKindNetwork
+		}
+		return types.DriveKindVolume
+	}
+}
 
 // driveKind 判断一个盘符该归类成什么。
 //
@@ -33,16 +53,11 @@ const driveRemote = 4
 //   - 盘符根是个指向 UNC 的链接：`mklink /D Z: \\server\share` 得到的目录链接，
 //     GetDriveType 看到的是固定盘，只有解析链接才知道它要走网络。
 //
-// 第二类必须一起归类：它的并发档位会退化成 64，而它恰恰是最容易被打爆的位置。
+// 第二类必须一起归类：漏判会让并发档位停在本机的 64，而它恰恰是最容易被打爆的位置。
+// DRIVE_CDROM（含空仓和虚拟光驱）单独标成 optical，预览默认关闭。
 func driveKind(letter, rootPath string) string {
 	t, _, _ := procGetDriveTypeW.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(rootPath))))
-	if int(t) == driveRemote {
-		return types.DriveKindNetwork
-	}
-	if isUNCVolumeLink(letter) {
-		return types.DriveKindNetwork
-	}
-	return types.DriveKindVolume
+	return kindFromDriveType(int(t), isUNCVolumeLink(letter))
 }
 
 // isUNCVolumeLink 判断盘符根是否是指向 UNC 的符号链接 / 目录链接。
@@ -83,14 +98,28 @@ func GetWindowsDrives() []types.Drive {
 
 		// 2. 获取卷标 (FileSystemLabel)
 		labelBuf := make([]uint16, 260)
+		fsBuf := make([]uint16, 64)
 		vr, _, vErr := procGetVolumeInformationW.Call(
 			uintptr(unsafe.Pointer(&syscall.StringToUTF16(path)[0])),
 			uintptr(unsafe.Pointer(&labelBuf[0])), uintptr(len(labelBuf)),
-			0, 0, 0, 0, 0,
+			0, 0, 0,
+			uintptr(unsafe.Pointer(&fsBuf[0])), uintptr(len(fsBuf)),
 		)
 		labelName := syscall.UTF16ToString(labelBuf)
-		if labelName == "" {
-			labelName = "Local Disk"
+		fileSystem := syscall.UTF16ToString(fsBuf)
+		kind := driveKind(letter, path)
+		// BitLocker 未解锁的卷：读不到卷标也读不到容量，两个调用都返回
+		// STATUS_FVE_LOCKED_VOLUME。标成 locked，前端据此显示锁图标——
+		// 否则它就是一个「有盘符、没容量、点进去报错」的普通本地盘，用户看不出原因。
+		if vr == 0 && IsBitLockerLocked(vErr) {
+			kind = types.DriveKindLocked
+			labelName = "BitLocker"
+		} else if labelName == "" {
+			if kind == types.DriveKindOptical {
+				labelName = "CD-ROM"
+			} else {
+				labelName = "Local Disk"
+			}
 		}
 		label := fmt.Sprintf("%s (%s:)", labelName, letter)
 
@@ -110,24 +139,16 @@ func GetWindowsDrives() []types.Drive {
 			pFree, pTotal = &availBytes, &totalBytes
 		}
 
-		kind := driveKind(letter, path)
-		// BitLocker 未解锁的卷：读不到卷标也读不到容量，两个调用都返回
-		// STATUS_FVE_LOCKED_VOLUME。标成 locked，前端据此显示锁图标——
-		// 否则它就是一个「有盘符、没容量、点进去报错」的普通本地盘，用户看不出原因。
-		if vr == 0 && IsBitLockerLocked(vErr) {
-			kind = types.DriveKindLocked
-			label = fmt.Sprintf("BitLocker (%s:)", letter)
-		}
-
 		// 映射的网络盘符容量来自服务器，拿得到就显示；拿不到就是空。
 		// Path 用 canonical 形态（"C:"，无尾斜杠）——挂载表与前端都在这个形态上工作。
 		letterOnly := letter + ":"
 		list = append(list, types.Drive{
-			Label: label,
-			Path:  letterOnly,
-			Kind:  kind,
-			Free:  pFree,
-			Total: pTotal,
+			Label:      label,
+			Path:       letterOnly,
+			Kind:       kind,
+			FileSystem: fileSystem,
+			Free:       pFree,
+			Total:      pTotal,
 		})
 	}
 

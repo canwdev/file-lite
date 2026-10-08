@@ -6,6 +6,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Drive icons**: Storage icons use the outline form when that icon exists (frontend).
+- **File system**: Hovering a drive shows its file system (ext4, NTFS, 9p, iso9660, …) in the tooltip (frontend, backend).
 - **Extract**: Opening an unsupported archive offers Extract... in the unsupported-file dialog (frontend).
 - **IP Chooser**: On a wide screen the address list scrolls on the left and the QR code stays on the right; on a narrow screen the QR code sits above a scrolling list (frontend).
 - **App windows**: Pressing Esc closes the active app window. In the gallery, Esc first closes the end-of-gallery overlay (frontend).
@@ -43,6 +45,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Optical media**: ISO 9660 and UDF mounts, and Windows CD-ROM drives, show up as their own volumes with a disc icon. Content previews stay off on them, thumbnail requests are refused, and directory listings use a lower stat concurrency (frontend, backend).
+- **Previews**: Turning off Disable Preview leaves the thumbnail cache in place, and Image Cache stays in the menu so it can still be cleared on its own (frontend).
 - **Auth**: The login token is kept in an HttpOnly cookie, so page scripts can no longer read it, the WebSocket URL no longer carries it, and logout clears it on the server (frontend, backend).
 - **IP Chooser**: The IP chooser opens from the main menu in a new page, so the file manager stays on its current folder. It loads its address list and QR code through an authenticated API call, so the QR code always carries a freshly issued login ticket instead of one encoded in the URL (frontend, backend).
 - **Leave guard**: While an upload, download, or task is still running, refreshing, closing, or leaving for another page asks you to stay (frontend).

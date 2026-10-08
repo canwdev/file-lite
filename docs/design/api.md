@@ -201,13 +201,16 @@ The navigable locations shown in the sidebar.
 ```json
 [
   { "label": "Home", "path": "/home/a", "kind": "home" },
-  { "label": "Data", "path": "D:/", "kind": "volume", "free": 123456, "total": 999999 }
+  { "label": "Data", "path": "D:/", "kind": "volume", "fileSystem": "NTFS", "free": 123456, "total": 999999 }
 ]
 ```
 
-`kind` is one of `volume`, `network`, `home`, `locked`. When `allowedRoots` is
-configured the list is narrowed to the allowed scope and each allowed root appears as
-its own location.
+`kind` is one of `volume`, `network`, `home`, `locked`, `optical`. `optical` is an
+ISO 9660 or UDF mount, or a Windows CD-ROM drive; content previews stay off.
+`fileSystem` is the name the OS reports (`ext4`, `NTFS`, `9p`, `iso9660`). It is
+omitted for Home and when the volume cannot be read. The sidebar tooltip shows it.
+When `allowedRoots` is configured the list is narrowed to the allowed scope and
+each allowed root appears as its own location.
 
 ### `GET /api/plugins`
 
@@ -681,6 +684,7 @@ Every non-2xx response has this body:
 | `precondition_failed` | 412 | `If-None-Match` / `If-Match` did not match |
 | `unsupported_media` | 415 | Thumbnail: format not decodable |
 | `media_too_large` | 422 | Thumbnail: source above the decode limit |
+| `preview_disabled` | 422 | Thumbnail: the file is on optical media; show a type icon, do not fetch the original |
 | `bitlocker_locked` | 423 | The volume is locked; `message` is the OS text telling the user where to unlock |
 | `too_many_requests` | 429 | Login rate limit or failure ban |
 | `feature_unavailable` | 501 | Capability off (no ffmpeg) |

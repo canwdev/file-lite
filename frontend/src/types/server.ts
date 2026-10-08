@@ -21,13 +21,15 @@ export interface IEntry {
 }
 
 /** 侧边栏里的一个可导航位置。 */
-export type DriveKind = 'volume' | 'network' | 'home' | 'locked'
+export type DriveKind = 'volume' | 'network' | 'home' | 'locked' | 'optical'
 
 export interface IDrive {
   label: string
   path: string
   /** 缺省视为 volume（老后端不带这个字段）。 */
   kind?: DriveKind
+  /** 操作系统报的文件系统名（ext4、NTFS、9p、iso9660）。Home 与读不到时没有。 */
+  fileSystem?: string
   free?: number
   total?: number
 }

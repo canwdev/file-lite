@@ -51,6 +51,7 @@ import MdiCrosshairsGps from '~icons/mdi/crosshairs-gps'
 import MdiDeleteForeverOutline from '~icons/mdi/delete-forever-outline'
 import MdiDeleteOutline from '~icons/mdi/delete-outline'
 import MdiDeleteSweep from '~icons/mdi/delete-sweep'
+import MdiDisc from '~icons/mdi/disc'
 import MdiDotsVertical from '~icons/mdi/dots-vertical'
 import MdiDownload from '~icons/mdi/download'
 import MdiDownloadOutline from '~icons/mdi/download-outline'
@@ -98,6 +99,7 @@ import MdiGithub from '~icons/mdi/github'
 import MdiHarddisk from '~icons/mdi/harddisk'
 import MdiHelpCircleOutline from '~icons/mdi/help-circle-outline'
 import MdiHome from '~icons/mdi/home'
+import MdiHomeOutline from '~icons/mdi/home-outline'
 import MdiImage from '~icons/mdi/image'
 import MdiImageMultiple from '~icons/mdi/image-multiple'
 import MdiImageMultipleOutline from '~icons/mdi/image-multiple-outline'
@@ -205,6 +207,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'folder-move-outline': MdiFolderMoveOutline,
   'folder-network-outline': MdiFolderNetworkOutline,
   'harddisk': MdiHarddisk,
+  'disc': MdiDisc,
   'star-off-outline': MdiStarOffOutline,
   'arrow-left': MdiArrowLeft,
   'arrow-right': MdiArrowRight,
@@ -338,6 +341,7 @@ export const mdiIconRegistry: Record<string, Component> = {
   'ip-network': MdiIpNetwork,
   'microsoft-internet-explorer': MicrosoftInternetExplorer,
   'home': MdiHome,
+  'home-outline': MdiHomeOutline,
   'wifi': MdiWifi,
   'keyboard-outline': MdiKeyboardOutline,
   'key-outline': MdiKeyOutline,

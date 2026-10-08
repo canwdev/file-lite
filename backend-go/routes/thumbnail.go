@@ -21,7 +21,7 @@ import (
 //
 // 错误码是前端回退策略的契约：
 //   - 415 格式不支持/解码失败 → 前端回退原图直连（图片），视频则显示类型图标
-//   - 422 源图超过上限         → 前端显示类型图标，不把超大文件推给浏览器
+//   - 422 源图超过上限，或所在卷是光盘（preview_disabled）→ 前端显示类型图标，不把文件推给浏览器
 //   - 501 能力未启用（无 ffmpeg）→ 前端按「能力关闭」处理，不算这个文件出错
 //   - 503 解码槽位排队超时     → 前端显示类型图标，但可重试
 func getThumbnailByPath(c echo.Context) error {
@@ -36,6 +36,13 @@ func thumbnailFor(c echo.Context, raw string) error {
 	res, httpErr := resolvePath(raw)
 	if httpErr != nil {
 		return httpErr
+	}
+	// Refuse before stat or decode. 422 (not 415) so the client shows a type
+	// icon instead of falling back to the original file, and not 501, which
+	// the client retries. The frontend also skips the request; this is the
+	// backstop for a caller that does not.
+	if res.Optical() {
+		return apierr.New(http.StatusUnprocessableEntity, apierr.CodePreviewDisabled, "Previews are disabled for this volume")
 	}
 	osPath := res.OSPath()
 

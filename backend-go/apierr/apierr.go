@@ -42,6 +42,7 @@ const (
 	CodePreconditionFailed  = "precondition_failed"
 	CodeUnsupportedMedia    = "unsupported_media"
 	CodeMediaTooLarge       = "media_too_large"
+	CodePreviewDisabled     = "preview_disabled"
 	CodeBitLockerLocked     = "bitlocker_locked"
 	CodeTooManyRequests     = "too_many_requests"
 	CodeFeatureUnavailable  = "feature_unavailable"

@@ -22,8 +22,11 @@ type Drive struct {
 	Label string `json:"label"`
 	Path  string `json:"path"`
 	Kind  string `json:"kind,omitempty"`
-	Free  *int64 `json:"free,omitempty"`
-	Total *int64 `json:"total,omitempty"`
+	// FileSystem is the OS name (ext4, NTFS, 9p, iso9660). Empty for Home and
+	// when the OS does not report one, such as a locked volume.
+	FileSystem string `json:"fileSystem,omitempty"`
+	Free       *int64 `json:"free,omitempty"`
+	Total      *int64 `json:"total,omitempty"`
 }
 
 // Drive 的 Kind 取值。前端据此选图标、以及决定是否显示容量。
@@ -37,4 +40,7 @@ const (
 	// DriveKindLocked 是存在但当前读不了的加密卷（Windows 上 BitLocker 未解锁）。
 	// 它仍是一个可导航位置——点进去会拿到解锁提示，而不是 404。
 	DriveKindLocked = "locked"
+	// DriveKindOptical is a CD-ROM filesystem (ISO 9660 or UDF) or a Windows
+	// CD-ROM drive. Content previews stay off: random reads thrash the disc.
+	DriveKindOptical = "optical"
 )

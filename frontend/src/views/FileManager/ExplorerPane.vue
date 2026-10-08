@@ -14,7 +14,7 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { OpenWithEnum } from '../Apps/apps'
 import AddressBar from './ExplorerUI/AddressBar.vue'
-import { driveList, loadDrives } from './ExplorerUI/drives'
+import { driveIcon, driveList, driveTitle, loadDrives } from './ExplorerUI/drives'
 import { createDefaultFileFilter } from './ExplorerUI/file-filter'
 import FileList from './ExplorerUI/FileList.vue'
 import FilterBar from './ExplorerUI/FilterBar.vue'
@@ -215,23 +215,6 @@ const isUnselected = computed(() => !currentPath.value)
 /** 未选中状态下点一个挂载点：进入它的根 */
 function openMount(path: string) {
   void handleOpenPath(normalizeListingPath(path))
-}
-
-/**
- * 挂载点图标。只用手册里已注册的名字——`MdiIcon` 对未注册的名字会**静默**回落成
- * 问号图标，不会构建失败（见 AGENTS.md 的图标约定）。
- */
-function mountIcon(mount: { kind?: string }): string {
-  if (mount.kind === 'locked') {
-    return 'folder-lock-outline'
-  }
-  if (mount.kind === 'network') {
-    return 'folder-network-outline'
-  }
-  if (mount.kind === 'home') {
-    return 'home'
-  }
-  return 'harddisk'
 }
 
 onMounted(() => {
@@ -644,10 +627,10 @@ defineExpose({
             :key="mount.path"
             type="button"
             class="vgo-u-button-reset vgo-list-item explorer-mount-list__row"
-            :title="mount.path"
+            :title="driveTitle(mount)"
             @click="openMount(mount.path)"
           >
-            <MdiIcon :name="mountIcon(mount)" />
+            <MdiIcon :name="driveIcon(mount)" />
             <span class="explorer-mount-list__name vgo-u-text-overflow">{{ mount.label }}</span>
             <span v-if="mount.total" class="explorer-mount-list__meta">
               {{ bytesToSize(mount.free ?? 0) }} free

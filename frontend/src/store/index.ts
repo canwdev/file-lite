@@ -62,7 +62,8 @@ function createDefaultLocalSettingsStore() {
     iconSizeGrid: 48,
     /**
      * 整体关闭内容预览（图片缩略图 / 音频封面 / 视频封面 / 文件夹内容预览）。
-     * 关闭时会一并清空缩略图缓存，所以这个开关同时是「别再缓存占我空间」的手段。
+     * 只藏预览，不清缩略图缓存；清缓存是菜单里单独的一项。
+     * 光盘卷不看这个开关，预览始终关闭。
      */
     disablePreview: false,
   }

@@ -404,7 +404,8 @@ func TestVisibleDrivesReturnsUsableEntries(t *testing.T) {
 			t.Errorf("位置 %q 缺少 label", d.Path)
 		}
 		if d.Kind != types.DriveKindVolume && d.Kind != types.DriveKindNetwork &&
-			d.Kind != types.DriveKindHome && d.Kind != types.DriveKindLocked {
+			d.Kind != types.DriveKindHome && d.Kind != types.DriveKindLocked &&
+			d.Kind != types.DriveKindOptical {
 			t.Errorf("位置 %q 的 kind = %q 不是已知取值", d.Path, d.Kind)
 		}
 	}

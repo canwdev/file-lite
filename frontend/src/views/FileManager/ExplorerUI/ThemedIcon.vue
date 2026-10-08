@@ -9,6 +9,7 @@ import { IMAGE_PREVIEW_RAW_MAX_BYTES, IMAGE_THUMB_MAX_EDGE, IMAGE_THUMB_SMALL_DI
 import { regClientCanvasThumbFormat, regServerThumbFormat, regSupportedAudioFormat, regSupportedImageFormat, regSupportedVideoFormat } from '@/utils/is.ts'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { normalizeListingPath } from '../utils'
+import { isOpticalPath } from './drives'
 import { getFileIconClass } from './file-icons'
 import { applyFolderListSort, readFolderRawList } from './folder-listing'
 import { useFolderImagePreviews, useImagePreview } from './hooks/use-image-preview'
@@ -62,8 +63,11 @@ const previewSizeAllowed = computed(() => props.iconSize >= MIN_PREVIEW_ICON_SIZ
 /**
  * 用户可以在菜单里整体关掉内容预览（仅存本机）。
  * 关掉后连文件夹内容预览一起不显示 —— 它同样是「预览」。
+ * 光盘卷不看这个开关：随机读会让光头来回寻道，预览始终关闭。
  */
-const previewDisabled = computed(() => localSettingsStore.value.disablePreview)
+const previewDisabled = computed(() =>
+  localSettingsStore.value.disablePreview || isOpticalPath(props.absPath ?? ''),
+)
 
 /** 这三类文件才可能出内容预览（图片 / 音频封面 / 视频封面） */
 function isPreviewableName(name: string) {

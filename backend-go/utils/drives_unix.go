@@ -34,11 +34,20 @@ func GetUnixMounts() []types.Drive {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		parts := strings.Fields(s.Text())
-		if len(parts) < 3 || !strings.HasPrefix(parts[1], "/") || seen[parts[1]] {
+		if len(parts) < 3 || !strings.HasPrefix(parts[1], "/") {
+			continue
+		}
+		if parts[1] == "/" {
+			drives[0].FileSystem = parts[2]
+			continue
+		}
+		if seen[parts[1]] {
 			continue
 		}
 		seen[parts[1]] = true
-		drives = append(drives, types.Drive{Label: parts[1], Path: parts[1], Kind: types.DriveKindVolume})
+		drives = append(drives, types.Drive{
+			Label: parts[1], Path: parts[1], Kind: types.DriveKindVolume, FileSystem: parts[2],
+		})
 	}
 	return drives
 }

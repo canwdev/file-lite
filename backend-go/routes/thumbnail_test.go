@@ -17,7 +17,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"file-lite-go/fileops"
 	"file-lite-go/thumbnails"
+	"file-lite-go/types"
 )
 
 func newThumbnailServer() *echo.Echo {
@@ -173,6 +175,36 @@ func TestGetThumbnailVideoUnavailableIs501(t *testing.T) {
 	rec := requestThumbnail(t, e, url.Values{"path": {clip}, "kind": {"video"}}, "")
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("status = %d, want 501 (body: %s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGetThumbnailOpticalVolumeIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	p := writeJPEG(t, dir, "photo.jpg", 64, 64)
+	withDrives(t, []types.Drive{{
+		Label: "cd",
+		Path:  filepath.ToSlash(dir),
+		Kind:  types.DriveKindOptical,
+	}})
+
+	e := newThumbnailServer()
+	rec := requestThumbnail(t, e, url.Values{"path": {p}}, "")
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"preview_disabled"`)) {
+		t.Fatalf("body = %s, want preview_disabled", rec.Body.String())
+	}
+	// A local volume of the same file still decodes. The refusal is the kind,
+	// not the file.
+	fileops.SetMounts([]types.Drive{{
+		Label: "disk",
+		Path:  filepath.ToSlash(dir),
+		Kind:  types.DriveKindVolume,
+	}})
+	ok := requestThumbnail(t, e, url.Values{"path": {p}}, "")
+	if ok.Code != http.StatusOK {
+		t.Fatalf("volume status = %d, want 200 (body: %s)", ok.Code, ok.Body.String())
 	}
 }
 

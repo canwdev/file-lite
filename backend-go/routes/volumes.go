@@ -93,6 +93,11 @@ func enumerateDrives() []types.Drive {
 var enumerateDrivesFn = enumerateDrives
 
 // getDrives 实现 GET /api/volumes。
+//
+// 每次都重建挂载表。表只在启动时写的话，之后插入的光盘（以及新挂上的网络盘）
+// 会出现在侧边栏里，解析器却仍把它算成本机卷——预览和并发档位都会错。
 func getDrives(c echo.Context) error {
-	return c.JSON(http.StatusOK, visibleDrives())
+	drives := visibleDrives()
+	fileops.SetMounts(drives)
+	return c.JSON(http.StatusOK, drives)
 }

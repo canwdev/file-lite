@@ -21,8 +21,9 @@ func GetWindowsDrives() []types.Drive {
 // pseudoFileSystems 是不该出现在「驱动器」列表里的伪文件系统。
 //
 // 判断标准：它不是一个用户可以在上面存放文件的存储。内核接口（proc / sysfs）、
-// 内存文件系统（tmpfs / devtmpfs / ramfs）、容器层（overlay）、只读镜像
-// （squashfs / iso9660）、以及各种内核内部挂载都属于这一类。
+// 内存文件系统（tmpfs / devtmpfs / ramfs）、容器层（overlay）、只读压缩镜像
+// （squashfs）、以及各种内核内部挂载都属于这一类。
+// iso9660 / udf 是光盘，用户要能浏览，所以不在这里（见 opticalFileSystems）。
 //
 // 不列进来的坏处不只是难看：`/proc/mounts` 在这些机器上动辄几十条，
 // 而其中绝大多数打开后是空的或只读的，用户点进去只会困惑。
@@ -33,7 +34,15 @@ var pseudoFileSystems = map[string]bool{
 	"debugfs": true, "tracefs": true, "securityfs": true, "configfs": true,
 	"fusectl": true, "mqueue": true, "hugetlbfs": true, "binfmt_misc": true,
 	"autofs": true, "rpc_pipefs": true, "nsfs": true, "overlay": true,
-	"squashfs": true, "iso9660": true, "efivarfs": true,
+	"squashfs": true, "efivarfs": true,
+}
+
+// opticalFileSystems are CD-ROM filesystems. They stay in the drive list
+// (a disc is something the user browses) but as DriveKindOptical, so previews
+// stay off and directory listing does not use the local stat concurrency.
+var opticalFileSystems = map[string]bool{
+	"iso9660": true,
+	"udf":     true,
 }
 
 // networkFileSystems 是需要走网络的文件系统，单独标成 network：
@@ -74,6 +83,21 @@ var platformInternalMounts = []string{
 	"/run/WSL",
 }
 
+// mountKind reports whether a mount belongs in the drive list, and as what.
+// Filtered mounts (pseudo filesystems, platform-internal paths) return ok=false.
+func mountKind(e mountEntry) (string, bool) {
+	if pseudoFileSystems[e.fsType] || isPlatformInternal(e.mountPoint) {
+		return "", false
+	}
+	if networkFileSystems[e.fsType] {
+		return types.DriveKindNetwork, true
+	}
+	if opticalFileSystems[e.fsType] {
+		return types.DriveKindOptical, true
+	}
+	return types.DriveKindVolume, true
+}
+
 func isPlatformInternal(p string) bool {
 	for _, prefix := range platformInternalMounts {
 		if p == prefix || strings.HasPrefix(p, prefix+"/") {
@@ -99,15 +123,12 @@ func GetUnixMounts() []types.Drive {
 
 	var out []types.Drive
 	for _, e := range entries {
-		if pseudoFileSystems[e.fsType] || isPlatformInternal(e.mountPoint) {
+		kind, ok := mountKind(e)
+		if !ok {
 			continue
 		}
-		kind := types.DriveKindVolume
-		if networkFileSystems[e.fsType] {
-			kind = types.DriveKindNetwork
-		}
 
-		d := types.Drive{Label: e.mountPoint, Path: e.mountPoint, Kind: kind}
+		d := types.Drive{Label: e.mountPoint, Path: e.mountPoint, Kind: kind, FileSystem: e.fsType}
 		if free, total, ok := statfsCapacity(e.mountPoint); ok && total > 0 {
 			d.Free, d.Total = &free, &total
 		}

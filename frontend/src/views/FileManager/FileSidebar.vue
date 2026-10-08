@@ -2,10 +2,9 @@
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { IDrive } from '@/types/server'
 import { ContextMenu } from '@canwdev/vgo-ui'
-import { bytesToSize } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
-import { driveIcon, driveList, drivesLoading, loadDrives as refreshDrives } from './ExplorerUI/drives'
+import { driveIcon, driveList, drivesLoading, driveTitle, loadDrives as refreshDrives } from './ExplorerUI/drives'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './ExplorerUI/entry-drag'
 
 interface Props {
@@ -117,19 +116,6 @@ function showDriveMenu(item: IDrive, event: MouseEvent) {
   })
 }
 
-function getTitle(item: IDrive) {
-  let txt = `Path: ${item.path}`
-
-  if (item.total && item.free) {
-    const used = item.total - item.free
-    txt += `
-Used: ${bytesToSize(used)}/${bytesToSize(item.total)} (${`${((used / item.total) * 100).toFixed(0)}%`})
-Available: ${bytesToSize(item.free)}
-`
-  }
-  return txt
-}
-
 defineExpose({
   loadDrives,
   openFirstDrive,
@@ -156,7 +142,7 @@ defineExpose({
         v-for="(item, index) in driveList"
         :key="index"
         class="vgo-u-button-reset vgo-list-item sidebar-list__item drive-list__item"
-        :title="getTitle(item)"
+        :title="driveTitle(item)"
         :class="{ 'is-active': item.path === currentPath, 'is-drop-target': dragOverPath === item.path }"
         @click="openDrive(item)"
         @auxclick="onDriveAuxClick(item, $event)"

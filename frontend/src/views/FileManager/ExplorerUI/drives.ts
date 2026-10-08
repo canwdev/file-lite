@@ -7,6 +7,7 @@
  */
 import type { IDrive } from '@/types/server'
 import { ref } from 'vue'
+import { bytesToSize } from '@/utils'
 import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
 import { boundaryDisplayName, boundaryFor, findMountRoot } from '../utils/volume-mounts'
@@ -71,6 +72,20 @@ export function resolveVolumeRoot(path: string): string | null {
 }
 
 /**
+ * True when `path` sits on an optical volume (ISO 9660, UDF, or a Windows
+ * CD-ROM drive). Content previews stay off there: random reads thrash the disc.
+ * Unknown until the volume list has loaded, so callers must read this from a
+ * reactive context — `driveList` is what flips the answer.
+ */
+export function isOpticalPath(path: string): boolean {
+  const root = resolveVolumeRoot(path)
+  if (!root)
+    return false
+  const mount = driveList.value.find(drive => normalizeListingPath(drive.path) === root)
+  return mount?.kind === 'optical'
+}
+
+/**
  * 当前挂载点路径（listing 形态）。
  *
  * 供 `utils/index.ts` 的挂载感知导航（canGoUp / getParentPath / 面包屑）读取。
@@ -105,7 +120,7 @@ export function mountLabelFor(path: string): string | null {
 export function driveIcon(item: Pick<IDrive, 'label' | 'kind' | 'total'>): string {
   const label = item.label.toLowerCase()
   if (label === 'home') {
-    return 'home'
+    return 'home-outline'
   }
   if (label === 'data') {
     return 'folder-pound-outline'
@@ -120,12 +135,32 @@ export function driveIcon(item: Pick<IDrive, 'label' | 'kind' | 'total'>): strin
     return 'folder-network-outline'
   }
   if (kind === 'home') {
-    return 'home'
+    return 'home-outline'
+  }
+  if (kind === 'optical') {
+    return 'disc'
   }
   if (!item.total) {
     return 'folder-outline'
   }
   return 'harddisk'
+}
+
+/**
+ * 侧边栏与未选位置列表共用的悬停说明。
+ * 文件系统单独一行：卷标已经占了可见文字，类型（ext4、9p、iso9660）放 title 里就够。
+ */
+export function driveTitle(item: Pick<IDrive, 'path' | 'fileSystem' | 'free' | 'total'>): string {
+  const lines = [`Path: ${item.path}`]
+  if (item.fileSystem)
+    lines.push(`File system: ${item.fileSystem}`)
+  if (item.total && item.free) {
+    const used = item.total - item.free
+    const pct = ((used / item.total) * 100).toFixed(0)
+    lines.push(`Used: ${bytesToSize(used)}/${bytesToSize(item.total)} (${pct}%)`)
+    lines.push(`Available: ${bytesToSize(item.free)}`)
+  }
+  return lines.join('\n')
 }
 
 /**

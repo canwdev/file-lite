@@ -167,6 +167,13 @@ func (r Resolved) Network() bool {
 	return NetworkPath(r.Path)
 }
 
+// Optical reports whether this path sits on a CD-ROM filesystem.
+// Unlike Network, there is no path-shape fallback: a disc is only known
+// from the mount table.
+func (r Resolved) Optical() bool {
+	return r.Mount != nil && r.Mount.Kind == types.DriveKindOptical
+}
+
 // 列表加载时每个条目的 stat 并发档位。
 //
 // 本机卷可以放心开大；网络位置必须收敛——1000 个文件按 64 并发就是上千次网络往返，
@@ -174,10 +181,16 @@ func (r Resolved) Network() bool {
 const (
 	concurrencyLocalVolume   = 64
 	concurrencyNetworkVolume = 6
+	// Optical seeks are on the order of 100ms, and parallel stats make the
+	// head thrash, so this stays well below the local tier.
+	concurrencyOpticalVolume = 2
 )
 
 // ReadDirConcurrency 返回这条路径应当使用的 stat 并发档位。
 func (r Resolved) ReadDirConcurrency() int {
+	if r.Optical() {
+		return concurrencyOpticalVolume
+	}
 	if r.Network() {
 		return concurrencyNetworkVolume
 	}

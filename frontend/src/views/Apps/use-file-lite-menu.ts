@@ -160,19 +160,9 @@ export function useFileLiteMenu() {
     return `${bytes} B`
   }
 
-  /**
-   * 开关内容预览。关闭时顺手清空缩略图缓存 —— 它们已经不会再被用到，
-   * 留着只是白占浏览器配额，所以这一个开关同时是「别再缓存占我空间」的手段。
-   */
-  async function toggleDisablePreview() {
-    const disabled = !localSettingsStore.value.disablePreview
-    // 先改开关再清缓存：否则清理过程中滚动出来的图还会继续写入新缓存
-    localSettingsStore.value.disablePreview = disabled
-    if (!disabled)
-      return
-
-    await clearImageThumbCache()
-    window.$message.success('Previews disabled')
+  /** 开关内容预览。缓存留着：重新打开时还能命中，清缓存是旁边单独的菜单项。 */
+  function toggleDisablePreview() {
+    localSettingsStore.value.disablePreview = !localSettingsStore.value.disablePreview
   }
 
   async function clearImageCache() {
@@ -454,10 +444,10 @@ export function useFileLiteMenu() {
               icon: localSettingsStore.value.disablePreview ? 'mdi mdi-check' : '',
               label: `Disable Preview`,
               onClick: () => {
-                void toggleDisablePreview()
+                toggleDisablePreview()
               },
             },
-            !localSettingsStore.value.disablePreview && {
+            {
               label: imageCacheLabel,
               icon: 'mdi mdi-image-multiple-outline',
               onClick: () => {
