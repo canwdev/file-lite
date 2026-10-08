@@ -11,7 +11,7 @@ import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
-import { appsStoreState, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
+import { appWindows, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
@@ -171,7 +171,7 @@ function onPanePathUpdate(id: string, path: string) {
  *
  * 不用 Ctrl+T / Ctrl+W / Ctrl+Tab：Chrome 把这几个保留给浏览器自身，页面拿不到。
  */
-const shellTabShortcutsDisabled = computed(() => !props.tabsMode || Boolean(appsStoreState.activeId))
+const shellTabShortcutsDisabled = computed(() => !props.tabsMode || Boolean(appWindows.activeId))
 const shellAppToggleDisabled = computed(() => !props.tabsMode)
 
 useShortcut({

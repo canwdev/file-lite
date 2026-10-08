@@ -1,6 +1,7 @@
-import type { MessageBoxData } from 'element-plus'
+import type { ModalWindowButton } from '@canwdev/vgo-ui'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
+import { showModalWindow } from '@canwdev/vgo-ui'
 import { listPlugins, pluginList } from '@/api/plugins'
 import { serverCapabilities } from '@/store/capabilities'
 import { bytesToSize } from '@/utils'
@@ -257,36 +258,37 @@ export function useOpener(basePath: { value: string }) {
       if (unsupportedFallback) {
         const canExtract = serverCapabilities.value.archive
           && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
-        window.$dialog
-          .confirm(
-            `Continue to view? ${item.name}`,
-            'Unsupported File Type',
-            {
-              type: 'info',
-              confirmButtonText: 'Open in Browser',
-              cancelButtonText: canExtract ? 'Extract...' : 'File Viewer',
-              distinguishCancelAndClose: true,
-            },
-          )
-          .then(() => {
-            openInBrowser()
-          })
-          .catch(async (action: MessageBoxData) => {
-            if (action !== 'cancel')
+        type UnsupportedAction = 'viewer' | 'extract' | 'browser'
+        const buttons: ModalWindowButton[] = [
+          { label: 'File Viewer', value: 'viewer' },
+        ]
+        if (canExtract) {
+          buttons.push({ label: 'Extract...', value: 'extract' })
+        }
+        buttons.push({ label: 'Open in Browser', variant: 'primary', value: 'browser' })
+        const action = await showModalWindow<UnsupportedAction>({
+          title: 'Unsupported File Type',
+          content: `Continue to view? ${item.name}`,
+          buttons,
+        })
+        if (action === 'browser') {
+          openInBrowser()
+          return
+        }
+        if (action === 'viewer') {
+          openApp(OpenWithEnum.FileViewer)
+          return
+        }
+        if (action === 'extract') {
+          try {
+            await startArchiveExtract([absPath], [item.name], basePath.value)
+          }
+          catch (error: any) {
+            if (error === 'cancel' || error === 'close')
               return
-            if (!canExtract) {
-              openApp(OpenWithEnum.FileViewer)
-              return
-            }
-            try {
-              await startArchiveExtract([absPath], [item.name], basePath.value)
-            }
-            catch (error: any) {
-              if (error === 'cancel' || error === 'close')
-                return
-              window.$message?.error(error?.message || 'Failed to start the task')
-            }
-          })
+            window.$message?.error(error?.message || 'Failed to start the task')
+          }
+        }
         return
       }
 

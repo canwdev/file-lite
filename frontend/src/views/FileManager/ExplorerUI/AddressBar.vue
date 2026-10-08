@@ -2,6 +2,7 @@
 import type { ContextMenuInstance, MenuItem } from '@canwdev/vgo-ui'
 import type { IEntry } from '@/types/server'
 import { ContextMenu, useContextMenuTrigger } from '@canwdev/vgo-ui'
+import { useEventListener, useResizeObserver, useThrottleFn, useTimeoutFn } from '@vueuse/core'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { getBreadcrumbSegments, normalizeListingPath, normalizePath } from '../utils'
@@ -12,9 +13,13 @@ import { applyFolderListSort, getSortedFolderEntries, readFolderRawList, wasFold
 
 export type BreadcrumbSegment = ReturnType<typeof getBreadcrumbSegments>[number]
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string
-}>()
+  /** 所在标签是否可见；切走时为 false，避免在 display:none 下按 0 宽折叠 */
+  active?: boolean
+}>(), {
+  active: true,
+})
 
 const emit = defineEmits<{
   'update:modelValue': [string]
@@ -73,11 +78,20 @@ function clearDragOver() {
 
 const segments = computed(() => getBreadcrumbSegments(props.modelValue))
 
-// 面包屑溢出折叠：内容放不下时不出现滚动条，自动只展示末尾最多 2 个 crumb
+// 面包屑溢出折叠：放不下时不出现滚动条；从左侧隐藏前缀，按宽度尽量多留末尾段
 const hiddenPrefixCount = ref(0)
 /** 测量阶段临时显示全部 crumb（同一帧内完成，不会闪烁） */
 const measuring = ref(false)
-let breadcrumbResizeObserver: ResizeObserver | null = null
+/** 丢弃重叠的异步测量，避免 ResizeObserver / 路径切换交错把结果写乱 */
+let breadcrumbFitGen = 0
+
+/** 含水平 margin 的占位宽度（浮点 rect，避免 offsetWidth 逐段上取整把总和估大） */
+function outerWidth(node: HTMLElement): number {
+  const style = getComputedStyle(node)
+  return node.getBoundingClientRect().width
+    + (Number.parseFloat(style.marginLeft) || 0)
+    + (Number.parseFloat(style.marginRight) || 0)
+}
 
 /* ---------------------------------------------------------------------------
  * 最左侧固定一个当前根的图标；点击弹出 Storage（盘 / 挂载点）列表。
@@ -132,16 +146,56 @@ async function toggleRootMenu() {
 
 async function recomputeBreadcrumbFit() {
   const el = breadcrumbScrollRef.value
-  if (!el || editing.value) {
+  // 隐藏标签（display:none）宽为 0：不能据此改折叠状态，显示后 ResizeObserver 会再触发
+  if (!el || editing.value || !props.active || el.clientWidth <= 0) {
     return
   }
+
+  const gen = ++breadcrumbFitGen
   measuring.value = true
   await nextTick()
-  const wouldOverflow = el.scrollWidth > el.clientWidth + 1
+  if (gen !== breadcrumbFitGen) {
+    return
+  }
   measuring.value = false
-  hiddenPrefixCount.value = wouldOverflow ? Math.max(0, segments.value.length - 2) : 0
-  await nextTick()
+
+  const style = getComputedStyle(el)
+  const available = el.clientWidth
+    - (Number.parseFloat(style.paddingLeft) || 0)
+    - (Number.parseFloat(style.paddingRight) || 0)
+  const wraps = Array.from(el.querySelectorAll<HTMLElement>(':scope > .address-bar__crumb-wrap'))
+  if (available <= 0 || !wraps.length || el.scrollWidth <= el.clientWidth + 1) {
+    hiddenPrefixCount.value = 0
+    return
+  }
+
+  // 测量时全部显示且不收缩，各段都是自然宽度；至少保留最后一段（过长时靠 is-truncated 省略）
+  const root = el.querySelector<HTMLElement>(':scope > .address-bar__root')
+  let used = (root ? outerWidth(root) : 0) + outerWidth(wraps[wraps.length - 1]!)
+  let firstVisible = wraps.length - 1
+  for (let i = wraps.length - 2; i >= 0; i--) {
+    used += outerWidth(wraps[i]!)
+    if (used > available + 1) {
+      break
+    }
+    firstVisible = i
+  }
+  hiddenPrefixCount.value = firstVisible
 }
+
+// trailing 必须开：splitter / 标签切换时宽度会在 100ms 内连变几次，丢掉最后一次就停在过渡宽度
+const recomputeBreadcrumbFitThrottled = useThrottleFn(() => {
+  void recomputeBreadcrumbFit()
+}, 100, true)
+
+useResizeObserver(breadcrumbScrollRef, () => {
+  recomputeBreadcrumbFitThrottled()
+})
+
+/** 挂载后布局 / 字体可能仍在变，1s 后再走同一套测量 */
+const { start: scheduleMountedRemeasure } = useTimeoutFn(() => {
+  void recomputeBreadcrumbFit()
+}, 1000, { immediate: false })
 
 watch(
   () => props.modelValue,
@@ -149,7 +203,7 @@ watch(
     closeCrumbMenu()
     closeRootMenu()
     clearDragOver()
-    recomputeBreadcrumbFit()
+    void recomputeBreadcrumbFit()
   },
   { flush: 'post' },
 )
@@ -160,9 +214,15 @@ watch(editing, (isEditing: boolean) => {
     closeRootMenu()
   }
   else {
-    recomputeBreadcrumbFit()
+    void recomputeBreadcrumbFit()
   }
 })
+
+watch(() => props.active, (active) => {
+  if (active) {
+    void recomputeBreadcrumbFit()
+  }
+}, { flush: 'post' })
 
 function startEdit() {
   editDraft.value = props.modelValue
@@ -372,31 +432,18 @@ async function toggleCrumbMenu(seg: BreadcrumbSegment, event: MouseEvent) {
   }
 }
 
-/** 窗口尺寸变化时收起下拉（菜单本身不跟随重排）。 */
-function onWindowResize() {
+useEventListener(window, 'resize', () => {
   closeCrumbMenu()
-}
+})
+useEventListener(window, 'dragend', clearDragOver)
 
 onMounted(() => {
-  window.addEventListener('resize', onWindowResize)
-  window.addEventListener('dragend', clearDragOver)
-
-  const el = breadcrumbScrollRef.value
-  if (el) {
-    breadcrumbResizeObserver = new ResizeObserver(() => {
-      recomputeBreadcrumbFit()
-    })
-    breadcrumbResizeObserver.observe(el)
-  }
-  recomputeBreadcrumbFit()
+  void recomputeBreadcrumbFit()
+  scheduleMountedRemeasure()
 })
 
 onBeforeUnmount(() => {
-  breadcrumbResizeObserver?.disconnect()
-  breadcrumbResizeObserver = null
   closeCrumbMenu()
-  window.removeEventListener('resize', onWindowResize)
-  window.removeEventListener('dragend', clearDragOver)
 })
 
 defineExpose({
@@ -448,6 +495,10 @@ defineExpose({
           <span
             v-show="index >= hiddenPrefixCount || measuring"
             class="address-bar__crumb-wrap"
+            :class="{
+              // 最左侧可见段可收缩省略；行未溢出时 flex-shrink 不会把宽度压没
+              'is-truncated': !measuring && index === hiddenPrefixCount,
+            }"
           >
             <button
               type="button"
@@ -540,17 +591,16 @@ defineExpose({
   font-size: var(--vgo-font-md);
   cursor: text;
 
-  // 溢出折叠时允许保留的末尾 crumb 收缩省略，而不是被裁掉
-  &.has-overflow {
-    .address-bar__crumb-wrap {
-      flex-shrink: 1;
-      min-width: 0;
-    }
+}
 
-    .address-bar__crumb {
-      flex-shrink: 1;
-      min-width: 0;
-    }
+// 仍略超宽时只让最左侧可见段省略，避免多段一起 flex-shrink 被压成空白
+.address-bar__crumb-wrap.is-truncated {
+  flex-shrink: 1;
+  min-width: 0;
+
+  .address-bar__crumb {
+    flex-shrink: 1;
+    min-width: 0;
   }
 }
 

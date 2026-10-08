@@ -62,7 +62,7 @@ function createDefaultLocalSettingsStore() {
     iconSizeGrid: 48,
     /**
      * 整体关闭内容预览（图片缩略图 / 音频封面 / 视频封面 / 文件夹内容预览）。
-     * 只藏预览，不清缩略图缓存；清缓存是菜单里单独的一项。
+     * 只藏预览，不清缩略图缓存；清缓存在 Settings 里单独一项。
      * 光盘卷不看这个开关，预览始终关闭。
      */
     disablePreview: false,

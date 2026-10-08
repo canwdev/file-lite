@@ -599,6 +599,7 @@ defineExpose({
             <AddressBar
               ref="addressBarRef"
               v-model="addressBarPath"
+              :active="active"
               @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
               @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
               @refresh="debounceHandleRefresh"

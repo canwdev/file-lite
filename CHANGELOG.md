@@ -6,9 +6,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Settings**: Theme, app preferences, page title, preview cache and development actions open in a Settings window instead of nested menu items (frontend).
 - **Drive icons**: Storage icons use the outline form when that icon exists (frontend).
 - **File system**: Hovering a drive shows its file system (ext4, NTFS, 9p, iso9660, …) in the tooltip (frontend, backend).
-- **Extract**: Opening an unsupported archive offers Extract... in the unsupported-file dialog (frontend).
+- **Extract**: Opening an unsupported file shows File Viewer, Extract... (when the archive can be extracted), and Open in Browser (frontend).
 - **IP Chooser**: On a wide screen the address list scrolls on the left and the QR code stays on the right; on a narrow screen the QR code sits above a scrolling list (frontend).
 - **App windows**: Pressing Esc closes the active app window. In the gallery, Esc first closes the end-of-gallery overlay (frontend).
 - **Properties**: Properties opens as its own small window, not maximised, and each selection opens another one that can be minimised (frontend).
@@ -19,6 +20,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Top bar**: The top bar now holds the page title, global menu, tab strip, sidebar toggle and shared transfer panel (frontend).
 - **Sidebar**: The sidebar uses the raised surface colour, keeps its Storage heading pinned, remembers visibility, and highlights the current favourite or drive (frontend).
 - **Breadcrumbs**: A storage icon on the left opens the volume list and breadcrumbs collapse when the pane is narrow, the subfolder dropdown highlights the current folder, and Up navigation stops at the starting location (frontend).
+- **Breadcrumb fit**: Long paths keep as many trailing segments as fit the address bar width, instead of always collapsing to the last two, and stay correct after a refresh or a tab switch (frontend).
 - **Menus**: Context menus have a border and dark-mode shadow, show existing shortcuts, and use title-cased Config labels and Material theme names (frontend).
 - **Menu rendering**: Context menus and the text editor menu bar now use vgo-ui’s menu component, so their colours and dark mode come from the shared theme tokens (frontend).
 - **Menu buttons**: The top-bar Menu button and the file list Menu button toggle their menu open and closed, and stay highlighted while it is open (frontend).
@@ -63,7 +65,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Storage sidebar**: Linux sidebar shows only real storage with free/total space, and network locations, WSL distributions, mapped drives and locked BitLocker volumes appear with appropriate icons (backend, frontend).
 - **Network paths**: Network paths in the address bar browse correctly, with clear errors for unreachable locations and host-only paths (frontend, backend).
 - **Backend controls**: Self-update, stop and restart backend actions are available only when `allowSelfUpdate` is set (frontend, backend).
-- **Open File picker**: The Open File picker opens with Esc, remembers folder and window size, and is selection-only (frontend).
+- **Open File picker**: The Open File picker is a modal window (mask, Esc, focus trap), remembers folder and window size, and is selection-only (frontend).
 - **Docs**: The README and the top-level configuration guides are available in Chinese as well as English.
 - **README**: The README is shorter for new users: about 10MB, a Windows double-click install, and every document listed once at the bottom.
 - **Plugins**: Plugin pages are served cross-origin isolated, so a plugin can use WebAssembly threads (SharedArrayBuffer) (frontend, backend).

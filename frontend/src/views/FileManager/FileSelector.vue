@@ -1,7 +1,6 @@
 <script lang="ts" setup="">
 import type { FileSelectResult } from '@/views/FileManager/types'
-import { ViewPortWindow } from '@canwdev/vgo-ui'
-import { onKeyStroke } from '@vueuse/core'
+import { ModalWindow } from '@canwdev/vgo-ui'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
 const props = withDefaults(
@@ -58,6 +57,11 @@ const actionLabel = computed(() => {
 
 const windowTitle = computed(() => title.value || actionLabel.value)
 
+const windowInit = computed(() => ({
+  width: width.value,
+  height: height.value,
+}))
+
 onMounted(() => {
   if (autoShow.value) {
     isShowFileSelectWindow.value = true
@@ -72,14 +76,6 @@ watch(isShowFileSelectWindow, (newVal) => {
   else {
     emit('close')
   }
-})
-
-// Esc 关闭窗口（焦点在窗口内任意位置都生效）
-onKeyStroke('Escape', (event) => {
-  if (!isShowFileSelectWindow.value || event.defaultPrevented) {
-    return
-  }
-  isShowFileSelectWindow.value = false
 })
 
 defineExpose({
@@ -99,26 +95,32 @@ defineExpose({
       {{ actionLabel }}
     </button>
 
-    <ViewPortWindow
+    <ModalWindow
       v-model:visible="isShowFileSelectWindow"
+      :title="windowTitle"
       :wid="wid"
-      init-center
-      :init-win-options="{ width, height }"
+      :init-win-options="windowInit"
     >
-      <template #titleBarLeft>
-        {{ windowTitle }}
-      </template>
-      <FileManager
-        v-if="hasMounted" :select-file-mode="selectFileMode" :multiple="multiple"
-        :file-filter-pattern="fileFilterPattern"
-        shortcut-scope="fileSelector"
-        @cancel-select="isShowFileSelectWindow = false" @handle-select="handleSelect"
-      />
-    </ViewPortWindow>
+      <!-- 抵消 ModalWindow 内容区 padding，让 FileManager 铺满 -->
+      <div class="file-selector__pane">
+        <FileManager
+          v-if="hasMounted"
+          :select-file-mode="selectFileMode"
+          :multiple="multiple"
+          :file-filter-pattern="fileFilterPattern"
+          shortcut-scope="fileSelector"
+          @cancel-select="isShowFileSelectWindow = false"
+          @handle-select="handleSelect"
+        />
+      </div>
+    </ModalWindow>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.file-selector {
+.file-selector__pane {
+  margin: calc(var(--vgo-space-4) * -1);
+  height: calc(100% + var(--vgo-space-4) * 2);
+  min-height: 0;
 }
 </style>

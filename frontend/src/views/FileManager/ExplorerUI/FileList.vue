@@ -83,7 +83,7 @@ const emit = defineEmits(['open', 'select', 'openPathInNewTab', 'openPath', 'upd
 
 const { basePath, files, filter, filterDirectories, selectFileMode, multiple } = toRefs(props)
 const shortcutScope = inject(shortcutScopeKey, 'fileManager')
-// 选择器模式下禁用全部文件管理器快捷键（Esc 关闭选择器由 FileSelector 负责）
+// 选择器模式下禁用全部文件管理器快捷键（Esc 关闭选择器由 ModalWindow 负责）
 const shortcutsDisabled = computed(() => Boolean(selectFileMode.value))
 const isLoading = useVModel(props, 'isLoading', emit) as unknown as Ref<boolean>
 useExplorerBusOn(ExplorerEvents.REFRESH, () => emit('refresh'))

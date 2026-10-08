@@ -1,32 +1,18 @@
+import type { ManagedWindow } from '@canwdev/vgo-ui'
 import type { AppName, AppParams } from './apps'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
+import { createWindowManager } from '@canwdev/vgo-ui'
 import { localSettingsStore } from '@/store'
-import { guid } from '@/utils'
 import { appMetaByName, InternalAppEnum } from './apps'
 
-/** ViewPortWindow 实例暴露（用于置顶、聚焦） */
-export type AppWindowViewRef = {
-  setActive: () => void
-  focus: () => void
-} | null
-
-export interface AppWindowState {
-  id: string
+export interface AppWindowData {
   appName: AppName | null
   plugin: PluginInfo | null
-  appTitle: string
   appParams: AppParams
-  minimized: boolean
-  maximized: boolean
-  isClosing: boolean
-  windowRef: AppWindowViewRef
 }
 
-export const appsStoreState = reactive({
-  windows: [] as AppWindowState[],
-  activeId: '',
-})
+export type AppWindowState = ManagedWindow<AppWindowData>
 
 /** File-list element that had focus when this window was opened. */
 const focusReturn = new Map<string, HTMLElement>()
@@ -40,11 +26,37 @@ function rememberExplorerFocus(id: string) {
   focusReturn.set(id, previous)
 }
 
-/** Take the file-list element to refocus after this window closes. */
-export function consumeReturnFocus(id: string) {
-  const el = focusReturn.get(id)
-  focusReturn.delete(id)
-  return el instanceof HTMLElement && el.isConnected ? el : null
+/** Refocus the file the app was showing, falling back to the element that opened it. */
+function focusReturnedFile(win: AppWindowState, fallback: HTMLElement) {
+  const name = win.data.appParams.item?.name
+  const list = fallback.closest('.explorer-list-wrap')
+  if (name && list) {
+    const item = list.querySelector(`[data-name="${CSS.escape(name)}"]`)
+    if (item instanceof HTMLElement) {
+      if (!item.matches('button, a, input, textarea, select, [tabindex]'))
+        item.tabIndex = -1
+      item.focus({ preventScroll: true })
+      return
+    }
+  }
+  fallback.focus({ preventScroll: true })
+}
+
+export const appWindows = createWindowManager<AppWindowData>({
+  onClose(win) {
+    const back = focusReturn.get(win.id)
+    focusReturn.delete(win.id)
+    const othersOpen = appWindows.windows.some(item => item.id !== win.id && !item.isClosing)
+    if (!othersOpen && back?.isConnected)
+      focusReturnedFile(win, back)
+  },
+})
+
+/** Title shown when the app has not set its own. */
+export function defaultAppTitle(data: AppWindowData) {
+  if (data.plugin)
+    return data.plugin.name
+  return (data.appName && appMetaByName[data.appName]?.name) || data.appParams.item.name
 }
 
 const emptyInternalEntry: IEntry = {
@@ -59,24 +71,6 @@ const emptyInternalEntry: IEntry = {
   error: null,
 }
 
-function createWindowState(
-  appName: AppName | null,
-  appParams: AppParams,
-  plugin: PluginInfo | null = null,
-): AppWindowState {
-  return {
-    id: guid(),
-    appName,
-    plugin,
-    appTitle: plugin?.name ?? '',
-    appParams,
-    minimized: false,
-    maximized: appName ? (appMetaByName[appName]?.chrome?.maximized ?? true) : true,
-    isClosing: false,
-    windowRef: null,
-  }
-}
-
 function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
   const appMeta = appMetaByName[appName]
   if (!appMeta?.singleInstance) {
@@ -85,33 +79,39 @@ function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
   if ('openWith' in appMeta && !localSettingsStore.value.appSingleInstance) {
     return undefined
   }
-  return appsStoreState.windows.find(w => w.appName === appName && !w.isClosing)
+  return appWindows.windows.find(w => w.data.appName === appName && !w.isClosing)
 }
 
 function getReusablePluginWindow(plugin: PluginInfo): AppWindowState | undefined {
   if (!plugin.singleInstance)
     return undefined
-  return appsStoreState.windows.find(w => w.plugin?.id === plugin.id && !w.isClosing)
+  return appWindows.windows.find(w => w.data.plugin?.id === plugin.id && !w.isClosing)
+}
+
+function reuseWindow(win: AppWindowState, data: AppWindowData, title: string) {
+  rememberExplorerFocus(win.id)
+  win.data = data
+  win.title = title
+  appWindows.activate(win.id)
+}
+
+function openWindow(data: AppWindowData, title: string) {
+  const maximized = data.appName ? (appMetaByName[data.appName]?.chrome?.maximized ?? true) : true
+  const win = appWindows.open(data, { title, maximized })
+  rememberExplorerFocus(win.id)
 }
 
 /**
  * 打开新 App 窗口并设为当前活动窗口
  */
 export function openAppWindow(appName: AppName, appParams: AppParams) {
+  const data: AppWindowData = { appName, plugin: null, appParams }
   const reusableWin = getReusableAppWindow(appName)
   if (reusableWin) {
-    rememberExplorerFocus(reusableWin.id)
-    reusableWin.appParams = appParams
-    reusableWin.appTitle = ''
-    setAppWindowActive(reusableWin)
-    reusableWin.windowRef?.focus()
+    reuseWindow(reusableWin, data, defaultAppTitle(data))
     return
   }
-
-  const win = createWindowState(appName, appParams)
-  rememberExplorerFocus(win.id)
-  appsStoreState.windows.push(win)
-  appsStoreState.activeId = win.id
+  openWindow(data, defaultAppTitle(data))
 }
 
 export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
@@ -121,30 +121,22 @@ export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
     basePath: '',
     list: [],
   }
+  const data: AppWindowData = { appName: null, plugin, appParams: params }
   const reusableWin = getReusablePluginWindow(plugin)
   if (reusableWin) {
-    rememberExplorerFocus(reusableWin.id)
-    reusableWin.plugin = plugin
-    reusableWin.appParams = params
-    reusableWin.appTitle = params.absPath ? params.item.name : plugin.name
-    setAppWindowActive(reusableWin)
-    reusableWin.windowRef?.focus()
+    reuseWindow(reusableWin, data, params.absPath ? params.item.name : plugin.name)
     return
   }
-
-  const win = createWindowState(null, params, plugin)
-  rememberExplorerFocus(win.id)
-  appsStoreState.windows.push(win)
-  appsStoreState.activeId = win.id
+  openWindow(data, plugin.name)
 }
 
 /** 打开或关闭指定单例内部 App（F1 / `?` / 主菜单共用） */
 function toggleInternalApp(appName: InternalAppEnum, entryName: string) {
-  const existing = appsStoreState.windows.find(
-    w => w.appName === appName && !w.isClosing,
+  const existing = appWindows.windows.find(
+    w => w.data.appName === appName && !w.isClosing,
   )
   if (existing) {
-    closeAppWindow(existing.id)
+    appWindows.close(existing.id)
     return
   }
   openAppWindow(appName, {
@@ -163,84 +155,4 @@ export function toggleTextSyncApp() {
 /** 打开或关闭 Keyboard Shortcuts 指南（`?`） */
 export function toggleKeyboardShortcutsApp() {
   toggleInternalApp(InternalAppEnum.KeyboardShortcuts, 'KeyboardShortcuts')
-}
-
-/**
- * 激活窗口；fromDock 为 true 时行为对齐任务栏：再次点击同一项则切换最小化
- */
-export function setAppWindowActive(win: AppWindowState, fromDock = false) {
-  if (fromDock) {
-    if (appsStoreState.activeId === win.id) {
-      win.minimized = !win.minimized
-      return
-    }
-  }
-
-  if (appsStoreState.activeId === win.id) {
-    win.minimized = false
-    return
-  }
-
-  appsStoreState.activeId = win.id
-  win.minimized = false
-  win.windowRef?.setActive()
-  setTimeout(() => {
-    win.windowRef?.focus()
-  }, 0)
-}
-
-/**
- * 关闭窗口：先 isClosing 再移除，便于过渡（参考 canos closeTask）
- */
-export function closeAppWindow(id: string) {
-  const idx = appsStoreState.windows.findIndex(w => w.id === id)
-  if (idx === -1) {
-    return
-  }
-
-  const win = appsStoreState.windows[idx]
-  const wasActive = appsStoreState.activeId === id
-  focusReturn.delete(id)
-  win.isClosing = true
-
-  setTimeout(() => {
-    const i = appsStoreState.windows.findIndex(w => w.id === id)
-    if (i === -1) {
-      return
-    }
-    appsStoreState.windows.splice(i, 1)
-
-    if (!wasActive) {
-      return
-    }
-
-    let lastIdx = i - 1
-    if (!appsStoreState.windows[lastIdx]) {
-      lastIdx = appsStoreState.windows.length - 1
-      if (!appsStoreState.windows[lastIdx]) {
-        lastIdx = -1
-      }
-    }
-
-    if (lastIdx > -1) {
-      const last = appsStoreState.windows[lastIdx]
-      appsStoreState.activeId = last.id
-      if (!last.minimized) {
-        last.windowRef?.setActive()
-        setTimeout(() => last.windowRef?.focus(), 0)
-      }
-    }
-    else {
-      appsStoreState.activeId = ''
-    }
-  }, 300)
-}
-
-/**
- * 将 ref 列表同步到各窗口（参考 DesktopWindowManager 中对 windowRef 的赋值）
- */
-export function syncAppWindowRefs(refs: unknown[]) {
-  appsStoreState.windows.forEach((w, i) => {
-    w.windowRef = (refs[i] as AppWindowViewRef) ?? null
-  })
 }

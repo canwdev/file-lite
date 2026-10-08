@@ -20,6 +20,7 @@ export enum InternalAppEnum {
   TextSync = 'TextSync',
   KeyboardShortcuts = 'KeyboardShortcuts',
   Properties = 'Properties',
+  Settings = 'Settings',
 }
 
 export type AppName = OpenWithEnum | InternalAppEnum
@@ -142,6 +143,18 @@ export const InternalAppList: InternalAppListItem[] = [
       width: 'min(460px, 92vw)',
       height: 'auto',
       cascade: true,
+    },
+  },
+  {
+    name: 'Settings',
+    appName: InternalAppEnum.Settings,
+    icon: 'mdi mdi-cog',
+    component: defineAsyncComponent(() => import('./Settings/Settings.vue')),
+    singleInstance: true,
+    chrome: {
+      maximized: false,
+      width: 'min(680px, 94vw)',
+      height: 'min(760px, 88vh)',
     },
   },
 ]

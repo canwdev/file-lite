@@ -1,6 +1,6 @@
 import type { InjectionKey, Ref } from 'vue'
 import { computed, inject, onBeforeUnmount, shallowRef, unref } from 'vue'
-import { appsStoreState } from '@/views/Apps/apps-store'
+import { appWindows } from '@/views/Apps/apps-store'
 
 export type ShortcutScope = string
 export type ShortcutCombo = string | string[]
@@ -188,14 +188,10 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function getFallbackScope(): ShortcutScope | null {
-  const activeId = appsStoreState.activeId
-  if (!activeId)
+  const activeWindow = appWindows.activeWindow
+  if (!activeWindow || activeWindow.minimized || activeWindow.isClosing)
     return null
-
-  const activeWindow = appsStoreState.windows.find(
-    window => window.id === activeId && !window.minimized && !window.isClosing,
-  )
-  return activeWindow ? `app:${activeWindow.id}` : null
+  return `app:${activeWindow.id}`
 }
 
 function resolveTargetScope(target: EventTarget | null): ShortcutScope | null {

@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { SHELL_SHORTCUT_SCOPE, useShortcutRegistry } from '@/hooks/use-shortcut'
-import { appMetaByName } from '@/views/Apps/apps'
-import { appsStoreState } from '@/views/Apps/apps-store'
+import { appWindows, defaultAppTitle } from '@/views/Apps/apps-store'
 
 const filter = ref('')
 const registered = useShortcutRegistry()
@@ -41,11 +40,9 @@ function scopeLabel(scope: string) {
     return `Explorer pane`
   if (scope.startsWith('app:')) {
     const winId = scope.slice(4)
-    const win = appsStoreState.windows.find(w => w.id === winId)
+    const win = appWindows.get(winId)
     if (win) {
-      const meta = win.appName ? appMetaByName[win.appName] : undefined
-      const title = win.appTitle?.trim() || meta?.name || win.plugin?.name || win.appName
-      return `App: ${title}`
+      return `App: ${win.title.trim() || defaultAppTitle(win.data)}`
     }
     return `App (${shortId(winId)})`
   }
