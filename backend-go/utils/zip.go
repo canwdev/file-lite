@@ -7,10 +7,27 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 )
 
-func addEmptyDir(z *zip.Writer, name string) error {
-	_, err := z.Create(name + "/")
+// zipEntryHeader keeps the source modification time on the entry.
+// Writer.Create leaves Modified at the zero time, so the archive stores
+// neither an MS-DOS date nor an extended timestamp and readers show a blank date.
+func zipEntryHeader(name string, modTime time.Time, dir bool) *zip.FileHeader {
+	header := &zip.FileHeader{
+		Name:     filepath.ToSlash(name),
+		Modified: modTime,
+	}
+	if dir {
+		header.Method = zip.Store
+	} else {
+		header.Method = zip.Deflate
+	}
+	return header
+}
+
+func addEmptyDir(z *zip.Writer, name string, modTime time.Time) error {
+	_, err := z.CreateHeader(zipEntryHeader(name+"/", modTime, true))
 	return err
 }
 
@@ -31,7 +48,7 @@ func zipPath(z *zip.Writer, base string, path string) error {
 			return err
 		}
 		if len(entries) == 0 {
-			return addEmptyDir(z, name)
+			return addEmptyDir(z, name, st.ModTime())
 		}
 		for _, e := range entries {
 			// 崩溃可能留下孤儿临时文件；列表接口会过滤它，打包也不能漏出去
@@ -49,7 +66,7 @@ func zipPath(z *zip.Writer, base string, path string) error {
 		return err
 	}
 	defer f.Close()
-	w, err := z.Create(filepath.ToSlash(name))
+	w, err := z.CreateHeader(zipEntryHeader(name, st.ModTime(), false))
 	if err != nil {
 		return err
 	}
