@@ -5,8 +5,10 @@
  * 语义与主列表一致：原始列表按「目标目录自身的排序规则 + showHidden」
  * 整理（见 applyFolderListSort / sortEntries）。
  */
-import type { IEntry } from '@/types/server'
+import type { FsDirChange, IEntry } from '@/types/server'
+import { reactive } from 'vue'
 import { localSettingsStore } from '@/store'
+import { subscribeFsChanged } from '@/store/tasks'
 import { fs } from '@/utils/fs'
 import { normalizeListingPath } from '../utils'
 import { sortEntries } from '../utils/sort'
@@ -21,6 +23,16 @@ const rawCache = new Map<string, IEntry[]>()
 /** 目录是否读取成功（读取失败按空目录处理时，消费方可据此区分「失败」与「确实为空」） */
 const readOk = new Map<string, boolean>()
 const inflightReads = new Map<string, Promise<IEntry[]>>()
+/**
+ * 每个目录的失效计数。读取开始时记下，返回时若已变化，说明读取期间目录改过，
+ * 这份结果可能是旧的：照样交给调用方，但不写缓存。
+ */
+const generations = new Map<string, number>()
+/**
+ * 目录内容变化的版本号（响应式）。缓存被补丁或失效后 +1，
+ * 正在展示该目录预览的组件据此重新读取。
+ */
+const listingVersions = reactive(new Map<string, number>())
 
 let activeReadCount = 0
 const readQueue: Array<() => void> = []
@@ -73,17 +85,21 @@ export function readFolderRawList(path: string, opts: { force?: boolean } = {}):
     return inflight
   }
 
+  const generation = generations.get(key) ?? 0
   const task = new Promise<IEntry[]>((resolve) => {
     readQueue.push(() => {
       fetchRawList(key)
         .then((list) => {
-          rawCache.set(key, list)
-          readOk.set(key, true)
-          trimRawCache()
+          if ((generations.get(key) ?? 0) === generation) {
+            rawCache.set(key, list)
+            readOk.set(key, true)
+            trimRawCache()
+          }
           resolve(list)
         })
         .finally(() => {
-          inflightReads.delete(key)
+          if (inflightReads.get(key) === task)
+            inflightReads.delete(key)
           finishRead()
         })
     })
@@ -118,7 +134,76 @@ export function wasFolderListingOk(path: string): boolean {
 /** 把刚加载完成的主列表写入缓存，保证该目录的预览/下拉内容新鲜 */
 export function seedFolderListing(path: string, entries: IEntry[]): void {
   const key = normalizeListingPath(path)
+  bumpGeneration(key)
   rawCache.set(key, entries)
   readOk.set(key, true)
   trimRawCache()
 }
+
+/** 目录内容变化的版本号；在 computed / watch 里读取即可在目录变化后收到通知 */
+export function getFolderListingVersion(path: string): number {
+  return listingVersions.get(normalizeListingPath(path)) ?? 0
+}
+
+function bumpGeneration(key: string) {
+  generations.set(key, (generations.get(key) ?? 0) + 1)
+}
+
+function bumpListingVersion(key: string) {
+  listingVersions.set(key, (listingVersions.get(key) ?? 0) + 1)
+}
+
+/** 丢掉缓存与在途读取，下次读取重新请求 */
+function invalidateListing(key: string) {
+  bumpGeneration(key)
+  rawCache.delete(key)
+  readOk.delete(key)
+  inflightReads.delete(key)
+  bumpListingVersion(key)
+}
+
+/** 有缓存就按条目级变化原地改，否则只能失效 */
+function patchListing(key: string, change: FsDirChange) {
+  const cached = rawCache.get(key)
+  if (!cached || inflightReads.has(key)) {
+    invalidateListing(key)
+    return
+  }
+  const byName = new Map(cached.map(entry => [entry.name, entry]))
+  for (const name of change.removed ?? [])
+    byName.delete(name)
+  for (const entry of [...(change.added ?? []), ...(change.updated ?? [])])
+    byName.set(entry.name, entry)
+  bumpGeneration(key)
+  rawCache.set(key, [...byName.values()])
+  bumpListingVersion(key)
+}
+
+/** 被删除 / 改名 / 移走的子目录：它自己与其下所有缓存都已不再对应磁盘内容 */
+function invalidateSubtree(prefix: string) {
+  const keys = new Set([...rawCache.keys(), ...inflightReads.keys(), ...listingVersions.keys()])
+  for (const key of keys) {
+    if (key.startsWith(prefix))
+      invalidateListing(key)
+  }
+}
+
+// 服务端广播的目录变化（上传、新建、重命名、删除、任务结束）：
+// 带 changes 的目录原地打补丁，只有 paths 的目录整份失效。
+// 主列表也订阅了同一条消息（use-navigation），两边谁先处理都不影响结果：
+// 补丁按名字 upsert，是幂等的。
+subscribeFsChanged((paths, changes) => {
+  const patched = new Set<string>()
+  for (const change of changes) {
+    const key = normalizeListingPath(change.dir)
+    patched.add(key)
+    patchListing(key, change)
+    for (const name of change.removed ?? [])
+      invalidateSubtree(normalizeListingPath(`${key}${name}`))
+  }
+  for (const path of paths) {
+    const key = normalizeListingPath(path)
+    if (!patched.has(key))
+      invalidateListing(key)
+  }
+})

@@ -11,7 +11,7 @@ import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { normalizeListingPath } from '../utils'
 import { isOpticalPath } from './drives'
 import { getFileIconClass } from './file-icons'
-import { applyFolderListSort, readFolderRawList } from './folder-listing'
+import { applyFolderListSort, getFolderListingVersion, readFolderRawList } from './folder-listing'
 import { useFolderImagePreviews, useImagePreview } from './hooks/use-image-preview'
 import { getDefaultOpenApp } from './hooks/use-opener'
 
@@ -373,15 +373,21 @@ const showTypeBadge = computed(() =>
 let folderReadSeq = 0
 let folderReadTimer: ReturnType<typeof setTimeout> | null = null
 
-function scheduleFolderPreviewLoad() {
+/**
+ * @param keepCurrent 目录内容变化后的重读：保留当前预览直到新列表到达，
+ *   不先回退到文件夹图标，否则每次增删都会闪一下。
+ */
+function scheduleFolderPreviewLoad(keepCurrent = false) {
   if (folderReadTimer) {
     clearTimeout(folderReadTimer)
     folderReadTimer = null
   }
   const path = folderListingPath.value
   // 路径/条件变化先回退到原图标，加载完成后再展示内容
-  folderRawList.value = null
-  resetFolderPreviewCells()
+  if (!keepCurrent || !path) {
+    folderRawList.value = null
+    resetFolderPreviewCells()
+  }
 
   if (!path)
     return
@@ -400,6 +406,16 @@ watch(
   [folderPreviewEligible, () => props.absPath],
   () => scheduleFolderPreviewLoad(),
   { immediate: true },
+)
+
+// 服务端推送目录变化后 folder-listing 会补丁/失效缓存并 +1 版本号，这里随之重读。
+// 路径本身变了由上面的 watch 处理。
+watch(
+  () => [folderListingPath.value, folderListingPath.value ? getFolderListingVersion(folderListingPath.value) : 0] as const,
+  ([path], [oldPath]) => {
+    if (path && path === oldPath)
+      scheduleFolderPreviewLoad(true)
+  },
 )
 
 onBeforeUnmount(() => {

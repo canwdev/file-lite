@@ -79,6 +79,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Folder previews**: A folder's thumbnail preview updates when files are added, deleted, renamed or moved inside it, instead of showing the old contents until the page is reloaded (frontend).
 - **Text editor**: Opening a file focuses the editor. Esc, the window close button, a double-click on the title icon, and Exit all ask before closing when the file has unsaved changes (frontend).
 - **App focus**: Closing an app with Esc returns focus to the file item that was focused when the app opened (frontend).
 - **Finished tasks**: Clearing a completed task that was already removed no longer returns 404, and the row leaves the list without a refresh (frontend, backend).

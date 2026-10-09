@@ -2,28 +2,30 @@
 <style>
 /* 这套界面是给老浏览器（IE8）看的：没有 vgo-ui 令牌可用，
    所以在这里手写一小份 Win95 风格的复古样式：灰底、双色浮雕、方角。 */
-body{background:#008080;color:#000;margin:8px;font:12px Tahoma,"MS Sans Serif","Microsoft YaHei",SimSun,sans-serif;scrollbar-face-color:#c0c0c0;scrollbar-track-color:#dfdfdf;scrollbar-arrow-color:#000;scrollbar-shadow-color:#808080;scrollbar-highlight-color:#fff;scrollbar-3dlight-color:#dfdfdf;scrollbar-darkshadow-color:#000}
-a{color:#000080}
-.win{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;padding:2px}
+body{background:#008080;color:#000;margin:8px;font:14px Tahoma,"MS Sans Serif","Microsoft YaHei",SimSun,sans-serif;scrollbar-face-color:#c0c0c0;scrollbar-track-color:#dfdfdf;scrollbar-arrow-color:#000;scrollbar-shadow-color:#808080;scrollbar-highlight-color:#fff;scrollbar-3dlight-color:#dfdfdf;scrollbar-darkshadow-color:#000}
+a{color:#000080;text-decoration:none;}
+a:hover{text-decoration:underline;}
+.win{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;padding:2px;    margin: 0 auto;}
 .title{background:#000080;color:#fff;font-weight:bold;padding:2px 4px;margin-bottom:2px}
 .toolbar{border-bottom:1px solid #808080;padding:4px;margin-bottom:4px;overflow:hidden}
+.toolbar a{margin-right: 10px;}
 .inline{display:inline}
 .right{float:right}
 .layout{width:100%;border-collapse:collapse}
 .side{width:180px;vertical-align:top;padding-right:6px}
 .main{vertical-align:top}
 .group{background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;font-weight:bold;padding:1px 4px}
-.panel{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:2px;margin-bottom:6px;overflow:hidden}
+.panel{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;margin-bottom:6px;overflow:hidden}
 .panel ul{margin:0;padding:0;list-style:none}
 .panel li{margin:1px 0}
 .panel p{margin:2px}
-.side-link{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-decoration:none;padding:0 2px}
+.side-link{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 2px}
 .current{background:#000080;color:#fff}
 /* 路径框：输入框占满除 Go 以外的整行。IE8 没有 flexbox，所以靠「容器右侧留一条
    56px 车道 + Go 绝对定位到行尾」实现；输入框用 display:block 去掉行盒的半行距，
    这样它的上边缘就是容器内容区的上边缘，Go 的 top:0 才能和它对齐。
    输入框自带 2px 边框与左右各 2px 内边距，会吃掉车道里的一点点，无伤大雅。 */
-.pathrow{position:relative;padding-right:50px;margin-bottom:4px}
+.pathrow{position:relative;padding-right:46px;margin-bottom:4px}
 .pathinput{display:block;width:100%}
 .pathgo{position:absolute;right:0;top:0}
 /* 上传与新建文件夹一左一右：右边那组浮动到行尾（空间不够时自动落到下一行并仍然靠右，
@@ -38,7 +40,7 @@ a{color:#000080}
 .list td{border-bottom:1px solid #dfdfdf;padding:1px 6px;white-space:nowrap}
 .list .name{width:100%}
 .list .act{white-space:nowrap}
-.status{border:2px solid;border-color:#fff #808080 #808080 #fff;padding:2px 4px;margin-top:4px}
+.status{border:2px solid;border-color:#fff #808080 #808080 #fff;padding:4px;margin-top:4px}
 .status span{border:1px solid;border-color:#808080 #fff #fff #808080;padding:0 6px;margin-right:4px}
 .dialog{width:300px;margin:60px auto}
 .dialog p{margin:8px}

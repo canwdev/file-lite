@@ -14,7 +14,8 @@
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input class="btn" type="submit" value="Sign out">
 </form>
-<a class="btn" href="/ie">Top</a>
+<a class="btn right" href="/">Modern</a>
+<a class="btn" href="/ie">Home</a>
 {{if .Parent}}<a class="btn" href="/ie/browse?path={{.Parent | urlquery}}">Up</a>{{end}}
 </div>
 
