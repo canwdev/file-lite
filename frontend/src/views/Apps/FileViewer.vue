@@ -63,7 +63,7 @@ onMounted(loadViewer)
 <template>
   <div class="file-viewer">
     <div v-if="isLoading" class="file-viewer__status">
-      {{ $t('file_lite_i18n.loading_flyfish_file_viewer_from') }}...
+      Loading flyfish-file-viewer from cdn...
     </div>
     <div v-else-if="error" class="file-viewer__status">
       {{ error }}

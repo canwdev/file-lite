@@ -500,7 +500,7 @@ defineExpose({
   <div
     class="address-bar vgo-input"
     :class="{ 'is-editing': editing }"
-    :title="editing ? '' : `${$t('file_lite_i18n.address_bar')} (Alt+A)`"
+    :title="editing ? '' : `Address bar (Alt+A)`"
   >
     <input
       v-show="editing"

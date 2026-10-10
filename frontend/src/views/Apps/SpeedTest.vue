@@ -14,9 +14,9 @@ const downloadMetrics = ref<SpeedMetrics | null>(null)
 const uploadMetrics = ref<SpeedMetrics | null>(null)
 
 const metricRows: Array<{ key: SpeedMetricKey, label: string }> = [
-  { key: 'avg', label: $t('file_lite_i18n.average') },
-  { key: 'max', label: $t('file_lite_i18n.max') },
-  { key: 'current', label: $t('file_lite_i18n.current') },
+  { key: 'avg', label: 'Average' },
+  { key: 'max', label: 'Max' },
+  { key: 'current', label: 'Current' },
 ]
 
 let currentAbortController: AbortController | null = null
@@ -24,30 +24,30 @@ let currentAbortController: AbortController | null = null
 const phaseText = computed(() => {
   switch (phase.value) {
     case 'download':
-      return $t('file_lite_i18n.downloading')
+      return 'Downloading'
     case 'upload':
-      return $t('file_lite_i18n.uploading')
+      return 'Uploading'
     case 'done':
-      return $t('file_lite_i18n.done')
+      return 'Done'
     default:
-      return $t('file_lite_i18n.idle')
+      return 'Idle'
   }
 })
 
 const cards = computed(() => [
   {
     key: 'download',
-    title: $t('file_lite_i18n.download'),
+    title: 'Download',
     icon: 'mdi mdi-arrow-down-bold-circle-outline',
-    actionLabel: $t('file_lite_i18n.test'),
+    actionLabel: 'Test',
     phase: 'download' as const,
     metrics: downloadMetrics.value,
   },
   {
     key: 'upload',
-    title: $t('file_lite_i18n.upload'),
+    title: 'Upload',
     icon: 'mdi mdi-arrow-up-bold-circle-outline',
-    actionLabel: $t('file_lite_i18n.test'),
+    actionLabel: 'Test',
     phase: 'upload' as const,
     metrics: uploadMetrics.value,
   },
@@ -149,7 +149,7 @@ async function runTest(target: 'download' | 'upload' | 'all') {
     phase.value = 'idle'
     if (!isAbortError(error)) {
       console.error(error)
-      window.$message.error(error instanceof Error ? error.message : $t('file_lite_i18n.failed'))
+      window.$message.error(error instanceof Error ? error.message : 'Failed')
     }
   }
   finally {
@@ -186,10 +186,10 @@ onBeforeUnmount(() => {
         <input v-model.number="sizeMB" type="number" min="1" max="2048" class="vgo-input size-input" :disabled="running" :step="100">
       </label>
       <button type="button" class="vgo-button vgo-button--primary" :disabled="running" @click="startTest">
-        {{ $t('file_lite_i18n.test') }}
+        {{ 'Test' }}
       </button>
       <button type="button" class="vgo-button" :disabled="!running" @click="stopTest">
-        {{ $t('file_lite_i18n.stop') }}
+        {{ 'Stop' }}
       </button>
       <span class="phase-text">{{ phaseText }}</span>
     </div>
@@ -229,7 +229,7 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div class="speed-row">
-          <span class="speed-row-label">{{ $t('file_lite_i18n.transferred') }}</span>
+          <span class="speed-row-label">{{ 'Transferred' }}</span>
           <span class="speed-value">{{ formatTransferred(card.metrics?.bytes) }}</span>
         </div>
       </div>

@@ -112,7 +112,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: $t('file_lite_i18n.speed_test'),
+          label: 'Speed Test',
           icon: 'mdi mdi-speedometer',
           onClick: () => {
             openAppWindow(InternalAppEnum.SpeedTest, {

@@ -204,7 +204,7 @@ router.beforeEach(async (to, from) => {
 /** 原始标题：`[Route Title - ]File Lite v{VERSION}` */
 export function getBaseDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {
   const routeTitle = typeof route.meta?.titleKey === 'string' ? $t(route.meta.titleKey) : ''
-  return $t('file_lite_i18n.n_0_file_lite_v_1', [routeTitle ? `${routeTitle} - ` : '', VERSION])
+  return `${routeTitle ? `${routeTitle} - ` : ''}File Lite v${VERSION}`
 }
 
 export function applyDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {

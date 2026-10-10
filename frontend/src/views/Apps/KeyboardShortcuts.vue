@@ -70,7 +70,7 @@ function scopeLabel(scope: string) {
         {{ $t('file_lite_i18n.no_matches') }}
       </div>
       <div class="vgo-empty__desc">
-        {{ $t('file_lite_i18n.clear_the_filter_or_open_an_expl') }}
+        Clear the filter, or open an explorer pane so its bindings register.
       </div>
     </div>
 

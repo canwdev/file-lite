@@ -132,9 +132,7 @@ export const InternalAppList: InternalAppListItem[] = [
     singleInstance: true,
   },
   {
-    get name() {
-      return $t('file_lite_i18n.speed_test')
-    },
+    name: 'Speed Test',
     appName: InternalAppEnum.SpeedTest,
     icon: 'mdi mdi-speedometer',
     component: defineAsyncComponent(() => import('./SpeedTest.vue')),
