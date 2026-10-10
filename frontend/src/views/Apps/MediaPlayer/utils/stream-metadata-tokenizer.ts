@@ -99,7 +99,9 @@ class CookieRangeHttpClient implements IRangeRequestClient {
   async getResponse(method: string, range?: [number, number]): Promise<IRangeRequestResponse> {
     const headers = new Headers()
     if (range) {
-      headers.set($t('file_lite_i18n.range'), `bytes=${range[0]}-${range[1]}`)
+      // Header names are protocol tokens, never UI copy: a translated name (e.g. "范围")
+      // is not ISO-8859-1 and makes Headers.set throw.
+      headers.set('Range', `bytes=${range[0]}-${range[1]}`)
     }
     const res = await fetch(this.resolvedUrl || this.url, {
       method,

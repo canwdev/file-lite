@@ -14,6 +14,7 @@ export const DEFAULT_LOCALE = 'en-US'
 export const localeOptions = [
   { value: 'en-US', label: 'English' },
   { value: 'zh-CN', label: '简体中文' },
+  { value: 'ja-JP', label: '日本語' },
 ] as const
 
 export type AppLocale = typeof localeOptions[number]['value']
@@ -36,6 +37,8 @@ export function detectBrowserLocale(): AppLocale {
     const tag = candidate.toLowerCase()
     if (tag.startsWith('zh'))
       return 'zh-CN'
+    if (tag.startsWith('ja'))
+      return 'ja-JP'
     if (tag.startsWith('en'))
       return 'en-US'
   }
@@ -46,7 +49,7 @@ export const i18n = createI18n({
   legacy: false,
   globalInjection: true,
   locale: detectBrowserLocale(),
-  // zh-CN 目前没有翻译：所有 key 都回退到 en-US。
+  // 语言包里缺失的条目回退到 en-US。
   fallbackLocale: DEFAULT_LOCALE,
   // 空语言包会让每个 key 都打一条警告，这里按设计关掉。
   missingWarn: false,
@@ -74,6 +77,7 @@ export const ELLIPSIS = '…'
 /** 语言包按需引入：用到哪个语言才下载哪个，也不进主包。 */
 const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
   'en-US': () => import('./locales/en-US/index.json'),
+  'ja-JP': () => import('./locales/ja-JP/index.json'),
   'zh-CN': () => import('./locales/zh-CN/index.json'),
 }
 const loadingLocales = new Map<AppLocale, Promise<void>>()

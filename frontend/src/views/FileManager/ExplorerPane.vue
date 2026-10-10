@@ -554,7 +554,7 @@ defineExpose({
               <button
                 :disabled="!navigationHistory?.canBack"
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Back (alt+left)"
+                :title="`${$t('file_lite_i18n.back')} (alt+left)`"
                 @click="goBack"
                 @auxclick="onNavAuxClick('back', $event)"
                 @contextmenu.prevent.stop="showHistoryMenu('back', $event)"
@@ -564,7 +564,7 @@ defineExpose({
               <button
                 :disabled="!navigationHistory?.canForward"
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Forward (alt+right)"
+                :title="`${$t('file_lite_i18n.forward')} (alt+right)`"
                 @click="goForward"
                 @auxclick="onNavAuxClick('forward', $event)"
                 @contextmenu.prevent.stop="showHistoryMenu('forward', $event)"
@@ -574,7 +574,7 @@ defineExpose({
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
                 :disabled="!allowUp"
-                title="Up (alt+up)"
+                :title="`${$t('file_lite_i18n.up')} (alt+up)`"
                 @click="goUp"
                 @auxclick="onNavAuxClick('up', $event)"
               >
@@ -582,7 +582,7 @@ defineExpose({
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Refresh (ctrl+r)"
+                :title="`${$t('file_lite_i18n.refresh')} (ctrl+r)`"
                 @click="debounceHandleRefresh"
               >
                 <i-mdi-refresh />

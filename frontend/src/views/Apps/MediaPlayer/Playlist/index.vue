@@ -85,7 +85,7 @@ onMounted(async () => {
     <div class="playlist-action-bar">
       <div class="playlist-search-row">
         <i-mdi-magnify class="search-icon" />
-        <input v-model="filterText" class="vgo-input playlist-search" :placeholder="$t('file_lite_i18n.search_music')">
+        <input v-model="filterText" class="vgo-input playlist-search" :placeholder="$t('file_lite_i18n.filter_name')">
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm"
           :title="$t('file_lite_i18n.locate_in_folder')"

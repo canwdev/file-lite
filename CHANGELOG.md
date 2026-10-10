@@ -93,6 +93,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Lyrics**: Music metadata and lyrics load again in Simplified Chinese and Japanese, where a translated HTTP header name made every range request fail (frontend).
 - **Classic interface**: A long file name is clipped with an ellipsis instead of widening the name column and stretching the table (backend).
 - **Text Sync**: A channel's text now survives reopening the app, reconnecting, and the last client leaving or reloading the page — it stays in server memory until the process restarts. Joining a channel you are already in is also a no-op now, instead of leaving and re-entering it (backend).
 - **Shortcuts and dialogs**: While a confirmation dialog or a context menu is open, the page behind it no longer reacts to keyboard shortcuts such as the arrow keys or Delete — the dialog keeps the keyboard (frontend).

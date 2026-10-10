@@ -1781,7 +1781,7 @@ defineExpose({
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
-            title="Cut (ctrl+x)"
+            :title="`${$t('file_lite_i18n.cut')} (ctrl+x)`"
             @click="handleCut"
           >
             <i-mdi-content-cut />
@@ -1789,7 +1789,7 @@ defineExpose({
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
-            title="Copy (ctrl+c)"
+            :title="`${$t('file_lite_i18n.copy')} (ctrl+c)`"
             @click="handleCopy"
           >
             <i-mdi-content-copy />
@@ -1797,7 +1797,7 @@ defineExpose({
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enablePaste"
-            title="Paste (ctrl+v)"
+            :title="`${$t('file_lite_i18n.paste')} (ctrl+v)`"
             @click="handlePaste"
           >
             <i-mdi-content-paste />
@@ -1814,7 +1814,7 @@ defineExpose({
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enableAction"
-            title="Delete (del)"
+            :title="`${$t('file_lite_i18n.delete')} (del)`"
             @click="confirmDelete"
           >
             <i-mdi-delete-forever-outline />
@@ -1858,7 +1858,7 @@ defineExpose({
           :ref="setMenuTriggerRef"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
           :class="{ 'is-active': menuOpen }"
-          title="Menu (ctrl+m)"
+          :title="`${$t('file_lite_i18n.menu')} (ctrl+m)`"
           @click="toggleMenuDropdown"
         >
           <i-mdi-dots-vertical />
@@ -1997,9 +1997,9 @@ defineExpose({
     </div>
     <div v-if="!contentOnly" class="explorer-status-bar vgo-panel vgo-panel--flat">
       <div>
-        {{ filteredFiles.length }} Item(s)
+        {{ $t('file_lite_i18n.n_0_items', [filteredFiles.length]) }}
         <template v-if="selectedItems.length">
-          | {{ selectedItems.length }} item(s) selected |
+          | {{ $t('file_lite_i18n.n_0_items_selected', [selectedItems.length]) }} |
           {{ bytesToSize(selectedItemsSize) }}
         </template>
       </div>

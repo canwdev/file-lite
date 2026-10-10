@@ -348,7 +348,7 @@ function setWrapperRef(el: unknown): void {
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-collect"
         :class="{ 'is-active': collected }"
-        title="Collect (c)"
+        :title="`${$t('file_lite_i18n.collect')} (c)`"
         @click.stop="handleToggleCollect"
       >
         <MdiIcon :name="collected ? 'star' : 'star-outline'" />
@@ -362,7 +362,7 @@ function setWrapperRef(el: unknown): void {
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-delete"
-        title="Delete (Del)"
+        :title="`${$t('file_lite_i18n.delete')} (Del)`"
         @click.stop="handleDeleteCurrent"
       >
         <i-mdi-delete-outline />
@@ -397,7 +397,7 @@ function setWrapperRef(el: unknown): void {
         </button>
         <button
           class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
-          title="Zoom in (Ctrl+scroll)"
+          :title="`${$t('file_lite_i18n.zoom_in')} (Ctrl+scroll)`"
           @click.stop="zoom.zoomIn()"
         >
           <i-mdi-plus />
