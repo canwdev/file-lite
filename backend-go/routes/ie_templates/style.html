@@ -1,11 +1,18 @@
 {{define "style"}}
 <style>
 /* 这套界面是给老浏览器（IE8）看的：没有 vgo-ui 令牌可用，
-   所以在这里手写一小份 Win95 风格的复古样式：灰底、双色浮雕、方角。 */
+   所以在这里手写一小份 Win95 风格的复古样式：灰底、双色浮雕、方角。
+
+   只用 IE8 认得的那部分 CSS：
+   - 布局靠表格 / 浮动 / 定位，不用 flex、grid，也不用 gap（IE8 都不认识），
+     所以间距一律用 margin / padding；
+   - 不用 CSS3（圆角、阴影、渐变、transition、box-sizing），选择器只用标签、类、
+     后代和 :hover（IE7 起 :hover 对所有元素生效，只有 IE6 才限于 <a>）；
+   - 每个页面都带 DOCTYPE，IE8 因此跑在标准模式，盒模型与别的浏览器一致。 */
 body{background:#008080;color:#000;margin:8px;font:14px Tahoma,"MS Sans Serif","Microsoft YaHei",SimSun,sans-serif;scrollbar-face-color:#c0c0c0;scrollbar-track-color:#dfdfdf;scrollbar-arrow-color:#000;scrollbar-shadow-color:#808080;scrollbar-highlight-color:#fff;scrollbar-3dlight-color:#dfdfdf;scrollbar-darkshadow-color:#000}
 a{color:#000080;text-decoration:none;}
 a:hover{text-decoration:underline;}
-.win{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;padding:2px;    margin: 0 auto;}
+.win{background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;padding:2px;max-width: 1200px;margin: 0 auto;}
 .title{background:#000080;color:#fff;font-weight:bold;padding:2px 4px;margin-bottom:2px}
 .toolbar{border-bottom:1px solid #808080;padding:4px;margin-bottom:4px;overflow:hidden}
 .toolbar a{margin-right: 10px;}
@@ -40,6 +47,12 @@ a:hover{text-decoration:underline;}
 .list td{border-bottom:1px solid #dfdfdf;padding:1px 6px;white-space:nowrap}
 .list .name{width:100%}
 .list .act{white-space:nowrap}
+/* 行悬停：底色落在单元格上而不是 tr 上——单元格透不出行背景时（老渲染器里常见），
+   tr:hover 的高亮就看不见了。 */
+.list tr:hover td{background:#dfdfdf}
+/* 行内动作（Download / Rename / Delete）之间留出间距：老浏览器没有 gap，
+   给每个链接一个右外边距，行尾那一个多出来的 6px 落在单元格里，无伤大雅。 */
+.list .act a{margin-right:6px}
 .status{border:2px solid;border-color:#fff #808080 #808080 #fff;padding:4px;margin-top:4px}
 .status span{border:1px solid;border-color:#808080 #fff #fff #808080;padding:0 6px;margin-right:4px}
 .dialog{width:300px;margin:60px auto}

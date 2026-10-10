@@ -23,11 +23,11 @@
 <td class="side">
 <div class="group">Favourites</div>
 <div class="panel">
-{{if .Favourites}}<ul>{{range .Favourites}}<li><a class="side-link{{if eq .Path $.Path}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
+{{if .Favourites}}<ul>{{range .Favourites}}<li><a class="side-link{{if .Current}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>{{else}}<p>none</p>{{end}}
 </div>
 <div class="group">Drives</div>
 <div class="panel">
-<ul>{{range .Drives}}<li><a class="side-link{{if eq .Path $.Path}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>
+<ul>{{range .Drives}}<li><a class="side-link{{if .Current}} current{{end}}" title="{{.Path}}" href="/ie/browse?path={{.Path | urlquery}}">{{.Label}}</a></li>{{end}}</ul>
 </div>
 </td>
 
@@ -54,9 +54,9 @@
 <table class="list">
 <tr><th class="name">Name</th><th>Size</th><th>Modified</th><th class="act">Actions</th></tr>
 {{range .Entries}}<tr>
-<td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/download?path={{.Path | urlquery}}">{{.Name}}</a>{{end}}</td>
+<td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/view?path={{.Path | urlquery}}" target="_blank" title="Open in a new window">{{.Name}}</a>{{end}}</td>
 <td>{{.Size}}</td><td>{{.Time}}</td>
-<td class="act"><a href="/ie/rename?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Delete</a></td>
+<td class="act"><a href="/ie/download?path={{.Path | urlquery}}">Download</a> <a href="/ie/rename?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Delete</a></td>
 </tr>
 {{end}}
 </table>

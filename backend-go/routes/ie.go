@@ -28,7 +28,7 @@ import (
 
 // 经典界面：给 IE8 这类老浏览器用的 HTML 版本。
 //
-// 只有登录 / 登出 / 浏览 / 下载，靠表单与链接完成；JS 只用在登录页切换两种登录方式，
+// 只有登录 / 登出 / 浏览 / 查看 / 下载，靠表单与链接完成；JS 只用在登录页切换两种登录方式，
 // 关掉 JS 其余功能照常可用（降级为两条输入框都显示，由 radio 的值决定用哪一个）。
 // 没有预览。它挂在 /ie 下，与 /api 的 JSON 接口、SPA 的静态资源并存，共用一个会话 cookie。
 // 见 docs/design/api.md §15。
@@ -53,6 +53,7 @@ func RegisterIE(e *echo.Echo) {
 	g.POST("/login", ieLoginSubmit, middlewares.LoginRateLimiter())
 	g.POST("/logout", ieLogout)
 	g.GET("/browse", ieBrowse, ieRequireAuth)
+	g.GET("/view", ieView, ieRequireAuth)
 	g.GET("/download", ieDownload, ieRequireAuth)
 	g.POST("/upload", ieUpload, ieRequireAuth)
 	g.POST("/mkdir", ieMkdir, ieRequireAuth)
@@ -231,15 +232,23 @@ func ieBrowse(c echo.Context) error {
 	view := ieBrowseView{
 		Path:   res.Path,
 		CSRF:   ieCSRF(c),
-		Parent: ieParent(res.Path, drives),
+		Parent: ieParent(res.Path),
 		Notice: ieNotice(c),
 		Page:   page,
 	}
 	for _, drive := range drives {
-		view.Drives = append(view.Drives, ieLink{Path: drive.Path, Label: fileops.BaseName(drive.Path)})
+		view.Drives = append(view.Drives, ieLink{
+			Path:    drive.Path,
+			Label:   fileops.BaseName(drive.Path),
+			Current: ieSameLocation(drive.Path, res.Path),
+		})
 	}
 	for _, favourite := range ieFavourites() {
-		view.Favourites = append(view.Favourites, ieLink{Path: favourite, Label: fileops.BaseName(favourite)})
+		view.Favourites = append(view.Favourites, ieLink{
+			Path:    favourite,
+			Label:   fileops.BaseName(favourite),
+			Current: ieSameLocation(favourite, res.Path),
+		})
 	}
 	for _, entry := range entries[start:end] {
 		view.Entries = append(view.Entries, ieEntryView{
@@ -262,19 +271,44 @@ func ieBrowse(c echo.Context) error {
 	return ieRender(c, http.StatusOK, "browse.html", view)
 }
 
+// ieView 内联打开一个文件：列表里的文件名指向这里，并且带 target="_blank"，
+// 所以点击是「在新窗口里打开」。浏览器能渲染的类型（文本 / 图片 / PDF）直接显示，
+// 渲染不了的它自己会另存——那由浏览器判断，这里只负责不给 attachment 头。
+func ieView(c echo.Context) error {
+	res, apiErr := resolvePath(c.QueryParam("path"))
+	if apiErr != nil {
+		return ieError(c, apiErr)
+	}
+	return ieFailIfUncommitted(c, serveFileContent(c, res, false))
+}
+
+// ieDownload 永远另存：行尾的 Download 链接指向这里。
+//
+// 文件直接给字节；目录打包成 <文件夹名>.zip——用的就是 REST 的 /api/fs/downloads
+// 那条路（downloadMulti）：可读性预检、文件名、流式压缩都是同一份实现。经典界面没有
+// 多选，所以一次只有一个目录。
 func ieDownload(c echo.Context) error {
 	res, apiErr := resolvePath(c.QueryParam("path"))
 	if apiErr != nil {
 		return ieError(c, apiErr)
 	}
-	if err := serveFileContent(c, res, true); err != nil {
-		// 目录、读不到之类的失败在响应发出前转成 HTML 错误页；已经开始写字节就原样返回。
-		if apiErr, ok := err.(*apierr.Error); ok && !c.Response().Committed {
-			return ieError(c, apiErr)
-		}
-		return err
+	st, err := os.Stat(res.OSPath())
+	if err != nil {
+		return ieError(c, fsError(err, res.Network()))
 	}
-	return nil
+	if st.IsDir() {
+		return ieFailIfUncommitted(c, downloadMulti([]string{res.Path}, c))
+	}
+	return ieFailIfUncommitted(c, serveFileContent(c, res, true))
+}
+
+// ieFailIfUncommitted 把「响应还没开始写」的错误转成经典界面的 HTML 错误页；
+// 已经开始写字节（比如压缩流中途失败）就原样返回，绝不在流里再塞一段 HTML。
+func ieFailIfUncommitted(c echo.Context, err error) error {
+	if apiErr, ok := err.(*apierr.Error); ok && !c.Response().Committed {
+		return ieError(c, apiErr)
+	}
+	return err
 }
 
 // ieUpload 收下经典界面的上传（POST /ie/upload?path=<目录>）。
@@ -641,9 +675,14 @@ type ieEntryView struct {
 
 // ieLink 是侧栏里的一项：链接指向完整 Path，显示的 Label 只取最后一段（完整路径放在
 // title 里，鼠标悬停还能看到；根路径没有最后一段，fileops.BaseName 会退回 "/" 或 "C:"）。
+//
+// Current 由服务端比较好，而不是把路径比较写进模板：模板里的字符串相等要求两侧逐字
+// 相同，而浏览用的 canonical 路径与收藏里存的路径未必如此（尾斜杠最常见）。比较规则
+// 见 ieSameLocation。
 type ieLink struct {
-	Path  string
-	Label string
+	Path    string
+	Label   string
+	Current bool
 }
 
 // ieDialogView 是改名 / 删除确认这种「一问一答」页面的数据。
@@ -774,23 +813,35 @@ func ieBrowseURL(path string, page int) string {
 	return out
 }
 
-// ieParent 返回上一级；已经是位置根就返回空（模板据此不显示 Up）。
-func ieParent(p string, drives []types.Drive) string {
+// ieParent 返回上一级；已经到顶就返回空（模板据此不显示 Up）。
+//
+// 判据是「父目录能不能解析」——那正是点下去会不会 403 的同一个判断。于是允许根之下
+// 的每一级都能继续往上走，一直走到根自身为止；根再往上是范围之外，不给入口。
+//
+// 以前这里还额外看「父目录是不是枚举出来的一个位置」，那会让允许根本身变成停点：
+// 浏览 /mnt/dev-drive/Projects 时父目录 /mnt/dev-drive 是列表里的位置，Up 就没了。
+// 位置是导航的入口，不是边界，边界只有允许根（和路径语法上的根）。
+func ieParent(p string) string {
 	parent := fileops.DirName(p)
-	// "C:/Users" 的父级是 "C:"（canonical 的盘符根写法），补上斜杠才是可浏览的根。
-	if strings.HasSuffix(parent, ":") {
-		parent += "/"
-	}
-	// 语法根、UNC 的主机名（"//host" 不是一个能浏览的位置）。
-	if parent == "" || parent == p || (strings.HasPrefix(parent, "//") && strings.Count(parent, "/") == 2) {
+	// 语法根（"/"、"C:"、"//host/share"）的父目录就是自己，盘符根还可能是 "C:" 与
+	// "C:/" 这种同位置不同写法，所以按「同一个位置」判，而不是逐字相等。
+	if parent == "" || fileops.SamePath(parent, p) {
 		return ""
 	}
-	for _, drive := range drives {
-		if parent == drive.Path {
-			return ""
-		}
+	if _, err := fileops.Resolve(parent); err != nil {
+		return ""
 	}
 	return parent
+}
+
+// ieSameLocation 判断侧栏条目是不是当前所在的位置。
+//
+// 不逐字比较：浏览路径是 canonical 的（`/mnt/dev-drive/Projects`），而收藏里存的是
+// 前端 normalizeListingPath 的结果（`/mnt/dev-drive/Projects/`，带尾斜杠），逐字比
+// 永远不相等，收藏项也就永远高亮不了。SamePath 会归一化尾斜杠与盘符 / UNC 主机名的
+// 大小写，正是这里需要的「同一个位置」。
+func ieSameLocation(item, current string) bool {
+	return fileops.SamePath(item, current)
 }
 
 // ieFavourites 读服务端设置里的收藏列表（前端写在 file_lite_stared_path）。

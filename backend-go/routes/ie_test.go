@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"html"
@@ -298,6 +299,32 @@ func TestIEClassicSidebarLabelsAndPathForm(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("路径框缺少 %q", want)
 		}
+	}
+}
+
+// 侧栏高亮按「同一个位置」判定，而不是逐字相等：收藏里存的是前端 normalizeListingPath
+// 的结果（带尾斜杠），浏览路径是 canonical 的（不带尾斜杠），逐字比较永远不相等。
+func TestIEClassicSidebarHighlightsCurrent(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "notes")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	slash := filepath.ToSlash(dir)
+	if _, err := utils.SetSettingsValue(ieStaredPathKey, []any{slash + "/"}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = utils.DeleteSettingsValue(ieStaredPathKey) })
+
+	e := newIEServer()
+	hit := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(slash), "", true)
+	if !strings.Contains(hit.Body.String(), `class="side-link current"`) {
+		t.Errorf("当前目录命中收藏时应当高亮：%s", hit.Body.String())
+	}
+
+	miss := ieCall(t, e, http.MethodGet, "/ie/browse?path="+url.QueryEscape(filepath.ToSlash(base)), "", true)
+	if strings.Contains(miss.Body.String(), `class="side-link current"`) {
+		t.Errorf("没有命中的目录不该高亮：%s", miss.Body.String())
 	}
 }
 
@@ -789,10 +816,18 @@ func TestIEClassicBrowseAndDownload(t *testing.T) {
 		t.Fatalf("浏览 = %d：%s", page.Code, page.Body.String())
 	}
 	body := page.Body.String()
-	for _, want := range []string{"visible.txt", ".hidden.txt", "sub/", "/ie/download?path=", "Drives", "Favourites", ">Top</a>"} {
+	// 工具栏的 Home 链接（原来叫 Top，改名时这条断言漏改了）。
+	for _, want := range []string{"visible.txt", ".hidden.txt", "sub/", "/ie/download?path=", "Drives", "Favourites", ">Home</a>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("页面里缺少 %q", want)
 		}
+	}
+	// 文件名是「在新窗口里打开」的链接，下载是它右边的独立动作；目录也能打包下载。
+	if !strings.Contains(body, `/ie/view?path=`) || !strings.Contains(body, `target="_blank"`) {
+		t.Error("文件名应当是在新窗口里打开的链接")
+	}
+	if got := strings.Count(body, ">Download</a>"); got != 3 {
+		t.Errorf("两个文件和一条目录各有一个 Download；得到 %d 个", got)
 	}
 	// 目录排在同级文件之前（服务端排序）。
 	if strings.Index(body, "sub/") > strings.Index(body, "visible.txt") {
@@ -800,6 +835,17 @@ func TestIEClassicBrowseAndDownload(t *testing.T) {
 	}
 
 	file := filepath.Join(dir, "visible.txt")
+	view := ieCall(t, e, http.MethodGet, "/ie/view?path="+url.QueryEscape(filepath.ToSlash(file)), "", true)
+	if view.Code != http.StatusOK {
+		t.Fatalf("打开 = %d：%s", view.Code, view.Body.String())
+	}
+	if got := view.Body.String(); got != "hello" {
+		t.Fatalf("打开的内容 = %q", got)
+	}
+	if disposition := view.Header().Get("Content-Disposition"); !strings.HasPrefix(disposition, "inline") {
+		t.Fatalf("打开必须带内联头，得到 %q", disposition)
+	}
+
 	download := ieCall(t, e, http.MethodGet, "/ie/download?path="+url.QueryEscape(filepath.ToSlash(file)), "", true)
 	if download.Code != http.StatusOK {
 		t.Fatalf("下载 = %d：%s", download.Code, download.Body.String())
@@ -809,6 +855,43 @@ func TestIEClassicBrowseAndDownload(t *testing.T) {
 	}
 	if disposition := download.Header().Get("Content-Disposition"); !strings.HasPrefix(disposition, "attachment") {
 		t.Fatalf("下载必须带附件头，得到 %q", disposition)
+	}
+}
+
+// 目录的 Download 打包成 <文件夹名>.zip 流出去，用的是 REST 那条路的同一个实现。
+func TestIEClassicDownloadFolderAsZip(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "docs")
+	if err := os.Mkdir(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "a.txt"), []byte("inside"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := newIEServer()
+	rec := ieCall(t, e, http.MethodGet, "/ie/download?path="+url.QueryEscape(filepath.ToSlash(sub)), "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("打包下载 = %d：%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/zip" {
+		t.Fatalf("打包的 Content-Type = %q", ct)
+	}
+	if disposition := rec.Header().Get("Content-Disposition"); !strings.Contains(disposition, "docs.zip") {
+		t.Fatalf("打包文件名应当来自目录名，得到 %q", disposition)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+	if err != nil {
+		t.Fatalf("响应不是有效的 zip：%v", err)
+	}
+	names := make([]string, 0, len(zr.File))
+	for _, f := range zr.File {
+		names = append(names, f.Name)
+	}
+	// 压缩包里的分隔符跟着 zipPath 走（Windows 上是反斜杠），所以用 filepath.Join 拼。
+	if !strings.Contains(strings.Join(names, "\n"), filepath.Join("docs", "a.txt")) {
+		t.Errorf("zip 里应当有 docs/a.txt，得到 %v", names)
 	}
 }
 
@@ -844,21 +927,37 @@ func TestIESizeAndTimeHelpers(t *testing.T) {
 	}
 }
 
+// Up 只在「父目录还能打开」时出现：允许根之下可以一路往上走到根自身，
+// 根再往上是范围之外（点了只会 403），语法根与 UNC 共享根也停住。
 func TestIEParentStopsAtRoot(t *testing.T) {
-	if got := ieParent("/", nil); got != "" {
+	if got := ieParent("/"); got != "" {
 		t.Errorf("/ 没有上一级，得到 %q", got)
 	}
-	if got := ieParent("//host/share", nil); got != "" {
+	if got := ieParent("//host/share"); got != "" {
 		t.Errorf("UNC 共享根没有上一级，得到 %q", got)
 	}
-	if got := ieParent("/tmp/a", nil); got != "/tmp" {
+	if got := ieParent("/tmp/a"); got != "/tmp" {
 		t.Errorf("/tmp/a 的上一级应当是 /tmp，得到 %q", got)
 	}
-	// 枚举出来的位置根也是停点：主目录本身不该再往上走。
+	// 位置（枚举出来的盘符 / 主目录）不是停点：它之下照常往上走。
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		root := filepath.ToSlash(home)
-		if got := ieParent(root+"/child", []types.Drive{{Path: root}}); got != "" {
-			t.Errorf("位置根之下应当停住，得到 %q", got)
+		if got := ieParent(root + "/child"); !fileops.SamePath(got, root) {
+			t.Errorf("位置根之下的上一级应当是位置根本身，得到 %q", got)
 		}
+	}
+}
+
+// 配置了允许根时，Up 一路走到根，但不会给出根之上（范围外）的入口。
+func TestIEParentStopsAtAllowedRoot(t *testing.T) {
+	base := t.TempDir()
+	withBases(t, base)
+	slash := filepath.ToSlash(base)
+
+	if got := ieParent(slash + "/child"); !fileops.SamePath(got, slash) {
+		t.Errorf("允许根之下应当能往上走，得到 %q", got)
+	}
+	if got := ieParent(slash); got != "" {
+		t.Errorf("允许根本身不该再有上一级，得到 %q", got)
 	}
 }

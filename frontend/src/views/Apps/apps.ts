@@ -121,6 +121,9 @@ export const InternalAppList: InternalAppListItem[] = [
     icon: 'mdi mdi-speedometer',
     component: defineAsyncComponent(() => import('./SpeedTest.vue')),
     singleInstance: true,
+    chrome: {
+      maximized: false,
+    },
   },
   {
     name: 'Keyboard Shortcuts',
@@ -128,6 +131,9 @@ export const InternalAppList: InternalAppListItem[] = [
     icon: 'mdi mdi-keyboard-outline',
     component: defineAsyncComponent(() => import('./KeyboardShortcuts.vue')),
     singleInstance: true,
+    chrome: {
+      maximized: false,
+    },
   },
   {
     name: 'Properties',

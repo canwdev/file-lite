@@ -6,6 +6,7 @@ import { TEXT_SYNC_CHANNELS } from '@/types/server'
 
 const activeChannel = ref<TextSyncChannel>('CH1')
 const textContent = ref('')
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 let applyingRemoteText = false
 let stopSharedWsSubscription: (() => void) | null = null
@@ -113,9 +114,23 @@ function clearText() {
   textContent.value = ''
 }
 
+/**
+ * 打开就可以直接打字：把光标放进输入框。
+ *
+ * 窗口根节点是 `v-show` 的，而它要到 ViewPortWindow 的 onMounted 里才真正显示
+ * （子组件的 onMounted 先跑），所以挂载时直接 focus 会落在 `display: none` 上、不生效。
+ * 等这一轮 DOM 刷完（父组件已把它显示出来）再聚焦；窗口管理器随后把焦点放到内容容器时，
+ * focusContent 会因为「焦点已在窗口内」而跳过，不会抢走。
+ */
+async function focusTextarea(): Promise<void> {
+  await nextTick()
+  textareaRef.value?.focus({ preventScroll: true })
+}
+
 onMounted(() => {
   stopSharedWsSubscription = subscribeSharedWsMessage(handleSharedWsMessage)
   void ensureTextSyncConnected()
+  void focusTextarea()
 })
 
 onBeforeUnmount(() => {
@@ -159,6 +174,7 @@ onBeforeUnmount(() => {
     </div>
 
     <textarea
+      ref="textareaRef"
       v-model="textContent"
       class="vgo-input text-sync-textarea"
       spellcheck="false"

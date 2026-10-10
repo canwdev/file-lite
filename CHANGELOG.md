@@ -6,6 +6,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Text Sync**: Opening the app focuses the textarea, so typing (or pasting) can start right away (frontend).
+- **Utility windows**: Speed Test and Keyboard Shortcuts open as normal windows instead of maximised (frontend).
 - **Gallery controls**: The whole overlay layer — navigation buttons, the collection button at the bottom left, the zoom toolbar, the thumbnail strip and its progress band — shares one palette that follows the theme (light surfaces with dark icons in light mode, dark surfaces with light icons in dark mode), and the wheel and the navigation buttons step through media instantly instead of sliding; only a swipe still animates (frontend).
 - **Settings**: The Preview section is now Data and no longer has an Image cache row of its own (the cache is cleared from Local data); the Page section is gone and Title moved to the end of Appearance (frontend).
 - **Delete dialog**: The delete confirmation lists the file and folder names in bold, shows folder names in the danger colour, and lists at most the first five names (frontend).
@@ -82,10 +84,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Fallback**: A browser that cannot run the app, or one with JavaScript turned off, is now given a link to the classic `/ie` interface instead of a dead-end message (frontend).
 - **Classic UI**: The `/ie` HTML interface, laid out and styled like a Windows 95 window with a favourites/drives sidebar, gives old browsers such as IE8 sign-in (a password or a login ticket picked in the same form), folder browsing and download (backend).
 - **Classic UI files**: The same interface can upload files, create a folder, rename and delete; deleting opens its own confirmation page first (backend).
+- **Classic UI opening**: In the `/ie` interface a file name opens the file inline in a new window instead of saving it, and every file row has its own Download link in the actions column (backend).
+- **Classic UI folder download**: In the `/ie` interface the Download action also works on a folder, saving it as `<folder>.zip` (backend).
+- **Classic UI rows**: In the `/ie` list, the row under the pointer is highlighted (backend).
 - **Hidden files**: Hidden files are shown by default in both the app and the classic interface (frontend).
 
 ### Fixes
 
+- **Text Sync**: A channel's text now survives reopening the app, reconnecting, and the last client leaving or reloading the page — it stays in server memory until the process restarts. Joining a channel you are already in is also a no-op now, instead of leaving and re-entering it (backend).
 - **Shortcuts and dialogs**: While a confirmation dialog or a context menu is open, the page behind it no longer reacts to keyboard shortcuts such as the arrow keys or Delete — the dialog keeps the keyboard (frontend).
 - **Breadcrumb menu**: When the subfolder dropdown is long enough to scroll, it now scrolls instantly to the highlighted current folder instead of leaving it out of view (frontend).
 - **Folder previews**: A folder's thumbnail preview updates when files are added, deleted, renamed or moved inside it, instead of showing the old contents until the page is reloaded (frontend).
@@ -120,6 +126,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Tabs and navigation**: “Open in new Tab” always opens another tab, and Up/breadcrumb navigation stops at the starting location (frontend).
 - **Properties and stale listings**: The Properties window works on network shares and mapped drives, and folder listings no longer stay stale after operations underneath a drive root (backend).
 - **Top bar**: The tab strip uses the dark surface colour in dark mode (frontend).
+- **Classic UI navigation**: In the `/ie` interface the Up button climbs to the allowed root instead of stopping at the first listed location, and a favourite or drive is highlighted when it is the folder currently open (backend).
+- **Classic UI actions**: In the `/ie` list the row actions (Download / Rename / Delete) are spaced apart instead of running together (backend).
 
 ### Engineering
 

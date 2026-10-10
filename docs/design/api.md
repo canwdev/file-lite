@@ -620,6 +620,12 @@ Only the collaboration channel sends messages:
 Anything else is answered with an error message and otherwise ignored. There is no
 request/response correlation over the socket; commands are HTTP.
 
+A channel's text lives in server memory until the process restarts, and `join` is
+idempotent: joining the channel you are already in only reports its current text. (Leaving
+and re-entering instead would drop the text whenever the caller is the last client in that
+channel.) A `sync` therefore goes to the joining client alone on `join`, and to every
+client in the channel on an `update`.
+
 ### Server → client
 
 | `scope` | `type` | Meaning |
@@ -634,7 +640,7 @@ request/response correlation over the socket; commands are HTTP.
 | `settings` | `sync` | One key changed (`key`, `value`); a full snapshot is sent on connect |
 | `measurements` | `progress` | A measurement's partial size/counts |
 | `measurements` | `result` | A measurement finished (`complete: true`) or was interrupted |
-| `text-sync` | `sync` | Another client updated a channel |
+| `text-sync` | `sync` | A channel's text: the reply to a `join`, and the broadcast of an `update` to everyone in that channel |
 | any | `error` | The message could not be parsed, or a text-sync channel was rejected |
 
 Reconnect contract: on connect the server replays the task snapshot, the pending
@@ -752,9 +758,9 @@ These do not follow the resource rules above, on purpose:
   body is authoritative.
 - **`/ie/*` is a second, HTML-only surface** for old browsers (IE8 and
   friends): `GET /ie` (redirect to the first location), `GET|POST /ie/login`,
-  `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/download?path=`,
-  `POST /ie/upload?path=`, `POST /ie/mkdir?path=`, `GET|POST /ie/rename?path=`,
-  `GET|POST /ie/delete?path=`. It renders
+  `POST /ie/logout`, `GET /ie/browse?path=&page=`, `GET /ie/view?path=`,
+  `GET /ie/download?path=`, `POST /ie/upload?path=`, `POST /ie/mkdir?path=`,
+  `GET|POST /ie/rename?path=`, `GET|POST /ie/delete?path=`. It renders
   HTML instead of JSON, so it can only use GET and POST forms and it authenticates with
   the same session cookies; the logout form carries the session value in a `csrf` field
   instead of the `X-File-Lite-CSRF` header. It reuses the same internals (`authenticate`,
@@ -795,6 +801,18 @@ These do not follow the resource rules above, on purpose:
   and form actions are rendered with it) and answer with a redirect back to that page; a
   `page` that no longer exists is a 302 to the last one that does, with the `notice` kept,
   rather than an empty listing.
+  `GET /ie/view` serves a file inline (`serveFileContent` without the attachment header)
+  and `GET /ie/download` serves it as an attachment; a directory is packed into
+  `<name>.zip` by `downloadMulti`, the same implementation `GET /api/fs/downloads` uses.
+  A row's file name links to the viewer with `target="_blank"`, so clicking opens the file
+  in a new window instead of saving it, and every row — folders included — carries its own
+  Download link in the actions column.
+  A listing renders Up only when its parent still resolves — that is the same check the
+  request itself would go through — so navigation can climb to the allowed root but is
+  never offered a step outside it, and a listed location (a drive or a mount point) is
+  not a stop on the way up. The sidebar marks the current location by comparing paths as
+  locations (`fileops.SamePath`) rather than as strings, because a favourite is stored
+  with the trailing slash a canonical browse path does not have.
 
 ## 16. Change policy
 

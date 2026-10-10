@@ -2,6 +2,9 @@ package routes
 
 const sharedWSMaxTextBytes = 64 * 1024
 
+// 通道文本常驻内存，只在服务端进程重启时清空：刷新页面、断线重连都会重新 join，
+// 文本跟着人走就没了。每个通道上限 64 KiB、通道只有 CH1~CH3 三个，留着远比丢掉划算。
+// `clients` 只记成员关系，空了也不删通道。
 var (
 	sharedWSAllowedChannels = map[string]struct{}{
 		"CH1": {},
@@ -48,6 +51,16 @@ func sharedWSJoinTextSyncChannel(client *sharedWSClient, next string) {
 	sharedWSState.Lock()
 	defer sharedWSState.Unlock()
 
+	// 已经在同一个通道里：直接回一份当前内容，不要先退再进。
+	//
+	// 退出的若是最后一个人，通道连同里面的文本会被删掉，接着重新建出来就是空的 ——
+	// 表现就是「重开 Text Sync 窗口（或前端重连）之后，之前同步的文本不见了」。
+	// join 因此做成幂等：重复 join 只回报状态，不动成员关系。
+	if client.textSyncChannel == next {
+		sharedWSSendTextSyncStateLocked(client, next)
+		return
+	}
+
 	if client.textSyncChannel != "" {
 		sharedWSLeaveTextSyncChannelLocked(client, client.textSyncChannel)
 	}
@@ -63,11 +76,21 @@ func sharedWSJoinTextSyncChannel(client *sharedWSClient, next string) {
 	state.clients[client] = struct{}{}
 	client.textSyncChannel = next
 
+	sharedWSSendTextSyncStateLocked(client, next)
+}
+
+// sharedWSSendTextSyncStateLocked 把某个通道的当前文本回给一个客户端，调用方需持有 sharedWSState。
+// 通道不存在就是空串：这个通道还没有人写过内容。
+func sharedWSSendTextSyncStateLocked(client *sharedWSClient, channel string) {
+	text := ""
+	if state := sharedWSTextSyncState.channels[channel]; state != nil {
+		text = state.text
+	}
 	sendSharedWSJSON(client, map[string]any{
 		"scope":   "text-sync",
 		"type":    "sync",
-		"channel": next,
-		"text":    state.text,
+		"channel": channel,
+		"text":    text,
 	})
 }
 
@@ -85,10 +108,9 @@ func sharedWSLeaveTextSyncChannelLocked(client *sharedWSClient, channel string) 
 		return
 	}
 
+	// 只解除成员关系，**不删通道**：最后一个客户端离开（关页面、断线、切通道）之后
+	// 文本仍然留着，重新 join 的人拿到的还是之前同步的内容。代价见文件头的说明。
 	delete(state.clients, client)
-	if len(state.clients) == 0 {
-		delete(sharedWSTextSyncState.channels, channel)
-	}
 }
 
 func broadcastSharedWSTextSync(channel, text string) {
