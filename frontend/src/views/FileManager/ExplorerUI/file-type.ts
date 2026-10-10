@@ -7,7 +7,7 @@ import type { IEntry } from '@/types/server'
  */
 export function getEntryTypeLabel(entry: Pick<IEntry, 'isDirectory' | 'ext'>) {
   if (entry.isDirectory) {
-    return $t('file_lite_i18n.file_folder')
+    return $t('file_lite_i18n.folder')
   }
   const ext = (entry.ext || '').toLowerCase()
   if (!ext) {

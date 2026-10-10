@@ -11,7 +11,7 @@ import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
-import { appWindows, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
+import { appWindows, toggleKeyboardShortcutsApp, toggleSettingsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
 import ConflictDialog from './ExplorerUI/ConflictDialog.vue'
 import { acceptDirDrag, dragEnabledKey, dropIntoDir, isStarDrag, STAR_DRAG_MIME } from './ExplorerUI/entry-drag'
@@ -220,6 +220,14 @@ useShortcut({
 
 useShortcut({
   scope: SHELL_SHORTCUT_SCOPE,
+  combo: ['ctrl+,', 'meta+,'],
+  description: 'Open / close settings',
+  disabled: shellAppToggleDisabled,
+  handler: () => toggleSettingsApp(),
+})
+
+useShortcut({
+  scope: SHELL_SHORTCUT_SCOPE,
   combo: ['ctrl+\\', 'meta+\\'],
   description: 'Split / unsplit view',
   disabled: shellTabShortcutsDisabled,
@@ -393,7 +401,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
       onClick: () => openPathInNewTab(path),
     },
     {
-      label: 'UnStar',
+      label: $t('file_lite_i18n.remove_from_favorites'),
       icon: 'mdi mdi-star-off-outline',
       onClick: () => removeStarredPath(path),
     },

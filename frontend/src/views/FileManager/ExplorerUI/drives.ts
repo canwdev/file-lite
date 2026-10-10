@@ -151,14 +151,14 @@ export function driveIcon(item: Pick<IDrive, 'label' | 'kind' | 'total'>): strin
  * 文件系统单独一行：卷标已经占了可见文字，类型（ext4、9p、iso9660）放 title 里就够。
  */
 export function driveTitle(item: Pick<IDrive, 'path' | 'fileSystem' | 'free' | 'total'>): string {
-  const lines = [$t('file_lite_i18n.path_0', [item.path])]
+  const lines = [`${$t('file_lite_i18n.path')}: ${item.path}`]
   if (item.fileSystem)
-    lines.push($t('file_lite_i18n.file_system_0', [item.fileSystem]))
+    lines.push(`${$t('file_lite_i18n.file_system')}: ${item.fileSystem}`)
   if (item.total && item.free) {
     const used = item.total - item.free
     const pct = ((used / item.total) * 100).toFixed(0)
-    lines.push($t('file_lite_i18n.used_0_1_2', [bytesToSize(used), bytesToSize(item.total), pct]))
-    lines.push($t('file_lite_i18n.available_0', [bytesToSize(item.free)]))
+    lines.push(`${$t('file_lite_i18n.used')}: ${bytesToSize(used)}/${bytesToSize(item.total)} (${pct}%)`)
+    lines.push(`${$t('file_lite_i18n.available')}: ${bytesToSize(item.free)}`)
   }
   return lines.join('\n')
 }

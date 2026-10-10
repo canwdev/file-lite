@@ -24,7 +24,7 @@ const {
 
 function itemSize(isDirectory: boolean, size?: number) {
   if (isDirectory) {
-    return $t('file_lite_i18n.file_folder')
+    return $t('file_lite_i18n.folder')
   }
   return typeof size === 'number' ? bytesToSize(size) : ''
 }

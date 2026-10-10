@@ -272,7 +272,7 @@ const tableColumns = computed(() => {
     },
     {
       key: 'ext',
-      label: $t('file_lite_i18n.extension'),
+      label: $t('file_lite_i18n.ext'),
       width: 70,
       formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''),
       sortField: 'extension' as const,
@@ -288,7 +288,7 @@ const tableColumns = computed(() => {
     },
     {
       key: 'lastModified',
-      label: $t('file_lite_i18n.modified'),
+      label: $t('file_lite_i18n.modify_time'),
       width: 140,
       formatter: (item: IEntry) => formatDate(item.lastModified),
       sortField: 'lastModified' as const,
@@ -296,7 +296,7 @@ const tableColumns = computed(() => {
     },
     {
       key: 'birthtime',
-      label: $t('file_lite_i18n.created'),
+      label: $t('file_lite_i18n.create_time'),
       width: 140,
       formatter: (item: IEntry) => formatDate(item.birthtime),
       sortField: 'birthTime' as const,
@@ -1198,7 +1198,7 @@ function getMenuOptions() {
           },
         },
         {
-          label: $t('file_lite_i18n.file_folder'),
+          label: $t('file_lite_i18n.folder'),
           icon: 'mdi mdi-folder-plus-outline',
           shortcut: 'F7',
           onClick() {

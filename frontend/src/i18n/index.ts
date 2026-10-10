@@ -67,8 +67,7 @@ export const $t: Composer['t'] = composer.t.bind(composer)
 /**
  * 省略号不进语言包，调用点自己拼。
  *
- * 写成常量而不是字面量：`$t('x') + '…'` 会被 lint 要求改成模板字符串，
- * 而 `` `${$t('x')}…` `` 又会被提取脚本当成带插值的文案重新提取。
+ * 写成常量而不是字面量：`$t('x') + '…'` 会被 lint 要求改成模板字符串
  */
 export const ELLIPSIS = '…'
 

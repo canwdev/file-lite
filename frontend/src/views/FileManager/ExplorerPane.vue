@@ -500,7 +500,7 @@ useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope.value,
   combo: 'alt+d',
-  description: 'Star / unstar folder',
+  description: 'Toggle favorite folder',
   handler: () => toggleStar(basePathNormalized.value),
 })
 
@@ -589,7 +589,7 @@ defineExpose({
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                :title="`${$t('file_lite_i18n.toggle_star')} (alt+d)`"
+                :title="`${$t('file_lite_i18n.toggle_favorite')} (alt+d)`"
                 @click="toggleStar(basePathNormalized)"
                 @contextmenu.prevent.stop="showStarredMenu($event)"
               >

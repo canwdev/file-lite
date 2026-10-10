@@ -198,8 +198,8 @@ async function clearLocalData() {
   })
   const choices: { key: keyof typeof selected, label: string }[] = [
     { key: 'media', label: $t('file_lite_i18n.last_opened_media_per_folder') },
-    { key: 'collection', label: $t('file_lite_i18n.collected_items_endless_gallery') },
-    { key: 'folderState', label: `${$t('file_lite_i18n.folder_state')} (scroll position & sort mode)` },
+    { key: 'collection', label: $t('file_lite_i18n.collected_items_endless_gallery', [$t('file_lite_i18n.endless_gallery')]) },
+    { key: 'folderState', label: $t('file_lite_i18n.folder_state') },
     { key: 'imageCache', label: cacheLabel },
   ]
 
@@ -300,7 +300,7 @@ const options = computed<VgoOptionItem[]>(() => [
         label: $t('file_lite_i18n.remember_last_opened_media'),
         key: 'rememberLastMedia',
         type: VgoOptionType.SWITCH,
-        subtitle: $t('file_lite_i18n.media_player_shows_a_resume_butt'),
+        subtitle: $t('file_lite_i18n.media_player_shows_a_resume_butt', [$t('file_lite_i18n.media_player')]),
       },
       {
         label: $t('file_lite_i18n.open_apps_with_the_filtered_list'),

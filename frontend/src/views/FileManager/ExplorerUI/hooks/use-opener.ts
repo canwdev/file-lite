@@ -262,7 +262,7 @@ export function useOpener(basePath: { value: string }) {
           { label: $t('file_lite_i18n.file_viewer'), value: 'viewer' },
         ]
         if (canExtract) {
-          buttons.push({ label: 'Extract...', value: 'extract' })
+          buttons.push({ label: $t('file_lite_i18n.extract') + ELLIPSIS, value: 'extract' })
         }
         buttons.push({ label: $t('file_lite_i18n.open_in_browser'), variant: 'primary', value: 'browser' })
         const action = await showModalWindow<UnsupportedAction>({

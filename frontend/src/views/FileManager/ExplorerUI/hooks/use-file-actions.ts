@@ -357,12 +357,12 @@ export function useFileActions({
       divided: true,
       children: [
         {
-          label: 'Compress...',
+          label: $t('file_lite_i18n.compress') + ELLIPSIS,
           icon: 'mdi mdi-archive-arrow-up-outline',
           onClick: () => { void compressSelection() },
         },
         {
-          label: 'Extract...',
+          label: $t('file_lite_i18n.extract') + ELLIPSIS,
           icon: 'mdi mdi-archive-arrow-down-outline',
           disabled: !canExtractSelection(),
           onClick: () => { void extractSelection() },

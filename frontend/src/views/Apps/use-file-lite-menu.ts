@@ -8,23 +8,11 @@ import { useWakeLockToggle } from '@/hooks/use-wake-lock'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { InternalAppEnum } from '@/views/Apps/apps'
-import { openAppWindow, openPluginWindow, toggleKeyboardShortcutsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
+import { openAppWindow, openPluginWindow, toggleKeyboardShortcutsApp, toggleSettingsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 
 const internalSpeedTestEntry: IEntry = {
   name: 'SpeedTest',
-  path: '',
-  ext: '',
-  isDirectory: false,
-  hidden: false,
-  lastModified: 0,
-  birthtime: 0,
-  size: 0,
-  error: null,
-}
-
-const internalSettingsEntry: IEntry = {
-  name: $t('file_lite_i18n.settings'),
   path: '',
   ext: '',
   isDirectory: false,
@@ -80,14 +68,10 @@ export function useFileLiteMenu() {
         {
           label: $t('file_lite_i18n.settings'),
           icon: 'mdi mdi-cog',
+          shortcut: 'Ctrl+,',
           divided: true,
           onClick: () => {
-            openAppWindow(InternalAppEnum.Settings, {
-              absPath: '',
-              item: internalSettingsEntry,
-              basePath: '',
-              list: [],
-            })
+            toggleSettingsApp()
           },
         },
         {

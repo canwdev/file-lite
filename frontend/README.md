@@ -1,29 +1,28 @@
 # frontend
 
-Vue 3 + Vite + TypeScript 前端应用。
+Vue 3 + Vite + TypeScript frontend application.
 
-## 开发与构建
+## Development and Build
 
-使用 Bun 安装依赖并执行脚本。构建脚本里的 `vite` 由 Node 执行，因此还需要 Node `^20.19.0 || >=22.12.0`。
+Use Bun to install dependencies and run scripts. The `vite` in the build script is executed by Node, so Node `^20.19.0 || >=22.12.0` is also required.
 
 ```sh
 bun i
 
-# 开发
+# development
 bun run dev
 
-# 构建：输出到 backend-go/frontend/，并打包为 backend-go/frontend-assets.tar.gz（Go 二进制内嵌的 gzip 压缩资源）
+# build: outputs to backend-go/frontend/, and packages as backend-go/frontend-assets.tar.gz (gzip-compressed assets embedded in the Go binary)
 bun run build
 ```
 
-## 国际化
+## Internationalization
 
-- 语言包在 `src/i18n/locales/<locale>/index.json`，所有文案挂在单层命名空间 `file_lite_i18n` 下。
-- `en-US` 是基准语言；其它语言里没翻到的条目运行期回退到 `en-US`。
-- 语言包按需异步引入（`loadLocaleMessages`）：只下载当前用到的语言，不进主包。
-- 模板里用 `$t`（vue-i18n 注入），`<script setup>` 与 `.ts` 里的 `$t` 由 unplugin-auto-import 从 `@/i18n` 自动引入。
-- 界面语言存在服务端 `file_lite_settings_store` 的 `language` 字段；首次访问按浏览器语言检测并写回。
-- 新增非技术文案直接改语言包（不再有提取脚本）；**同样的意思优先复用已有条目**，不要另起一条；用户没有要求翻译就不要自动翻译。
-- 技术性内容保持字面量、不进语言包：抛出的异常、`hooks/` 与 `api/` 里的错误信息、`useShortcut` 的 `description`、按键名、比较值以及纯格式串（URL、CSS、HTML）。
-- 省略号也不进语言包：语言包里存不带省略号的文案，调用点用 `ELLIPSIS`（见 `src/i18n/index.ts`）或模板里直接写 `…` 拼上。
-
+- Locale files are at `src/i18n/locales/<locale>/index.json`; all copy is under a single-level namespace `file_lite_i18n`.
+- `en-US` is the base language; entries not translated in other languages fall back to `en-US` at runtime.
+- Locale files are imported asynchronously on demand (`loadLocaleMessages`): only the currently used language is downloaded, not included in the main bundle.
+- In templates use `$t` (injected by vue-i18n); `$t` in `<script setup>` and `.ts` is auto-imported from `@/i18n` by unplugin-auto-import.
+- The UI language is stored in the `language` field of the server-side `file_lite_settings_store`; on first visit it is detected from the browser language and written back.
+- To add non-technical copy, edit the locale files directly; **prefer reusing existing entries for the same meaning**, do not create a separate entry; do not auto-translate unless the user asks for translation.
+- Keep technical content literal and out of locale files: thrown exceptions, error messages in `hooks/` and `api/`, `description` of `useShortcut`, key names, comparison values, and pure format strings (URL, CSS, HTML).
+- Ellipses also do not go into locale files: store copy without ellipsis in locale files, and append it at the call site using `ELLIPSIS` (see `src/i18n/index.ts`) or by writing `…` directly in the template.

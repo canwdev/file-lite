@@ -42,11 +42,17 @@ a:hover{text-decoration:underline;}
 .uploadrow form{white-space:nowrap;margin-right:12px}
 .uploadrow form.right{margin-right:0;margin-left:12px}
 .uploadrow input{vertical-align:middle}
-.list{width:100%;border-collapse:collapse;background:#fff}
+/* Fixed layout keeps a long file name from widening the table: with auto layout the
+   nowrap name cell stretches the whole table past the panel. Fixed layout takes the
+   column widths from the first (header) row, so Size / Modified / Actions need explicit
+   widths and the name column takes the rest and clips with an ellipsis. */
+.list{table-layout:fixed;width:100%;border-collapse:collapse;background:#fff}
 .list th{background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;padding:1px 6px;text-align:left}
 .list td{border-bottom:1px solid #dfdfdf;padding:1px 6px;white-space:nowrap}
-.list .name{width:100%}
-.list .act{white-space:nowrap}
+.list .name{overflow:hidden;text-overflow:ellipsis}
+.list .size{width:80px}
+.list .time{width:150px}
+.list .act{width:190px;white-space:nowrap}
 /* 行悬停：底色落在单元格上而不是 tr 上——单元格透不出行背景时（老渲染器里常见），
    tr:hover 的高亮就看不见了。 */
 .list tr:hover td{background:#dfdfdf}

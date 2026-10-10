@@ -52,6 +52,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Settings shortcut**: Ctrl+, opens Settings and closes it again, and the global menu shows the shortcut next to the Settings entry (frontend).
 - **Interface language**: The frontend is now translatable. On a first visit the language is detected from the browser and saved in the server settings; Appearance has a Language selector. English is the base language, Simplified Chinese builds on it (untranslated entries fall back to English), and a language file is only downloaded when that language is in use (frontend).
 - **Gallery delete**: The Endless Gallery can delete the current file with Del or the new button under Locate. After confirming, it shows the next item when you were browsing forward and the previous one when you were browsing back, and deleting the last item leaves the empty state (frontend).
 - **Last opened media**: Turning Remember last opened media off keeps the remembered file per folder instead of clearing it; dropping it is explicit, from the explorer's clear button or Clear local data (frontend).
@@ -92,6 +93,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Classic interface**: A long file name is clipped with an ellipsis instead of widening the name column and stretching the table (backend).
 - **Text Sync**: A channel's text now survives reopening the app, reconnecting, and the last client leaving or reloading the page — it stays in server memory until the process restarts. Joining a channel you are already in is also a no-op now, instead of leaving and re-entering it (backend).
 - **Shortcuts and dialogs**: While a confirmation dialog or a context menu is open, the page behind it no longer reacts to keyboard shortcuts such as the arrow keys or Delete — the dialog keeps the keyboard (frontend).
 - **Breadcrumb menu**: When the subfolder dropdown is long enough to scroll, it now scrolls instantly to the highlighted current folder instead of leaving it out of view (frontend).

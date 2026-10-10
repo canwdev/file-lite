@@ -129,7 +129,7 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
         'modelValue': form.separate,
         'onUpdate:modelValue': (value: string | number | boolean) => { form.separate = Boolean(value) },
       }, () => $t('file_lite_i18n.compress_separately')),
-      field(form.separate ? 'Prefix (optional)' : $t('file_lite_i18n.archive_name'), h(ElInput, {
+      field(form.separate ? `${$t('file_lite_i18n.prefix')} (${$t('file_lite_i18n.optional')})` : $t('file_lite_i18n.archive_name'), h(ElInput, {
         'onVnodeMounted': scheduleNameFocus,
         'modelValue': form.separate ? form.prefix : form.name,
         'onUpdate:modelValue': (value: string) => {
@@ -155,7 +155,7 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
       })))),
     ]
     if (!format || format.password) {
-      nodes.push(field('Password (optional)', h(ElInput, {
+      nodes.push(field(`${$t('file_lite_i18n.password')} (${$t('file_lite_i18n.optional')})`, h(ElInput, {
         'modelValue': form.password,
         'type': 'password',
         'showPassword': true,
@@ -211,7 +211,7 @@ export function showExtractDialog(folderLabel: string): Promise<ExtractPromptRes
       h(ElRadio, { value: 'here' }, () => $t('file_lite_i18n.extract_here')),
       h(ElRadio, { value: 'folder' }, () => folderLabel),
     ]),
-    field('Password (optional)', h(ElInput, {
+    field(`${$t('file_lite_i18n.password')} (${$t('file_lite_i18n.optional')})`, h(ElInput, {
       'modelValue': form.password,
       'type': 'password',
       'showPassword': true,

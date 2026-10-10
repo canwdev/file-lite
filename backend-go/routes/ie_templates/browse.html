@@ -52,9 +52,9 @@
 </div>
 <div class="panel">
 <table class="list">
-<tr><th class="name">Name</th><th>Size</th><th>Modified</th><th class="act">Actions</th></tr>
+<tr><th class="name">Name</th><th class="size">Size</th><th class="time">Modified</th><th class="act">Actions</th></tr>
 {{range .Entries}}<tr>
-<td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/view?path={{.Path | urlquery}}" target="_blank" title="Open in a new window">{{.Name}}</a>{{end}}</td>
+<td class="name">{{if .IsDir}}<a href="/ie/browse?path={{.Path | urlquery}}">{{.Name}}/</a>{{else}}<a href="/ie/view?path={{.Path | urlquery}}" target="_blank" title="{{.Name}}">{{.Name}}</a>{{end}}</td>
 <td>{{.Size}}</td><td>{{.Time}}</td>
 <td class="act"><a href="/ie/download?path={{.Path | urlquery}}">Download</a> <a href="/ie/rename?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Rename</a> <a href="/ie/delete?path={{.Path | urlquery}}{{if gt $.Page 1}}&amp;page={{$.Page}}{{end}}">Delete</a></td>
 </tr>

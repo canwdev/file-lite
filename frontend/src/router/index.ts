@@ -111,6 +111,7 @@ function confirmLeave(): Promise<boolean> {
         cancelButtonText: $t('file_lite_i18n.leave'),
         distinguishCancelAndClose: true,
       }).then(() => false, (action: unknown) => action === 'cancel')
+    // eslint-disable-next-line no-alert -- native fallback for when the dialog plugin is not mounted
     : Promise.resolve(window.confirm(leaveMessage))
   const pending = asking.finally(() => {
     leavePrompt = null

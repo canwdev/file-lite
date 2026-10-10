@@ -128,7 +128,7 @@ export function groupKeyFor(
 
 function defaultTypeLabel(entry: IEntry) {
   if (entry.isDirectory)
-    return $t('file_lite_i18n.file_folder')
+    return $t('file_lite_i18n.folder')
   const ext = (entry.ext || '').replace(/^\./, '')
   if (!ext)
     return $t('file_lite_i18n.file')

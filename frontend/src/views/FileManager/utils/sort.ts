@@ -12,10 +12,10 @@ export type SortField = (typeof SORT_FIELDS)[number]
 /** 排序字段的文案 key；取值时翻译，模块级常量会锁死在加载时的语言上。 */
 export const SORT_FIELD_LABEL_KEYS: Record<SortField, string> = {
   name: 'file_lite_i18n.name',
-  extension: 'file_lite_i18n.extension',
+  extension: 'file_lite_i18n.ext',
   size: 'file_lite_i18n.size',
-  lastModified: 'file_lite_i18n.modified',
-  birthTime: 'file_lite_i18n.created',
+  lastModified: 'file_lite_i18n.modify_time',
+  birthTime: 'file_lite_i18n.create_time',
 }
 
 const SORT_FIELD_SET = new Set<string>(SORT_FIELDS)

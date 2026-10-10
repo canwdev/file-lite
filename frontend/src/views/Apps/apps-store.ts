@@ -157,3 +157,8 @@ export function toggleTextSyncApp() {
 export function toggleKeyboardShortcutsApp() {
   toggleInternalApp(InternalAppEnum.KeyboardShortcuts, 'KeyboardShortcuts')
 }
+
+/** Open or close Settings (Ctrl+,). */
+export function toggleSettingsApp() {
+  toggleInternalApp(InternalAppEnum.Settings, 'Settings')
+}

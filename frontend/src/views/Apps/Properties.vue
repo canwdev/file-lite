@@ -184,8 +184,8 @@ const rows = computed<PropertyRow[]>(() => {
     if (multiFolderCount.value) {
       list.push({ label: $t('file_lite_i18n.contains'), value: containsText.value })
     }
-    list.push({ label: $t('file_lite_i18n.modified'), value: formatDateRange(propertiesItems.value.map(item => item.lastModified)) })
-    list.push({ label: $t('file_lite_i18n.created'), value: formatDateRange(propertiesItems.value.map(item => item.birthtime)) })
+    list.push({ label: $t('file_lite_i18n.modify_time'), value: formatDateRange(propertiesItems.value.map(item => item.lastModified)) })
+    list.push({ label: $t('file_lite_i18n.create_time'), value: formatDateRange(propertiesItems.value.map(item => item.birthtime)) })
     return list
   }
 
@@ -198,11 +198,11 @@ const rows = computed<PropertyRow[]>(() => {
     list.push({ label: $t('file_lite_i18n.contains'), value: containsText.value })
   }
   list.push({
-    label: $t('file_lite_i18n.modified'),
+    label: $t('file_lite_i18n.modify_time'),
     value: lastModified.value ? formatDate(lastModified.value, DATE_FORMAT) : null,
   })
   list.push({
-    label: $t('file_lite_i18n.created'),
+    label: $t('file_lite_i18n.create_time'),
     value: birthtime.value ? formatDate(birthtime.value, DATE_FORMAT) : null,
   })
   return list
@@ -217,7 +217,7 @@ const measureProgress = computed(() => {
   if (!propertiesIsMulti.value || !propertiesLoading.value || !multiFolderCount.value) {
     return null
   }
-  return $t('file_lite_i18n.measuring_folders_0_1', [multiMeasuredFolders.value, multiFolderCount.value])
+  return `${$t('file_lite_i18n.measuring_folders')}${ELLIPSIS} ${multiMeasuredFolders.value} / ${multiFolderCount.value}`
 })
 
 const displayError = computed(() => {
