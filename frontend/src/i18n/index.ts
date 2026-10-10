@@ -1,7 +1,5 @@
 import type { Composer } from 'vue-i18n'
 import { createI18n } from 'vue-i18n'
-import enUS from './locales/en-US/index.json'
-import zhCN from './locales/zh-CN/index.json'
 
 /**
  * 所有文案都挂在 `file_lite_i18n` 这一个命名空间下，且只有一层：
@@ -53,10 +51,7 @@ export const i18n = createI18n({
   // 空语言包会让每个 key 都打一条警告，这里按设计关掉。
   missingWarn: false,
   fallbackWarn: false,
-  messages: {
-    'en-US': enUS,
-    'zh-CN': zhCN,
-  },
+  messages: {},
 })
 
 export const composer = i18n.global as unknown as Composer
@@ -77,8 +72,34 @@ export const $t: Composer['t'] = composer.t.bind(composer)
  */
 export const ELLIPSIS = '…'
 
-/** 切换界面语言；同时同步 `<html lang>`。 */
-export function setAppLocale(locale: AppLocale) {
+/** 语言包按需引入：用到哪个语言才下载哪个，也不进主包。 */
+const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
+  'en-US': () => import('./locales/en-US/index.json'),
+  'zh-CN': () => import('./locales/zh-CN/index.json'),
+}
+const loadingLocales = new Map<AppLocale, Promise<void>>()
+
+/** 加载语言包；同一个语言只会真正下载一次。 */
+export function loadLocaleMessages(locale: AppLocale): Promise<void> {
+  const running = loadingLocales.get(locale)
+  if (running) {
+    return running
+  }
+  const task = localeLoaders[locale]().then((module) => {
+    composer.setLocaleMessage(locale, module.default)
+  })
+  loadingLocales.set(locale, task)
+  return task
+}
+
+/** 启动时先把当前语言的包加载好，首屏才不会显示 key。 */
+export function initLocaleMessages(): Promise<void> {
+  return loadLocaleMessages(detectBrowserLocale())
+}
+
+/** 切换界面语言；语言包没下载过会先下载，同时同步 `<html lang>`。 */
+export async function setAppLocale(locale: AppLocale) {
+  await loadLocaleMessages(locale)
   composer.locale.value = locale
   // 单测（bun test）里没有 document
   if (typeof document !== 'undefined')

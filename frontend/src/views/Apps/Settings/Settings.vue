@@ -188,7 +188,7 @@ async function handleExitBackend() {
 
 async function clearLocalData() {
   const stats = cacheStats.value ?? await getImageThumbCacheStats()
-  const cacheLabel = $t('file_lite_i18n.image_preview_cache_0', [stats.entries > 0 ? $t('file_lite_i18n.n_0_items_1', [stats.entries, formatCacheBytes(stats.bytes)]) : ''])
+  const cacheLabel = $t('file_lite_i18n.image_preview_cache_0', [stats.entries > 0 ? `(${stats.entries} ${$t('file_lite_i18n.items')} · ${formatCacheBytes(stats.bytes)})` : ''])
 
   const selected = reactive({
     media: false,
@@ -264,7 +264,6 @@ const options = computed<VgoOptionItem[]>(() => [
         label: $t('file_lite_i18n.language'),
         key: 'language',
         type: VgoOptionType.SELECT,
-        subtitle: $t('file_lite_i18n.interface_language_on_a_first_vi'),
         options: localeOptions.map(option => ({ label: option.label, value: option.value })),
       },
       {

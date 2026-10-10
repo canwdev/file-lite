@@ -97,7 +97,7 @@ onMounted(async () => {
       </div>
       <el-tabs v-model="activeTab" class="login-tabs">
         <el-tab-pane :label="$t('file_lite_i18n.password')" name="password" />
-        <el-tab-pane :label="$t('file_lite_i18n.ticket')" name="ticket" />
+        <el-tab-pane label="Ticket" name="ticket" />
       </el-tabs>
       <div class="login-form">
         <el-input

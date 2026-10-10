@@ -52,7 +52,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
-- **Interface language**: The frontend is now translatable. On a first visit the language is detected from the browser and saved in the server settings; Appearance has a Language selector. English is the base language and Simplified Chinese falls back to it until it is translated (frontend).
+- **Interface language**: The frontend is now translatable. On a first visit the language is detected from the browser and saved in the server settings; Appearance has a Language selector. English is the base language, Simplified Chinese builds on it (untranslated entries fall back to English), and a language file is only downloaded when that language is in use (frontend).
 - **Gallery delete**: The Endless Gallery can delete the current file with Del or the new button under Locate. After confirming, it shows the next item when you were browsing forward and the previous one when you were browsing back, and deleting the last item leaves the empty state (frontend).
 - **Last opened media**: Turning Remember last opened media off keeps the remembered file per folder instead of clearing it; dropping it is explicit, from the explorer's clear button or Clear local data (frontend).
 - **App windows**: The Single app instance setting is gone; opening an app again reuses its window when the app list marks that app `singleInstance` (frontend).

@@ -75,7 +75,7 @@ export function taskMessage(task: TaskSnapshot) {
     case 'scanning':
       return 'Preparing...'
     case 'awaiting-conflict':
-      return $t('file_lite_i18n.waiting_for_your_decision')
+      return $t('file_lite_i18n.waiting_for_confirmation')
     case 'succeeded':
       return $t('file_lite_i18n.done')
     case 'failed':

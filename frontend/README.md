@@ -19,7 +19,8 @@ bun run build
 ## 国际化
 
 - 语言包在 `src/i18n/locales/<locale>/index.json`，所有文案挂在单层命名空间 `file_lite_i18n` 下。
-- `en-US` 是基准语言；`zh-CN` 暂时留空，运行期回退到 `en-US`。
+- `en-US` 是基准语言；其它语言里没翻到的条目运行期回退到 `en-US`。
+- 语言包按需异步引入（`loadLocaleMessages`）：只下载当前用到的语言，不进主包。
 - 模板里用 `$t`（vue-i18n 注入），`<script setup>` 与 `.ts` 里的 `$t` 由 unplugin-auto-import 从 `@/i18n` 自动引入。
 - 界面语言存在服务端 `file_lite_settings_store` 的 `language` 字段；首次访问按浏览器语言检测并写回。
 - 新增非技术文案直接改语言包（不再有提取脚本）；**同样的意思优先复用已有条目**，不要另起一条；用户没有要求翻译就不要自动翻译。

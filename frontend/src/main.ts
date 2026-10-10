@@ -4,7 +4,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { createApp } from 'vue'
 import MdiIcon from '@/components/MdiIcon.vue'
 import App from './App.vue'
-import { i18n } from './i18n'
+import { i18n, initLocaleMessages } from './i18n'
 import router from './router'
 import '@canwdev/vgo-ui/styles/core'
 import '@canwdev/vgo-ui/themes/default'
@@ -23,6 +23,9 @@ import 'element-plus/es/components/select/style/css'
 import 'normalize.css'
 
 async function bootstrap() {
+  // 语言包是异步引入的：先把它加载好再挂载，首屏才不会闪出 key。
+  await initLocaleMessages()
+
   const app = createApp(App)
 
   const pinia = createPinia()

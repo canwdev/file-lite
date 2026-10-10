@@ -86,7 +86,7 @@ function formatTime(ms?: number) {
       </div>
 
       <div class="conflict-question">
-        {{ $t('file_lite_i18n.what_do_you_want_to_do') }}
+        {{ $t('file_lite_i18n.waiting_for_confirmation') }}
       </div>
 
       <el-radio-group v-model="policy" class="conflict-options">
