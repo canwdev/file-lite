@@ -113,7 +113,7 @@ function handleUpdateBackend() {
       return
     applyUpdate(file)
       .then((res) => {
-        window.$message?.success($t('file_lite_i18n.updated_to_v_0_restarting', [res.to]) + ELLIPSIS)
+        window.$message?.success(`Updated to v${res.to}, restarting…`)
         setTimeout(() => window.location.reload(), 1000)
       })
       .catch(() => {
@@ -131,8 +131,8 @@ async function handleRestartBackend() {
       'Restart backend',
       {
         type: 'warning',
-        confirmButtonText: $t('file_lite_i18n.restart'),
-        cancelButtonText: $t('file_lite_i18n.cancel'),
+        confirmButtonText: 'Restart',
+        cancelButtonText: 'Cancel',
       },
     )
   }
@@ -147,7 +147,7 @@ async function handleRestartBackend() {
     return
   }
 
-  window.$message?.success($t('file_lite_i18n.restarting') + ELLIPSIS)
+  window.$message?.success('Restarting…')
   setTimeout(() => window.location.reload(), 1000)
 }
 
@@ -162,8 +162,8 @@ async function handleExitBackend() {
       'Exit backend',
       {
         type: 'warning',
-        confirmButtonText: $t('file_lite_i18n.exit'),
-        cancelButtonText: $t('file_lite_i18n.cancel'),
+        confirmButtonText: 'Exit',
+        cancelButtonText: 'Cancel',
       },
     )
   }
@@ -358,7 +358,7 @@ const options = computed<VgoOptionItem[]>(() => [
         label: 'Demo transfer window',
         key: 'demoTransfer',
         type: VgoOptionType.BUTTON,
-        value: $t('file_lite_i18n.open'),
+        value: 'Open',
         props: {
 
           onClick: () => {
@@ -371,7 +371,7 @@ const options = computed<VgoOptionItem[]>(() => [
         key: 'updateBackend',
         subtitle: 'Replace the running server binary and restart.',
         type: VgoOptionType.BUTTON,
-        value: $t('file_lite_i18n.upload') + ELLIPSIS,
+        value: 'Upload…',
         props: {
 
           onClick: handleUpdateBackend,
@@ -382,7 +382,7 @@ const options = computed<VgoOptionItem[]>(() => [
         key: 'restartBackend',
         subtitle: 'Reloads config. Transfers in progress are interrupted.',
         type: VgoOptionType.BUTTON,
-        value: $t('file_lite_i18n.restart') + ELLIPSIS,
+        value: 'Restart…',
         props: {
 
           onClick: () => {
@@ -394,7 +394,7 @@ const options = computed<VgoOptionItem[]>(() => [
         label: 'Exit backend',
         key: 'exitBackend',
         type: VgoOptionType.BUTTON,
-        value: $t('file_lite_i18n.exit') + ELLIPSIS,
+        value: 'Exit…',
         props: {
           class: 'vgo-button--danger',
           onClick: () => {

@@ -365,7 +365,7 @@ function addTask(data: IBatchFile, position: number = -1) {
     index: ++transferIndex.value,
     progress: 0,
     status: 'pending',
-    message: $t('file_lite_i18n.waiting'),
+    message: 'Waiting',
     // 重试时清掉上一轮的进度，避免累计字节把总量算错
     speedInfo: undefined,
   } as ITransferItem)
@@ -391,7 +391,7 @@ function addTasks(data: IBatchFile[]) {
       index: ++transferIndex.value,
       progress: 0,
       status: 'pending',
-      message: $t('file_lite_i18n.waiting'),
+      message: 'Waiting',
     } as ITransferItem)
   })
   // 分块 push：上万条一次性展开会撞上参数个数上限
@@ -582,7 +582,7 @@ function retryAll() {
       index: ++transferIndex.value,
       progress: 0,
       status: 'pending',
-      message: $t('file_lite_i18n.waiting'),
+      message: 'Waiting',
       speedInfo: undefined,
       abortObj: undefined,
     } as ITransferItem)
@@ -676,7 +676,7 @@ function debugServerTask(
 
 const debugFailureResults: TaskItemResult[] = [
   { fromPath: '/mock/source/report.pdf', status: 'failed', message: 'permission denied' },
-  { fromPath: '/mock/source/locked.bin', status: 'conflict', message: $t('file_lite_i18n.a_conflicting_item_appeared_at_t') },
+  { fromPath: '/mock/source/locked.bin', status: 'conflict', message: 'A conflicting item appeared at the destination' },
 ]
 
 /**
@@ -698,7 +698,7 @@ function loadMockTransferList() {
       file: new File([], 'mock.png'),
       progress: 0,
       status: 'pending',
-      message: $t('file_lite_i18n.waiting'),
+      message: 'Waiting',
       type: 'upload',
       ...overrides,
     })
@@ -706,10 +706,10 @@ function loadMockTransferList() {
 
   listData.value = [
     // ---- 上传：待处理 / 传输中（有速度）/ 传输中（总量未知）/ 成功 / 失败 ----
-    createItem({ status: 'pending', message: $t('file_lite_i18n.waiting') }),
+    createItem({ status: 'pending', message: 'Waiting' }),
     createItem({
       status: 'transferring',
-      message: $t('file_lite_i18n.uploading'),
+      message: 'Uploading',
       progress: 0.45,
       speedInfo: { loaded: 450_000, total: 1_000_000, rate: 102_400, bytes: 102_400 },
       abortObj: { abort: () => console.log('Abort Upload') },
@@ -717,19 +717,19 @@ function loadMockTransferList() {
     // 刚开始、还没拿到任何进度
     createItem({
       status: 'transferring',
-      message: $t('file_lite_i18n.uploading'),
+      message: 'Uploading',
       progress: 0,
       speedInfo: { loaded: 0, total: 0, rate: 0, bytes: 0 },
       abortObj: { abort: () => console.log('Abort Upload') },
     }),
-    createItem({ status: 'success', message: $t('file_lite_i18n.success'), progress: 1 }),
+    createItem({ status: 'success', message: 'Success', progress: 1 }),
     createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
 
     // ---- 下载：同样的状态组合 ----
     createItem({ status: 'pending', type: 'download' }),
     createItem({
       status: 'transferring',
-      message: $t('file_lite_i18n.downloading'),
+      message: 'Downloading',
       type: 'download',
       progress: 0.75,
       speedInfo: { loaded: 750_000, total: 1_000_000, rate: 204_800, bytes: 204_800 },
