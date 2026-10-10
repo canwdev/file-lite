@@ -3,7 +3,6 @@ import type { AppName, AppParams } from './apps'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import { createWindowManager } from '@canwdev/vgo-ui'
-import { localSettingsStore } from '@/store'
 import { appMetaByName, InternalAppEnum } from './apps'
 
 export interface AppWindowData {
@@ -71,12 +70,14 @@ const emptyInternalEntry: IEntry = {
   error: null,
 }
 
+/**
+ * The window an app can be reused into, if it declares itself single-instance.
+ *
+ * `singleInstance` lives with the app in `AppList` / `InternalAppList` (plugins carry it in
+ * their manifest), so the app decides this, not a user preference.
+ */
 function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
-  const appMeta = appMetaByName[appName]
-  if (!appMeta?.singleInstance) {
-    return undefined
-  }
-  if ('openWith' in appMeta && !localSettingsStore.value.appSingleInstance) {
+  if (!appMetaByName[appName]?.singleInstance) {
     return undefined
   }
   return appWindows.windows.find(w => w.data.appName === appName && !w.isClosing)

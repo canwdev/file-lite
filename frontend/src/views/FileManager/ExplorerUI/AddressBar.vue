@@ -386,6 +386,51 @@ function closeCrumbMenu() {
   openCrumbPath.value = null
 }
 
+/**
+ * Scroll the current folder's row into view in the subfolder dropdown (instantly, no
+ * smooth scrolling).
+ *
+ * Not `scrollIntoView`: that also scrolls the outer scrollers (the page), and it cannot
+ * work here anyway. The menu's height cap is applied by vgo-ui in a microtask after
+ * mount; before that the scroll container is as tall as its content and therefore not
+ * scrollable at all, so the target looks "already visible" and the request is dropped.
+ * Reading `scrollTop` / `clientHeight` off the container itself and retrying by frame
+ * until it really can scroll avoids both problems.
+ */
+function scrollCrumbMenuToCurrent(instance: ContextMenuInstance | null, index: number, framesLeft = 4) {
+  // The menu was closed or replaced (another caret was clicked): this scroll is stale.
+  if (!instance || instance !== crumbMenuInstance) {
+    return
+  }
+  const menu = instance.getMenuRef()
+  const scroller = menu?.getMenu()?.parentElement
+  const item = menu?.getChildItem(index)?.getElement()
+  if (!menu || !scroller || !item) {
+    return
+  }
+
+  // Until the cap is applied the container is as tall as its content, so a written
+  // scrollTop collapses back to 0. Retry by frame until it is a real scroller.
+  if (scroller.scrollHeight <= scroller.clientHeight && menu.getMaxHeight() <= 0) {
+    if (framesLeft > 0) {
+      requestAnimationFrame(() => scrollCrumbMenuToCurrent(instance, index, framesLeft - 1))
+    }
+    return
+  }
+
+  const viewTop = scroller.scrollTop
+  const viewHeight = scroller.clientHeight
+  const offsetTop = item.getBoundingClientRect().top - scroller.getBoundingClientRect().top + viewTop
+  const offsetBottom = offsetTop + item.offsetHeight
+
+  if (offsetTop < viewTop) {
+    menu.setScrollValue(offsetTop)
+  }
+  else if (offsetBottom > viewTop + viewHeight) {
+    menu.setScrollValue(offsetBottom - viewHeight)
+  }
+}
+
 /** 点 caret：同一段再点关闭，否则读取子目录后贴在 caret 下方弹出。 */
 async function toggleCrumbMenu(seg: BreadcrumbSegment, event: MouseEvent) {
   if (editing.value) {
@@ -425,10 +470,8 @@ async function toggleCrumbMenu(seg: BreadcrumbSegment, event: MouseEvent) {
 
   // 等菜单项挂载后把当前目录滚进可视区（瞬时，不做平滑滚动）
   if (currentIndex >= 0) {
-    void nextTick(() => {
-      const currentItem = crumbMenuInstance?.getMenuRef()?.getChildItem(currentIndex)?.getElement()
-      currentItem?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
-    })
+    const instance = crumbMenuInstance
+    requestAnimationFrame(() => scrollCrumbMenuToCurrent(instance, currentIndex))
   }
 }
 

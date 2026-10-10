@@ -874,6 +874,7 @@ const queueApi: TransferQueueApi = {
   isVisible,
   totalCount,
   activeCount,
+  browserActiveCount: computed(() => transferCounts.value.active),
   failedCount,
 }
 

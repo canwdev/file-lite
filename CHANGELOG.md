@@ -6,13 +6,16 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Gallery controls**: The whole overlay layer — navigation buttons, the collection button at the bottom left, the zoom toolbar, the thumbnail strip and its progress band — shares one palette that follows the theme (light surfaces with dark icons in light mode, dark surfaces with light icons in dark mode), and the wheel and the navigation buttons step through media instantly instead of sliding; only a swipe still animates (frontend).
+- **Settings**: The Preview section is now Data and no longer has an Image cache row of its own (the cache is cleared from Local data); the Page section is gone and Title moved to the end of Appearance (frontend).
+- **Delete dialog**: The delete confirmation lists the file and folder names in bold, shows folder names in the danger colour, and lists at most the first five names (frontend).
 - **Settings**: Theme, app preferences, page title, preview cache and development actions open in a Settings window instead of nested menu items (frontend).
 - **Drive icons**: Storage icons use the outline form when that icon exists (frontend).
 - **File system**: Hovering a drive shows its file system (ext4, NTFS, 9p, iso9660, …) in the tooltip (frontend, backend).
 - **Extract**: Opening an unsupported file shows File Viewer, Extract... (when the archive can be extracted), and Open in Browser (frontend).
 - **IP Chooser**: On a wide screen the address list scrolls on the left and the QR code stays on the right; on a narrow screen the QR code sits above a scrolling list (frontend).
 - **App windows**: Pressing Esc closes the active app window. In the gallery, Esc first closes the end-of-gallery overlay (frontend).
-- **Properties**: Properties opens as its own small window, not maximised, and each selection opens another one that can be minimised (frontend).
+- **Properties**: Properties opens as its own small window, not maximised and centred in the viewport, and each selection opens another one that can be minimised (frontend).
 - **Color themes**: Each accent color uses a darker shade in light mode and a lighter shade in dark mode, and switching the mode applies the matching shade (frontend).
 - **Icons**: New icon set across the gallery, media player, video player, file viewer and text sync, with outline file icons and distinct icons for common file types (frontend).
 - **Grid badges**: Grid view shows each file’s default app badge, and plugins are listed in a submenu when no built-in app matches (frontend).
@@ -47,11 +50,15 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Gallery delete**: The Endless Gallery can delete the current file with Del or the new button under Locate. After confirming, it shows the next item when you were browsing forward and the previous one when you were browsing back, and deleting the last item leaves the empty state (frontend).
+- **Last opened media**: Turning Remember last opened media off keeps the remembered file per folder instead of clearing it; dropping it is explicit, from the explorer's clear button or Clear local data (frontend).
+- **App windows**: The Single app instance setting is gone; opening an app again reuses its window when the app list marks that app `singleInstance` (frontend).
+- **Thumbnails**: Moving, renaming or copying a file or folder reuses its cached thumbnails, including a folder's contents, and deleting it drops them instead of leaving them to be evicted (frontend).
 - **Optical media**: ISO 9660 and UDF mounts, and Windows CD-ROM drives, show up as their own volumes with a disc icon. Content previews stay off on them, thumbnail requests are refused, and directory listings use a lower stat concurrency (frontend, backend).
 - **Previews**: Turning off Disable Preview leaves the thumbnail cache in place, and Image Cache stays in the menu so it can still be cleared on its own (frontend).
 - **Auth**: The login token is kept in an HttpOnly cookie, so page scripts can no longer read it, the WebSocket URL no longer carries it, and logout clears it on the server (frontend, backend).
 - **IP Chooser**: The IP chooser opens from the main menu in a new page, so the file manager stays on its current folder. It loads its address list and QR code through an authenticated API call, so the QR code always carries a freshly issued login ticket instead of one encoded in the URL (frontend, backend).
-- **Leave guard**: While an upload, download, or task is still running, refreshing, closing, or leaving for another page asks you to stay (frontend).
+- **Leave guard**: While an upload or an in-page download is still running, refreshing, closing, or leaving for another page asks you to stay. Server tasks no longer trigger it: they keep running on the server and come back in the transfers panel after a reload (frontend).
 - **Plugins**: Plugins can be dropped into the server plugins folder, appear in the main menu, open in windows, and can read/write files and list directories (frontend, backend).
 - **Plugin names**: A plugin folder or HTML file can use any name. Names starting with `.` and other file types in the plugins folder are still ignored (backend).
 - **Tabs**: The explorer has built-in tabs that remember folder, selection, filter and scroll, can be reordered, split, merged, and moved between panes (frontend).
@@ -79,6 +86,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Shortcuts and dialogs**: While a confirmation dialog or a context menu is open, the page behind it no longer reacts to keyboard shortcuts such as the arrow keys or Delete — the dialog keeps the keyboard (frontend).
+- **Breadcrumb menu**: When the subfolder dropdown is long enough to scroll, it now scrolls instantly to the highlighted current folder instead of leaving it out of view (frontend).
 - **Folder previews**: A folder's thumbnail preview updates when files are added, deleted, renamed or moved inside it, instead of showing the old contents until the page is reloaded (frontend).
 - **Text editor**: Opening a file focuses the editor. Esc, the window close button, a double-click on the title icon, and Exit all ask before closing when the file has unsaved changes (frontend).
 - **App focus**: Closing an app with Esc returns focus to the file item that was focused when the app opened (frontend).

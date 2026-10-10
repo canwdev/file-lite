@@ -28,30 +28,17 @@ const WINDOW_STYLE = {
 
 function initWinOptions(win: AppWindowState) {
   const chrome = appMeta(win)?.chrome
-  const options = {
+  return {
     width: chrome?.width ?? DEFAULT_WINDOW_SIZE.width,
     height: chrome?.height ?? DEFAULT_WINDOW_SIZE.height,
   }
-  if (!chrome?.cascade) {
-    return options
-  }
-  const slot = appWindows.windows
-    .filter(item => item.data.appName === win.data.appName && !item.isClosing)
-    .indexOf(win)
-  const step = 32
-  const index = Math.max(0, slot)
-  return {
-    ...options,
-    left: `${48 + index * step}px`,
-    top: `${56 + index * step}px`,
-  }
 }
 
+// 所有 App 窗口都从视口中间弹出（ViewPortWindow 的 initCenter 默认就是 true）
 function windowProps(win: AppWindowState) {
   return {
     class: 'app-window',
     style: WINDOW_STYLE,
-    initCenter: !appMeta(win)?.chrome?.cascade,
     initWinOptions: initWinOptions(win),
   }
 }

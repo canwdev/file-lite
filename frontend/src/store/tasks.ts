@@ -13,12 +13,13 @@ import { closeSharedWs, ensureSharedWsConnected, sharedWsStatus, subscribeShared
 import {
   createTask as apiCreateTask,
   deleteTask as apiDeleteTask,
-  isTaskNotFound,
   listTasks as apiListTasks,
   resolveTask as apiResolveTask,
   retryTask as apiRetryTask,
+  isTaskNotFound,
 } from '@/api/tasks'
 import { authSession } from '@/store/auth'
+import { syncImageThumbCacheWithTask } from '@/utils/thumb-cache-sync'
 
 /* ============================ 任务列表状态 ============================ */
 /* 原来单独放在 task-state.ts；现在只有本模块一个消费者，合并回来。 */
@@ -398,6 +399,20 @@ function patchTask(taskId: string, patch: Partial<TaskEntry>) {
 }
 
 function handleDone(msg: TasksDoneMessage) {
+  // Keep the thumbnail cache attached to the files: reuse it on move / rename, drop it on
+  // delete (see thumb-cache-sync). The snapshot has to be read here -- a cancelled task is
+  // dropped from the list below, and kind / fromPaths would be gone with it.
+  const doneSnapshot = taskList.value.find(item => item.id === msg.taskId)
+  if (doneSnapshot) {
+    // The snapshot still holds the running state; take the final one from the done message
+    // (the fallback for a capped result list is gated on it).
+    syncImageThumbCacheWithTask(
+      { ...doneSnapshot, state: msg.state },
+      msg.results ?? [],
+      msg.resultsTruncated,
+    )
+  }
+
   // 取消的任务不保留：本地立刻移除，并请服务端也删掉，
   // 任何窗口都不会看到一条「已取消」的行。
   if (msg.state === 'cancelled' || tasksPendingRemoval.has(msg.taskId)) {

@@ -6,7 +6,6 @@ import { VERSION } from '@/enum/version.ts'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 import { setServerAllowedRoots, setServerCapabilities } from '@/store/capabilities'
-import { isTerminalState, taskList } from '@/store/tasks'
 import { isUnauthorizedError } from '@/utils/auth-error'
 import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 
@@ -73,15 +72,18 @@ async function ensureAuthReady() {
   warmSettingsStore()
 }
 
-/** An upload, download, or server task is still running in this page. */
+/**
+ * An upload or an in-page download is still running in this page.
+ *
+ * Server tasks deliberately do not count: they run on the server, so a refresh, a close
+ * or leaving for another page does not stop them, and the task list is restored from the
+ * task snapshot once the app is back.
+ */
 function hasActiveWork() {
-  if ((transferQueue.value?.activeCount.value ?? 0) > 0) {
-    return true
-  }
-  return taskList.value.some(task => !task.debug && !isTerminalState(task.state))
+  return (transferQueue.value?.browserActiveCount.value ?? 0) > 0
 }
 
-const leaveMessage = 'An upload, download, or task is still running. Stay on this page until it finishes.'
+const leaveMessage = 'An upload or download is still running. Stay on this page until it finishes.'
 
 /** One question at a time, shared by the route guard and logout. */
 let leavePrompt: Promise<boolean> | null = null

@@ -13,7 +13,9 @@
  */
 import type { DBSchema, IDBPDatabase } from 'idb'
 import { openDB } from 'idb'
-import { extractEmbeddedCover } from '@/utils/audio-cover'
+// Relative (not `@/`): `bun test` only reads the root tsconfig and cannot resolve Vite's
+// alias, so a relative path is what keeps this module importable from a unit test.
+import { extractEmbeddedCover } from './audio-cover'
 
 export const IMAGE_THUMB_MAX_EDGE = 512
 /** 小于该体积的图片不值得入缓存,直接显示原图 */
@@ -94,6 +96,7 @@ let totalEntries = 0
 /** 缓存初始化 / 写缓存失败各只告警一次,避免刷屏又保证问题可见 */
 let cacheInitFailureLogged = false
 let cacheWriteFailureLogged = false
+let cacheSyncFailureLogged = false
 
 /**
  * 单飞表里的生成结果：**只有字节，不含 objectURL**。
@@ -652,4 +655,209 @@ export async function clearImageThumbCache(): Promise<void> {
   }
   totalBytes = 0
   totalEntries = 0
+}
+
+/* ---------------------------------------------------------------------------
+ * Path relocation / removal: keeping the cache attached to the files
+ *
+ * The key is the absolute path, so once a file is renamed or moved its old key can never
+ * be hit again -- the whole subtree keeps holding quota and every thumbnail has to be
+ * generated again on the next visit. These two primitives rewrite the keys on a move
+ * (reuse) and drop them on a delete (reclaim).
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Key form of a subtree root: unified separators, no trailing slash (callers may hand over
+ * the listing form `/a/b/`). A root (`/`, `C:/`) can normalise to an empty string, which
+ * callers treat as "no subtree".
+ */
+function subtreeRoot(path: string) {
+  return normalizeThumbKey(path).replace(/\/+$/, '')
+}
+
+/**
+ * Whether a key lives in the subtree of `path` (including `path` itself).
+ *
+ * This has to be decided per entry on top of the key range: the prefix `/a/foo` also hits
+ * `/a/foo.txt`, so a range-only move would rename or drop the cache of sibling entries.
+ */
+export function isThumbCacheKeyInSubtree(key: string, path: string) {
+  const normalizedKey = normalizeThumbKey(key)
+  const root = subtreeRoot(path)
+  if (!root)
+    return normalizedKey.startsWith('/')
+  return normalizedKey === root || normalizedKey.startsWith(`${root}/`)
+}
+
+/** Rough key range that keeps the cursor near one subtree; the exact test is isThumbCacheKeyInSubtree. */
+function subtreeKeyRange(path: string) {
+  return IDBKeyRange.bound(path, `${path}\uFFFF`)
+}
+
+/**
+ * Rewrites the thumbnails of `fromPath` (and its whole subtree) to sit under `toPath`.
+ *
+ * The fingerprint only holds `(version, size, mtime)`, and neither a rename nor a copy
+ * changes them, so the entries at the destination keep hitting and a folder preview reuses
+ * its child entries too. If the operation did rewrite mtime (a cross-filesystem move, a copy
+ * onto a network target), the fingerprint no longer matches and the thumbnail is simply
+ * generated again -- a wrong image is never served.
+ *
+ * `keepSource` picks the copy behaviour: the source keeps its entries and each blob is
+ * written again under the new key, instead of the entry moving away from the source.
+ *
+ * Never throws: the cache is only an accelerator, the file operation itself already finished.
+ */
+async function transferThumbSubtree(fromPath: string, toPath: string, keepSource: boolean) {
+  const from = subtreeRoot(fromPath)
+  const to = subtreeRoot(toPath)
+  if (!from || !to || from === to)
+    return
+
+  try {
+    await ensureReady()
+    if (!ready)
+      return
+    const db = await openThumbDb()
+
+    // Collect the keys first: a rewritten key can still fall inside the same cursor range
+    const keys: string[] = []
+    const readTx = db.transaction(META_STORE, 'readonly')
+    let cursor = await readTx.store.openCursor(subtreeKeyRange(from))
+    while (cursor) {
+      if (isThumbCacheKeyInSubtree(cursor.value.key, from))
+        keys.push(cursor.value.key)
+      cursor = await cursor.continue()
+    }
+    await readTx.done
+
+    for (const key of keys) {
+      const nextKey = to + key.slice(from.length)
+      const [meta, blob, replaced] = await Promise.all([
+        db.get(META_STORE, key),
+        db.get(BLOB_STORE, key),
+        db.get(META_STORE, nextKey),
+      ])
+      if (!meta)
+        continue
+      if (!blob) {
+        // meta without bytes: drop it as the broken entry it is, same as lookupCached
+        await db.delete(META_STORE, key)
+        totalBytes = Math.max(0, totalBytes - meta.byteSize)
+        totalEntries = Math.max(0, totalEntries - 1)
+        continue
+      }
+
+      if (keepSource) {
+        // The destination entry is a byte-for-byte twin, fingerprint included
+        if (replaced) {
+          // putEntry overwrites quietly, so free the entry it replaces ourselves
+          await db.delete(META_STORE, nextKey)
+          totalBytes = Math.max(0, totalBytes - replaced.byteSize)
+          totalEntries = Math.max(0, totalEntries - 1)
+        }
+        // putEntry keeps the byte cap honest (eviction + quota retry + counters)
+        await putEntry(db, nextKey, blob, {
+          key: nextKey,
+          fp: meta.fp,
+          byteSize: blob.size,
+          storedAt: Date.now(),
+          lastUsed: Date.now(),
+        })
+        continue
+      }
+
+      const tx = db.transaction([META_STORE, BLOB_STORE], 'readwrite')
+      // lastUsed is refreshed with it: an entry that just moved should not be evicted next
+      tx.objectStore(META_STORE).put({ ...meta, key: nextKey, lastUsed: Date.now() })
+      tx.objectStore(BLOB_STORE).put(blob, nextKey)
+      tx.objectStore(META_STORE).delete(key)
+      tx.objectStore(BLOB_STORE).delete(key)
+      await tx.done
+
+      // An entry that was already cached at the destination is overwritten and frees space
+      if (replaced) {
+        totalBytes = Math.max(0, totalBytes - replaced.byteSize)
+        totalEntries = Math.max(0, totalEntries - 1)
+      }
+    }
+  }
+  catch (error) {
+    if (!cacheSyncFailureLogged) {
+      cacheSyncFailureLogged = true
+      console.warn('[image-thumb-cache] 缩略图跟随新路径失败，这些图会重新生成', error)
+    }
+  }
+}
+
+/**
+ * Moves the thumbnails of a renamed / moved entry to its new path: the old keys stop existing.
+ */
+export async function moveImageThumbCache(fromPath: string, toPath: string): Promise<void> {
+  await transferThumbSubtree(fromPath, toPath, false)
+}
+
+/**
+ * Duplicates the thumbnails of a copied entry to its new path.
+ *
+ * The source keeps its entries. A copy preserves size and mtime (the backend sets the source
+ * mtime on the new file), so the twin at the destination hits immediately instead of being
+ * generated again; where mtime was not preserved (a copy onto a network target) the twin
+ * simply never matches and waits for LRU eviction.
+ */
+export async function copyImageThumbCache(fromPath: string, toPath: string): Promise<void> {
+  await transferThumbSubtree(fromPath, toPath, true)
+}
+
+/**
+ * Drops the thumbnails of `path` and its whole subtree.
+ *
+ * Once an entry is deleted those bytes can never be hit again (the key holds the path), so
+ * keeping them only spends quota until LRU evicts them; a finished delete task clears them.
+ */
+export async function deleteImageThumbCache(path: string): Promise<void> {
+  const prefix = subtreeRoot(path)
+  if (!prefix)
+    return
+
+  try {
+    await ensureReady()
+    if (!ready)
+      return
+    const db = await openThumbDb()
+
+    const keys: string[] = []
+    let freedBytes = 0
+    const readTx = db.transaction(META_STORE, 'readonly')
+    let cursor = await readTx.store.openCursor(subtreeKeyRange(prefix))
+    while (cursor) {
+      const meta = cursor.value
+      if (isThumbCacheKeyInSubtree(meta.key, prefix)) {
+        keys.push(meta.key)
+        freedBytes += meta.byteSize
+      }
+      cursor = await cursor.continue()
+    }
+    await readTx.done
+    if (!keys.length)
+      return
+
+    const tx = db.transaction([META_STORE, BLOB_STORE], 'readwrite')
+    const metaStore = tx.objectStore(META_STORE)
+    const blobStore = tx.objectStore(BLOB_STORE)
+    for (const key of keys) {
+      metaStore.delete(key)
+      blobStore.delete(key)
+    }
+    await tx.done
+
+    totalBytes = Math.max(0, totalBytes - freedBytes)
+    totalEntries = Math.max(0, totalEntries - keys.length)
+  }
+  catch (error) {
+    if (!cacheSyncFailureLogged) {
+      cacheSyncFailureLogged = true
+      console.warn('[image-thumb-cache] 缩略图清理失败，这些字节要等 LRU 淘汰', error)
+    }
+  }
 }

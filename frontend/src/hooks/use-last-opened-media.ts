@@ -57,14 +57,6 @@ export function clearLastOpenedMediaInDir(basePath: string): void {
   lastOpenedMediaMap.value = next
 }
 
-export function toggleRememberLastMedia(): void {
-  const next = !settingsStore.value.rememberLastMedia
-  settingsStore.value.rememberLastMedia = next
-  if (!next) {
-    clearLastOpenedMediaMap()
-  }
-}
-
 export function createLastOpenedMediaRecorder() {
   let lastRecordedGuid = ''
   return (item: { guid: string, basePath: string, filename: string } | null) => {

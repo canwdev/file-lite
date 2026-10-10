@@ -74,7 +74,9 @@ const { trackRef, visibleItems, sizerStyle, progressWidth, onTrackScroll, onTrac
 .thumb-strip__progress {
   position: absolute;
   inset: 0 auto 0 0;
-  background-color: var(--vgo-primary-opacity);
+  // 和浮层面板/控件同一套配色令牌（见 EndlessGallery 的 Overlay palette）：
+  // 亮色主题是深色淡染，暗色主题是浅色淡染，随主题翻转
+  background-color: var(--vgo-overlay-control-active);
   transition: width var(--vgo-duration-base);
   pointer-events: none;
 }

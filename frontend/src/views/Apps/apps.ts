@@ -79,14 +79,12 @@ export const AppList: AppListItem[] = [
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image',
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
-    singleInstance: true,
   },
   {
     name: 'HTML Viewer',
     openWith: OpenWithEnum.HtmlViewer,
     icon: 'mdi mdi-language-html5',
     component: defineAsyncComponent(() => import('./HtmlViewer.vue')),
-    singleInstance: true,
   },
   {
     name: 'Media Player',
@@ -100,14 +98,12 @@ export const AppList: AppListItem[] = [
     openWith: OpenWithEnum.VideoPlayer,
     icon: 'mdi mdi-movie',
     component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
-    singleInstance: true,
   },
   {
     name: 'File Viewer',
     openWith: OpenWithEnum.FileViewer,
     icon: 'mdi mdi-asterisk',
     component: defineAsyncComponent(() => import('./FileViewer.vue')),
-    singleInstance: true,
   },
 ]
 
@@ -142,7 +138,6 @@ export const InternalAppList: InternalAppListItem[] = [
       maximized: false,
       width: 'min(460px, 92vw)',
       height: 'auto',
-      cascade: true,
     },
   },
   {

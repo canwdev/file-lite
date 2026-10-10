@@ -14,7 +14,15 @@ export interface TransferQueueApi {
   toggle: () => void
   isVisible: Ref<boolean>
   totalCount: Ref<number>
+  /** Everything in flight: browser transfers plus server tasks (the top-bar badge). */
   activeCount: Ref<number>
+  /**
+   * Browser transfers only (uploads and in-page downloads).
+   *
+   * Those live in this page, so leaving it aborts them. Server tasks keep running on the
+   * server and come back from the task snapshot after a reload.
+   */
+  browserActiveCount: Ref<number>
   failedCount: Ref<number>
 }
 

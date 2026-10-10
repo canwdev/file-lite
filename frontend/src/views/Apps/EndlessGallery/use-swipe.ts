@@ -39,6 +39,12 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
   const dragOffset = ref(0)
   const withTransition = ref(false)
   const edgeOverlay = ref<'start' | 'end' | null>(null)
+  /**
+   * Which way the user is browsing: 1 forward (next), -1 backward (previous).
+   * Deleting an item keeps that direction, so the viewer lands on the neighbour the user
+   * was heading towards.
+   */
+  const lastDirection = ref(1)
 
   let isAnimating = false
   let isDragging = false // single-finger swipe
@@ -147,7 +153,7 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
   }
 
   function navigate(isNext: boolean, { instant = false }: NavigateOptions = {}): void {
-    if (isAnimating || edgeOverlay.value)
+    if (isAnimating || edgeOverlay.value || !items.value.length)
       return
 
     if (isNext && currentIndex.value >= items.value.length - 1) {
@@ -160,6 +166,8 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
       snapBack()
       return
     }
+
+    lastDirection.value = isNext ? 1 : -1
 
     if (instant) {
       // No transition: the container stays put and the panel slots rotate, so
@@ -201,6 +209,7 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
   function jumpToOpposite(): void {
     const isEnd = edgeOverlay.value === 'end'
     edgeOverlay.value = null
+    lastDirection.value = isEnd ? -1 : 1
     currentIndex.value = isEnd ? 0 : items.value.length - 1
     onAfterJump?.()
   }
@@ -222,6 +231,7 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
     isAnimating = false
     withTransition.value = false
     setDragOffsetImmediate(0)
+    lastDirection.value = clamped > currentIndex.value ? 1 : -1
     currentIndex.value = clamped
     onAfterJump?.()
   }
@@ -360,7 +370,8 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
     }
     if (isAnimating)
       return
-    navigate(e.deltaY > 0)
+    // Wheel steps land instantly, exactly like the arrow keys: only a swipe animates.
+    navigate(e.deltaY > 0, { instant: true })
   }
 
   useShortcut({
@@ -418,6 +429,7 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
     swipeContainerRef,
     containerStyle,
     edgeOverlay,
+    lastDirection,
     navigate,
     jumpToOpposite,
     jumpToIndex,

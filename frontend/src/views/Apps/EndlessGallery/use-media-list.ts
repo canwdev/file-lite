@@ -82,5 +82,17 @@ export function useMediaList(
 
   const currentItem = computed(() => items.value[currentIndex.value] ?? null)
 
-  return { items, currentIndex, currentItem, folderName }
+  /**
+   * Drop a name from the list after the file is gone, and report the index it had (-1 when
+   * it is not listed any more). The caller picks the neighbour to show and clamps the index.
+   */
+  function removeItem(name: string): number {
+    const index = rawItems.value.findIndex(item => item.name === name)
+    if (index < 0)
+      return -1
+    rawItems.value = rawItems.value.filter(item => item.name !== name)
+    return index
+  }
+
+  return { items, currentIndex, currentItem, folderName, removeItem }
 }

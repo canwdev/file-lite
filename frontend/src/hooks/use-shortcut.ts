@@ -1,5 +1,6 @@
 import type { InjectionKey, Ref } from 'vue'
 import { computed, inject, onBeforeUnmount, shallowRef, unref } from 'vue'
+import { hasOpenPopupLayer } from '@/utils/popup-layer'
 import { appWindows } from '@/views/Apps/apps-store'
 
 export type ShortcutScope = string
@@ -265,6 +266,12 @@ function dispatchScope(scope: ShortcutScope, event: KeyboardEvent, editable: boo
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented)
+    return
+
+  // A dialog or menu owns the keyboard while it is open. Without this, a key pressed inside
+  // one of them resolves to the active app window (they are teleported outside every
+  // `[data-shortcut-scope]`) and the page behind the modal reacts to it.
+  if (hasOpenPopupLayer())
     return
 
   const editable = isEditableTarget(event.target)

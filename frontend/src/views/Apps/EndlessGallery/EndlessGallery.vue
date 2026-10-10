@@ -2,6 +2,8 @@
 import type { WalkDirection } from './folder-nav/tree-walk.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
+import { createTask, onTaskDone } from '@/store/tasks'
+import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { joinPath, normalizePath } from '@/utils/path/form'
 import { useFolderNavigation } from './folder-nav/use-folder-navigation.ts'
 import GalleryPanels from './GalleryPanels.vue'
@@ -29,12 +31,16 @@ const { collection, collectedPathSet, getCollectedInDirectory, toggleCollect, cl
 
 // ── Media list ─────────────────────────────────────────────
 
-const { items, currentIndex, currentItem, folderName }
+const { items, currentIndex, currentItem, folderName, removeItem }
   = useMediaList(() => props.appParams, pruneDirectory)
 
 watch(currentItem, (item) => {
-  if (item)
+  if (item) {
     emit('setTitle', `[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
+    return
+  }
+  // Nothing left to show: an empty folder, or the last item was just deleted
+  emit('setTitle', folderName.value)
 }, { immediate: true })
 
 // ── Collection computed ─────────────────────────────────────
@@ -80,6 +86,84 @@ function handleLocateCurrent(): void {
   emit('exit')
 }
 
+// ── Delete ─────────────────────────────────────────────────
+
+/** Guards against a second Del press while the dialog or the delete task is in flight. */
+let deleting = false
+
+/**
+ * Delete the current file and land on the neighbour the user was heading towards: browsing
+ * forward keeps the index (the following item shifts into place), browsing backward steps
+ * back one. The local list is only updated once the server reports the file as deleted, so
+ * a failed delete leaves the item on screen and the failure panel explains why.
+ */
+async function handleDeleteCurrent(): Promise<void> {
+  const item = currentItem.value
+  const absPath = currentAbsPath.value
+  if (!item || !absPath || deleting)
+    return
+
+  deleting = true
+  // The direction at the moment of the delete is the intent; the user may browse on while
+  // the task runs.
+  const direction = lastDirection.value
+  try {
+    if (!(await confirmDeleteDialog([{ name: item.name, isDirectory: false }]))) {
+      deleting = false
+      return
+    }
+
+    const taskId = await createTask({ kind: 'delete', fromPaths: [absPath] })
+    onTaskDone(taskId, (task, results) => {
+      deleting = false
+      const deleted = task.state === 'succeeded'
+        || results.some(result => result.fromPath === absPath && result.status === 'deleted')
+      if (deleted)
+        showNeighbourAfterDelete(item.name, direction)
+    })
+  }
+  catch (error: any) {
+    deleting = false
+    window.$message?.error(error?.message || 'Failed to start the task')
+  }
+}
+
+/**
+ * Drop a deleted name from the local list and switch to the neighbouring item.
+ *
+ * If the user browsed away while the delete was running, they stay on what they are looking
+ * at (re-found by name) instead of being pulled back to the deleted slot.
+ */
+function showNeighbourAfterDelete(name: string, direction: number): void {
+  const keepName = currentItem.value && currentItem.value.name !== name
+    ? currentItem.value.name
+    : null
+
+  const index = removeItem(name)
+  if (index < 0)
+    return
+
+  // The slot at this index holds another file now, so a zoom kept from the deleted one
+  // would be wrong; `watch(currentIndex)` misses the case where the index itself stays put.
+  zoom.resetZoom()
+  pruneDirectory(props.appParams?.basePath ?? '', new Set(items.value.map(item => item.name)))
+
+  if (keepName) {
+    const stillThere = items.value.findIndex(item => item.name === keepName)
+    if (stillThere >= 0) {
+      currentIndex.value = stillThere
+      return
+    }
+  }
+
+  // Forward: the next item moved into this index. Backward: step back to the previous one.
+  // An empty list leaves the index at 0 with no current item, which shows the empty state.
+  const target = direction >= 0 ? index : index - 1
+  currentIndex.value = items.value.length
+    ? Math.min(Math.max(target, 0), items.value.length - 1)
+    : 0
+}
+
 // ── Zoom ───────────────────────────────────────────────────
 
 const zoomViewportRef = ref<HTMLElement | null>(null)
@@ -107,7 +191,7 @@ const {
 
 // ── Swipe / navigation ─────────────────────────────────────
 
-const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, jumpToOpposite, jumpToIndex, onPointerDown, onWheel }
+const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, lastDirection, navigate, jumpToOpposite, jumpToIndex, onPointerDown, onWheel }
   = useSwipe({
     items,
     currentIndex,
@@ -116,14 +200,26 @@ const { wrapperRef, swipeContainerRef, containerStyle, edgeOverlay, navigate, ju
     onAfterJump,
   })
 
-// 方向键 / Esc（关 overlay）由 use-swipe 注册；收藏键在这里补上
+// 方向键 / Esc（关 overlay）由 use-swipe 注册；收藏键与删除键在这里补上
+const shortcutScope = injectShortcutScope()
+
 useShortcut({
-  scope: injectShortcutScope(),
+  scope: shortcutScope,
   combo: 'c',
   description: 'Toggle favourite',
   handler: () => {
     if (!edgeOverlay.value)
       handleToggleCollect()
+  },
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: 'delete',
+  description: 'Delete media',
+  disabled: computed(() => edgeOverlay.value != null || !currentItem.value),
+  handler: () => {
+    void handleDeleteCurrent()
   },
 })
 
@@ -240,11 +336,11 @@ function setWrapperRef(el: unknown): void {
     />
 
     <!-- ─── Navigation arrows ─── -->
-    <div v-if="!edgeOverlay" class="nav-arrows">
+    <div v-if="!edgeOverlay && items.length" class="nav-arrows">
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Previous (↑ / ← / k)"
-        @click.stop="navigate(false)"
+        @click.stop="navigate(false, { instant: true })"
         @contextmenu.prevent="jumpToIndex(0)"
       >
         <i-mdi-chevron-up />
@@ -265,9 +361,16 @@ function setWrapperRef(el: unknown): void {
         <i-mdi-crosshairs-gps />
       </button>
       <button
+        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-delete"
+        title="Delete (Del)"
+        @click.stop="handleDeleteCurrent"
+      >
+        <i-mdi-delete-outline />
+      </button>
+      <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
         title="Next (↓ / → / j)"
-        @click.stop="navigate(true)"
+        @click.stop="navigate(true, { instant: true })"
         @contextmenu.prevent="jumpToIndex(items.length - 1)"
       >
         <i-mdi-chevron-down />
@@ -310,7 +413,6 @@ function setWrapperRef(el: unknown): void {
           title="Select collected"
           @click="handleSelectCollected"
         >
-          <i-mdi-check-decagram-outline class="collection-fab__bg" />
           <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
         </button>
         <button
@@ -425,17 +527,62 @@ function setWrapperRef(el: unknown): void {
   }
 }
 
-// ── Navigation arrows ────────────────────────────────────────
-.nav-arrows {
-  // 按钮浮在任意图片 / 棋盘格上，不跟主题：统一用「暗底 + 浅字」的浮层配色。
-  // 默认的 --overlay 是半透明白底 + 白字，亮色背景（浅色棋盘格）上几乎看不见。
-  --vgo-overlay-control: rgba(0, 0, 0, 0.45);
-  --vgo-overlay-control-hover: rgba(0, 0, 0, 0.62);
-  --vgo-overlay-control-active: rgba(0, 0, 0, 0.78);
+// ── Overlay palette ──────────────────────────────────────────
+// 浮层控件与面板共用一套配色，随主题切换：亮色主题「浅底深字」，暗色主题「深底浅字」。
+//
+// vgo-ui 的两套浮层配色（--overlay / --overlay-light）**故意不随主题翻转**：库的角度是
+// 「看底下媒体的明暗」选一套，而画廊底下既有任意亮度的图片、也有跟随主题的棋盘格，
+// 所以由画廊按主题选一套挂在根上，子树（缩略图条、缩放工具条、按钮）全部继承 ——
+// 只是换令牌，不需要改 vgo-ui。亮色那一套就是库里的 --overlay-light 原值。
+.endless-gallery {
+  --vgo-overlay-surface: rgba(255, 255, 255, 0.62);
+  --vgo-overlay-border: rgba(0, 0, 0, 0.12);
+  --vgo-overlay-text: #171717;
+  --vgo-overlay-text-secondary: rgba(23, 23, 23, 0.6);
+  --vgo-overlay-control: rgba(0, 0, 0, 0.06);
+  --vgo-overlay-control-hover: rgba(0, 0, 0, 0.14);
+  --vgo-overlay-control-active: rgba(0, 0, 0, 0.05);
+
+  html.dark & {
+    --vgo-overlay-surface: rgba(0, 0, 0, 0.45);
+    --vgo-overlay-border: rgba(255, 255, 255, 0.16);
+    --vgo-overlay-text: #ffffff;
+    --vgo-overlay-text-secondary: rgba(255, 255, 255, 0.55);
+    --vgo-overlay-control: rgba(255, 255, 255, 0.14);
+    --vgo-overlay-control-hover: rgba(255, 255, 255, 0.26);
+    --vgo-overlay-control-active: rgba(255, 255, 255, 0.18);
+  }
+}
+
+// 独立药丸按钮（导航 / 收藏）用**整块白色填充**，而不是继承面板里那种淡染控件
+// （rgba(0, 0, 0, .06)）：淡染是给压在半透明浅色面板上的控件用的，药丸直接浮在
+// 暗色照片上时深色图标会看不见。白底 + 深色图标对任意亮度的图片都成立。
+.nav-arrows,
+.collection-fab-wrap {
+  --vgo-overlay-control: rgba(255, 255, 255, 0.75);
+  --vgo-overlay-control-hover: rgba(255, 255, 255, 0.92);
+  --vgo-overlay-control-active: rgba(0, 0, 0, 0.12);
+
+  html.dark & {
+    --vgo-overlay-control: rgba(0, 0, 0, 0.45);
+    --vgo-overlay-control-hover: rgba(0, 0, 0, 0.62);
+    --vgo-overlay-control-active: rgba(0, 0, 0, 0.78);
+  }
+}
+
+// 起止浮层是压暗后面内容的遮罩，保持深色一套，不跟主题
+.edge-overlay {
+  --vgo-overlay-surface: rgba(0, 0, 0, 0.45);
   --vgo-overlay-border: rgba(255, 255, 255, 0.16);
   --vgo-overlay-text: #ffffff;
   --vgo-overlay-text-secondary: rgba(255, 255, 255, 0.55);
+  --vgo-overlay-control: rgba(255, 255, 255, 0.14);
+  --vgo-overlay-control-hover: rgba(255, 255, 255, 0.26);
+  --vgo-overlay-control-active: rgba(255, 255, 255, 0.38);
+}
 
+// ── Navigation arrows ────────────────────────────────────────
+.nav-arrows {
   position: absolute;
   right: var(--vgo-space-3);
   top: 50%;
@@ -457,6 +604,12 @@ function setWrapperRef(el: unknown): void {
 // 收藏态的配色由 .vgo-button.is-active 给，深色浮层上再补一圈描边加强对比
 .nav-collect.is-active {
   border-color: var(--vgo-primary);
+}
+
+// 删除不可逆：悬停给危险色提示，和左下角收藏浮层的关闭按钮同一套反馈
+.nav-delete:hover {
+  background-color: var(--vgo-danger);
+  border-color: var(--vgo-danger);
 }
 
 // ── Thumbnail strip ──────────────────────────────────────────
@@ -484,6 +637,8 @@ function setWrapperRef(el: unknown): void {
 
 // ── Zoom toolbar ─────────────────────────────────────────────
 .zoom-toolbar {
+  // 浮层面板：底色与内部圆按钮的淡染都来自根上那套 --vgo-overlay-* 令牌，
+  // 亮色主题下自动变成「白底 + 深色淡染按钮」。
   position: absolute;
   right: var(--vgo-space-3);
   bottom: calc(var(--gallery-thumb-strip-height) + var(--vgo-space-3));
@@ -533,19 +688,12 @@ function setWrapperRef(el: unknown): void {
 .collection-fab {
   position: relative;
 
-  .collection-fab__bg {
-    position: absolute;
-    font-size: 32px;
-    color: var(--vgo-overlay-control-active);
-    line-height: 1;
-    pointer-events: none;
-  }
-
   .collection-fab__count {
     position: relative;
     z-index: 1;
     font-size: var(--vgo-font-lg);
     line-height: 1;
+    font-weight: bold;
   }
 }
 

@@ -10,6 +10,7 @@
  */
 import type { IEntry } from '@/types/server'
 import { fsWebApi } from '@/api/filesystem'
+import { moveImageThumbCache } from '@/utils/image-thumb-cache'
 import { joinPath, normalizePath } from '@/utils/path/form'
 
 /** 同名冲突策略。与服务端 `upload-file` 的 `onConflict` 及上传队列保持一致。 */
@@ -147,6 +148,10 @@ export async function mkdir(path: string, options: { recursive?: boolean } = {})
 /** 重命名 / 移动（服务端）。 */
 export async function rename(fromPath: string, toPath: string): Promise<void> {
   await fsWebApi.renameEntry({ fromPath, toPath })
+  // The path changed, so the thumbnail cache follows it: a same-filesystem rename keeps
+  // mtime, so the fingerprint still matches and the whole subtree (including the child
+  // entries a folder preview uses) keeps its old images instead of generating them again.
+  void moveImageThumbCache(fromPath, toPath)
 }
 
 /**

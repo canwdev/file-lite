@@ -85,19 +85,6 @@ function formatCacheBytes(bytes: number) {
   return `${bytes} B`
 }
 
-const imageCacheSubtitle = computed(() => {
-  const stats = cacheStats.value
-  if (!stats)
-    return 'Checking…'
-  if (!stats.available)
-    return 'Unavailable in this browser'
-  if (stats.entries === 0)
-    return 'Empty'
-  return `${stats.entries} items · ${formatCacheBytes(stats.bytes)}`
-})
-
-const imageCacheDisabled = computed(() => !cacheStats.value?.available || cacheStats.value.entries === 0)
-
 async function refreshCacheStats() {
   cacheStats.value = await getImageThumbCacheStats()
 }
@@ -198,43 +185,15 @@ async function handleExitBackend() {
   }, 600)
 }
 
-async function clearImageCache() {
-  const stats = cacheStats.value ?? await getImageThumbCacheStats()
-  if (!stats.available) {
-    window.$message.warning('Image cache is unavailable in this browser')
-    return
-  }
-  if (stats.entries === 0)
-    return
-  try {
-    await window.$dialog.confirm(
-      `<div>This will clear ${stats.entries} cached image thumbnails (${formatCacheBytes(stats.bytes)}).</div>`,
-      'Clear Image Cache',
-      {
-        type: 'warning',
-        confirmButtonText: 'Clear',
-        cancelButtonText: 'Cancel',
-        dangerouslyUseHTMLString: true,
-      },
-    )
-    await clearImageThumbCache()
-    window.$message.success('Image cache cleared')
-    await refreshCacheStats()
-  }
-  catch {
-    // cancelled
-  }
-}
-
 async function clearLocalData() {
   const stats = cacheStats.value ?? await getImageThumbCacheStats()
   const cacheLabel = `Image preview cache${stats.entries > 0 ? ` (${stats.entries} items · ${formatCacheBytes(stats.bytes)})` : ''}`
 
   const selected = reactive({
-    media: true,
-    collection: true,
-    folderState: true,
-    imageCache: true,
+    media: false,
+    collection: false,
+    folderState: false,
+    imageCache: false,
   })
   const choices: { key: keyof typeof selected, label: string }[] = [
     { key: 'media', label: 'Last opened media per folder' },
@@ -307,49 +266,6 @@ const options = computed<VgoOptionItem[]>(() => [
         store: local.value,
         subtitle: 'Shortens animations and drops blur.',
       },
-    ],
-  },
-  {
-    label: 'Apps',
-    key: 'apps',
-    children: [
-      {
-        label: 'Use native video player',
-        key: 'isNativePlayer',
-        type: VgoOptionType.SWITCH,
-        store: local.value,
-      },
-      {
-        label: 'Single app instance',
-        key: 'appSingleInstance',
-        type: VgoOptionType.SWITCH,
-        store: local.value,
-        subtitle: 'Opening an app again focuses the window that is already open.',
-      },
-      {
-        label: 'Remember last opened media',
-        key: 'rememberLastMedia',
-        type: VgoOptionType.SWITCH,
-        subtitle: 'Media Player resumes the last file in each folder. Turning this off clears that memory.',
-      },
-      {
-        label: 'Open apps with the filtered list',
-        key: 'openAppWithFilteredList',
-        type: VgoOptionType.SWITCH,
-        store: local.value,
-      },
-      {
-        label: 'Show folders first',
-        key: 'sortFoldersFirst',
-        type: VgoOptionType.SWITCH,
-        store: local.value,
-      },
-    ],
-  },
-  {
-    label: 'Page',
-    key: 'page',
-    children: [
       {
         label: 'Title',
         key: 'pageTitle',
@@ -363,8 +279,40 @@ const options = computed<VgoOptionItem[]>(() => [
     ],
   },
   {
-    label: 'Preview',
-    key: 'preview',
+    label: 'Apps',
+    key: 'apps',
+    children: [
+      {
+        label: 'Native video player',
+        key: 'isNativePlayer',
+        type: VgoOptionType.SWITCH,
+        store: local.value,
+        subtitle: 'Uses the HTML5 video player instead of APlayer.',
+      },
+      {
+        label: 'Remember last opened media',
+        key: 'rememberLastMedia',
+        type: VgoOptionType.SWITCH,
+        subtitle: '[Media Player] Shows a resume button for the last played file.',
+      },
+      {
+        label: 'Open apps with the filtered list',
+        key: 'openAppWithFilteredList',
+        type: VgoOptionType.SWITCH,
+        store: local.value,
+        subtitle: 'Apps will use filtered list items.',
+      },
+      {
+        label: 'Show folders first',
+        key: 'sortFoldersFirst',
+        type: VgoOptionType.SWITCH,
+        store: local.value,
+      },
+    ],
+  },
+  {
+    label: 'Data',
+    key: 'data',
     children: [
       {
         label: 'Disable preview',
@@ -372,20 +320,6 @@ const options = computed<VgoOptionItem[]>(() => [
         type: VgoOptionType.SWITCH,
         store: local.value,
         subtitle: 'Hides thumbnails and covers.',
-      },
-      {
-        label: 'Image cache',
-        key: 'imageCache',
-        subtitle: imageCacheSubtitle.value,
-        type: VgoOptionType.BUTTON,
-        value: 'Clear',
-        disabled: imageCacheDisabled.value,
-        props: {
-
-          onClick: () => {
-            void clearImageCache()
-          },
-        },
       },
       {
         label: 'Local data',
@@ -429,7 +363,7 @@ const options = computed<VgoOptionItem[]>(() => [
         key: 'updateBackend',
         subtitle: 'Replace the running server binary and restart.',
         type: VgoOptionType.BUTTON,
-        value: 'Update…',
+        value: 'Upload…',
         props: {
 
           onClick: handleUpdateBackend,
@@ -463,11 +397,6 @@ const options = computed<VgoOptionItem[]>(() => [
     ]),
   },
 ])
-
-function onOptionUpdate(payload: { item: VgoOptionItem, value: unknown }) {
-  if (payload.item.key === 'rememberLastMedia' && payload.value === false)
-    clearLastOpenedMediaMap()
-}
 </script>
 
 <template>
@@ -476,7 +405,6 @@ function onOptionUpdate(payload: { item: VgoOptionItem, value: unknown }) {
       expand-id="file-lite-settings"
       :option-list="options"
       :store="settingsStore"
-      @update-value="onOptionUpdate"
     />
   </div>
 </template>

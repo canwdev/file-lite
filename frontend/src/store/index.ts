@@ -47,7 +47,6 @@ const {
 function createDefaultLocalSettingsStore() {
   return {
     isNativePlayer: false,
-    appSingleInstance: true,
     openAppWithFilteredList: false,
     /** 减少动画和过渡效果 */
     reduceMotion: false,

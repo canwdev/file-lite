@@ -11,6 +11,7 @@ import { serverCapabilities } from '@/store/capabilities'
 import { createTask } from '@/store/tasks'
 import { copyWithToast } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
+import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
@@ -240,18 +241,13 @@ export function useFileActions({
     if (!selectedPaths.value.length) {
       return
     }
-    window.$dialog
-      .confirm(
-        `Are you sure to delete ${selectedPaths.value.length} items? This action can not be undone.`,
-        'Confirm Delete',
-        {
-          type: 'warning',
-        },
-      )
-      .then(() => {
-        doDeleteSelected()
-      })
-      .catch()
+    void confirmDeleteDialog(selectedItems.value.map(item => ({
+      name: item.name,
+      isDirectory: item.isDirectory,
+    }))).then((confirmed) => {
+      if (confirmed)
+        void doDeleteSelected()
+    })
   }
 
   const handleOpen = () => {
