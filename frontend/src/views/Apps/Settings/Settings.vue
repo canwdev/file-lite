@@ -127,8 +127,8 @@ function handleUpdateBackend() {
 async function handleRestartBackend() {
   try {
     await window.$dialog.confirm(
-      $t('file_lite_i18n.restart_the_backend_process'),
-      $t('file_lite_i18n.restart_backend'),
+      'Restart the backend process?',
+      'Restart backend',
       {
         type: 'warning',
         confirmButtonText: $t('file_lite_i18n.restart'),
@@ -158,8 +158,8 @@ async function handleRestartBackend() {
 async function handleExitBackend() {
   try {
     await window.$dialog.confirm(
-      $t('file_lite_i18n.exit_the_backend_process_it_may'),
-      $t('file_lite_i18n.exit_backend'),
+      'Exit the backend process? It may need to be started again manually on the server.',
+      'Exit backend',
       {
         type: 'warning',
         confirmButtonText: $t('file_lite_i18n.exit'),
@@ -180,7 +180,7 @@ async function handleExitBackend() {
 
   // The process exits after the response is sent.
   setTimeout(() => {
-    void window.$dialog.alert($t('file_lite_i18n.backend_exited'), $t('file_lite_i18n.exit_backend'), { type: 'info' }).catch(() => {
+    void window.$dialog.alert('Backend exited', 'Exit backend', { type: 'info' }).catch(() => {
       // Dialog dismissed.
     })
   }, 600)
@@ -199,7 +199,7 @@ async function clearLocalData() {
   const choices: { key: keyof typeof selected, label: string }[] = [
     { key: 'media', label: $t('file_lite_i18n.last_opened_media_per_folder') },
     { key: 'collection', label: $t('file_lite_i18n.collected_items_endless_gallery') },
-    { key: 'folderState', label: $t('file_lite_i18n.folder_state_scroll_position_sor') },
+    { key: 'folderState', label: `${$t('file_lite_i18n.folder_state')} (scroll position & sort mode)` },
     { key: 'imageCache', label: cacheLabel },
   ]
 
@@ -275,7 +275,7 @@ const options = computed<VgoOptionItem[]>(() => [
         subtitle: $t('file_lite_i18n.shortens_animations_and_drops_bl'),
       },
       {
-        label: $t('file_lite_i18n.title'),
+        label: $t('file_lite_i18n.custom_title'),
         key: 'pageTitle',
         type: VgoOptionType.INPUT,
         subtitle: $t('file_lite_i18n.shown_in_the_top_bar_and_the_bro'),
@@ -319,7 +319,7 @@ const options = computed<VgoOptionItem[]>(() => [
     ],
   },
   {
-    label: $t('file_lite_i18n.data'),
+    label: $t('file_lite_i18n.local_data'),
     key: 'data',
     children: [
       {
@@ -345,17 +345,17 @@ const options = computed<VgoOptionItem[]>(() => [
     ],
   },
   {
-    label: $t('file_lite_i18n.development'),
+    label: 'Development',
     key: 'development',
     children: present([
       {
-        label: $t('file_lite_i18n.debug_console'),
+        label: 'Debug console',
         key: 'enabled',
         type: VgoOptionType.SWITCH,
         store: debugSettings,
       },
       isDev && {
-        label: $t('file_lite_i18n.demo_transfer_window'),
+        label: 'Demo transfer window',
         key: 'demoTransfer',
         type: VgoOptionType.BUTTON,
         value: $t('file_lite_i18n.open'),
@@ -367,9 +367,9 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: $t('file_lite_i18n.backend_binary'),
+        label: 'Backend binary',
         key: 'updateBackend',
-        subtitle: $t('file_lite_i18n.replace_the_running_server_binar'),
+        subtitle: 'Replace the running server binary and restart.',
         type: VgoOptionType.BUTTON,
         value: $t('file_lite_i18n.upload') + ELLIPSIS,
         props: {
@@ -378,9 +378,9 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: $t('file_lite_i18n.restart_backend'),
+        label: 'Restart backend',
         key: 'restartBackend',
-        subtitle: $t('file_lite_i18n.reloads_config_transfers_in_prog'),
+        subtitle: 'Reloads config. Transfers in progress are interrupted.',
         type: VgoOptionType.BUTTON,
         value: $t('file_lite_i18n.restart') + ELLIPSIS,
         props: {
@@ -391,7 +391,7 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: $t('file_lite_i18n.exit_backend'),
+        label: 'Exit backend',
         key: 'exitBackend',
         type: VgoOptionType.BUTTON,
         value: $t('file_lite_i18n.exit') + ELLIPSIS,

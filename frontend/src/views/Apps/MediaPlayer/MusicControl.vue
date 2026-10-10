@@ -315,7 +315,7 @@ function jumpBackward() {
           <template #reference>
             <button
               ref="volumeIconBtnRef" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg"
-              :title="$t('file_lite_i18n.volume_scroll_wheel_to_adjust')"
+              :title="`${$t('file_lite_i18n.volume')} (scroll wheel to adjust)`"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
                 <i-mdi-volume-high />

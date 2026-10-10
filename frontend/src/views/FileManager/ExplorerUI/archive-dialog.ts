@@ -27,9 +27,9 @@ function archiveNameError(name: string, optional = false) {
   if (!trimmed)
     return optional ? '' : $t('file_lite_i18n.archive_name_is_required')
   if (trimmed === '.' || trimmed === '..' || /[/\\]/.test(trimmed))
-    return $t('file_lite_i18n.invalid_archive_name')
+    return $t('file_lite_i18n.archive_name_is_required')
   if (trimmed.startsWith('.fl-part-'))
-    return $t('file_lite_i18n.invalid_archive_name')
+    return $t('file_lite_i18n.archive_name_is_required')
   return ''
 }
 

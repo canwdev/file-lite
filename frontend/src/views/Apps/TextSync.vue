@@ -95,7 +95,7 @@ async function copyText() {
     window.$message.success($t('file_lite_i18n.copied'))
   }
   catch {
-    window.$message.error($t('file_lite_i18n.copy_failed'))
+    window.$message.error($t('file_lite_i18n.failed'))
   }
 }
 
@@ -106,7 +106,7 @@ async function pasteText() {
   }
   catch (error) {
     console.error('[pasteText]', error)
-    window.$message.error($t('file_lite_i18n.paste_failed_0', [error instanceof Error ? error.message : $t('file_lite_i18n.unknown_error')]))
+    window.$message.error($t('file_lite_i18n.failed_to_paste_from_clipboard_0', [error instanceof Error ? error.message : $t('file_lite_i18n.unknown_error')]))
   }
 }
 

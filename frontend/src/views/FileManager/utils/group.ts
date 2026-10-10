@@ -45,14 +45,14 @@ export function dateGroupKey(ms: number, now = Date.now()): GroupKey {
 
   const weekStart = startOfWeekMonday(today)
   if (day >= weekStart)
-    return { id: 'date:earlier-this-week', label: $t('file_lite_i18n.earlier_this_week'), order: 6 }
+    return { id: 'date:earlier-this-week', label: $t('file_lite_i18n.last_week'), order: 6 }
   if (day >= weekStart - 7 * DAY_MS)
     return { id: 'date:last-week', label: $t('file_lite_i18n.last_week'), order: 5 }
 
   const todayDate = new Date(today)
   const monthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime()
   if (day >= monthStart)
-    return { id: 'date:earlier-this-month', label: $t('file_lite_i18n.earlier_this_month'), order: 4 }
+    return { id: 'date:earlier-this-month', label: $t('file_lite_i18n.last_month'), order: 4 }
 
   const lastMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1).getTime()
   if (day >= lastMonthStart)
@@ -60,7 +60,7 @@ export function dateGroupKey(ms: number, now = Date.now()): GroupKey {
 
   const yearStart = new Date(todayDate.getFullYear(), 0, 1).getTime()
   if (day >= yearStart)
-    return { id: 'date:earlier-this-year', label: $t('file_lite_i18n.earlier_this_year'), order: 2 }
+    return { id: 'date:earlier-this-year', label: $t('file_lite_i18n.last_year'), order: 2 }
 
   const lastYearStart = new Date(todayDate.getFullYear() - 1, 0, 1).getTime()
   if (day >= lastYearStart)
@@ -75,18 +75,18 @@ export function sizeGroupKey(entry: IEntry): GroupKey {
 
   const size = entry.size
   if (size === 0)
-    return { id: 'size:empty', label: $t('file_lite_i18n.empty_0_kb'), order: 0 }
+    return { id: 'size:empty', label: `${$t('file_lite_i18n.empty_0_kb')} (0KB)`, order: 0 }
   if (size < 16 * KB)
-    return { id: 'size:tiny', label: $t('file_lite_i18n.tiny_16_kb'), order: 1 }
+    return { id: 'size:tiny', label: `${$t('file_lite_i18n.tiny_16_kb')} (< 16KB)`, order: 1 }
   if (size < MB)
-    return { id: 'size:small', label: $t('file_lite_i18n.small_1_mb'), order: 2 }
+    return { id: 'size:small', label: `${$t('file_lite_i18n.small_1_mb')} (< 1MB)`, order: 2 }
   if (size < 128 * MB)
-    return { id: 'size:medium', label: $t('file_lite_i18n.medium_128_mb'), order: 3 }
+    return { id: 'size:medium', label: `${$t('file_lite_i18n.medium_128_mb')} (< 128MB)`, order: 3 }
   if (size < GB)
-    return { id: 'size:large', label: $t('file_lite_i18n.large_1_gb'), order: 4 }
+    return { id: 'size:large', label: `${$t('file_lite_i18n.large_1_gb')} (< 1GB)`, order: 4 }
   if (size < 4 * GB)
-    return { id: 'size:huge', label: $t('file_lite_i18n.huge_4_gb'), order: 5 }
-  return { id: 'size:gigantic', label: $t('file_lite_i18n.gigantic_4_gb'), order: 6 }
+    return { id: 'size:huge', label: `${$t('file_lite_i18n.huge_4_gb')} (< 4GB)`, order: 5 }
+  return { id: 'size:gigantic', label: `${$t('file_lite_i18n.gigantic_4_gb')} (≥ 4GB)`, order: 6 }
 }
 
 export function nameGroupKey(name: string): GroupKey {

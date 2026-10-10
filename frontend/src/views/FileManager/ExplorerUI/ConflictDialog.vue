@@ -24,7 +24,7 @@ const {
 
 function itemSize(isDirectory: boolean, size?: number) {
   if (isDirectory) {
-    return $t('file_lite_i18n.folder')
+    return $t('file_lite_i18n.file_folder')
   }
   return typeof size === 'number' ? bytesToSize(size) : ''
 }
@@ -102,7 +102,7 @@ function formatTime(ms?: number) {
       </el-radio-group>
 
       <el-checkbox v-if="multiple" v-model="applyToAll" class="conflict-apply-all">
-        {{ $t('file_lite_i18n.do_this_for_all') }} {{ conflictTotal }} conflicts
+        {{ $t('file_lite_i18n.apply_to_all') }} {{ conflictTotal }} conflicts
       </el-checkbox>
 
       <div v-if="stepping && current" class="conflict-compare">

@@ -14,8 +14,8 @@ export const SORT_FIELD_LABEL_KEYS: Record<SortField, string> = {
   name: 'file_lite_i18n.name',
   extension: 'file_lite_i18n.extension',
   size: 'file_lite_i18n.size',
-  lastModified: 'file_lite_i18n.last_modified',
-  birthTime: 'file_lite_i18n.created_time',
+  lastModified: 'file_lite_i18n.modified',
+  birthTime: 'file_lite_i18n.created',
 }
 
 const SORT_FIELD_SET = new Set<string>(SORT_FIELDS)
@@ -33,7 +33,7 @@ export function parseSortMode(mode: SortType): { field: SortField, desc: boolean
 }
 
 export function composeSortMode(field: SortField, desc: boolean): SortType {
-  return (desc ? $t('file_lite_i18n.n_0_desc', [field]) : field) as SortType
+  return (desc ? `${field}Desc` : field) as SortType
 }
 
 /** 「文件夹在前」的顺序层：目录始终排在文件前面，与具体排序方式叠加 */

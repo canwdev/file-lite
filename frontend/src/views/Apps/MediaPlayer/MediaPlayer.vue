@@ -83,14 +83,14 @@ watch(
         <aside class="playlist-panel vgo-panel">
           <div class="playlist-panel-header">
             <div class="playlist-panel-title">
-              <h2>{{ $t('file_lite_i18n.playing_queue') }}</h2>
+              <h2>{{ $t('file_lite_i18n.playlist') }}</h2>
               <span class="playlist-panel-count">
                 {{ mediaStore.playingList.length ? mediaStore.playingIndex + 1 : 0 }}/{{ mediaStore.playingList.length }}
               </span>
             </div>
             <button
               class="vgo-button vgo-button--text vgo-button--icon"
-              :title="$t('file_lite_i18n.close_playlist')"
+              :title="$t('file_lite_i18n.close')"
               @click="showPlaylist = false"
             >
               <i-mdi-close />

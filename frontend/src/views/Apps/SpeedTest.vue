@@ -149,7 +149,7 @@ async function runTest(target: 'download' | 'upload' | 'all') {
     phase.value = 'idle'
     if (!isAbortError(error)) {
       console.error(error)
-      window.$message.error(error instanceof Error ? error.message : $t('file_lite_i18n.speed_test_failed'))
+      window.$message.error(error instanceof Error ? error.message : $t('file_lite_i18n.failed'))
     }
   }
   finally {
@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
         <input v-model.number="sizeMB" type="number" min="1" max="2048" class="vgo-input size-input" :disabled="running" :step="100">
       </label>
       <button type="button" class="vgo-button vgo-button--primary" :disabled="running" @click="startTest">
-        {{ $t('file_lite_i18n.test_all') }}
+        {{ $t('file_lite_i18n.test') }}
       </button>
       <button type="button" class="vgo-button" :disabled="!running" @click="stopTest">
         {{ $t('file_lite_i18n.stop') }}

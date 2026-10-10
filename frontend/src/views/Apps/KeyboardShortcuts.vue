@@ -37,14 +37,14 @@ function scopeLabel(scope: string) {
   if (scope === 'fileSelector')
     return $t('file_lite_i18n.file_picker')
   if (scope.startsWith('fileManager:'))
-    return $t('file_lite_i18n.explorer_pane')
+    return $t('file_lite_i18n.explorer')
   if (scope.startsWith('app:')) {
     const winId = scope.slice(4)
     const win = appWindows.get(winId)
     if (win) {
-      return $t('file_lite_i18n.app_0', [win.title.trim() || defaultAppTitle(win.data)])
+      return win.title.trim() || defaultAppTitle(win.data)
     }
-    return $t('file_lite_i18n.app_0_2', [shortId(winId)])
+    return shortId(winId)
   }
   return scope
 }
@@ -67,7 +67,7 @@ function scopeLabel(scope: string) {
     <div v-if="!groups.length" class="vgo-empty shortcuts-empty">
       <i-mdi-keyboard-outline class="vgo-empty__icon" />
       <div class="vgo-empty__title">
-        {{ $t('file_lite_i18n.no_shortcuts_match') }}
+        {{ $t('file_lite_i18n.no_matches') }}
       </div>
       <div class="vgo-empty__desc">
         {{ $t('file_lite_i18n.clear_the_filter_or_open_an_expl') }}

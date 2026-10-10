@@ -41,7 +41,7 @@ async function loadViewer() {
   }
   catch (err) {
     console.error('[FileViewer] load viewer script failed', err)
-    error.value = $t('file_lite_i18n.failed_to_load_viewer')
+    error.value = $t('file_lite_i18n.failed')
   }
   finally {
     isLoading.value = false

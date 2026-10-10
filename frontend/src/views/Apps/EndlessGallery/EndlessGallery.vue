@@ -339,7 +339,7 @@ function setWrapperRef(el: unknown): void {
     <div v-if="!edgeOverlay && items.length" class="nav-arrows">
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :title="$t('file_lite_i18n.previous_k')"
+        :title="`${$t('file_lite_i18n.previous')} (↑ / ← / k)`"
         @click.stop="navigate(false, { instant: true })"
         @contextmenu.prevent="jumpToIndex(0)"
       >
@@ -369,7 +369,7 @@ function setWrapperRef(el: unknown): void {
       </button>
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :title="$t('file_lite_i18n.next_j')"
+        :title="`${$t('file_lite_i18n.next')} (↓ / → / j)`"
         @click.stop="navigate(true, { instant: true })"
         @contextmenu.prevent="jumpToIndex(items.length - 1)"
       >
@@ -383,7 +383,7 @@ function setWrapperRef(el: unknown): void {
         <span v-if="zoom.resolution.value" class="zoom-resolution">{{ zoom.resolution.value }}</span>
         <button
           class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
-          :title="$t('file_lite_i18n.zoom_out_ctrl_scroll')"
+          :title="`${$t('file_lite_i18n.zoom_out')} (Ctrl+scroll)`"
           @click.stop="zoom.zoomOut()"
         >
           <i-mdi-minus />
@@ -410,14 +410,14 @@ function setWrapperRef(el: unknown): void {
       <div v-if="hasCollection && collectedInCurrentDir.length > 0" class="collection-fab-wrap">
         <button
           class="vgo-button vgo-button--overlay vgo-button--round vgo-button--lg collection-fab"
-          :title="$t('file_lite_i18n.select_collected')"
+          :title="$t('file_lite_i18n.select')"
           @click="handleSelectCollected"
         >
           <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
         </button>
         <button
           class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm collection-fab__close"
-          :title="$t('file_lite_i18n.clear_collection')"
+          :title="$t('file_lite_i18n.clear')"
           @click="clearCollection"
         >
           <i-mdi-close />
@@ -428,7 +428,7 @@ function setWrapperRef(el: unknown): void {
     <!-- ─── Empty state ─── -->
     <div v-if="!items.length" class="empty-state">
       <i-mdi-image-off-outline />
-      <span>{{ $t('file_lite_i18n.no_media_files_in_this_folder') }}</span>
+      <span>{{ $t('file_lite_i18n.no_media') }}</span>
     </div>
 
     <!-- ─── Edge overlay ─── -->
@@ -483,7 +483,7 @@ function setWrapperRef(el: unknown): void {
           </button>
 
           <button class="vgo-button vgo-button--overlay vgo-button--text edge-btn" @click="edgeOverlay = null">
-            <i-mdi-close /> {{ $t('file_lite_i18n.dismiss') }}
+            <i-mdi-close /> {{ $t('file_lite_i18n.close') }}
           </button>
         </div>
       </div>

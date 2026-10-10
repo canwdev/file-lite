@@ -16,10 +16,10 @@ defineEmits<{
     <div v-if="!tasks.length" class="vgo-empty server-task-list__empty">
       <MdiIcon class="vgo-empty__icon" name="folder-move-outline" />
       <div class="vgo-empty__title">
-        {{ $t('file_lite_i18n.no_background_tasks') }}
+        {{ $t('file_lite_i18n.no_transfers') }}
       </div>
       <div class="vgo-empty__desc">
-        {{ $t('file_lite_i18n.copy_move_and_delete_show_up_her') }}
+        {{ $t('file_lite_i18n.transfers_hint') }}
       </div>
     </div>
     <ServerTaskRow

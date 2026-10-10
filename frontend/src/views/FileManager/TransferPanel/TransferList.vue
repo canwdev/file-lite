@@ -44,7 +44,7 @@ function measureItemHeight() {
         {{ $t('file_lite_i18n.no_transfers') }}
       </div>
       <div class="vgo-empty__desc">
-        {{ $t('file_lite_i18n.uploads_and_downloads_show_up_he') }}
+        {{ $t('file_lite_i18n.transfers_hint') }}
       </div>
     </div>
     <template v-else>

@@ -178,7 +178,7 @@ const rows = computed<PropertyRow[]>(() => {
   if (propertiesIsMulti.value) {
     const list: PropertyRow[] = [
       { label: $t('file_lite_i18n.type'), value: typeText.value },
-      { label: $t('file_lite_i18n.full_path'), value: multiLocation.value ?? $t('file_lite_i18n.multiple_locations'), wide: true },
+      { label: $t('file_lite_i18n.path'), value: multiLocation.value ?? $t('file_lite_i18n.locations'), wide: true },
       { label: $t('file_lite_i18n.size'), value: sizeText.value },
     ]
     if (multiFolderCount.value) {
@@ -191,7 +191,7 @@ const rows = computed<PropertyRow[]>(() => {
 
   const list: PropertyRow[] = [
     { label: $t('file_lite_i18n.type'), value: typeLabel.value },
-    { label: $t('file_lite_i18n.full_path'), value: fullPath.value, wide: true },
+    { label: $t('file_lite_i18n.path'), value: fullPath.value, wide: true },
     { label: $t('file_lite_i18n.size'), value: sizeText.value },
   ]
   if (isDirectory.value) {

@@ -180,7 +180,7 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   const vertical = item.split !== 'horizontal'
   return [
     {
-      label: $t('file_lite_i18n.unsplit'),
+      label: $t('file_lite_i18n.split_view'),
       shortcut: 'Ctrl+\\',
       onClick: () => unsplit(item.id),
     },
@@ -273,7 +273,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     ref="tabBarRef"
     class="explorer-tabs"
     role="tablist"
-    :aria-label="$t('file_lite_i18n.open_folders')"
+    :aria-label="$t('file_lite_i18n.open')"
     @dragleave="onTabDragLeave"
   >
     <div
@@ -318,7 +318,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
         v-if="canCloseTabs"
         type="button"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__close"
-        :title="$t('file_lite_i18n.close_tab')"
+        :title="$t('file_lite_i18n.close')"
         @click.stop="closeTab(item.id)"
       >
         <i-mdi-close />
@@ -328,7 +328,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     <button
       type="button"
       class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__add"
-      :title="$t('file_lite_i18n.new_tab_alt_t')"
+      :title="`${$t('file_lite_i18n.new_tab')} (Alt+T)`"
       @click="addTab()"
     >
       <i-mdi-plus />

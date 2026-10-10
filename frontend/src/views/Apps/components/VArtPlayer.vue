@@ -244,7 +244,7 @@ onMounted(() => {
     ],
     contextmenu: [
       {
-        html: $t('file_lite_i18n.copy_image_to_clipboard'),
+        html: $t('file_lite_i18n.copy'),
         async click() {
           const inst = artInstance.value
           if (!inst)

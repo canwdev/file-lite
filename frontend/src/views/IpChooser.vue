@@ -104,7 +104,7 @@ function handleGo(url: string) {
         </button>
       </div>
       <div v-else-if="!hostUrls.length" class="ip-status vgo-empty">
-        <span>{{ $t('file_lite_i18n.no_reachable_address_was_found') }}</span>
+        <span>{{ $t('file_lite_i18n.no_locations_available') }}</span>
         <button class="vgo-button vgo-button--sm" @click="loadInfo">
           {{ $t('file_lite_i18n.refresh') }}
         </button>
@@ -134,7 +134,7 @@ function handleGo(url: string) {
         </div>
 
         <aside class="ip-side vgo-panel">
-          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" :alt="$t('file_lite_i18n.login_qr_code')">
+          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" :alt="$t('file_lite_i18n.qr_code_generator')">
           <textarea v-model="currentUrl" class="vgo-input url-field" rows="2" :placeholder="$t('file_lite_i18n.qr_code_generator')" />
           <div class="qr-meta">
             <span v-if="isExpired" class="vgo-badge vgo-badge--danger">{{ $t('file_lite_i18n.expired') }}</span>

@@ -88,7 +88,7 @@ defineExpose({
       v-model="localFilter.text"
       :placeholder="$t('file_lite_i18n.filter_name')"
       class="input-filter vgo-input"
-      :title="$t('file_lite_i18n.filter_bar_alt_f')"
+      :title="`${$t('file_lite_i18n.filter_bar')} (alt+f)`"
       :readonly="locked"
       @keyup.esc="handleEscape"
     >
@@ -96,7 +96,7 @@ defineExpose({
       <button
         v-if="hasText && !locked"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-        :title="$t('file_lite_i18n.clear_filter')"
+        :title="$t('file_lite_i18n.clear')"
         @click="clearFilter"
       >
         <i-mdi-close />
@@ -108,7 +108,7 @@ defineExpose({
         :disabled="locked"
         @click="localFilter.caseSensitive = !localFilter.caseSensitive"
       >
-        {{ $t('file_lite_i18n.aa') }}
+        {{ 'Aa' }}
       </button>
       <button
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle vgo-u-font-code"

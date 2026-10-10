@@ -74,7 +74,7 @@ export async function copyWithToast(val: string, isShowVal = false) {
   if (showVal) {
     showVal = `: ${showVal}`
   }
-  window.$message.success($t('file_lite_i18n.copied_0', [showVal]))
+  window.$message.success(`${$t('file_lite_i18n.copied')}${showVal}`)
 }
 
 export function formatDate(d: any | number, format = 'YYYY-MM-DD HH:mm') {

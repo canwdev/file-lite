@@ -102,7 +102,7 @@ const currentMount = computed(() => {
   return driveList.value.find(drive => normalizeListingPath(drive.path) === path) ?? null
 })
 const currentRootIcon = computed(() => pathRootIcon(rootSegment.value?.path ?? ''))
-const currentRootLabel = computed(() => currentMount.value?.label || rootSegment.value?.name || $t('file_lite_i18n.storage'))
+const currentRootLabel = computed(() => currentMount.value?.label || rootSegment.value?.name || $t('file_lite_i18n.locations'))
 
 function buildStorageItems(): MenuItem[] {
   if (!driveList.value.length) {
@@ -367,7 +367,7 @@ async function readCrumbSubDirs(path: string): Promise<{ dirs: IEntry[], error: 
 /** 子文件夹菜单项；当前目录那一条保持高亮，空 / 失败时给一条禁用的提示。 */
 function buildCrumbSubDirItems(seg: BreadcrumbSegment, dirs: IEntry[], error: boolean): MenuItem[] {
   if (!dirs.length) {
-    return [{ label: error ? $t('file_lite_i18n.failed_to_load_subfolders') : $t('file_lite_i18n.no_subfolders'), disabled: true }]
+    return [{ label: error ? $t('file_lite_i18n.failed_to_load_this_folder') : $t('file_lite_i18n.no_files'), disabled: true }]
   }
   const current = currentChildName(seg)
   return dirs.map(dir => ({
@@ -500,7 +500,7 @@ defineExpose({
   <div
     class="address-bar vgo-input"
     :class="{ 'is-editing': editing }"
-    :title="editing ? '' : $t('file_lite_i18n.address_bar_click_empty_area_to')"
+    :title="editing ? '' : `${$t('file_lite_i18n.address_bar')} (Alt+A)`"
   >
     <input
       v-show="editing"

@@ -180,7 +180,7 @@ export function useFileActions({
     }
     catch (error) {
       // 重命名可能被服务端拒绝（只读、目标被占用…）：如实提示，别静默失败
-      window.$message?.error(error instanceof Error ? error.message : $t('file_lite_i18n.rename_failed'))
+      window.$message?.error(error instanceof Error ? error.message : $t('file_lite_i18n.failed'))
     }
     finally {
       isLoading.value = false
@@ -384,12 +384,12 @@ export function useFileActions({
           divided: true,
         },
         {
-          label: $t('file_lite_i18n.paste_from_clipboard'),
+          label: $t('file_lite_i18n.paste'),
           icon: 'mdi mdi-clipboard-arrow-down-outline',
           onClick: () => handlePasteFromClipboard(),
         },
-        { label: $t('file_lite_i18n.download_current_folder'), icon: 'mdi mdi-download', onClick: handleDownload },
-        { label: $t('file_lite_i18n.download_current_folder_to') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+        { label: $t('file_lite_i18n.download'), icon: 'mdi mdi-download', onClick: handleDownload },
+        { label: $t('file_lite_i18n.download') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
         {
           label: $t('file_lite_i18n.properties'),
           icon: 'mdi mdi-information-outline',
@@ -501,12 +501,12 @@ export function useFileActions({
       { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
 
         {
-          label: $t('file_lite_i18n.open_in_host_explorer'),
+          label: $t('file_lite_i18n.open_containing_folder'),
           icon: 'mdi mdi-folder-outline',
           onClick: handleOpenInHostExplorer,
         },
         {
-          label: $t('file_lite_i18n.copy_path_s'),
+          label: $t('file_lite_i18n.copy'),
           icon: 'mdi mdi-clipboard-text-outline',
           onClick: handleCopyPaths,
         },

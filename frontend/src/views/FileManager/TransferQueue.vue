@@ -927,7 +927,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
             <i-mdi-compare-vertical /> {{ transferringNum }}
           </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--primary vgo-button--sm" @click="retryAll">
-            {{ $t('file_lite_i18n.retry_all') }}
+            {{ $t('file_lite_i18n.retry') }}
           </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--sm" @click="clearFailed">
             {{ $t('file_lite_i18n.clear_failed') }}
@@ -941,7 +941,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
           class="vgo-button vgo-button--danger vgo-button--sm"
           @click="cancelTransfers"
         >
-          {{ $t('file_lite_i18n.cancel_all') }}
+          {{ $t('file_lite_i18n.cancel') }}
         </button>
       </template>
 
@@ -960,7 +960,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
           class="vgo-button vgo-button--danger vgo-button--sm"
           @click="cancelServerTasks"
         >
-          {{ $t('file_lite_i18n.cancel_all') }}
+          {{ $t('file_lite_i18n.cancel') }}
         </button>
       </template>
     </template>

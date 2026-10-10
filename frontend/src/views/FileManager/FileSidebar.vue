@@ -128,10 +128,10 @@ defineExpose({
 
     <div class="sidebar-list drive-list">
       <div class="sidebar-list__header">
-        <span>{{ $t('file_lite_i18n.storage') }}</span>
+        <span>{{ $t('file_lite_i18n.locations') }}</span>
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          :title="$t('file_lite_i18n.reload_drives')"
+          :title="$t('file_lite_i18n.refresh')"
           :disabled="isLoading"
           @click="loadDrives"
         >

@@ -53,7 +53,7 @@ export function useMediaStore(uniqueStoreName = 'mediaStore') {
       playFromList(list: MediaItem[] = [], index = 0) {
         const playItem = list[index]
         if (!playItem) {
-          window.$message.error($t('file_lite_i18n.no_media_at_index_0', [index]))
+          window.$message.error($t('file_lite_i18n.no_media', [index]))
           return
         }
 

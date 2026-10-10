@@ -13,7 +13,7 @@ export function getTooltip(item: IEntry) {
       value: item.size === null ? '' : bytesToSize(item.size),
     },
     {
-      label: $t('file_lite_i18n.last_modified'),
+      label: $t('file_lite_i18n.modified'),
       value: formatDate(item.lastModified, 'YYYY-MM-DD HH:mm:ss'),
     },
     {

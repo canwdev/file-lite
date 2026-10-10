@@ -206,13 +206,13 @@ const menuOptions = computed((): MenuBarOptions => {
     ...baseContextMenuOptions,
     items: [
       {
-        label: $t('file_lite_i18n.save_0', [isChanged.value ? '*' : '']),
+        label: `${$t('file_lite_i18n.save')}${isChanged.value ? '*' : ''}`,
         onClick() {
           handleSaveFile()
         },
       },
       {
-        label: $t('file_lite_i18n.reload'),
+        label: $t('file_lite_i18n.refresh'),
         onClick: async () => {
           if (isChanged.value) {
             const confirmed = await confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_re'))

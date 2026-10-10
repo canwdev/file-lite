@@ -337,7 +337,7 @@ function showStarredMenu(event: MouseEvent) {
         attrs: { title: path },
         onClick: () => handleOpenPath(path),
       }))
-    : [{ label: $t('file_lite_i18n.no_starred_folders'), disabled: true }]
+    : [{ label: $t('file_lite_i18n.no_locations_available'), disabled: true }]
 
   ContextMenu.showContextMenu({
     x: event.clientX,
@@ -589,7 +589,7 @@ defineExpose({
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                :title="$t('file_lite_i18n.toggle_star_alt_d')"
+                :title="`${$t('file_lite_i18n.toggle_star')} (alt+d)`"
                 @click="toggleStar(basePathNormalized)"
                 @contextmenu.prevent.stop="showStarredMenu($event)"
               >

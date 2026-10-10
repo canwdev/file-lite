@@ -65,7 +65,7 @@ defineEmits<{
         <button
           v-if="item.status === 'failed' && item.type === 'download'"
           class="vgo-button vgo-button--primary vgo-button--icon vgo-button--sm"
-          :title="$t('file_lite_i18n.manual_download')"
+          :title="$t('file_lite_i18n.download')"
           @click="$emit('manualDownload', item)"
         >
           <i-mdi-download />

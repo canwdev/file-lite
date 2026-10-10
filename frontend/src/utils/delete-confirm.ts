@@ -48,7 +48,7 @@ export async function confirmDeleteDialog(targets: DeleteConfirmTarget[]): Promi
     return false
   }
   try {
-    await window.$dialog.confirm(deleteConfirmMessage(targets), $t('file_lite_i18n.confirm_delete'), {
+    await window.$dialog.confirm(deleteConfirmMessage(targets), $t('file_lite_i18n.confirm'), {
       type: 'warning',
     })
     return true

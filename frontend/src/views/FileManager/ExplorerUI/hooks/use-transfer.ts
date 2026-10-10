@@ -249,7 +249,7 @@ export function useTransfer({
     window.$dialog
       .confirm(
         message,
-        $t('file_lite_i18n.confirm_download'),
+        $t('file_lite_i18n.confirm'),
         {
           type: 'info',
         },

@@ -130,7 +130,7 @@ function checkTooLargeFileDialog(item: IEntry, bytes: number) {
       window.$dialog
         .confirm(
           $t('file_lite_i18n.file_0_1_is_larger_than_2_are_yo', [item.name, bytesToSize(item.size), bytesToSize(bytes)]),
-          $t('file_lite_i18n.file_is_too_large'),
+          $t('file_lite_i18n.file_too_large_to_edit'),
           {
             type: 'warning',
           },

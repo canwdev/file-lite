@@ -52,23 +52,23 @@ export function useConflictDialog() {
 
   const replaceLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return $t('file_lite_i18n.replace_the_file_in_the_destinat')
+      return $t('file_lite_i18n.replace')
     }
-    return $t('file_lite_i18n.replace_the_item_in_the_destinat')
+    return $t('file_lite_i18n.replace')
   })
 
   const skipLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return $t('file_lite_i18n.skip_this_file')
+      return $t('file_lite_i18n.skip')
     }
-    return $t('file_lite_i18n.skip_this_item')
+    return $t('file_lite_i18n.skip')
   })
 
   const keepBothLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return $t('file_lite_i18n.keep_both_files_rename_the_incom')
+      return $t('file_lite_i18n.keep_both')
     }
-    return $t('file_lite_i18n.keep_both_items_rename_the_incom')
+    return $t('file_lite_i18n.keep_both')
   })
 
   // 切换到下一个冲突任务时重置交互状态

@@ -38,7 +38,7 @@ export function useFolderNavigation(getAppParams: () => AppParams | undefined) {
           window.$message.warning($t('file_lite_i18n.stopped_after_scanning_0_folders', [MAX_DIR_READS]))
         }
         else if (outcome.status === 'boundary') {
-          window.$message.info($t('file_lite_i18n.no_more_folders_with_media'))
+          window.$message.info($t('file_lite_i18n.no_media'))
         }
         return null
       }

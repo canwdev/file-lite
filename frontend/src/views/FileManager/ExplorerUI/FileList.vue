@@ -212,8 +212,8 @@ const emptyState = computed(() => {
       icon: 'folder-open-outline',
       title: $t('file_lite_i18n.no_files'),
       description: isBranchView.value
-        ? $t('file_lite_i18n.no_files_in_this_folder_or_its_s')
-        : $t('file_lite_i18n.this_folder_is_empty'),
+        ? $t('file_lite_i18n.no_files')
+        : $t('file_lite_i18n.no_files'),
       showClear: false,
     }
   }
@@ -272,7 +272,7 @@ const tableColumns = computed(() => {
     },
     {
       key: 'ext',
-      label: $t('file_lite_i18n.ext'),
+      label: $t('file_lite_i18n.extension'),
       width: 70,
       formatter: (item: IEntry) => (item.ext || '').replace(/^\./, ''),
       sortField: 'extension' as const,
@@ -288,7 +288,7 @@ const tableColumns = computed(() => {
     },
     {
       key: 'lastModified',
-      label: $t('file_lite_i18n.last_modified'),
+      label: $t('file_lite_i18n.modified'),
       width: 140,
       formatter: (item: IEntry) => formatDate(item.lastModified),
       sortField: 'lastModified' as const,
@@ -1157,7 +1157,7 @@ function getMenuOptions() {
       return []
     }
     const label = selectFileMode.value === 'file' && multiple.value && files.length > 1
-      ? $t('file_lite_i18n.select_0_items', [files.length])
+      ? $t('file_lite_i18n.select', [files.length])
       : $t('file_lite_i18n.select')
     return [
       {
@@ -1198,7 +1198,7 @@ function getMenuOptions() {
           },
         },
         {
-          label: $t('file_lite_i18n.folder'),
+          label: $t('file_lite_i18n.file_folder'),
           icon: 'mdi mdi-folder-plus-outline',
           shortcut: 'F7',
           onClick() {
@@ -1731,7 +1731,7 @@ defineExpose({
       <div class="action-group">
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :title="$t('file_lite_i18n.create_document')"
+          :title="$t('file_lite_i18n.create_file')"
           @click="handleCreateFile()"
         >
           <i-mdi-file-document-plus-outline />
@@ -1825,7 +1825,7 @@ defineExpose({
         <button
           v-if="openActionMeta"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :title="$t('file_lite_i18n.n_0_f3', [openActionMeta.label])"
+          :title="`${openActionMeta.label} (F3)`"
           @click="handleOpen"
         >
           <MdiIcon :name="openActionMeta.icon" />
@@ -1833,7 +1833,7 @@ defineExpose({
 
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :title="$t('file_lite_i18n.toggle_hidden_file_visible_ctrl')"
+          :title="`${$t('file_lite_i18n.toggle_hidden')} (ctrl+h)`"
           @click="toggleShowHiddenFiles"
         >
           <template v-if="showHidden">
@@ -1847,7 +1847,7 @@ defineExpose({
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-            :title="$t('file_lite_i18n.toggle_select_all_ctrl_a')"
+            :title="`${$t('file_lite_i18n.select_all')} (ctrl+a)`"
             @click="toggleSelectAll"
           >
             <i-mdi-check-all />
@@ -1912,7 +1912,7 @@ defineExpose({
             class="vgo-button"
             @click.stop="emit('clearFilter')"
           >
-            <i-mdi-filter-remove-outline /> {{ $t('file_lite_i18n.clear_filter') }}
+            <i-mdi-filter-remove-outline /> {{ $t('file_lite_i18n.clear') }}
           </button>
         </div>
         <div v-else-if="!isGridMode" class="explorer-list-view">
