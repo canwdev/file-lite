@@ -18,6 +18,7 @@ import { applyUpdate, exitBackend, restartBackend } from '@/api/server'
 import { isDev } from '@/enum'
 import { ThemeMode } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaMap } from '@/hooks/use-last-opened-media'
+import { localeOptions } from '@/i18n'
 import { localSettingsStore, settingsStore } from '@/store'
 import { serverCapabilities } from '@/store/capabilities'
 import { enableDebug } from '@/utils/debug'
@@ -112,7 +113,7 @@ function handleUpdateBackend() {
       return
     applyUpdate(file)
       .then((res) => {
-        window.$message?.success(`Updated to v${res.to}, restarting…`)
+        window.$message?.success($t('file_lite_i18n.updated_to_v_0_restarting', [res.to]) + ELLIPSIS)
         setTimeout(() => window.location.reload(), 1000)
       })
       .catch(() => {
@@ -126,12 +127,12 @@ function handleUpdateBackend() {
 async function handleRestartBackend() {
   try {
     await window.$dialog.confirm(
-      'Restart the backend process?',
-      'Restart Backend',
+      $t('file_lite_i18n.restart_the_backend_process'),
+      $t('file_lite_i18n.restart_backend'),
       {
         type: 'warning',
-        confirmButtonText: 'Restart',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: $t('file_lite_i18n.restart'),
+        cancelButtonText: $t('file_lite_i18n.cancel'),
       },
     )
   }
@@ -146,7 +147,7 @@ async function handleRestartBackend() {
     return
   }
 
-  window.$message?.success('Restarting…')
+  window.$message?.success($t('file_lite_i18n.restarting') + ELLIPSIS)
   setTimeout(() => window.location.reload(), 1000)
 }
 
@@ -157,12 +158,12 @@ async function handleRestartBackend() {
 async function handleExitBackend() {
   try {
     await window.$dialog.confirm(
-      'Exit the backend process? It may need to be started again manually on the server.',
-      'Exit Backend',
+      $t('file_lite_i18n.exit_the_backend_process_it_may'),
+      $t('file_lite_i18n.exit_backend'),
       {
         type: 'warning',
-        confirmButtonText: 'Exit',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: $t('file_lite_i18n.exit'),
+        cancelButtonText: $t('file_lite_i18n.cancel'),
       },
     )
   }
@@ -179,7 +180,7 @@ async function handleExitBackend() {
 
   // The process exits after the response is sent.
   setTimeout(() => {
-    void window.$dialog.alert('Backend exited', 'Exit Backend', { type: 'info' }).catch(() => {
+    void window.$dialog.alert($t('file_lite_i18n.backend_exited'), $t('file_lite_i18n.exit_backend'), { type: 'info' }).catch(() => {
       // Dialog dismissed.
     })
   }, 600)
@@ -187,7 +188,7 @@ async function handleExitBackend() {
 
 async function clearLocalData() {
   const stats = cacheStats.value ?? await getImageThumbCacheStats()
-  const cacheLabel = `Image preview cache${stats.entries > 0 ? ` (${stats.entries} items · ${formatCacheBytes(stats.bytes)})` : ''}`
+  const cacheLabel = $t('file_lite_i18n.image_preview_cache_0', [stats.entries > 0 ? $t('file_lite_i18n.n_0_items_1', [stats.entries, formatCacheBytes(stats.bytes)]) : ''])
 
   const selected = reactive({
     media: false,
@@ -196,9 +197,9 @@ async function clearLocalData() {
     imageCache: false,
   })
   const choices: { key: keyof typeof selected, label: string }[] = [
-    { key: 'media', label: 'Last opened media per folder' },
-    { key: 'collection', label: 'Collected items (Endless Gallery)' },
-    { key: 'folderState', label: 'Folder state (scroll position & sort mode)' },
+    { key: 'media', label: $t('file_lite_i18n.last_opened_media_per_folder') },
+    { key: 'collection', label: $t('file_lite_i18n.collected_items_endless_gallery') },
+    { key: 'folderState', label: $t('file_lite_i18n.folder_state_scroll_position_sor') },
     { key: 'imageCache', label: cacheLabel },
   ]
 
@@ -210,9 +211,9 @@ async function clearLocalData() {
   }, () => option.label)))
 
   try {
-    await window.$dialog.confirm(message, 'Clear Local Data', {
-      confirmButtonText: 'Clear',
-      cancelButtonText: 'Cancel',
+    await window.$dialog.confirm(message, $t('file_lite_i18n.clear_local_data'), {
+      confirmButtonText: $t('file_lite_i18n.clear'),
+      cancelButtonText: $t('file_lite_i18n.cancel'),
     })
   }
   catch {
@@ -229,7 +230,7 @@ async function clearLocalData() {
     void clearImageThumbCache().then(() => refreshCacheStats())
 
   if (choices.some(option => selected[option.key]))
-    window.$message.success('Local data cleared')
+    window.$message.success($t('file_lite_i18n.local_data_cleared'))
 }
 
 function present(items: Array<VgoOptionItem | false>): VgoOptionItem[] {
@@ -240,70 +241,77 @@ const local = computed(() => localSettingsStore.value)
 
 const options = computed<VgoOptionItem[]>(() => [
   {
-    label: 'Appearance',
+    label: $t('file_lite_i18n.appearance'),
     key: 'appearance',
     children: [
       {
-        label: 'Theme',
+        label: $t('file_lite_i18n.theme'),
         key: 'themeMode',
         type: VgoOptionType.MULTIPLE_SWITCH,
         options: [
-          { label: 'Auto', value: ThemeMode.Auto },
-          { label: 'Light', value: ThemeMode.Light },
-          { label: 'Dark', value: ThemeMode.Dark },
+          { label: $t('file_lite_i18n.auto'), value: ThemeMode.Auto },
+          { label: $t('file_lite_i18n.light'), value: ThemeMode.Light },
+          { label: $t('file_lite_i18n.dark'), value: ThemeMode.Dark },
         ],
       },
       {
-        label: 'Color',
+        label: $t('file_lite_i18n.color'),
         key: 'colorTheme',
         cls: 'settings-color-row',
         render: () => h(ThemeSwatches),
       },
       {
-        label: 'Reduce motion',
+        label: $t('file_lite_i18n.language'),
+        key: 'language',
+        type: VgoOptionType.SELECT,
+        subtitle: $t('file_lite_i18n.interface_language_on_a_first_vi'),
+        options: localeOptions.map(option => ({ label: option.label, value: option.value })),
+      },
+      {
+        label: $t('file_lite_i18n.reduce_motion'),
         key: 'reduceMotion',
         type: VgoOptionType.SWITCH,
         store: local.value,
-        subtitle: 'Shortens animations and drops blur.',
+        subtitle: $t('file_lite_i18n.shortens_animations_and_drops_bl'),
       },
       {
-        label: 'Title',
+        label: $t('file_lite_i18n.title'),
         key: 'pageTitle',
         type: VgoOptionType.INPUT,
-        subtitle: 'Shown in the top bar and the browser tab. Leave empty for the default title.',
+        subtitle: $t('file_lite_i18n.shown_in_the_top_bar_and_the_bro'),
         props: {
-          placeholder: 'Custom title',
+          placeholder: $t('file_lite_i18n.custom_title'),
           onBlur: trimPageTitle,
         },
       },
     ],
   },
   {
-    label: 'Apps',
+    label: $t('file_lite_i18n.apps'),
     key: 'apps',
     children: [
       {
-        label: 'Native video player',
+        label: $t('file_lite_i18n.native_video_player'),
         key: 'isNativePlayer',
         type: VgoOptionType.SWITCH,
         store: local.value,
-        subtitle: 'Uses the HTML5 video player instead of APlayer.',
+        subtitle: $t('file_lite_i18n.uses_the_html5_video_player_inst'),
       },
       {
-        label: 'Remember last opened media',
+        label: $t('file_lite_i18n.remember_last_opened_media'),
         key: 'rememberLastMedia',
         type: VgoOptionType.SWITCH,
-        subtitle: '[Media Player] Shows a resume button for the last played file.',
+        subtitle: $t('file_lite_i18n.media_player_shows_a_resume_butt'),
       },
       {
-        label: 'Open apps with the filtered list',
+        label: $t('file_lite_i18n.open_apps_with_the_filtered_list'),
         key: 'openAppWithFilteredList',
         type: VgoOptionType.SWITCH,
         store: local.value,
-        subtitle: 'Apps will use filtered list items.',
+        subtitle: $t('file_lite_i18n.apps_will_use_filtered_list_item'),
       },
       {
-        label: 'Show folders first',
+        label: $t('file_lite_i18n.show_folders_first'),
         key: 'sortFoldersFirst',
         type: VgoOptionType.SWITCH,
         store: local.value,
@@ -311,22 +319,22 @@ const options = computed<VgoOptionItem[]>(() => [
     ],
   },
   {
-    label: 'Data',
+    label: $t('file_lite_i18n.data'),
     key: 'data',
     children: [
       {
-        label: 'Disable preview',
+        label: $t('file_lite_i18n.disable_preview'),
         key: 'disablePreview',
         type: VgoOptionType.SWITCH,
         store: local.value,
-        subtitle: 'Hides thumbnails and covers.',
+        subtitle: $t('file_lite_i18n.hides_thumbnails_and_covers'),
       },
       {
-        label: 'Local data',
+        label: $t('file_lite_i18n.local_data'),
         key: 'localData',
-        subtitle: 'Last opened media, gallery collection, folder view state, and the image cache.',
+        subtitle: $t('file_lite_i18n.last_opened_media_gallery_collec'),
         type: VgoOptionType.BUTTON,
-        value: 'Clear…',
+        value: $t('file_lite_i18n.clear') + ELLIPSIS,
         props: {
 
           onClick: () => {
@@ -337,20 +345,20 @@ const options = computed<VgoOptionItem[]>(() => [
     ],
   },
   {
-    label: 'Development',
+    label: $t('file_lite_i18n.development'),
     key: 'development',
     children: present([
       {
-        label: 'Debug console',
+        label: $t('file_lite_i18n.debug_console'),
         key: 'enabled',
         type: VgoOptionType.SWITCH,
         store: debugSettings,
       },
       isDev && {
-        label: 'Demo transfer window',
+        label: $t('file_lite_i18n.demo_transfer_window'),
         key: 'demoTransfer',
         type: VgoOptionType.BUTTON,
-        value: 'Open',
+        value: $t('file_lite_i18n.open'),
         props: {
 
           onClick: () => {
@@ -359,22 +367,22 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: 'Backend binary',
+        label: $t('file_lite_i18n.backend_binary'),
         key: 'updateBackend',
-        subtitle: 'Replace the running server binary and restart.',
+        subtitle: $t('file_lite_i18n.replace_the_running_server_binar'),
         type: VgoOptionType.BUTTON,
-        value: 'Upload…',
+        value: $t('file_lite_i18n.upload') + ELLIPSIS,
         props: {
 
           onClick: handleUpdateBackend,
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: 'Restart backend',
+        label: $t('file_lite_i18n.restart_backend'),
         key: 'restartBackend',
-        subtitle: 'Reloads config. Transfers in progress are interrupted.',
+        subtitle: $t('file_lite_i18n.reloads_config_transfers_in_prog'),
         type: VgoOptionType.BUTTON,
-        value: 'Restart…',
+        value: $t('file_lite_i18n.restart') + ELLIPSIS,
         props: {
 
           onClick: () => {
@@ -383,12 +391,12 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
       serverCapabilities.value.selfUpdate && {
-        label: 'Exit backend',
+        label: $t('file_lite_i18n.exit_backend'),
         key: 'exitBackend',
         type: VgoOptionType.BUTTON,
-        value: 'Exit…',
+        value: $t('file_lite_i18n.exit') + ELLIPSIS,
         props: {
-          class: 'vgo-button--sm vgo-button--danger',
+          class: 'vgo-button--danger',
           onClick: () => {
             void handleExitBackend()
           },

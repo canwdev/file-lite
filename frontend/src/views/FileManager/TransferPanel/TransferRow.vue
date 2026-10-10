@@ -49,7 +49,7 @@ defineEmits<{
         <button
           v-if="item.abortObj"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Cancel"
+          :title="$t('file_lite_i18n.cancel')"
           @click="$emit('cancel', item)"
         >
           <i-mdi-close />
@@ -57,7 +57,7 @@ defineEmits<{
         <button
           v-if="item.status === 'failed'"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Retry"
+          :title="$t('file_lite_i18n.retry')"
           @click="$emit('retry', item)"
         >
           <i-mdi-refresh />
@@ -65,7 +65,7 @@ defineEmits<{
         <button
           v-if="item.status === 'failed' && item.type === 'download'"
           class="vgo-button vgo-button--primary vgo-button--icon vgo-button--sm"
-          title="Manual Download"
+          :title="$t('file_lite_i18n.manual_download')"
           @click="$emit('manualDownload', item)"
         >
           <i-mdi-download />

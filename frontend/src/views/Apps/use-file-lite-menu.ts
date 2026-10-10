@@ -24,7 +24,7 @@ const internalSpeedTestEntry: IEntry = {
 }
 
 const internalSettingsEntry: IEntry = {
-  name: 'Settings',
+  name: $t('file_lite_i18n.settings'),
   path: '',
   ext: '',
   isDirectory: false,
@@ -44,11 +44,11 @@ export function useFileLiteMenu() {
   async function buildMenuItems(): Promise<MenuItem[]> {
     const plugins = await listPlugins().catch(() => [])
     const pluginsMenu: MenuItem | false = plugins.length > 0 && {
-      label: 'Plugins',
+      label: $t('file_lite_i18n.plugins'),
       icon: 'mdi mdi-puzzle-outline',
       children: [
         {
-          label: 'Refresh',
+          label: $t('file_lite_i18n.refresh'),
           icon: 'mdi mdi-refresh',
           divided: true,
           onClick: () => {
@@ -69,7 +69,7 @@ export function useFileLiteMenu() {
       [
         pluginsMenu,
         {
-          label: 'Text Sync',
+          label: $t('file_lite_i18n.text_sync'),
           icon: 'mdi mdi-clipboard-outline',
           shortcut: 'F1',
           divided: true,
@@ -78,7 +78,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'Settings',
+          label: $t('file_lite_i18n.settings'),
           icon: 'mdi mdi-cog',
           divided: true,
           onClick: () => {
@@ -92,8 +92,8 @@ export function useFileLiteMenu() {
         },
         {
           label: isWakeLockSupported.value
-            ? `Browser Wake Lock: ${isWakeLockActive.value ? 'On' : 'Off'}`
-            : 'Browser Wake Lock (unsupported)',
+            ? $t('file_lite_i18n.browser_wake_lock_0', [isWakeLockActive.value ? $t('file_lite_i18n.on') : $t('file_lite_i18n.off')])
+            : $t('file_lite_i18n.browser_wake_lock_unsupported'),
           icon: isWakeLockActive.value ? 'mdi mdi-check' : 'mdi mdi-monitor-eye',
           disabled: !isWakeLockSupported.value,
           onClick: () => {
@@ -102,7 +102,7 @@ export function useFileLiteMenu() {
         },
         {
           label: isFullscreenSupported.value
-            ? `Fullscreen: ${isFullscreen.value ? 'On' : 'Off'}`
+            ? $t('file_lite_i18n.fullscreen_0', [isFullscreen.value ? $t('file_lite_i18n.on') : $t('file_lite_i18n.off')])
             : 'Fullscreen (unsupported)',
           icon: isFullscreen.value ? 'mdi mdi-fullscreen-exit' : 'mdi mdi-fullscreen',
           disabled: !isFullscreenSupported.value,
@@ -112,7 +112,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'Speed Test',
+          label: $t('file_lite_i18n.speed_test'),
           icon: 'mdi mdi-speedometer',
           onClick: () => {
             openAppWindow(InternalAppEnum.SpeedTest, {
@@ -124,7 +124,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'Keyboard Shortcuts',
+          label: $t('file_lite_i18n.keyboard_shortcuts'),
           icon: 'mdi mdi-keyboard-outline',
           shortcut: '?',
           divided: true,
@@ -133,14 +133,14 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'IP Chooser...',
+          label: $t('file_lite_i18n.ip_chooser') + ELLIPSIS,
           icon: 'mdi mdi-ip-network',
           onClick: () => {
             window.open(router.resolve({ name: 'IpChooserView' }).href, '_blank')
           },
         },
         {
-          label: 'Legacy page for IE8...',
+          label: $t('file_lite_i18n.legacy_page_for_ie8') + ELLIPSIS,
           icon: 'mdi mdi-microsoft-internet-explorer',
           onClick: () => {
             window.open('/ie')
@@ -154,7 +154,7 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: 'Logout',
+          label: $t('file_lite_i18n.logout'),
           icon: 'mdi mdi-logout',
           onClick: () => {
             window.$logout(true)

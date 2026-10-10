@@ -493,7 +493,7 @@ onBeforeUnmount(() => {
       v-if="item?.isLink"
       class="themed-icon-link-badge"
       :style="linkBadgeStyle"
-      aria-label="Link"
+      :aria-label="$t('file_lite_i18n.link')"
     >
       <i-mdi-link-variant />
     </span>

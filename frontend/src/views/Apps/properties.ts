@@ -301,7 +301,7 @@ export function useProperties(source: MaybeRefOrGetter<PropertiesTarget[]>) {
 
     const sequence = openSequence
     followMeasurement(item.target.absPath, sequence, (error) => {
-      item.error = error?.message || 'Unable to load properties'
+      item.error = error?.message || $t('file_lite_i18n.unable_to_load_properties')
       item.measured = true
       item.complete = false
       measureNextDirectory()
@@ -321,7 +321,7 @@ export function useProperties(source: MaybeRefOrGetter<PropertiesTarget[]>) {
 
     propertiesLoading.value = true
     followMeasurement(target.absPath, openSequence, (error) => {
-      propertiesError.value = error?.message || 'Unable to load properties'
+      propertiesError.value = error?.message || $t('file_lite_i18n.unable_to_load_properties')
       propertiesLoading.value = false
     })
   }

@@ -2,6 +2,7 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { logout } from '@/api/session'
 import { resetSettingsCache } from '@/api/settings'
+import { useGlobalLanguage } from '@/hooks/use-global-language.ts'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
 import { confirmLeaveIfNeeded } from '@/router'
 import { clearAuthSession } from '@/store/auth'
@@ -13,6 +14,7 @@ window.$dialog = ElMessageBox
 const router = useRouter()
 
 useGlobalTheme()
+useGlobalLanguage()
 
 // `clearServerSession` is false when the server already refused the request (a
 // 401): nothing is left to clear, so skip the round trip. Otherwise the

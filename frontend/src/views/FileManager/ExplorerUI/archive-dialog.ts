@@ -25,11 +25,11 @@ export interface ExtractPromptResult {
 function archiveNameError(name: string, optional = false) {
   const trimmed = name.trim()
   if (!trimmed)
-    return optional ? '' : 'Archive name is required'
+    return optional ? '' : $t('file_lite_i18n.archive_name_is_required')
   if (trimmed === '.' || trimmed === '..' || /[/\\]/.test(trimmed))
-    return 'Invalid archive name'
+    return $t('file_lite_i18n.invalid_archive_name')
   if (trimmed.startsWith('.fl-part-'))
-    return 'Invalid archive name'
+    return $t('file_lite_i18n.invalid_archive_name')
   return ''
 }
 
@@ -61,7 +61,7 @@ export function defaultArchiveStem(names: string[], directoryName: string) {
   if (names.length === 1)
     return archiveStem(names[0], [])
   const dir = directoryName.trim()
-  const prefix = dir && !archiveNameError(dir) ? dir : 'Archive'
+  const prefix = dir && !archiveNameError(dir) ? dir : $t('file_lite_i18n.archive')
   return `${prefix}-${archiveStamp()}`
 }
 
@@ -128,8 +128,8 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
       h(ElCheckbox, {
         'modelValue': form.separate,
         'onUpdate:modelValue': (value: string | number | boolean) => { form.separate = Boolean(value) },
-      }, () => 'Compress separately'),
-      field(form.separate ? 'Prefix (optional)' : 'Archive name', h(ElInput, {
+      }, () => $t('file_lite_i18n.compress_separately')),
+      field(form.separate ? 'Prefix (optional)' : $t('file_lite_i18n.archive_name'), h(ElInput, {
         'onVnodeMounted': scheduleNameFocus,
         'modelValue': form.separate ? form.prefix : form.name,
         'onUpdate:modelValue': (value: string) => {
@@ -139,7 +139,7 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
             form.name = value
         },
       })),
-      field('Archive type', h(ElSelect, {
+      field($t('file_lite_i18n.archive_type'), h(ElSelect, {
         'modelValue': form.format,
         'style': 'width: 100%;',
         'onUpdate:modelValue': (value: string) => {
@@ -167,11 +167,11 @@ export function showCompressDialog(defaultName: string): Promise<CompressPromptR
     }, nodes)
   }
 
-  return window.$dialog.confirm(message, 'Compress', {
+  return window.$dialog.confirm(message, $t('file_lite_i18n.compress'), {
     // Default autofocus targets the confirm button, which hides the name field.
     autofocus: false,
-    confirmButtonText: 'Compress',
-    cancelButtonText: 'Cancel',
+    confirmButtonText: $t('file_lite_i18n.compress'),
+    cancelButtonText: $t('file_lite_i18n.cancel'),
     beforeClose: (action: string, _instance: unknown, done: () => void) => {
       if (action === 'confirm') {
         const error = archiveNameError(form.separate ? form.prefix : form.name, form.separate)
@@ -208,7 +208,7 @@ export function showExtractDialog(folderLabel: string): Promise<ExtractPromptRes
       'style': 'display: flex; flex-direction: column; align-items: flex-start; gap: var(--vgo-space-2); overflow: hidden;',
       'onUpdate:modelValue': (value: string | number | boolean | undefined) => { form.intoFolder = value === 'folder' },
     }, () => [
-      h(ElRadio, { value: 'here' }, () => 'Extract here'),
+      h(ElRadio, { value: 'here' }, () => $t('file_lite_i18n.extract_here')),
       h(ElRadio, { value: 'folder' }, () => folderLabel),
     ]),
     field('Password (optional)', h(ElInput, {
@@ -219,9 +219,9 @@ export function showExtractDialog(folderLabel: string): Promise<ExtractPromptRes
     })),
   ])
 
-  return window.$dialog.confirm(message, 'Extract', {
-    confirmButtonText: 'Extract',
-    cancelButtonText: 'Cancel',
+  return window.$dialog.confirm(message, $t('file_lite_i18n.extract'), {
+    confirmButtonText: $t('file_lite_i18n.extract'),
+    cancelButtonText: $t('file_lite_i18n.cancel'),
   }).then(() => ({
     password: form.password,
     intoFolder: form.intoFolder,
@@ -231,8 +231,8 @@ export function showExtractDialog(folderLabel: string): Promise<ExtractPromptRes
 export function extractFolderLabel(names: string[]) {
   const extensions = serverCapabilities.value.archiveExtractExtensions
   if (names.length === 1)
-    return `Extract to "./${archiveStem(names[0], extensions)}"`
-  return 'Extract each archive into its own folder'
+    return $t('file_lite_i18n.extract_to_0', [archiveStem(names[0], extensions)])
+  return $t('file_lite_i18n.extract_each_archive_into_its_ow')
 }
 
 export async function startArchiveExtract(

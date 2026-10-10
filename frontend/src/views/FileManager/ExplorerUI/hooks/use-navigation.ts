@@ -332,5 +332,5 @@ function readErrorMessage(error: unknown): string {
   if (typeof message === 'string' && message) {
     return message
   }
-  return 'Failed to load this folder.'
+  return $t('file_lite_i18n.failed_to_load_this_folder')
 }

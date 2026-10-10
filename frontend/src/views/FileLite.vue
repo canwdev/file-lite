@@ -57,7 +57,7 @@ function toggleTransferPanel() {
         <div class="explorer-top-bar__left">
           <button
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-            :title="sidebarVisible ? 'Hide navigation' : 'Show navigation'"
+            :title="sidebarVisible ? $t('file_lite_i18n.hide_navigation') : $t('file_lite_i18n.show_navigation')"
             @click="toggleSidebar"
           >
             <i-mdi-menu-close v-if="!sidebarVisible" />
@@ -70,7 +70,7 @@ function toggleTransferPanel() {
             v-if="transferTotal || transferVisible"
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md explorer-top-bar__transfers"
             :class="{ 'is-active': transferVisible }"
-            :title="transferVisible ? 'Hide transfers & tasks' : 'Show transfers & tasks'"
+            :title="transferVisible ? $t('file_lite_i18n.hide_transfers_tasks') : $t('file_lite_i18n.show_transfers_tasks')"
             @click="toggleTransferPanel"
           >
             <i-mdi-cloud-sync v-if="transferActive" />
@@ -85,7 +85,7 @@ function toggleTransferPanel() {
             :ref="setMenuTriggerRef"
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :class="{ 'is-active': menuOpen }"
-            title="Menu"
+            :title="$t('file_lite_i18n.menu')"
             @click="toggleMenu"
           >
             <i-mdi-menu />

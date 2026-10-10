@@ -28,17 +28,17 @@ export function taskKindIcon(kind: TaskKind) {
 export function taskKindLabel(kind: TaskKind) {
   switch (kind) {
     case 'move':
-      return 'Moving'
+      return $t('file_lite_i18n.moving')
     case 'delete':
-      return 'Deleting'
+      return $t('file_lite_i18n.deleting')
     case 'duplicate':
-      return 'Duplicating'
+      return $t('file_lite_i18n.duplicating')
     case 'compress':
-      return 'Compressing'
+      return $t('file_lite_i18n.compressing')
     case 'extract':
-      return 'Extracting'
+      return $t('file_lite_i18n.extracting')
     default:
-      return 'Copying'
+      return $t('file_lite_i18n.copying')
   }
 }
 
@@ -71,15 +71,15 @@ export function taskTitle(task: TaskSnapshot) {
 export function taskMessage(task: TaskSnapshot) {
   switch (task.state) {
     case 'queued':
-      return 'Waiting'
+      return $t('file_lite_i18n.waiting')
     case 'scanning':
       return 'Preparing...'
     case 'awaiting-conflict':
-      return 'Waiting for your decision'
+      return $t('file_lite_i18n.waiting_for_your_decision')
     case 'succeeded':
-      return 'Done'
+      return $t('file_lite_i18n.done')
     case 'failed':
-      return task.error || 'Failed'
+      return task.error || $t('file_lite_i18n.failed')
     case 'partial': {
       if (task.error)
         return task.error

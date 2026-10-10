@@ -41,10 +41,10 @@ function measureItemHeight() {
     <div v-if="!items.length" class="vgo-empty transfer-list__empty">
       <MdiIcon class="vgo-empty__icon" name="cloud-outline" />
       <div class="vgo-empty__title">
-        No transfers
+        {{ $t('file_lite_i18n.no_transfers') }}
       </div>
       <div class="vgo-empty__desc">
-        Uploads and downloads show up here.
+        {{ $t('file_lite_i18n.uploads_and_downloads_show_up_he') }}
       </div>
     </div>
     <template v-else>

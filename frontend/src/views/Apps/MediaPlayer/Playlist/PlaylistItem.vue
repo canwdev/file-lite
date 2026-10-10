@@ -68,7 +68,7 @@ watch(() => localSettingsStore.value.disablePreview, (disabled) => {
     <div class="item-right">
       <button
         class="vgo-button vgo-button--round vgo-button--icon vgo-button--sm"
-        title="Locate in folder"
+        :title="$t('file_lite_i18n.locate_in_folder')"
         @click.stop="emit('locateItem', item.filename)"
       >
         <i-mdi-crosshairs-gps />

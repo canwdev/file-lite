@@ -145,7 +145,7 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
 
   av.addEventListener('error', (error: Event) => {
     console.error(error)
-    window.$message.error('Load media failed')
+    window.$message.error($t('file_lite_i18n.load_media_failed'))
   }, { signal })
 
   recordIfMediaReady(av)

@@ -337,7 +337,7 @@ function showStarredMenu(event: MouseEvent) {
         attrs: { title: path },
         onClick: () => handleOpenPath(path),
       }))
-    : [{ label: 'No starred folders', disabled: true }]
+    : [{ label: $t('file_lite_i18n.no_starred_folders'), disabled: true }]
 
   ContextMenu.showContextMenu({
     x: event.clientX,
@@ -589,7 +589,7 @@ defineExpose({
               </button>
               <button
                 class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-                title="Toggle Star (alt+d)"
+                :title="$t('file_lite_i18n.toggle_star_alt_d')"
                 @click="toggleStar(basePathNormalized)"
                 @contextmenu.prevent.stop="showStarredMenu($event)"
               >
@@ -621,7 +621,7 @@ defineExpose({
         <!-- 还没选中位置：给挂载点列表，而不是默认钻进整个文件系统的根 -->
         <div v-if="isUnselected" class="explorer-mount-list vgo-u-scrollbar">
           <div class="explorer-mount-list__title">
-            Locations
+            {{ $t('file_lite_i18n.locations') }}
           </div>
           <button
             v-for="mount in driveList"
@@ -638,7 +638,7 @@ defineExpose({
             </span>
           </button>
           <div v-if="!driveList.length" class="vgo-empty">
-            No locations available.
+            {{ $t('file_lite_i18n.no_locations_available') }}
           </div>
         </div>
         <FileList
@@ -667,14 +667,14 @@ defineExpose({
           <div v-if="lastOpenedMediaItem && !selectFileMode" class="last-media-fab-wrapper">
             <button
               class="vgo-button vgo-button--primary vgo-button--round vgo-button--lg"
-              :title="`Play ${lastOpenedMediaItem.name}`"
+              :title="$t('file_lite_i18n.play_0', [lastOpenedMediaItem.name])"
               @click="playLastOpenedMedia"
             >
               <i-mdi-play />
             </button>
             <button
               class="vgo-button vgo-button--round vgo-button--sm fab-close"
-              title="Clear remembered media"
+              :title="$t('file_lite_i18n.clear_remembered_media')"
               @click.stop="clearCurrentLastOpenedMedia"
             >
               <i-mdi-close />

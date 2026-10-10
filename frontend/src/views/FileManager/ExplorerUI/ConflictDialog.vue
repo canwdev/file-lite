@@ -24,7 +24,7 @@ const {
 
 function itemSize(isDirectory: boolean, size?: number) {
   if (isDirectory) {
-    return 'Folder'
+    return $t('file_lite_i18n.folder')
   }
   return typeof size === 'number' ? bytesToSize(size) : ''
 }
@@ -50,7 +50,7 @@ function formatTime(ms?: number) {
     <template #header>
       <div class="conflict-header">
         <i-mdi-alert-outline class="conflict-icon" />
-        <span>Replace or Skip Files</span>
+        <span>{{ $t('file_lite_i18n.replace_or_skip_files') }}</span>
       </div>
     </template>
 
@@ -77,17 +77,16 @@ function formatTime(ms?: number) {
           <span class="conflict-item-size">{{ itemSize(item.sourceIsDirectory, item.sourceSize) }}</span>
         </div>
         <div v-if="request.truncated" class="conflict-truncated">
-          Showing the first {{ request.conflicts.length }} of {{ request.totalCount }} conflicts.
+          {{ $t('file_lite_i18n.showing_the_first') }} {{ request.conflicts.length }} of {{ request.totalCount }} conflicts.
         </div>
       </div>
 
       <div v-if="current && current.kind !== 'file-vs-file'" class="conflict-warning">
-        The destination already contains a {{ current.destIsDirectory ? 'folder' : 'file' }} with the same name.
-        Replacing will delete it (folders are deleted with their contents).
+        {{ $t('file_lite_i18n.the_destination_already_contains') }} {{ current.destIsDirectory ? 'folder' : 'file' }} {{ $t('file_lite_i18n.with_the_same_name_replacing_wil') }}
       </div>
 
       <div class="conflict-question">
-        What do you want to do?
+        {{ $t('file_lite_i18n.what_do_you_want_to_do') }}
       </div>
 
       <el-radio-group v-model="policy" class="conflict-options">
@@ -103,19 +102,19 @@ function formatTime(ms?: number) {
       </el-radio-group>
 
       <el-checkbox v-if="multiple" v-model="applyToAll" class="conflict-apply-all">
-        Do this for all {{ conflictTotal }} conflicts
+        {{ $t('file_lite_i18n.do_this_for_all') }} {{ conflictTotal }} conflicts
       </el-checkbox>
 
       <div v-if="stepping && current" class="conflict-compare">
         <div>
-          <span class="compare-label">Incoming:</span>
+          <span class="compare-label">{{ $t('file_lite_i18n.incoming') }}</span>
           {{ itemSize(current.sourceIsDirectory, current.sourceSize) }}
           <template v-if="current.sourceMtime">
             · {{ formatTime(current.sourceMtime) }}
           </template>
         </div>
         <div>
-          <span class="compare-label">Existing:</span>
+          <span class="compare-label">{{ $t('file_lite_i18n.existing') }}</span>
           {{ itemSize(current.destIsDirectory, current.destSize) }}
           <template v-if="current.destMtime">
             · {{ formatTime(current.destMtime) }}
@@ -127,7 +126,7 @@ function formatTime(ms?: number) {
     <template #footer>
       <div class="conflict-footer">
         <button class="vgo-button" @click="close">
-          Cancel
+          {{ $t('file_lite_i18n.cancel') }}
         </button>
         <button class="vgo-button vgo-button--primary" @click="submit">
           {{ stepping && step < conflictTotal - 1 ? 'Next' : 'Continue' }}

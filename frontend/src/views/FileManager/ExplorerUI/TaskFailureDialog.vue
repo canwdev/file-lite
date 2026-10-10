@@ -37,8 +37,8 @@ function itemMessage(item: TaskItemResult) {
     return item.message
   }
   return item.status === 'conflict'
-    ? 'A conflicting item appeared at the destination'
-    : 'Failed'
+    ? $t('file_lite_i18n.a_conflicting_item_appeared_at_t')
+    : $t('file_lite_i18n.failed')
 }
 
 async function handleRetry() {
@@ -51,7 +51,7 @@ async function handleRetry() {
     closeFailureDialog()
   }
   catch (error: any) {
-    window.$message?.error(error?.message || 'Nothing to retry')
+    window.$message?.error(error?.message || $t('file_lite_i18n.nothing_to_retry'))
   }
   finally {
     isRetrying.value = false
@@ -76,7 +76,7 @@ async function handleRetry() {
 
     <div v-if="task" class="failure-body">
       <div class="failure-summary">
-        <span v-if="task.toPath">Destination: {{ task.toPath }}</span>
+        <span v-if="task.toPath">{{ $t('file_lite_i18n.destination') }} {{ task.toPath }}</span>
         <span v-if="task.stats.succeeded"> · {{ task.stats.succeeded }} succeeded</span>
         <span v-if="task.stats.skipped"> · {{ task.stats.skipped }} skipped</span>
       </div>
@@ -99,7 +99,7 @@ async function handleRetry() {
           </span>
         </div>
         <div v-if="truncated" class="failure-truncated">
-          Showing the first {{ items.length }} of {{ totalFailed }} failures. Try Again retries them all.
+          {{ $t('file_lite_i18n.showing_the_first') }} {{ items.length }} of {{ totalFailed }} {{ $t('file_lite_i18n.failures_try_again_retries_them') }}
         </div>
       </div>
     </div>
@@ -107,7 +107,7 @@ async function handleRetry() {
     <template #footer>
       <div class="failure-footer">
         <button class="vgo-button" @click="closeFailureDialog">
-          Close
+          {{ $t('file_lite_i18n.close') }}
         </button>
         <button class="vgo-button vgo-button--primary" :disabled="isRetrying || !items.length" @click="handleRetry">
           {{ isRetrying ? 'Retrying...' : 'Try Again' }}

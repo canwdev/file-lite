@@ -42,7 +42,13 @@ export default defineConfig(() => {
       }),
       AutoImport({
         dts: './src/auto-import.d.ts',
-        imports: ['vue', 'vue-router', 'pinia'],
+        // `$t` 在模板里由 vue-i18n 的 globalInjection 提供，在脚本里由这里自动引入，
+        // 两条路径最终都是 `@/i18n` 的同一个函数。
+        imports: ['vue', 'vue-router', 'pinia', { '@/i18n': ['$t', 'ELLIPSIS'] }],
+        vueTemplate: true,
+        // vgo-ui 是用 `bun link` 链到仓库外的，默认的 node_modules 排除覆盖不到；
+        // 它的 dist 里正好有自己的 `$t` 变量，被自动引入会变成重复声明。
+        exclude: [/[\\/]node_modules[\\/]/, /[\\/]\.git[\\/]/, /[\\/]vgo-ui[\\/]/],
         resolvers: [ElementPlusResolver()],
       }),
       Components({

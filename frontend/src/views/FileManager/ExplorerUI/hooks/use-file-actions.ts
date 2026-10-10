@@ -32,7 +32,7 @@ function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
 export function getOpenActionMeta(item: IEntry) {
   const defaultOpenApp = item.isDirectory ? null : getDefaultOpenApp(item)
   return {
-    label: defaultOpenApp ? `Open with ${defaultOpenApp.name}` : 'Open',
+    label: defaultOpenApp ? $t('file_lite_i18n.open_with_0', [defaultOpenApp.name]) : $t('file_lite_i18n.open'),
     icon: defaultOpenApp?.icon || 'mdi mdi-folder-open-outline',
     plugin: defaultOpenApp?.plugin,
   }
@@ -104,7 +104,7 @@ export function useFileActions({
       name
         = name
           || (await showInputPrompt({
-            title: 'Create File',
+            title: $t('file_lite_i18n.create_file'),
             value: `${dayjs().format('YYYYMMDD_HHmmss')}.txt`,
             selectOnFocus: 'all',
           }))
@@ -112,7 +112,7 @@ export function useFileActions({
       // 列表由服务端的 fs changed 补上，这里只负责等写入结束再选中新名字
       const written = await fs.writeText(basePath.value, name, content, { conflict: 'overwrite' })
       if (!written.ok) {
-        window.$message?.warning(written.reason ?? 'This location is read-only')
+        window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
         return
       }
       onEntryCreated?.(written.name ?? name)
@@ -124,7 +124,7 @@ export function useFileActions({
   const handleCreateFolder = async () => {
     try {
       const name = await showInputPrompt({
-        title: 'Create Folder',
+        title: $t('file_lite_i18n.create_folder'),
         value: `${dayjs().format('YYYYMMDD_HHmmss')}`,
         selectOnFocus: 'all',
       })
@@ -132,7 +132,7 @@ export function useFileActions({
       const target = normalizePath(joinPath(basePath.value, name))
       const guard = await fs.canWrite(target)
       if (!guard.ok) {
-        window.$message?.warning(guard.reason ?? 'This location is read-only')
+        window.$message?.warning(guard.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
         return
       }
       await fs.mkdir(target)
@@ -153,7 +153,7 @@ export function useFileActions({
     let name: string
     try {
       name = (await showInputPrompt({
-        title: 'Rename',
+        title: $t('file_lite_i18n.rename'),
         value: baseName,
         selectOnFocus: 'stem',
       })).trim()
@@ -166,7 +166,7 @@ export function useFileActions({
       return
     }
     if (name.includes('/') || name.includes('\\')) {
-      window.$message?.error('Name cannot contain a path')
+      window.$message?.error($t('file_lite_i18n.name_cannot_contain_a_path'))
       return
     }
 
@@ -180,7 +180,7 @@ export function useFileActions({
     }
     catch (error) {
       // 重命名可能被服务端拒绝（只读、目标被占用…）：如实提示，别静默失败
-      window.$message?.error(error instanceof Error ? error.message : 'Rename failed')
+      window.$message?.error(error instanceof Error ? error.message : $t('file_lite_i18n.rename_failed'))
     }
     finally {
       isLoading.value = false
@@ -199,7 +199,7 @@ export function useFileActions({
       })
     }
     catch (e: any) {
-      window.$message?.error(e?.message || 'Failed to start the task')
+      window.$message?.error(e?.message || $t('file_lite_i18n.failed_to_start_the_task'))
     }
     finally {
       isLoading.value = false
@@ -218,7 +218,7 @@ export function useFileActions({
       })
     }
     catch (e: any) {
-      window.$message?.error(e?.message || 'Failed to start the task')
+      window.$message?.error(e?.message || $t('file_lite_i18n.failed_to_start_the_task'))
     }
     finally {
       isLoading.value = false
@@ -266,7 +266,7 @@ export function useFileActions({
     if (!plugins.length)
       return null
     return {
-      label: 'Plugins',
+      label: $t('file_lite_i18n.plugins'),
       icon: 'mdi mdi-puzzle-outline',
       divided: true,
       children: plugins.map(plugin => ({
@@ -320,7 +320,7 @@ export function useFileActions({
     catch (error: any) {
       if (error === 'cancel' || error === 'close')
         return
-      window.$message?.error(error?.message || 'Failed to start the task')
+      window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
     }
     finally {
       isLoading.value = false
@@ -341,7 +341,7 @@ export function useFileActions({
     catch (error: any) {
       if (error === 'cancel' || error === 'close')
         return
-      window.$message?.error(error?.message || 'Failed to start the task')
+      window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
     }
     finally {
       isLoading.value = false
@@ -374,9 +374,9 @@ export function useFileActions({
   const ctxMenuOptions = computed((): MenuItem[] => {
     if (!selectedItems.value.length) {
       return [
-        { label: 'Refresh', icon: 'mdi mdi-refresh', shortcut: 'Ctrl+R', onClick: () => emit('refresh') },
+        { label: $t('file_lite_i18n.refresh'), icon: 'mdi mdi-refresh', shortcut: 'Ctrl+R', onClick: () => emit('refresh') },
         {
-          label: 'Paste',
+          label: $t('file_lite_i18n.paste'),
           icon: 'mdi mdi-content-paste',
           shortcut: 'Ctrl+V',
           onClick: () => handlePaste(),
@@ -384,14 +384,14 @@ export function useFileActions({
           divided: true,
         },
         {
-          label: 'Paste from Clipboard',
+          label: $t('file_lite_i18n.paste_from_clipboard'),
           icon: 'mdi mdi-clipboard-arrow-down-outline',
           onClick: () => handlePasteFromClipboard(),
         },
-        { label: 'Download Current Folder', icon: 'mdi mdi-download', onClick: handleDownload },
-        { label: 'Download Current Folder to...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+        { label: $t('file_lite_i18n.download_current_folder'), icon: 'mdi mdi-download', onClick: handleDownload },
+        { label: $t('file_lite_i18n.download_current_folder_to') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
         {
-          label: 'Properties',
+          label: $t('file_lite_i18n.properties'),
           icon: 'mdi mdi-information-outline',
           onClick: () => {
             showProperties([{
@@ -410,7 +410,7 @@ export function useFileActions({
     const openActionMeta = getOpenActionMeta(selectedItem)
     const branchOpenContaining = isBranchView?.value && selectedItem
       ? {
-          label: 'Open Containing Folder',
+          label: $t('file_lite_i18n.open_containing_folder'),
           icon: 'mdi mdi-folder-open-outline',
           onClick: () => onOpenContainingFolder?.(containingFolderOf(selectedItem)),
           divided: true,
@@ -427,7 +427,7 @@ export function useFileActions({
         },
       },
       isDirectory && {
-        label: 'Open in new Tab',
+        label: $t('file_lite_i18n.open_in_new_tab'),
         icon: 'mdi mdi-open-in-new',
         onClick: () => {
           emit('openPathInNewTab', normalizePath(joinPath(basePath.value, selectedItem.name)))
@@ -435,7 +435,7 @@ export function useFileActions({
       },
       isSingle
       && isFile && {
-        label: 'Open With',
+        label: $t('file_lite_i18n.open_with'),
         icon: 'mdi mdi-open-in-app',
         children: [
           pluginsSubMenu(plugin => emit('open', {
@@ -443,7 +443,7 @@ export function useFileActions({
             openWith: plugin.id,
           })),
           {
-            label: 'Browser',
+            label: $t('file_lite_i18n.browser'),
             icon: 'mdi mdi-open-in-new',
             onClick: () => {
               emit('open', {
@@ -465,7 +465,7 @@ export function useFileActions({
           })),
           {
             divided: 'up',
-            label: 'Set Default App',
+            label: $t('file_lite_i18n.set_default_app'),
             icon: 'mdi mdi-application-settings-outline',
             children: (() => {
               const ext = getFileExt(selectedItem.name)
@@ -473,13 +473,13 @@ export function useFileActions({
               return [
                 pluginsSubMenu(plugin => setDefaultApp(ext, plugin.id), current),
                 {
-                  label: 'Default',
+                  label: $t('file_lite_i18n.default'),
                   icon: current === null ? 'mdi mdi-check' : '',
                   onClick: () => setDefaultApp(ext, null),
                   divided: true,
                 },
                 {
-                  label: 'Browser',
+                  label: $t('file_lite_i18n.browser'),
                   icon: current === OpenWithEnum.Browser ? 'mdi mdi-check' : 'mdi mdi-open-in-new',
                   onClick: () => setDefaultApp(ext, OpenWithEnum.Browser),
                 },
@@ -494,34 +494,34 @@ export function useFileActions({
         ].filter(Boolean) as MenuItem[],
       },
       sevenZipMenu(),
-      { label: 'Download', icon: 'mdi mdi-download', onClick: handleDownload },
-      { label: 'Download to Folder...', icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
-      { label: 'Cut', icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
-      { label: 'Copy', icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
-      { label: 'More', icon: '', divided: true, children: [
+      { label: $t('file_lite_i18n.download'), icon: 'mdi mdi-download', onClick: handleDownload },
+      { label: $t('file_lite_i18n.download_to_folder') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+      { label: $t('file_lite_i18n.cut'), icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
+      { label: $t('file_lite_i18n.copy'), icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
+      { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
 
         {
-          label: 'Open in Host Explorer',
+          label: $t('file_lite_i18n.open_in_host_explorer'),
           icon: 'mdi mdi-folder-outline',
           onClick: handleOpenInHostExplorer,
         },
         {
-          label: 'Copy Path(s)',
+          label: $t('file_lite_i18n.copy_path_s'),
           icon: 'mdi mdi-clipboard-text-outline',
           onClick: handleCopyPaths,
         },
-        { label: 'Duplicate', icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
+        { label: $t('file_lite_i18n.duplicate'), icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
       ] },
-      isSingle && { label: 'Rename', icon: 'mdi mdi-rename', shortcut: 'F2', onClick: handleRename },
+      isSingle && { label: $t('file_lite_i18n.rename'), icon: 'mdi mdi-rename', shortcut: 'F2', onClick: handleRename },
       {
-        label: 'Delete',
+        label: $t('file_lite_i18n.delete'),
         icon: 'mdi mdi-delete-forever-outline',
         shortcut: 'Del',
         onClick: confirmDelete,
         divided: true,
       },
       {
-        label: 'Properties',
+        label: $t('file_lite_i18n.properties'),
         icon: 'mdi mdi-information-outline',
         onClick: handleShowProperties,
       },

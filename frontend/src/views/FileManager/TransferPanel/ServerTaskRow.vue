@@ -48,7 +48,7 @@ defineEmits<{
         <button
           v-if="task.canCancel"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Cancel"
+          :title="$t('file_lite_i18n.cancel')"
           @click="$emit('cancel', task.id)"
         >
           <i-mdi-close />
@@ -56,7 +56,7 @@ defineEmits<{
         <button
           v-if="isTerminalState(task.state) && (task.stats.failed + task.stats.conflict) > 0"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          :title="`${task.stats.failed + task.stats.conflict} item(s) failed — show details`"
+          :title="$t('file_lite_i18n.n_0_item_s_failed_show_details', [task.stats.failed + task.stats.conflict])"
           @click="$emit('failures', task.id)"
         >
           <i-mdi-alert-circle class="status-failed" />
@@ -64,7 +64,7 @@ defineEmits<{
         <button
           v-if="isTerminalState(task.state)"
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Remove from list"
+          :title="$t('file_lite_i18n.remove_from_list')"
           @click="$emit('dismiss', task.id)"
         >
           <i-mdi-close />

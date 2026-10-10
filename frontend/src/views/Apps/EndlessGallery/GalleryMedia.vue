@@ -94,7 +94,7 @@ const showPlayIcon = computed(() => props.active && isReady.value && !isPlaying.
       <button
         class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm gallery-media__mute"
         :class="{ 'is-muted': muted }"
-        :title="muted ? 'Unmute' : 'Mute'"
+        :title="muted ? $t('file_lite_i18n.unmute') : $t('file_lite_i18n.mute')"
         @click.stop="toggleMute"
       >
         <MdiIcon :name="muted ? 'volume-variant-off' : 'volume-high'" />

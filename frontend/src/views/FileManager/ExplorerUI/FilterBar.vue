@@ -86,9 +86,9 @@ defineExpose({
     <input
       ref="inputRef"
       v-model="localFilter.text"
-      placeholder="Filter name"
+      :placeholder="$t('file_lite_i18n.filter_name')"
       class="input-filter vgo-input"
-      title="Filter bar (alt+f)"
+      :title="$t('file_lite_i18n.filter_bar_alt_f')"
       :readonly="locked"
       @keyup.esc="handleEscape"
     >
@@ -96,7 +96,7 @@ defineExpose({
       <button
         v-if="hasText && !locked"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-        title="Clear filter"
+        :title="$t('file_lite_i18n.clear_filter')"
         @click="clearFilter"
       >
         <i-mdi-close />
@@ -104,16 +104,16 @@ defineExpose({
       <button
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle vgo-u-font-code"
         :class="{ 'is-active': localFilter.caseSensitive }"
-        title="Case sensitive"
+        :title="$t('file_lite_i18n.case_sensitive')"
         :disabled="locked"
         @click="localFilter.caseSensitive = !localFilter.caseSensitive"
       >
-        Aa
+        {{ $t('file_lite_i18n.aa') }}
       </button>
       <button
         class="vgo-button vgo-button--text vgo-button--sm filter-toggle vgo-u-font-code"
         :class="{ 'is-active': localFilter.regex }"
-        title="Use regular expression"
+        :title="$t('file_lite_i18n.use_regular_expression')"
         :disabled="locked"
         @click="localFilter.regex = !localFilter.regex"
       >

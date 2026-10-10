@@ -134,7 +134,7 @@ const sizeText = computed(() => {
       return null
     }
     const total = multiTotalBytes.value
-    const prefix = multiIncomplete.value ? 'More than ' : ''
+    const prefix = multiIncomplete.value ? $t('file_lite_i18n.more_than') : ''
     return `${prefix}${bytesToSize(total)} (${total.toLocaleString('en-US')} bytes)`
   }
   const bytes = sizeBytes.value
@@ -152,7 +152,7 @@ const containsText = computed(() => {
     }
     const files = folders.reduce((sum, item) => sum + (item.fileCount ?? 0), 0)
     const subFolders = folders.reduce((sum, item) => sum + (item.folderCount ?? 0), 0)
-    const prefix = folders.some(item => item.error || !item.complete) ? 'More than ' : ''
+    const prefix = folders.some(item => item.error || !item.complete) ? $t('file_lite_i18n.more_than') : ''
     return `${prefix}${files} files, ${subFolders} folders`
   }
   if (!isDirectory.value || propertiesLoading.value) {
@@ -163,7 +163,7 @@ const containsText = computed(() => {
   if (files == null || folders == null) {
     return null
   }
-  const prefix = data.value.type === 'result' && data.value.complete === false ? 'More than ' : ''
+  const prefix = data.value.type === 'result' && data.value.complete === false ? $t('file_lite_i18n.more_than') : ''
   return `${prefix}${files} files, ${folders} folders`
 })
 
@@ -177,38 +177,38 @@ interface PropertyRow {
 const rows = computed<PropertyRow[]>(() => {
   if (propertiesIsMulti.value) {
     const list: PropertyRow[] = [
-      { label: 'Type', value: typeText.value },
-      { label: 'Full path', value: multiLocation.value ?? 'Multiple locations', wide: true },
-      { label: 'Size', value: sizeText.value },
+      { label: $t('file_lite_i18n.type'), value: typeText.value },
+      { label: $t('file_lite_i18n.full_path'), value: multiLocation.value ?? $t('file_lite_i18n.multiple_locations'), wide: true },
+      { label: $t('file_lite_i18n.size'), value: sizeText.value },
     ]
     if (multiFolderCount.value) {
-      list.push({ label: 'Contains', value: containsText.value })
+      list.push({ label: $t('file_lite_i18n.contains'), value: containsText.value })
     }
-    list.push({ label: 'Modified', value: formatDateRange(propertiesItems.value.map(item => item.lastModified)) })
-    list.push({ label: 'Created', value: formatDateRange(propertiesItems.value.map(item => item.birthtime)) })
+    list.push({ label: $t('file_lite_i18n.modified'), value: formatDateRange(propertiesItems.value.map(item => item.lastModified)) })
+    list.push({ label: $t('file_lite_i18n.created'), value: formatDateRange(propertiesItems.value.map(item => item.birthtime)) })
     return list
   }
 
   const list: PropertyRow[] = [
-    { label: 'Type', value: typeLabel.value },
-    { label: 'Full path', value: fullPath.value, wide: true },
-    { label: 'Size', value: sizeText.value },
+    { label: $t('file_lite_i18n.type'), value: typeLabel.value },
+    { label: $t('file_lite_i18n.full_path'), value: fullPath.value, wide: true },
+    { label: $t('file_lite_i18n.size'), value: sizeText.value },
   ]
   if (isDirectory.value) {
-    list.push({ label: 'Contains', value: containsText.value })
+    list.push({ label: $t('file_lite_i18n.contains'), value: containsText.value })
   }
   list.push({
-    label: 'Modified',
+    label: $t('file_lite_i18n.modified'),
     value: lastModified.value ? formatDate(lastModified.value, DATE_FORMAT) : null,
   })
   list.push({
-    label: 'Created',
+    label: $t('file_lite_i18n.created'),
     value: birthtime.value ? formatDate(birthtime.value, DATE_FORMAT) : null,
   })
   return list
 })
 
-const titleText = computed(() => (propertiesIsMulti.value ? 'Properties' : `${displayName.value} Properties`))
+const titleText = computed(() => (propertiesIsMulti.value ? $t('file_lite_i18n.properties') : $t('file_lite_i18n.n_0_properties', [displayName.value])))
 const headerIcon = computed(() => (propertiesIsMulti.value ? 'file-multiple-outline' : iconClass.value))
 const headerName = computed(() => (propertiesIsMulti.value ? `${multiCount.value} items selected` : displayName.value))
 
@@ -217,7 +217,7 @@ const measureProgress = computed(() => {
   if (!propertiesIsMulti.value || !propertiesLoading.value || !multiFolderCount.value) {
     return null
   }
-  return `Measuring folders... ${multiMeasuredFolders.value} / ${multiFolderCount.value}`
+  return $t('file_lite_i18n.measuring_folders_0_1', [multiMeasuredFolders.value, multiFolderCount.value])
 })
 
 const displayError = computed(() => {
@@ -225,7 +225,7 @@ const displayError = computed(() => {
     return propertiesError.value
   }
   const failed = propertiesItems.value.filter(item => item.error).length
-  return failed ? `Could not read ${failed} of ${multiCount.value} items` : null
+  return failed ? $t('file_lite_i18n.could_not_read_0_of_1_items', [failed, multiCount.value]) : null
 })
 
 watch(
@@ -274,7 +274,7 @@ function displayValue(row: PropertyRow) {
 
     <div class="properties-footer">
       <button class="vgo-button vgo-button--primary" @click="emit('exit')">
-        Done
+        {{ $t('file_lite_i18n.done') }}
       </button>
     </div>
   </div>

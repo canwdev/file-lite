@@ -65,10 +65,10 @@ watch(editRef, (el) => {
 
 async function confirmUnsavedChanges(message: string) {
   try {
-    await window.$dialog.confirm(message, 'Unsaved Changes', {
+    await window.$dialog.confirm(message, $t('file_lite_i18n.unsaved_changes'), {
       type: 'warning',
-      confirmButtonText: 'Continue',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: $t('file_lite_i18n.continue'),
+      cancelButtonText: $t('file_lite_i18n.cancel'),
     })
     return true
   }
@@ -176,7 +176,7 @@ async function handleSaveFile() {
       conflict: 'overwrite',
     })
     if (!written.ok) {
-      window.$message?.warning(written.reason ?? 'This location is read-only')
+      window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
       return
     }
     setTimeout(() => {
@@ -196,7 +196,7 @@ async function confirmDismiss() {
     return true
   // prevent esc close the confirm dialog
   await new Promise(resolve => setTimeout(resolve, 100))
-  return confirmUnsavedChanges('Changes not saved. Continue to exit?')
+  return confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_ex'))
 }
 
 defineExpose({ confirmDismiss })
@@ -206,16 +206,16 @@ const menuOptions = computed((): MenuBarOptions => {
     ...baseContextMenuOptions,
     items: [
       {
-        label: `Save${isChanged.value ? '*' : ''}`,
+        label: $t('file_lite_i18n.save_0', [isChanged.value ? '*' : '']),
         onClick() {
           handleSaveFile()
         },
       },
       {
-        label: `Reload`,
+        label: $t('file_lite_i18n.reload'),
         onClick: async () => {
           if (isChanged.value) {
-            const confirmed = await confirmUnsavedChanges('Changes not saved. Continue to reload?')
+            const confirmed = await confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_re'))
             if (!confirmed) {
               return
             }
@@ -224,7 +224,7 @@ const menuOptions = computed((): MenuBarOptions => {
         },
       },
       {
-        label: 'Exit',
+        label: $t('file_lite_i18n.exit'),
         onClick: () => emit('exit'),
       },
     ],
@@ -256,15 +256,14 @@ useShortcut({
         <i-mdi-file-alert-outline />
       </span>
       <p class="vgo-empty__title">
-        File too large to edit
+        {{ $t('file_lite_i18n.file_too_large_to_edit') }}
       </p>
       <p class="vgo-empty__desc">
         <strong>{{ fileTooLarge.name }}</strong>
-        is {{ bytesToSize(fileTooLarge.size) }} — limit is {{ bytesToSize(SIZE_LIMIT) }}
+        is {{ bytesToSize(fileTooLarge.size) }} {{ $t('file_lite_i18n.limit_is') }} {{ bytesToSize(SIZE_LIMIT) }}
       </p>
       <a class="vgo-button" :href="fs.url(absPath!)" target="_blank" rel="noopener">
-        <i-mdi-open-in-new /> Open in Browser
-      </a>
+        <i-mdi-open-in-new /> {{ $t('file_lite_i18n.open_in_browser') }} </a>
     </div>
     <textarea
       v-else

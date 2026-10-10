@@ -4,6 +4,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { createApp } from 'vue'
 import MdiIcon from '@/components/MdiIcon.vue'
 import App from './App.vue'
+import { i18n } from './i18n'
 import router from './router'
 import '@canwdev/vgo-ui/styles/core'
 import '@canwdev/vgo-ui/themes/default'
@@ -28,6 +29,7 @@ async function bootstrap() {
   pinia.use(piniaPluginPersistedstate)
   app.use(pinia)
 
+  app.use(i18n)
   app.use(router)
   app.component('MdiIcon', MdiIcon)
 

@@ -5,11 +5,11 @@ import { authSession } from '@/store/auth'
 const statusText = computed(() => {
   switch (sharedWsStatus.value) {
     case 'connecting':
-      return 'WS Connecting...'
+      return $t('file_lite_i18n.ws_connecting') + ELLIPSIS
     case 'reconnecting':
-      return 'WS Reconnecting...'
+      return $t('file_lite_i18n.ws_reconnecting') + ELLIPSIS
     case 'disconnected':
-      return 'WS Disconnected'
+      return $t('file_lite_i18n.ws_disconnected')
     default:
       return ''
   }

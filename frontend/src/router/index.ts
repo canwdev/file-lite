@@ -3,6 +3,7 @@ import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { consumeTicket, getSession } from '@/api/session'
 import { VERSION } from '@/enum/version.ts'
+import { composer } from '@/i18n'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
 import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
 import { setServerAllowedRoots, setServerCapabilities } from '@/store/capabilities'
@@ -23,7 +24,8 @@ const router = createRouter({
       name: 'LoginView',
       component: () => import('@/views/Login.vue'),
       meta: {
-        title: 'Login',
+        // 存 key 而不是译文：模块级的 `$t()` 会锁死在加载时的语言上。
+        titleKey: 'file_lite_i18n.login',
         skipLogin: true,
       },
     },
@@ -32,7 +34,7 @@ const router = createRouter({
       name: 'IpChooserView',
       component: () => import('@/views/IpChooser.vue'),
       meta: {
-        title: 'IP Chooser',
+        titleKey: 'file_lite_i18n.ip_chooser',
       },
     },
     {
@@ -83,7 +85,7 @@ function hasActiveWork() {
   return (transferQueue.value?.browserActiveCount.value ?? 0) > 0
 }
 
-const leaveMessage = 'An upload or download is still running. Stay on this page until it finishes.'
+const leaveMessage = $t('file_lite_i18n.an_upload_or_download_is_still_r')
 
 /** One question at a time, shared by the route guard and logout. */
 let leavePrompt: Promise<boolean> | null = null
@@ -103,10 +105,10 @@ function confirmLeave(): Promise<boolean> {
   }
   const dialog = window.$dialog
   const asking = dialog?.confirm
-    ? dialog.confirm(leaveMessage, 'Work in progress', {
+    ? dialog.confirm(leaveMessage, $t('file_lite_i18n.work_in_progress'), {
         type: 'warning',
-        confirmButtonText: 'Stay',
-        cancelButtonText: 'Leave',
+        confirmButtonText: $t('file_lite_i18n.stay'),
+        cancelButtonText: $t('file_lite_i18n.leave'),
         distinguishCancelAndClose: true,
       }).then(() => false, (action: unknown) => action === 'cancel')
     : Promise.resolve(window.confirm(leaveMessage))
@@ -201,8 +203,8 @@ router.beforeEach(async (to, from) => {
 
 /** 原始标题：`[Route Title - ]File Lite v{VERSION}` */
 export function getBaseDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {
-  const routeTitle = typeof route.meta?.title === 'string' ? route.meta.title : ''
-  return `${routeTitle ? `${routeTitle} - ` : ''}File Lite v${VERSION}`
+  const routeTitle = typeof route.meta?.titleKey === 'string' ? $t(route.meta.titleKey) : ''
+  return $t('file_lite_i18n.n_0_file_lite_v_1', [routeTitle ? `${routeTitle} - ` : '', VERSION])
 }
 
 export function applyDocumentTitle(route: RouteLocationNormalized = router.currentRoute.value) {
@@ -221,6 +223,14 @@ router.afterEach((to, _from, failure) => {
 
 watch(
   () => settingsStore.value.pageTitle,
+  () => {
+    applyDocumentTitle()
+  },
+)
+
+// 路由标题存的是 key，语言一换就要重算。
+watch(
+  () => composer.locale.value,
   () => {
     applyDocumentTitle()
   },

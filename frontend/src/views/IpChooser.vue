@@ -69,7 +69,7 @@ async function loadInfo() {
     hostUrls.value = []
     currentUrl.value = ''
     expiresAtMs.value = 0
-    errorMessage.value = 'Could not load the connection info.'
+    errorMessage.value = $t('file_lite_i18n.could_not_load_the_connection_in')
   }
   finally {
     loading.value = false
@@ -89,24 +89,24 @@ function handleGo(url: string) {
   <div class="ip-chooser">
     <div class="ip-frame">
       <div class="ip-head">
-        <RouterLink class="vgo-button vgo-button--text vgo-button--icon" :to="{ name: 'HomeView' }" title="Home">
+        <RouterLink class="vgo-button vgo-button--text vgo-button--icon" :to="{ name: 'HomeView' }" :title="$t('file_lite_i18n.home')">
           <i-mdi-home class="vgo-u-icon-lg" />
         </RouterLink>
       </div>
 
       <div v-if="loading" class="ip-status vgo-empty">
-        Loading…
+        {{ $t('file_lite_i18n.loading') }}…
       </div>
       <div v-else-if="errorMessage" class="ip-status vgo-empty">
         <span>{{ errorMessage }}</span>
         <button class="vgo-button vgo-button--sm" @click="loadInfo">
-          Retry
+          {{ $t('file_lite_i18n.retry') }}
         </button>
       </div>
       <div v-else-if="!hostUrls.length" class="ip-status vgo-empty">
-        <span>No reachable address was found.</span>
+        <span>{{ $t('file_lite_i18n.no_reachable_address_was_found') }}</span>
         <button class="vgo-button vgo-button--sm" @click="loadInfo">
-          Refresh
+          {{ $t('file_lite_i18n.refresh') }}
         </button>
       </div>
 
@@ -123,10 +123,10 @@ function handleGo(url: string) {
           >
             <span class="url-text">{{ url }}</span>
             <div class="url-actions">
-              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Copy" @click="copyWithToast(url)">
+              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" :title="$t('file_lite_i18n.copy')" @click="copyWithToast(url)">
                 <i-mdi-content-copy />
               </button>
-              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" title="Open" @click="handleGo(url)">
+              <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm" :title="$t('file_lite_i18n.open')" @click="handleGo(url)">
                 <i-mdi-open-in-new />
               </button>
             </div>
@@ -134,14 +134,13 @@ function handleGo(url: string) {
         </div>
 
         <aside class="ip-side vgo-panel">
-          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" alt="Login QR code">
-          <textarea v-model="currentUrl" class="vgo-input url-field" rows="2" placeholder="QR Code generator" />
+          <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" :alt="$t('file_lite_i18n.login_qr_code')">
+          <textarea v-model="currentUrl" class="vgo-input url-field" rows="2" :placeholder="$t('file_lite_i18n.qr_code_generator')" />
           <div class="qr-meta">
-            <span v-if="isExpired" class="vgo-badge vgo-badge--danger">Expired</span>
-            <span v-else-if="expiresAtMs" class="ip-expiry">Expires in {{ remainingLabel }}</span>
+            <span v-if="isExpired" class="vgo-badge vgo-badge--danger">{{ $t('file_lite_i18n.expired') }}</span>
+            <span v-else-if="expiresAtMs" class="ip-expiry">{{ $t('file_lite_i18n.expires_in') }} {{ remainingLabel }}</span>
             <button class="vgo-button vgo-button--text vgo-button--sm" @click="loadInfo">
-              <i-mdi-refresh />
-              Refresh
+              <i-mdi-refresh /> {{ $t('file_lite_i18n.refresh') }}
             </button>
           </div>
         </aside>

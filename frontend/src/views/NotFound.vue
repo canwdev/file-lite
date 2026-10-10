@@ -1,9 +1,9 @@
 <template>
   <div class="page-404">
-    <h2>404 Page Not Found</h2>
-    <p>Sorry, the page you are looking for could not be found.</p>
+    <h2>{{ $t('file_lite_i18n.n_404_page_not_found') }}</h2>
+    <p>{{ $t('file_lite_i18n.sorry_the_page_you_are_looking_f') }}</p>
     <RouterLink to="/">
-      Home
+      {{ $t('file_lite_i18n.home') }}
     </RouterLink>
   </div>
 </template>

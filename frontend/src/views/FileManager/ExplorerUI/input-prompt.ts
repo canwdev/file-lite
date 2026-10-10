@@ -114,7 +114,7 @@ export function showInputPrompt(options: {
         }
       },
       confirmButtonText: 'OK',
-      cancelButtonText: 'Cancel',
+      cancelButtonText: $t('file_lite_i18n.cancel'),
     })
 
     if (selectOnFocus) {

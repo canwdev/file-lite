@@ -28,21 +28,20 @@ interface OpenAppInfo {
 
 type OpenAppMeta = Omit<OpenAppInfo, 'source'>
 
-const specialOpenApps: Partial<Record<OpenWithEnum, OpenAppMeta>> = {
-  [OpenWithEnum.Browser]: {
-    name: 'Browser',
-    icon: 'mdi mdi-open-in-new',
-    openWith: OpenWithEnum.Browser,
-  },
-  [OpenWithEnum.Share]: {
-    name: 'Share',
-    icon: 'mdi mdi-share-variant',
-    openWith: OpenWithEnum.Share,
-  },
+/** 内置的「用其它方式打开」项；文案在调用时翻译，模块级常量会锁死在加载时的语言上。 */
+function getSpecialOpenApp(openWith: OpenWithEnum): OpenAppMeta | undefined {
+  switch (openWith) {
+    case OpenWithEnum.Browser:
+      return { name: $t('file_lite_i18n.browser'), icon: 'mdi mdi-open-in-new', openWith: OpenWithEnum.Browser }
+    case OpenWithEnum.Share:
+      return { name: $t('file_lite_i18n.share'), icon: 'mdi mdi-share-variant', openWith: OpenWithEnum.Share }
+    default:
+      return undefined
+  }
 }
 
 function getOpenAppInfo(openWith: OpenWithEnum): OpenAppInfo {
-  const app: OpenAppMeta = appListByOpenWith[openWith] ?? specialOpenApps[openWith] ?? {
+  const app: OpenAppMeta = appListByOpenWith[openWith] ?? getSpecialOpenApp(openWith) ?? {
     name: openWith,
     icon: 'mdi mdi-open-in-app',
     openWith,
@@ -130,8 +129,8 @@ function checkTooLargeFileDialog(item: IEntry, bytes: number) {
     if (item.size && item.size > bytes) {
       window.$dialog
         .confirm(
-          `File ${item.name} (${bytesToSize(item.size)}) is larger than ${bytesToSize(bytes)}, are you sure to open it?`,
-          'File is too large',
+          $t('file_lite_i18n.file_0_1_is_larger_than_2_are_yo', [item.name, bytesToSize(item.size), bytesToSize(bytes)]),
+          $t('file_lite_i18n.file_is_too_large'),
           {
             type: 'warning',
           },
@@ -260,15 +259,15 @@ export function useOpener(basePath: { value: string }) {
           && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
         type UnsupportedAction = 'viewer' | 'extract' | 'browser'
         const buttons: ModalWindowButton[] = [
-          { label: 'File Viewer', value: 'viewer' },
+          { label: $t('file_lite_i18n.file_viewer'), value: 'viewer' },
         ]
         if (canExtract) {
           buttons.push({ label: 'Extract...', value: 'extract' })
         }
-        buttons.push({ label: 'Open in Browser', variant: 'primary', value: 'browser' })
+        buttons.push({ label: $t('file_lite_i18n.open_in_browser'), variant: 'primary', value: 'browser' })
         const action = await showModalWindow<UnsupportedAction>({
-          title: 'Unsupported File Type',
-          content: `Continue to view? ${item.name}`,
+          title: $t('file_lite_i18n.unsupported_file_type'),
+          content: $t('file_lite_i18n.continue_to_view_0', [item.name]),
           buttons,
         })
         if (action === 'browser') {
@@ -286,7 +285,7 @@ export function useOpener(basePath: { value: string }) {
           catch (error: any) {
             if (error === 'cancel' || error === 'close')
               return
-            window.$message?.error(error?.message || 'Failed to start the task')
+            window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
           }
         }
         return

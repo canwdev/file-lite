@@ -102,11 +102,11 @@ const currentMount = computed(() => {
   return driveList.value.find(drive => normalizeListingPath(drive.path) === path) ?? null
 })
 const currentRootIcon = computed(() => pathRootIcon(rootSegment.value?.path ?? ''))
-const currentRootLabel = computed(() => currentMount.value?.label || rootSegment.value?.name || 'Storage')
+const currentRootLabel = computed(() => currentMount.value?.label || rootSegment.value?.name || $t('file_lite_i18n.storage'))
 
 function buildStorageItems(): MenuItem[] {
   if (!driveList.value.length) {
-    return [{ label: 'No locations available.', disabled: true }]
+    return [{ label: $t('file_lite_i18n.no_locations_available'), disabled: true }]
   }
   const currentRoot = rootSegment.value ? normalizeListingPath(rootSegment.value.path) : ''
   return driveList.value.map(drive => ({
@@ -289,7 +289,7 @@ function onCrumbAuxClick(path: string, event: MouseEvent) {
 function showCrumbMenu(path: string, event: MouseEvent) {
   const items: MenuItem[] = [
     {
-      label: 'Open in new Tab',
+      label: $t('file_lite_i18n.open_in_new_tab'),
       icon: 'mdi mdi-open-in-new',
       onClick: () => emit('openPathInNewTab', path),
     },
@@ -367,7 +367,7 @@ async function readCrumbSubDirs(path: string): Promise<{ dirs: IEntry[], error: 
 /** 子文件夹菜单项；当前目录那一条保持高亮，空 / 失败时给一条禁用的提示。 */
 function buildCrumbSubDirItems(seg: BreadcrumbSegment, dirs: IEntry[], error: boolean): MenuItem[] {
   if (!dirs.length) {
-    return [{ label: error ? 'Failed to load subfolders.' : 'No subfolders.', disabled: true }]
+    return [{ label: error ? $t('file_lite_i18n.failed_to_load_subfolders') : $t('file_lite_i18n.no_subfolders'), disabled: true }]
   }
   const current = currentChildName(seg)
   return dirs.map(dir => ({
@@ -500,7 +500,7 @@ defineExpose({
   <div
     class="address-bar vgo-input"
     :class="{ 'is-editing': editing }"
-    :title="editing ? '' : 'Address bar — click empty area to edit (Alt+A)'"
+    :title="editing ? '' : $t('file_lite_i18n.address_bar_click_empty_area_to')"
   >
     <input
       v-show="editing"
@@ -508,7 +508,7 @@ defineExpose({
       v-model="editDraft"
       type="text"
       class="address-bar__input vgo-input"
-      placeholder="Path"
+      :placeholder="$t('file_lite_i18n.path')"
       @keydown="onInputKeydown"
       @blur="onInputBlur"
     >
@@ -518,7 +518,7 @@ defineExpose({
       class="address-bar__breadcrumb"
       :class="{ 'has-overflow': hiddenPrefixCount > 0 && !measuring }"
       role="navigation"
-      aria-label="Path"
+      :aria-label="$t('file_lite_i18n.path')"
       @click="onBreadcrumbBarClick"
     >
       <template v-if="segments.length">
@@ -580,7 +580,7 @@ defineExpose({
         class="address-bar__crumb address-bar__crumb--placeholder vgo-u-button-reset"
         @click.stop="startEdit"
       >
-        Path
+        {{ $t('file_lite_i18n.path') }}
       </button>
     </div>
   </div>

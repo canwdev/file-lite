@@ -171,7 +171,7 @@ async function performEntryDrop(destDir: string, event: DragEvent, session: Entr
       await createTask({ kind: 'duplicate', fromPaths, toPath: target })
     }
     catch (error: any) {
-      window.$message?.error(error?.message || 'Failed to start the task')
+      window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
     }
     return
   }
@@ -185,7 +185,7 @@ async function performEntryDrop(destDir: string, event: DragEvent, session: Entr
     }
   }
   catch (error: any) {
-    window.$message?.error(error?.message || 'Failed to start the task')
+    window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
   }
 }
 
@@ -203,7 +203,7 @@ export function registerExternalDropSink(sink: ExternalDropSink): void {
 
 async function uploadExternalDrop(destDir: string, event: DragEvent): Promise<void> {
   if (!externalDropSink) {
-    window.$message?.warning('The drop target is not ready')
+    window.$message?.warning($t('file_lite_i18n.the_drop_target_is_not_ready'))
     return
   }
   await externalDropSink(normalizeListingPath(destDir), event)

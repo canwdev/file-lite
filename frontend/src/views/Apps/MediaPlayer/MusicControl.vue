@@ -78,7 +78,7 @@ function showLoopMenu(event: MouseEvent) {
       const info = loopModeMap[mode]
       const selected = mSettingsStore.loopMode === mode
       return {
-        label: info.i18nKey,
+        label: $t(info.i18nKey),
         icon: selected ? 'mdi mdi-check' : (info.className || ''),
         onClick: () => {
           mSettingsStore.loopMode = mode
@@ -260,14 +260,14 @@ function jumpBackward() {
     <div class="actionbar">
       <div class="now-playing">
         <button
-          v-if="showControls" class="vgo-button vgo-button--text vgo-button--round vgo-button--lg" title="Playback speed"
+          v-if="showControls" class="vgo-button vgo-button--text vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.playback_speed')"
           @click="showSpeedMenu"
         >
           {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
         </button>
 
         <button
-          v-if="currentLoopMode" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="currentLoopMode.i18nKey"
+          v-if="currentLoopMode" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t(currentLoopMode.i18nKey)"
           @click="showLoopMenu"
         >
           <MdiIcon
@@ -275,23 +275,23 @@ function jumpBackward() {
             :name="currentLoopMode.className"
             :class="{ 'reverse-x': currentLoopMode.className.includes('reverse-x') }"
           />
-          <span v-else>{{ currentLoopMode.i18nKey }}</span>
+          <span v-else>{{ $t(currentLoopMode.i18nKey) }}</span>
         </button>
       </div>
 
       <div class="control-center">
         <button
-          class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Previous" @click="previous"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.previous')" @click="previous"
           @contextmenu.prevent="jumpBackward"
         >
           <i-mdi-skip-previous />
         </button>
-        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Rewind" @click="jumpBackward">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.rewind')" @click="jumpBackward">
           <i-mdi-rewind-5 />
         </button>
 
         <button
-          class="vgo-button vgo-button--primary vgo-button--icon vgo-button--round vgo-button--lg" :title="mediaStore.paused ? `Play` : `Pause`"
+          class="vgo-button vgo-button--primary vgo-button--icon vgo-button--round vgo-button--lg" :title="mediaStore.paused ? $t('file_lite_i18n.play') : $t('file_lite_i18n.pause')"
           @click="togglePlay"
         >
           <template v-if="mediaStore.paused">
@@ -302,10 +302,10 @@ function jumpBackward() {
           </template>
         </button>
 
-        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Fast Forward" @click="jumpForward">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.fast_forward')" @click="jumpForward">
           <i-mdi-fast-forward-5 />
         </button>
-        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" title="Next" @click="next">
+        <button class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.next')" @click="next">
           <i-mdi-skip-next />
         </button>
       </div>
@@ -315,7 +315,7 @@ function jumpBackward() {
           <template #reference>
             <button
               ref="volumeIconBtnRef" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg"
-              title="Volume (scroll wheel to adjust)"
+              :title="$t('file_lite_i18n.volume_scroll_wheel_to_adjust')"
             >
               <template v-if="mSettingsStore.audioVolume > 0">
                 <i-mdi-volume-high />
@@ -336,7 +336,7 @@ function jumpBackward() {
         <button
           class="vgo-button vgo-button--icon vgo-button--round vgo-button--lg"
           :class="playlistOpen ? 'vgo-button--primary' : 'vgo-button--text'"
-          title="Playlist"
+          :title="$t('file_lite_i18n.playlist')"
           @click="$emit('togglePlaylist')"
         >
           <i-mdi-playlist-music />

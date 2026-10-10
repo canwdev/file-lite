@@ -23,7 +23,7 @@ defineEmits<{
       type="button"
       class="vgo-u-button-reset file-group-header__toggle"
       :aria-expanded="!collapsed"
-      :aria-label="collapsed ? 'Expand group' : 'Collapse group'"
+      :aria-label="collapsed ? $t('file_lite_i18n.expand_group') : $t('file_lite_i18n.collapse_group')"
       @click.stop="$emit('toggle')"
     >
       <i-mdi-chevron-right v-if="collapsed" class="vgo-u-icon-sm" />

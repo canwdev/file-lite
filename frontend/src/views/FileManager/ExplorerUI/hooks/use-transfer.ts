@@ -61,7 +61,7 @@ async function enqueueUploads(items: PendingUpload[], targetDir: string) {
         totalCount: conflictItems.length,
         truncated: false,
         conflicts: conflictItems,
-        action: 'Upload',
+        action: $t('file_lite_i18n.upload'),
       })
 
       if (!resolution) {
@@ -158,7 +158,7 @@ export async function uploadDropPayload(targetDir: string, event: DragEvent) {
   }
   catch (error) {
     console.error('[upload] drop failed', error)
-    window.$message?.error('Failed to read the dropped files')
+    window.$message?.error($t('file_lite_i18n.failed_to_read_the_dropped_files'))
   }
 }
 
@@ -243,13 +243,13 @@ export function useTransfer({
   const confirmDownload = async () => {
     const isDownloadingCurrent = selectedItems.value.length === 0
     const message = isDownloadingCurrent
-      ? 'Are you sure to download the current folder?'
-      : `Are you sure to download ${selectedItems.value.length} item(s)?`
+      ? $t('file_lite_i18n.are_you_sure_to_download_the_cur')
+      : $t('file_lite_i18n.are_you_sure_to_download_0_item', [selectedItems.value.length])
 
     window.$dialog
       .confirm(
         message,
-        'Confirm Download',
+        $t('file_lite_i18n.confirm_download'),
         {
           type: 'info',
         },
@@ -348,7 +348,7 @@ export function useTransfer({
         return
       }
       console.error(e)
-      window.$message.error(`Download failed: ${e.message}`)
+      window.$message.error($t('file_lite_i18n.download_failed_0', [e.message]))
     }
   }
 

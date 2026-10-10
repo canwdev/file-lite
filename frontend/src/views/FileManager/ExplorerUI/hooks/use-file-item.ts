@@ -5,23 +5,23 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 export function getTooltip(item: IEntry) {
   return [
     {
-      label: 'Name',
+      label: $t('file_lite_i18n.name'),
       value: item.name,
     },
     {
-      label: 'Size',
+      label: $t('file_lite_i18n.size'),
       value: item.size === null ? '' : bytesToSize(item.size),
     },
     {
-      label: 'Last Modified',
+      label: $t('file_lite_i18n.last_modified'),
       value: formatDate(item.lastModified, 'YYYY-MM-DD HH:mm:ss'),
     },
     {
-      label: 'Created',
+      label: $t('file_lite_i18n.created'),
       value: formatDate(item.birthtime, 'YYYY-MM-DD HH:mm:ss'),
     },
     {
-      label: 'Error',
+      label: $t('file_lite_i18n.error'),
       value: item.error || null,
     },
   ].filter(i => !!i.value).map(i => `${i.label}: ${i.value}`).join('\n')

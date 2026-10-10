@@ -125,7 +125,7 @@ async function onPluginMessage(event: MessageEvent) {
       try {
         const written = await fs.writeFile(dirOf(path), baseOf(path), data.data, { conflict: 'overwrite' })
         if (!written.ok) {
-          const reason = written.reason ?? 'This location is read-only'
+          const reason = written.reason ?? $t('file_lite_i18n.this_location_is_read_only')
           window.$message?.warning(reason)
           reply(data.id, reason)
           return
@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
       @load="handleLoad"
     />
     <div v-if="isLoading" class="plugin-host__status vgo-u-surface">
-      Loading {{ plugin.name }}...
+      {{ $t('file_lite_i18n.loading') }} {{ plugin.name }}...
     </div>
   </div>
 </template>

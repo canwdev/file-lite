@@ -4,10 +4,10 @@ import type { SortField } from '../../utils/sort'
 import type { IEntry, SortType } from '@/types/server'
 import { localSettingsStore } from '@/store'
 import { preferredGroupDesc } from '../../utils/group'
-import { composeSortMode, parseSortMode, SORT_FIELD_LABELS, SORT_FIELDS, sortEntries } from '../../utils/sort'
+import { composeSortMode, parseSortMode, SORT_FIELD_LABEL_KEYS, SORT_FIELDS, sortEntries } from '../../utils/sort'
 
-const SORT_FIELD_ITEMS: { label: string, field: SortField }[] = SORT_FIELDS.map(field => ({
-  label: SORT_FIELD_LABELS[field],
+const SORT_FIELD_ITEMS: { labelKey: string, field: SortField }[] = SORT_FIELDS.map(field => ({
+  labelKey: SORT_FIELD_LABEL_KEYS[field],
   field,
 }))
 
@@ -23,7 +23,7 @@ export function useLayoutSort(
   const sortOptions = computed((): MenuItem[] => {
     const { field, desc } = parseSortMode(sortMode.value)
     const fieldItems: MenuItem[] = SORT_FIELD_ITEMS.map((item, index) => ({
-      label: item.label,
+      label: $t(item.labelKey),
       icon: checkIcon(field === item.field),
       divided: index === SORT_FIELD_ITEMS.length - 1,
       onClick: () => {
@@ -34,14 +34,14 @@ export function useLayoutSort(
     return [
       ...fieldItems,
       {
-        label: 'Ascending',
+        label: $t('file_lite_i18n.ascending'),
         icon: checkIcon(!desc),
         onClick: () => {
           sortMode.value = composeSortMode(field, false)
         },
       },
       {
-        label: 'Descending',
+        label: $t('file_lite_i18n.descending'),
         icon: checkIcon(desc),
         onClick: () => {
           sortMode.value = composeSortMode(field, true)
@@ -68,7 +68,7 @@ export function useLayoutGroup(
     const field = groupField.value
     const desc = groupDesc.value
     const fieldItems: MenuItem[] = SORT_FIELD_ITEMS.map(item => ({
-      label: item.label,
+      label: $t(item.labelKey),
       icon: checkIcon(field === item.field),
       onClick: () => {
         if (item.field === field)
@@ -94,14 +94,14 @@ export function useLayoutGroup(
         },
       },
       {
-        label: 'Ascending',
+        label: $t('file_lite_i18n.ascending'),
         icon: checkIcon(!desc),
         onClick: () => {
           groupDesc.value = false
         },
       },
       {
-        label: 'Descending',
+        label: $t('file_lite_i18n.descending'),
         icon: checkIcon(desc),
         onClick: () => {
           groupDesc.value = true

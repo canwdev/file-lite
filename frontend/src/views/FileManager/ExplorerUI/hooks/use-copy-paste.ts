@@ -77,7 +77,7 @@ export function useCopyPaste({
     }
     catch (error: any) {
       isLoading.value = false
-      window.$message?.error(error?.message || 'Failed to start the task')
+      window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
       return
     }
     isLoading.value = false

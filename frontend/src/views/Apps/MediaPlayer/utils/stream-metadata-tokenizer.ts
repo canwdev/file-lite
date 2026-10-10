@@ -99,7 +99,7 @@ class CookieRangeHttpClient implements IRangeRequestClient {
   async getResponse(method: string, range?: [number, number]): Promise<IRangeRequestResponse> {
     const headers = new Headers()
     if (range) {
-      headers.set('Range', `bytes=${range[0]}-${range[1]}`)
+      headers.set($t('file_lite_i18n.range'), `bytes=${range[0]}-${range[1]}`)
     }
     const res = await fetch(this.resolvedUrl || this.url, {
       method,

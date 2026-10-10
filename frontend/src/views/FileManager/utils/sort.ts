@@ -9,12 +9,13 @@ import { SortType } from '../../../types/server'
 export const SORT_FIELDS = ['name', 'extension', 'size', 'lastModified', 'birthTime'] as const
 export type SortField = (typeof SORT_FIELDS)[number]
 
-export const SORT_FIELD_LABELS: Record<SortField, string> = {
-  name: 'Name',
-  extension: 'Extension',
-  size: 'Size',
-  lastModified: 'Last Modified',
-  birthTime: 'Created Time',
+/** 排序字段的文案 key；取值时翻译，模块级常量会锁死在加载时的语言上。 */
+export const SORT_FIELD_LABEL_KEYS: Record<SortField, string> = {
+  name: 'file_lite_i18n.name',
+  extension: 'file_lite_i18n.extension',
+  size: 'file_lite_i18n.size',
+  lastModified: 'file_lite_i18n.last_modified',
+  birthTime: 'file_lite_i18n.created_time',
 }
 
 const SORT_FIELD_SET = new Set<string>(SORT_FIELDS)
@@ -32,7 +33,7 @@ export function parseSortMode(mode: SortType): { field: SortField, desc: boolean
 }
 
 export function composeSortMode(field: SortField, desc: boolean): SortType {
-  return (desc ? `${field}Desc` : field) as SortType
+  return (desc ? $t('file_lite_i18n.n_0_desc', [field]) : field) as SortType
 }
 
 /** 「文件夹在前」的顺序层：目录始终排在文件前面，与具体排序方式叠加 */

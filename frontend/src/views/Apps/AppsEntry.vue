@@ -128,7 +128,7 @@ function handleLocateItem(win: AppWindowState, name: string) {
   <WindowDock
     :manager="appWindows"
     class="app-dock"
-    aria-label="Open apps"
+    :aria-label="$t('file_lite_i18n.open_apps')"
     :menu-options="baseContextMenuOptions"
   >
     <template #icon="{ win }">

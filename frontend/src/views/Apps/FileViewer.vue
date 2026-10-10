@@ -41,7 +41,7 @@ async function loadViewer() {
   }
   catch (err) {
     console.error('[FileViewer] load viewer script failed', err)
-    error.value = 'Failed to load viewer'
+    error.value = $t('file_lite_i18n.failed_to_load_viewer')
   }
   finally {
     isLoading.value = false
@@ -63,7 +63,7 @@ onMounted(loadViewer)
 <template>
   <div class="file-viewer">
     <div v-if="isLoading" class="file-viewer__status">
-      Loading flyfish-file-viewer from cdn...
+      {{ $t('file_lite_i18n.loading_flyfish_file_viewer_from') }}...
     </div>
     <div v-else-if="error" class="file-viewer__status">
       {{ error }}

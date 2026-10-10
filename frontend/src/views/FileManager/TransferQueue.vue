@@ -286,7 +286,7 @@ function taskHandler(task: TaskItem) {
           abortController.abort()
         },
       }
-      data.message = type === 'upload' ? 'Uploading' : 'Downloading'
+      data.message = type === 'upload' ? $t('file_lite_i18n.uploading') : $t('file_lite_i18n.downloading')
 
       if (type === 'upload') {
         await handleUpload(data, abortController)
@@ -303,7 +303,7 @@ function taskHandler(task: TaskItem) {
       const finalSize = data.speedInfo?.total || data.size || data.file?.size || 0
       data.speedInfo = { loaded: finalSize, total: finalSize, rate: 0, bytes: 0 }
       data.abortObj = undefined
-      data.message = 'Success'
+      data.message = $t('file_lite_i18n.success')
       emit('singleDone', data)
       resolve(data)
     }
@@ -313,7 +313,7 @@ function taskHandler(task: TaskItem) {
       if (e.name === 'AbortError' || e.name === 'CanceledError' || e.code === 'ERR_CANCELED') {
         if (data.status !== 'failed') {
           setItemStatus(data, 'failed')
-          data.message = 'Cancelled'
+          data.message = $t('file_lite_i18n.cancelled')
           data.abortObj = undefined
         }
         resolve(data)
@@ -365,7 +365,7 @@ function addTask(data: IBatchFile, position: number = -1) {
     index: ++transferIndex.value,
     progress: 0,
     status: 'pending',
-    message: 'Waiting',
+    message: $t('file_lite_i18n.waiting'),
     // 重试时清掉上一轮的进度，避免累计字节把总量算错
     speedInfo: undefined,
   } as ITransferItem)
@@ -391,7 +391,7 @@ function addTasks(data: IBatchFile[]) {
       index: ++transferIndex.value,
       progress: 0,
       status: 'pending',
-      message: 'Waiting',
+      message: $t('file_lite_i18n.waiting'),
     } as ITransferItem)
   })
   // 分块 push：上万条一次性展开会撞上参数个数上限
@@ -550,7 +550,7 @@ async function cancelItem(item: ITransferItem) {
   item.abortObj?.abort()
   item.abortObj = undefined
   setItemStatus(item, 'failed')
-  item.message = 'Cancelled'
+  item.message = $t('file_lite_i18n.cancelled')
 }
 
 /**
@@ -582,7 +582,7 @@ function retryAll() {
       index: ++transferIndex.value,
       progress: 0,
       status: 'pending',
-      message: 'Waiting',
+      message: $t('file_lite_i18n.waiting'),
       speedInfo: undefined,
       abortObj: undefined,
     } as ITransferItem)
@@ -638,14 +638,14 @@ function clearFinishedServerTasks() {
 
 async function setConcurrentNum() {
   const num = await showInputPrompt({
-    title: 'Set Concurrent Tasks',
+    title: $t('file_lite_i18n.set_concurrent_tasks'),
     value: String(concurrentNum.value || 1),
-    placeholder: 'Enter the number of concurrent tasks',
+    placeholder: $t('file_lite_i18n.enter_the_number_of_concurrent_t'),
     type: 'number',
     validateFn: (val) => {
       const intNum = Number.parseInt(val || '0')
       if (Number.isNaN(intNum) || intNum <= 0) {
-        return 'Please enter a positive integer'
+        return $t('file_lite_i18n.please_enter_a_positive_integer')
       }
     },
   })
@@ -676,7 +676,7 @@ function debugServerTask(
 
 const debugFailureResults: TaskItemResult[] = [
   { fromPath: '/mock/source/report.pdf', status: 'failed', message: 'permission denied' },
-  { fromPath: '/mock/source/locked.bin', status: 'conflict', message: 'A conflicting item appeared at the destination' },
+  { fromPath: '/mock/source/locked.bin', status: 'conflict', message: $t('file_lite_i18n.a_conflicting_item_appeared_at_t') },
 ]
 
 /**
@@ -698,7 +698,7 @@ function loadMockTransferList() {
       file: new File([], 'mock.png'),
       progress: 0,
       status: 'pending',
-      message: 'Waiting',
+      message: $t('file_lite_i18n.waiting'),
       type: 'upload',
       ...overrides,
     })
@@ -706,10 +706,10 @@ function loadMockTransferList() {
 
   listData.value = [
     // ---- 上传：待处理 / 传输中（有速度）/ 传输中（总量未知）/ 成功 / 失败 ----
-    createItem({ status: 'pending', message: 'Waiting' }),
+    createItem({ status: 'pending', message: $t('file_lite_i18n.waiting') }),
     createItem({
       status: 'transferring',
-      message: 'Uploading',
+      message: $t('file_lite_i18n.uploading'),
       progress: 0.45,
       speedInfo: { loaded: 450_000, total: 1_000_000, rate: 102_400, bytes: 102_400 },
       abortObj: { abort: () => console.log('Abort Upload') },
@@ -717,19 +717,19 @@ function loadMockTransferList() {
     // 刚开始、还没拿到任何进度
     createItem({
       status: 'transferring',
-      message: 'Uploading',
+      message: $t('file_lite_i18n.uploading'),
       progress: 0,
       speedInfo: { loaded: 0, total: 0, rate: 0, bytes: 0 },
       abortObj: { abort: () => console.log('Abort Upload') },
     }),
-    createItem({ status: 'success', message: 'Success', progress: 1 }),
+    createItem({ status: 'success', message: $t('file_lite_i18n.success'), progress: 1 }),
     createItem({ status: 'failed', message: 'Network Error', progress: 0.3 }),
 
     // ---- 下载：同样的状态组合 ----
     createItem({ status: 'pending', type: 'download' }),
     createItem({
       status: 'transferring',
-      message: 'Downloading',
+      message: $t('file_lite_i18n.downloading'),
       type: 'download',
       progress: 0.75,
       speedInfo: { loaded: 750_000, total: 1_000_000, rate: 204_800, bytes: 204_800 },
@@ -921,19 +921,19 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
           <button
             v-if="listData.length"
             class="vgo-button vgo-button--text vgo-button--sm"
-            :title="`Concurrent: ${concurrentNum}, Transferring: ${transferringNum}`"
+            :title="$t('file_lite_i18n.concurrent_0_transferring_1', [concurrentNum, transferringNum])"
             @click="setConcurrentNum"
           >
             <i-mdi-compare-vertical /> {{ transferringNum }}
           </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--primary vgo-button--sm" @click="retryAll">
-            Retry All
+            {{ $t('file_lite_i18n.retry_all') }}
           </button>
           <button v-if="errorNum > 0" class="vgo-button vgo-button--sm" @click="clearFailed">
-            Clear Failed
+            {{ $t('file_lite_i18n.clear_failed') }}
           </button>
           <button v-if="successNum > 0" class="vgo-button vgo-button--sm" @click="clearSuccess">
-            Clear Success
+            {{ $t('file_lite_i18n.clear_success') }}
           </button>
         </div>
         <button
@@ -941,7 +941,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
           class="vgo-button vgo-button--danger vgo-button--sm"
           @click="cancelTransfers"
         >
-          Cancel All
+          {{ $t('file_lite_i18n.cancel_all') }}
         </button>
       </template>
 
@@ -952,7 +952,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
             class="vgo-button vgo-button--sm"
             @click="clearFinishedServerTasks"
           >
-            Clear finished
+            {{ $t('file_lite_i18n.clear_finished') }}
           </button>
         </div>
         <button
@@ -960,7 +960,7 @@ onBeforeUnmount(() => unregisterTransferQueue(queueApi))
           class="vgo-button vgo-button--danger vgo-button--sm"
           @click="cancelServerTasks"
         >
-          Cancel All
+          {{ $t('file_lite_i18n.cancel_all') }}
         </button>
       </template>
     </template>

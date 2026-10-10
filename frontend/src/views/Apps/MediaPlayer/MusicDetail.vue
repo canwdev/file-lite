@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
             class="cover-toggle"
             type="button"
             :aria-pressed="isLyricsVisible"
-            :aria-label="isLyricsVisible ? '隐藏歌词' : '显示歌词'"
+            :aria-label="isLyricsVisible ? $t('file_lite_i18n.hide_lyrics') : $t('file_lite_i18n.show_lyrics')"
             @click="toggleLyricsVisible"
           >
             <SteamCard :src="item.cover || defaultCoverUrl" />

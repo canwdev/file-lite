@@ -23,7 +23,7 @@ export function deleteConfirmMessage(targets: DeleteConfirmTarget[]): VNode {
   const hidden = targets.length - shown.length
 
   const nodes: VNode[] = [
-    h('div', `Are you sure to delete ${targets.length} items? This action can not be undone.`),
+    h('div', $t('file_lite_i18n.are_you_sure_to_delete_0_items_t', [targets.length])),
     ...shown.map(target => h('div', h('strong', {
       style: target.isDirectory ? 'color: var(--vgo-danger);' : undefined,
     }, target.name))),
@@ -48,7 +48,7 @@ export async function confirmDeleteDialog(targets: DeleteConfirmTarget[]): Promi
     return false
   }
   try {
-    await window.$dialog.confirm(deleteConfirmMessage(targets), 'Confirm Delete', {
+    await window.$dialog.confirm(deleteConfirmMessage(targets), $t('file_lite_i18n.confirm_delete'), {
       type: 'warning',
     })
     return true

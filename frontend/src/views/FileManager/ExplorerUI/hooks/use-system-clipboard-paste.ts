@@ -39,7 +39,7 @@ export function useSystemClipboardPaste({
     try {
       const content = await readSystemClipboard()
       if (!content) {
-        window.$message.warning('No supported content in clipboard')
+        window.$message.warning($t('file_lite_i18n.no_supported_content_in_clipboar'))
         return
       }
 
@@ -51,7 +51,7 @@ export function useSystemClipboardPaste({
       // 从门面问一次能不能写，不能写就当场说明原因
       const guard = await fs.canWrite(path)
       if (!guard.ok) {
-        window.$message.warning(guard.reason ?? 'This location is read-only')
+        window.$message.warning(guard.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
         return
       }
 
@@ -71,15 +71,15 @@ export function useSystemClipboardPaste({
       // 走门面写文件
       const written = await fs.writeFile(basePath.value, name, file)
       if (!written.ok) {
-        window.$message.warning(written.reason ?? 'This location is read-only')
+        window.$message.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
         return
       }
 
-      window.$message.success(`Pasted ${filename}`)
+      window.$message.success($t('file_lite_i18n.pasted_0', [filename]))
     }
     catch (error) {
       console.error('[pasteFromClipboard]', error)
-      window.$message.error(`Failed to paste from clipboard: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      window.$message.error($t('file_lite_i18n.failed_to_paste_from_clipboard_0', [error instanceof Error ? error.message : $t('file_lite_i18n.unknown_error')]))
     }
     finally {
       isLoading.value = false

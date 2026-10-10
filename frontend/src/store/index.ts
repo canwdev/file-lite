@@ -1,6 +1,8 @@
+import type { AppLocale } from '@/i18n'
 import { useStorage } from '@vueuse/core'
 import { LsKeys } from '@/enum'
 import { useRemoteSetting } from '@/hooks/use-remote-setting'
+import { detectBrowserLocale, isAppLocale } from '@/i18n'
 
 /** 需要跨设备同步的设置 */
 function createDefaultSettingsStore() {
@@ -10,6 +12,8 @@ function createDefaultSettingsStore() {
     rememberLastMedia: false,
     /** 自定义前缀；空则显示原始标题，有值则为「自定义 - 原始标题」 */
     pageTitle: '',
+    /** 界面语言；空 = 还没设置过，运行期用浏览器检测到的语言 */
+    language: '' as AppLocale | '',
   }
 }
 
@@ -29,6 +33,7 @@ function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
     colorTheme: typeof raw.colorTheme === 'string' ? raw.colorTheme : defaults.colorTheme,
     rememberLastMedia: Boolean(raw.rememberLastMedia ?? defaults.rememberLastMedia),
     pageTitle: typeof raw.pageTitle === 'string' ? raw.pageTitle : defaults.pageTitle,
+    language: isAppLocale(raw.language) ? raw.language : defaults.language,
   }
 }
 
@@ -41,6 +46,12 @@ const {
   normalize: normalizeSettingsStoreValue,
   autoInitialize: false,
   throwOnInitError: true,
+  // 服务端还没有语言设置（首次访问，或升级前存下的设置）：把检测到的语言写回去。
+  onLoaded: (stored) => {
+    const language = (stored as { language?: unknown } | null)?.language
+    if (!isAppLocale(language))
+      settingsStore.value.language = detectBrowserLocale()
+  },
 })
 
 /** 仅本机持久化的 UI / 设备偏好 */

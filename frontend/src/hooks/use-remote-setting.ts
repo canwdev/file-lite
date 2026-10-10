@@ -13,6 +13,13 @@ interface UseRemoteSettingOptions<T> {
   deep?: boolean
   autoInitialize?: boolean
   throwOnInitError?: boolean
+  /**
+   * 每次从服务端读到值之后调用；`stored` 为 null 表示服务端还没有这个键。
+   *
+   * 用于「本地算出来的默认值也要落库」的场景（界面语言）：`applyRemoteState` 会把默认值
+   * 记为已同步，不回调的话它永远不会写回服务端。
+   */
+  onLoaded?: (stored: unknown) => void
 }
 
 export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
@@ -25,6 +32,7 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
     deep = true,
     autoInitialize = true,
     throwOnInitError = false,
+    onLoaded,
   } = options
 
   const state = ref<T>(createDefaultValue())
@@ -106,8 +114,11 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
     }
     try {
       bindSubscription()
-      applyRemoteState(await settingsApi.getItem(key))
+      const stored = await settingsApi.getItem(key)
+      applyRemoteState(stored)
       initializedSession = sessionRef.value
+      // 回写由 state 的 watcher（防抖）完成；此处 initializedSession 已就绪。
+      onLoaded?.(stored)
     }
     catch (error) {
       console.error(error)

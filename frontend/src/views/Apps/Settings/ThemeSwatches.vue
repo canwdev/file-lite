@@ -13,7 +13,7 @@ const isDark = computed(() => {
   return systemDark.value
 })
 
-const current = computed(() => settingsStore.value.colorTheme || 'Default')
+const current = computed(() => settingsStore.value.colorTheme || $t('file_lite_i18n.default'))
 
 function rgbOf(item: (typeof colorThemeOptions)[number]) {
   return isDark.value ? item.rgb.dark : item.rgb.light
@@ -39,7 +39,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="theme-colors">
     <div class="theme-colors__head">
-      <span>Color</span>
+      <span>{{ $t('file_lite_i18n.color') }}</span>
       <span class="theme-colors__current">{{ current }}</span>
     </div>
     <div class="theme-colors__grid">

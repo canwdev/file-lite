@@ -62,45 +62,59 @@ export interface InternalAppListItem {
 
 export const AppList: AppListItem[] = [
   {
-    name: 'Endless Gallery',
+    get name() {
+      return $t('file_lite_i18n.endless_gallery')
+    },
     openWith: OpenWithEnum.EndlessGallery,
     icon: 'mdi mdi-image-multiple',
     component: defineAsyncComponent(() => import('./EndlessGallery/EndlessGallery.vue')),
     singleInstance: true,
   },
   {
-    name: 'Text Editor',
+    get name() {
+      return $t('file_lite_i18n.text_editor')
+    },
     openWith: OpenWithEnum.TextEditor,
     icon: 'mdi mdi-text-box-edit',
     component: defineAsyncComponent(() => import('./TextEditor.vue')),
   },
   {
-    name: 'Image Viewer',
+    get name() {
+      return $t('file_lite_i18n.image_viewer')
+    },
     openWith: OpenWithEnum.ImageViewer,
     icon: 'mdi mdi-image',
     component: defineAsyncComponent(() => import('./ImageViewer.vue')),
   },
   {
-    name: 'HTML Viewer',
+    get name() {
+      return $t('file_lite_i18n.html_viewer')
+    },
     openWith: OpenWithEnum.HtmlViewer,
     icon: 'mdi mdi-language-html5',
     component: defineAsyncComponent(() => import('./HtmlViewer.vue')),
   },
   {
-    name: 'Media Player',
+    get name() {
+      return $t('file_lite_i18n.media_player')
+    },
     openWith: OpenWithEnum.MediaPlayer,
     icon: 'mdi mdi-play-circle',
     component: defineAsyncComponent(() => import('./MediaPlayer/MediaPlayer.vue')),
     singleInstance: true,
   },
   {
-    name: 'Video Player',
+    get name() {
+      return $t('file_lite_i18n.video_player')
+    },
     openWith: OpenWithEnum.VideoPlayer,
     icon: 'mdi mdi-movie',
     component: defineAsyncComponent(() => import('./VideoPlayer.vue')),
   },
   {
-    name: 'File Viewer',
+    get name() {
+      return $t('file_lite_i18n.file_viewer')
+    },
     openWith: OpenWithEnum.FileViewer,
     icon: 'mdi mdi-asterisk',
     component: defineAsyncComponent(() => import('./FileViewer.vue')),
@@ -109,14 +123,18 @@ export const AppList: AppListItem[] = [
 
 export const InternalAppList: InternalAppListItem[] = [
   {
-    name: 'Text Sync',
+    get name() {
+      return $t('file_lite_i18n.text_sync')
+    },
     appName: InternalAppEnum.TextSync,
     icon: 'mdi mdi-clipboard-outline',
     component: defineAsyncComponent(() => import('./TextSync.vue')),
     singleInstance: true,
   },
   {
-    name: 'Speed Test',
+    get name() {
+      return $t('file_lite_i18n.speed_test')
+    },
     appName: InternalAppEnum.SpeedTest,
     icon: 'mdi mdi-speedometer',
     component: defineAsyncComponent(() => import('./SpeedTest.vue')),
@@ -126,7 +144,9 @@ export const InternalAppList: InternalAppListItem[] = [
     },
   },
   {
-    name: 'Keyboard Shortcuts',
+    get name() {
+      return $t('file_lite_i18n.keyboard_shortcuts')
+    },
     appName: InternalAppEnum.KeyboardShortcuts,
     icon: 'mdi mdi-keyboard-outline',
     component: defineAsyncComponent(() => import('./KeyboardShortcuts.vue')),
@@ -136,7 +156,9 @@ export const InternalAppList: InternalAppListItem[] = [
     },
   },
   {
-    name: 'Properties',
+    get name() {
+      return $t('file_lite_i18n.properties')
+    },
     appName: InternalAppEnum.Properties,
     icon: 'mdi mdi-information-outline',
     component: defineAsyncComponent(() => import('./Properties.vue')),
@@ -147,7 +169,9 @@ export const InternalAppList: InternalAppListItem[] = [
     },
   },
   {
-    name: 'Settings',
+    get name() {
+      return $t('file_lite_i18n.settings')
+    },
     appName: InternalAppEnum.Settings,
     icon: 'mdi mdi-cog',
     component: defineAsyncComponent(() => import('./Settings/Settings.vue')),

@@ -29,7 +29,7 @@ const rememberLogin = computed({
   },
 })
 
-const inputPlaceholder = computed(() => activeTab.value === 'password' ? 'Input password' : 'Input ticket')
+const inputPlaceholder = computed(() => activeTab.value === 'password' ? $t('file_lite_i18n.input_password') : $t('file_lite_i18n.input_ticket'))
 
 async function finishLogin() {
   // The login response already set the session cookies; mirror the readable
@@ -88,16 +88,16 @@ onMounted(async () => {
         </RouterLink>
         <div>
           <div class="login-title">
-            Welcome
+            {{ $t('file_lite_i18n.welcome') }}
           </div>
           <div class="login-subtitle">
-            Sign in to access File Lite
+            {{ $t('file_lite_i18n.sign_in_to_access_file_lite') }}
           </div>
         </div>
       </div>
       <el-tabs v-model="activeTab" class="login-tabs">
-        <el-tab-pane label="Password" name="password" />
-        <el-tab-pane label="Ticket" name="ticket" />
+        <el-tab-pane :label="$t('file_lite_i18n.password')" name="password" />
+        <el-tab-pane :label="$t('file_lite_i18n.ticket')" name="ticket" />
       </el-tabs>
       <div class="login-form">
         <el-input
@@ -105,13 +105,13 @@ onMounted(async () => {
           size="large" :placeholder="inputPlaceholder" @keyup.enter="doSubmit"
         />
         <el-button type="primary" size="large" :loading="isSubmitting" @click="doSubmit">
-          Sign In
+          {{ $t('file_lite_i18n.sign_in') }}
         </el-button>
       </div>
       <div class="login-tip" />
       <div class="login-options">
-        <el-checkbox v-model="rememberLogin" title="If unchecked, login status will be cleared when browser is closed">
-          Remember login status
+        <el-checkbox v-model="rememberLogin" :title="$t('file_lite_i18n.if_unchecked_login_status_will_b')">
+          {{ $t('file_lite_i18n.remember_login_status') }}
         </el-checkbox>
         <div class="login-option-tip" />
       </div>

@@ -50,9 +50,9 @@ function handleSelect(item: FileSelectResult) {
 const actionLabel = computed(() => {
   return selectFileMode.value === 'file'
     ? multiple.value
-      ? 'Open Files...'
-      : 'Open File...'
-    : 'Open Folder...'
+      ? $t('file_lite_i18n.open_files') + ELLIPSIS
+      : $t('file_lite_i18n.open_file') + ELLIPSIS
+    : $t('file_lite_i18n.open_folder') + ELLIPSIS
 })
 
 const windowTitle = computed(() => title.value || actionLabel.value)

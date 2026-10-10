@@ -97,12 +97,12 @@ onBeforeUnmount(() => window.removeEventListener('dragend', clearDragOver))
 function showDriveMenu(item: IDrive, event: MouseEvent) {
   const items: MenuItem[] = [
     {
-      label: 'Open',
+      label: $t('file_lite_i18n.open'),
       icon: 'mdi mdi-folder-open-outline',
       onClick: () => openDrive(item),
     },
     {
-      label: 'Open in new Tab',
+      label: $t('file_lite_i18n.open_in_new_tab'),
       icon: 'mdi mdi-open-in-new',
       onClick: () => emit('openPathInNewTab', item.path),
     },
@@ -128,10 +128,10 @@ defineExpose({
 
     <div class="sidebar-list drive-list">
       <div class="sidebar-list__header">
-        <span>Storage</span>
+        <span>{{ $t('file_lite_i18n.storage') }}</span>
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--sm"
-          title="Reload drives"
+          :title="$t('file_lite_i18n.reload_drives')"
           :disabled="isLoading"
           @click="loadDrives"
         >

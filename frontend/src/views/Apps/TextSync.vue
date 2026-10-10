@@ -92,10 +92,10 @@ watch(
 async function copyText() {
   try {
     await navigator.clipboard.writeText(textContent.value)
-    window.$message.success('Copied')
+    window.$message.success($t('file_lite_i18n.copied'))
   }
   catch {
-    window.$message.error('Copy failed')
+    window.$message.error($t('file_lite_i18n.copy_failed'))
   }
 }
 
@@ -106,7 +106,7 @@ async function pasteText() {
   }
   catch (error) {
     console.error('[pasteText]', error)
-    window.$message.error(`Paste failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    window.$message.error($t('file_lite_i18n.paste_failed_0', [error instanceof Error ? error.message : $t('file_lite_i18n.unknown_error')]))
   }
 }
 
@@ -162,13 +162,13 @@ onBeforeUnmount(() => {
     <div class="text-sync-actions">
       <div class="vgo-button-group">
         <button type="button" class="vgo-button" @click="copyText">
-          <i-mdi-content-copy /> Copy
+          <i-mdi-content-copy /> {{ $t('file_lite_i18n.copy') }}
         </button>
         <button type="button" class="vgo-button" @click="pasteText">
-          <i-mdi-content-paste /> Paste
+          <i-mdi-content-paste /> {{ $t('file_lite_i18n.paste') }}
         </button>
         <button type="button" class="vgo-button vgo-button--danger" @click="clearText">
-          <i-mdi-delete-sweep /> Clear
+          <i-mdi-delete-sweep /> {{ $t('file_lite_i18n.clear') }}
         </button>
       </div>
     </div>
@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
       v-model="textContent"
       class="vgo-input text-sync-textarea"
       spellcheck="false"
-      :placeholder="`[${activeChannel}] Type text here, sync in real time...`"
+      :placeholder="$t('file_lite_i18n.n_0_type_text_here_sync_in_real_ti', [activeChannel]) + ELLIPSIS"
     />
   </div>
 </template>

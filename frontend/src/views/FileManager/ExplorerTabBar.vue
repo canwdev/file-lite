@@ -180,28 +180,28 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   const vertical = item.split !== 'horizontal'
   return [
     {
-      label: 'Unsplit',
+      label: $t('file_lite_i18n.unsplit'),
       shortcut: 'Ctrl+\\',
       onClick: () => unsplit(item.id),
     },
     vertical
       ? {
-          label: 'Split horizontally',
+          label: $t('file_lite_i18n.split_horizontally'),
           icon: 'mdi mdi-arrow-split-horizontal',
           onClick: () => toggleSplitDirection(item.id),
         }
       : {
-          label: 'Split vertically',
+          label: $t('file_lite_i18n.split_vertically'),
           icon: 'mdi mdi-arrow-split-vertical',
           onClick: () => toggleSplitDirection(item.id),
         },
     {
-      label: 'Swap views',
+      label: $t('file_lite_i18n.swap_views'),
       icon: vertical ? 'mdi mdi-swap-horizontal' : 'mdi mdi-swap-vertical',
       onClick: () => swapSplitPanes(item.id),
     },
     {
-      label: 'Sync path',
+      label: $t('file_lite_i18n.sync_path'),
       disabled: isSplitPathSynced(item),
       onClick: () => syncSplitPath(item.id),
     },
@@ -212,26 +212,26 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
 function closeSubmenu(item: ExplorerTabItem, index: number): MenuItem[] {
   return [
     {
-      label: 'Close',
+      label: $t('file_lite_i18n.close'),
       icon: 'mdi mdi-close',
       shortcut: 'Alt+W',
       disabled: !canCloseTabs.value,
       onClick: () => closeTab(item.id),
     },
     {
-      label: 'Close others',
+      label: $t('file_lite_i18n.close_others'),
       icon: 'mdi mdi-close-box-multiple-outline',
       disabled: items.value.length < 2,
       onClick: () => closeOthers(item.id),
     },
     {
-      label: 'Close to the left',
+      label: $t('file_lite_i18n.close_to_the_left'),
       icon: 'mdi mdi-arrow-collapse-left',
       disabled: index <= 0,
       onClick: () => closeToLeft(item.id),
     },
     {
-      label: 'Close to the right',
+      label: $t('file_lite_i18n.close_to_the_right'),
       icon: 'mdi mdi-arrow-collapse-right',
       disabled: index === -1 || index === items.value.length - 1,
       onClick: () => closeToRight(item.id),
@@ -244,13 +244,13 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
   const index = items.value.findIndex(entry => entry.id === item.id)
   const splitView: MenuItem = isSplitItem(item)
     ? {
-        label: 'Split view',
+        label: $t('file_lite_i18n.split_view'),
         icon: item.split === 'horizontal' ? 'mdi mdi-arrow-split-horizontal' : 'mdi mdi-arrow-split-vertical',
         divided: true,
         children: splitSubmenu(item),
       }
     : {
-        label: 'Split view',
+        label: $t('file_lite_i18n.split_view'),
         icon: 'mdi mdi-arrow-split-vertical',
         shortcut: 'Ctrl+\\',
         divided: true,
@@ -273,7 +273,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     ref="tabBarRef"
     class="explorer-tabs"
     role="tablist"
-    aria-label="Open folders"
+    :aria-label="$t('file_lite_i18n.open_folders')"
     @dragleave="onTabDragLeave"
   >
     <div
@@ -318,7 +318,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
         v-if="canCloseTabs"
         type="button"
         class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__close"
-        title="Close tab"
+        :title="$t('file_lite_i18n.close_tab')"
         @click.stop="closeTab(item.id)"
       >
         <i-mdi-close />
@@ -328,7 +328,7 @@ function showTabMenu(item: ExplorerTabItem, event: MouseEvent) {
     <button
       type="button"
       class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm explorer-tabs__add"
-      title="New tab (Alt+T)"
+      :title="$t('file_lite_i18n.new_tab_alt_t')"
       @click="addTab()"
     >
       <i-mdi-plus />

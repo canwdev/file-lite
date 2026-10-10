@@ -116,13 +116,13 @@ export const LoopModeTypeValues = [
 export const loopModeMap = {
   [LoopModeType.NONE]: {
     value: LoopModeType.NONE,
-    i18nKey: 'Play in Order',
+    i18nKey: 'file_lite_i18n.play_in_order',
     className: 'mdi mdi-shuffle-disabled',
     icon: '➡️',
   },
   [LoopModeType.SHUFFLE]: {
     value: LoopModeType.SHUFFLE,
-    i18nKey: 'Shuffle',
+    i18nKey: 'file_lite_i18n.shuffle',
     className: 'mdi mdi-shuffle',
     icon: '🔀',
   },
@@ -130,19 +130,19 @@ export const loopModeMap = {
     value: LoopModeType.LOOP_SEQUENCE,
     icon: '🔁',
     className: 'mdi mdi-repeat',
-    i18nKey: 'Sequential Loop',
+    i18nKey: 'file_lite_i18n.sequential_loop',
   },
   [LoopModeType.LOOP_REVERSE]: {
     value: LoopModeType.LOOP_REVERSE,
     icon: '🔁',
     className: 'mdi mdi-repeat-variant reverse-x',
-    i18nKey: 'Reverse Loop',
+    i18nKey: 'file_lite_i18n.reverse_loop',
   },
   [LoopModeType.LOOP_SINGLE]: {
     value: LoopModeType.LOOP_SINGLE,
     icon: '🔂',
     className: 'mdi mdi-repeat-once',
-    i18nKey: 'Single Cycle',
+    i18nKey: 'file_lite_i18n.single_cycle',
   },
 }
 

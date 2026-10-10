@@ -383,12 +383,12 @@ function onStarAuxClick(path: string, event: MouseEvent) {
 function showStarredPathMenu(path: string, event: MouseEvent) {
   const menuItems: MenuItem[] = [
     {
-      label: 'Open',
+      label: $t('file_lite_i18n.open'),
       icon: 'mdi mdi-folder-open-outline',
       onClick: () => openPath(path),
     },
     {
-      label: 'Open in new Tab',
+      label: $t('file_lite_i18n.open_in_new_tab'),
       icon: 'mdi mdi-open-in-new',
       onClick: () => openPathInNewTab(path),
     },
@@ -517,7 +517,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
         {{ selectFileMode === 'file' || selectorPaneRef?.isSelectAFolder ? 'Open' : 'Select Folder' }}
       </button>
       <button class="vgo-button" @click="emit('cancelSelect')">
-        Cancel
+        {{ $t('file_lite_i18n.cancel') }}
       </button>
     </div>
   </div>

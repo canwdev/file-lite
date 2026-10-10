@@ -85,10 +85,10 @@ onMounted(async () => {
     <div class="playlist-action-bar">
       <div class="playlist-search-row">
         <i-mdi-magnify class="search-icon" />
-        <input v-model="filterText" class="vgo-input playlist-search" placeholder="Search music">
+        <input v-model="filterText" class="vgo-input playlist-search" :placeholder="$t('file_lite_i18n.search_music')">
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--sm"
-          title="Scroll to current"
+          :title="$t('file_lite_i18n.scroll_to_current')"
           @click="() => scrollToCurrent()"
         >
           <i-mdi-crosshairs-gps />
@@ -99,14 +99,14 @@ onMounted(async () => {
       <template v-if="isPlaylistEmpty">
         <div class="vgo-empty">
           <div class="vgo-empty__desc">
-            No media in this list
+            {{ $t('file_lite_i18n.no_media_in_this_list') }}
           </div>
         </div>
       </template>
       <template v-else-if="isFilterEmpty">
         <div class="vgo-empty">
           <div class="vgo-empty__desc">
-            No matches for filter
+            {{ $t('file_lite_i18n.no_matches_for_filter') }}
           </div>
         </div>
       </template>

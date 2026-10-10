@@ -31,20 +31,20 @@ function shortId(id: string) {
 
 function scopeLabel(scope: string) {
   if (scope === SHELL_SHORTCUT_SCOPE)
-    return 'Shell'
+    return $t('file_lite_i18n.shell')
   if (scope === 'fileManager')
-    return 'Explorer'
+    return $t('file_lite_i18n.explorer')
   if (scope === 'fileSelector')
-    return 'File picker'
+    return $t('file_lite_i18n.file_picker')
   if (scope.startsWith('fileManager:'))
-    return `Explorer pane`
+    return $t('file_lite_i18n.explorer_pane')
   if (scope.startsWith('app:')) {
     const winId = scope.slice(4)
     const win = appWindows.get(winId)
     if (win) {
-      return `App: ${win.title.trim() || defaultAppTitle(win.data)}`
+      return $t('file_lite_i18n.app_0', [win.title.trim() || defaultAppTitle(win.data)])
     }
-    return `App (${shortId(winId)})`
+    return $t('file_lite_i18n.app_0_2', [shortId(winId)])
   }
   return scope
 }
@@ -57,7 +57,7 @@ function scopeLabel(scope: string) {
         v-model="filter"
         class="vgo-input"
         type="search"
-        placeholder="Filter by key, scope or description…"
+        :placeholder="$t('file_lite_i18n.filter_by_key_scope_or_descripti') + ELLIPSIS"
       >
       <span class="shortcuts-count">
         {{ rows.length }} shortcut{{ rows.length === 1 ? '' : 's' }}
@@ -67,10 +67,10 @@ function scopeLabel(scope: string) {
     <div v-if="!groups.length" class="vgo-empty shortcuts-empty">
       <i-mdi-keyboard-outline class="vgo-empty__icon" />
       <div class="vgo-empty__title">
-        No shortcuts match
+        {{ $t('file_lite_i18n.no_shortcuts_match') }}
       </div>
       <div class="vgo-empty__desc">
-        Clear the filter, or open an explorer pane so its bindings register.
+        {{ $t('file_lite_i18n.clear_the_filter_or_open_an_expl') }}
       </div>
     </div>
 

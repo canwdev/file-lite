@@ -28,7 +28,7 @@ export function useConflictDialog() {
     if (request.value?.action) {
       return request.value.action
     }
-    return request.value?.isMove ? 'Move' : 'Copy'
+    return request.value?.isMove ? $t('file_lite_i18n.move') : $t('file_lite_i18n.copy')
   })
 
   const conflictSummary = computed(() => {
@@ -52,23 +52,23 @@ export function useConflictDialog() {
 
   const replaceLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return 'Replace the file in the destination'
+      return $t('file_lite_i18n.replace_the_file_in_the_destinat')
     }
-    return 'Replace the item in the destination'
+    return $t('file_lite_i18n.replace_the_item_in_the_destinat')
   })
 
   const skipLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return 'Skip this file'
+      return $t('file_lite_i18n.skip_this_file')
     }
-    return 'Skip this item'
+    return $t('file_lite_i18n.skip_this_item')
   })
 
   const keepBothLabel = computed(() => {
     if (currentKind.value === 'file-vs-file') {
-      return 'Keep both files (rename the incoming one)'
+      return $t('file_lite_i18n.keep_both_files_rename_the_incom')
     }
-    return 'Keep both items (rename the incoming one)'
+    return $t('file_lite_i18n.keep_both_items_rename_the_incom')
   })
 
   // 切换到下一个冲突任务时重置交互状态

@@ -195,7 +195,7 @@ onMounted(() => {
     settings: [
       {
         name: 'custom-playback-rate',
-        html: 'Playback speed',
+        html: $t('file_lite_i18n.playback_speed'),
         tooltip: formatPlaybackRate(clampPlaybackRate(persistedPlaybackRate.value)),
         selector: getPlaybackRateSelector(),
         onSelect(item: SettingOption) {
@@ -208,7 +208,7 @@ onMounted(() => {
       },
       {
         name: 'custom-open-local-video',
-        html: 'Open local video…',
+        html: $t('file_lite_i18n.open_local_video') + ELLIPSIS,
         // tooltip: 'Play a video file from this device',
         onClick() {
           videoFileInputRef.value?.click()
@@ -217,7 +217,7 @@ onMounted(() => {
       },
       {
         name: 'custom-open-server-video',
-        html: 'Open server video…',
+        html: $t('file_lite_i18n.open_server_video') + ELLIPSIS,
         onClick() {
           openServerFileSelector('video')
           return ''
@@ -225,7 +225,7 @@ onMounted(() => {
       },
       {
         name: 'custom-load-local-subtitle',
-        html: 'Load local subtitle…',
+        html: $t('file_lite_i18n.load_local_subtitle') + ELLIPSIS,
         // tooltip: 'VTT, SRT, or ASS',
         onClick() {
           subtitleFileInputRef.value?.click()
@@ -234,7 +234,7 @@ onMounted(() => {
       },
       {
         name: 'custom-load-subtitle',
-        html: 'Load server subtitle…',
+        html: $t('file_lite_i18n.load_server_subtitle') + ELLIPSIS,
         onClick() {
           openServerFileSelector('subtitle')
           return ''
@@ -244,7 +244,7 @@ onMounted(() => {
     ],
     contextmenu: [
       {
-        html: 'Copy image to clipboard',
+        html: $t('file_lite_i18n.copy_image_to_clipboard'),
         async click() {
           const inst = artInstance.value
           if (!inst)
@@ -385,7 +385,7 @@ defineExpose({
       width="min(760px, 92vw)"
       height="min(560px, 85vh)"
       wid="server-file-selector"
-      :title="fileSelectorType === 'video' ? 'Open Server Video' : 'Open Server Subtitle'"
+      :title="fileSelectorType === 'video' ? $t('file_lite_i18n.open_server_video') : $t('file_lite_i18n.open_server_subtitle')"
       :file-filter-pattern="fileSelectorType === 'video' ? '\\.(mp4|webm|mkv|ogg|m4v)$' : '\\.(vtt|srt|ass|ssa)$'"
       @handle-select="handleFileSelect"
     />
