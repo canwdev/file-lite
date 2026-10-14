@@ -180,7 +180,7 @@ function splitSubmenu(item: ExplorerTabItem): MenuItem[] {
   const vertical = item.split !== 'horizontal'
   return [
     {
-      label: $t('file_lite_i18n.split_view'),
+      label: $t('file_lite_i18n.unsplit_view'),
       shortcut: 'Ctrl+\\',
       onClick: () => unsplit(item.id),
     },
