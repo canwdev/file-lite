@@ -320,9 +320,25 @@ File bytes.
 
 **GET** streams the file inline (`Content-Disposition: inline`). Add
 `?disposition=attachment` to download it under its own name instead. The response
-carries a strong `ETag` derived from size and mtime, plus `Last-Modified`, and honors
-`If-None-Match`, `If-Modified-Since`, `Range` and `If-Range` through
-`http.ServeContent`, so media seeking and resume work without special cases.
+carries a strong `ETag` derived from a representation revision, size and mtime,
+plus `Last-Modified`, and honors `If-None-Match`, `If-Modified-Since`, `Range` and
+`If-Range` through `http.ServeContent`, so media seeking and resume work without
+special cases.
+
+Text files are normalized to UTF-8, and the encoding they came from travels in an
+`X-Text-Charset` response header. The browser assumes UTF-8 for a text response —
+XHR decodes it that way, and Artplayer decodes a subtitle with a hard-coded
+`TextDecoder("utf-8")` — so a GBK subtitle would arrive as mojibake otherwise.
+Text that is already valid UTF-8 is streamed from disk byte for byte; a UTF-16,
+GB18030 (GBK/GB2312), Big5 or Shift-JIS file is converted and served with
+`charset=utf-8` in its `Content-Type`. The converted bytes are the representation:
+`Range` slices them, `HEAD` reports their length, and the `ETag` carries a
+revision of this conversion policy, so a client that cached an older
+representation revalidates instead of being told `304` for bytes the server would
+no longer send. Only inline text up to 16 MB is converted, and only for the
+extensions the editor opens plus the subtitle formats (`srt`, `vtt`, `ass`,
+`ssa`, `sub`). A download (`?disposition=attachment`) and every other file keep
+the bytes exactly as they are on disk.
 
 Content served from the file system is untrusted: every response carries
 `X-Content-Type-Options: nosniff`, and HTML/SVG documents also carry
@@ -334,6 +350,13 @@ Content served from the file system is untrusted: every response carries
 
 - Body is the raw file bytes. There is no multipart envelope and no `file` field, so
   the server can stream the body straight to its atomic publish step.
+- `X-Text-Charset: gb18030` stores the body in that encoding. The body is always
+  UTF-8 — the editor sends back what it read, and it cannot encode GBK in the
+  browser — so the server converts it before it lands and a saved file keeps the
+  encoding it had. An unknown charset, or text the target cannot represent, is a
+  `400` and nothing is written; a body above the conversion limit is a `413`.
+  Without the header, or with `utf-8`, the bytes go to disk unchanged, which is
+  what uploads do.
 - Writing into a directory that does not exist is a `404`; `PUT` never creates parents.
   A folder upload creates its directories first (`PUT /api/fs/directories/{path}`).
 - Preconditions are standard HTTP, and are how the UI expresses its conflict policy:
@@ -709,7 +732,7 @@ look like a deleted file. Only an explicit `ENOENT`/`ENOTDIR` produces
 
 | Endpoint | Validator | Client behavior |
 |---|---|---|
-| `GET /api/fs/content/{path}` | strong `ETag` = size + mtime; `Last-Modified` | `max-age=0, must-revalidate`; 304 on match; `Range` supported |
+| `GET /api/fs/content/{path}` | strong `ETag` = representation revision + size + mtime; `Last-Modified` | `max-age=0, must-revalidate`; 304 on match; `Range` supported |
 | `GET /api/fs/thumbnail/{path}` | strong `ETag` from kind, size, mtime | `private, max-age=0, must-revalidate`; 304 on match; the frontend also keeps a decoded copy in IndexedDB |
 | Plugin assets | `ETag` from size, mtime and the injected SDK revision | `private, max-age=0, must-revalidate` |
 | `GET /api/fs/directories/{path}` | **none** | Directory listings are not cached. They change without the directory mtime changing (a file's size or mtime), so any cheap validator would serve stale rows. Freshness comes from the `fs.changed` push and from explicit reloads |

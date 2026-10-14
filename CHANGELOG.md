@@ -90,9 +90,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Classic UI folder download**: In the `/ie` interface the Download action also works on a folder, saving it as `<folder>.zip` (backend).
 - **Classic UI rows**: In the `/ie` list, the row under the pointer is highlighted (backend).
 - **Hidden files**: Hidden files are shown by default in both the app and the classic interface (frontend).
+- **Text editor status bar**: A bar under the text shows the cursor position, the line count, the line ending (Windows (CRLF) / Unix (LF) / Macintosh (CR)) and the file's encoding (frontend).
+- **Auto subtitles**: A video shows the subtitle file sitting next to it — `movie.srt` or a language-tagged `movie.chs.srt` (`.srt`, `.ass`, `.vtt` or `.ssa`) — by itself, in the video player and in the media player, with either playback backend, and the native control bar can turn it off (frontend).
+- **Lyrics files**: A track with no lyrics in its tags loads a same-named `.lrc` or `.vtt` next to it, including a language-tagged name like `song.zh.lrc` (frontend).
 
 ### Fixes
 
+- **Text encoding**: A text file that is not UTF-8 — a GBK subtitle, a UTF-16 note — no longer opens as mojibake in the text editor, the browser view or a subtitle loaded from the server, and editing it keeps the encoding and the line endings it came with; the server detects the encoding and sends the text as UTF-8, while downloads and media streams keep their original bytes (frontend, backend).
+- **Local subtitles**: A subtitle picked from this device is decoded with its detected encoding, so a local GBK .srt no longer shows as mojibake (frontend).
 - **Lyrics**: Music metadata and lyrics load again in Simplified Chinese and Japanese, where a translated HTTP header name made every range request fail (frontend).
 - **Classic interface**: A long file name is clipped with an ellipsis instead of widening the name column and stretching the table (backend).
 - **Text Sync**: A channel's text now survives reopening the app, reconnecting, and the last client leaving or reloading the page — it stays in server memory until the process restarts. Joining a channel you are already in is also a no-op now, instead of leaving and re-entering it (backend).

@@ -10,17 +10,22 @@ import { LsKeys } from '@/enum'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
 import { fs } from '@/utils/fs'
 import { joinPath } from '@/utils/path/form'
+import { detectBlobTextEncoding } from '@/utils/text-encoding'
 import FileSelector from '@/views/FileManager/FileSelector.vue'
+import { subtitleName, subtitleType } from '../video-subtitle'
 
 interface Props {
   src: string
   autoplay?: boolean
   options?: Partial<Option> // 允许外部传入 Artplayer 的其他高级配置
+  /** 同名字幕的服务端路径；有就自动挂上，换片时跟着换 */
+  subtitlePath?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   autoplay: false,
   options: () => ({}),
+  subtitlePath: '',
 })
 
 const emit = defineEmits<{
@@ -75,16 +80,6 @@ function getPlaybackRateSelector(): PlaybackRateSettingItem[] {
   }))
 }
 
-/** Subtitle type 可选 vtt、srt、ass */
-function inferSubtitleType(filename: string): 'vtt' | 'srt' | 'ass' {
-  const lower = filename.toLowerCase()
-  if (lower.endsWith('.vtt'))
-    return 'vtt'
-  if (lower.endsWith('.ass') || lower.endsWith('.ssa'))
-    return 'ass'
-  return 'srt'
-}
-
 const artRef = ref<HTMLDivElement | null>(null)
 const videoFileInputRef = ref<HTMLInputElement | null>(null)
 const subtitleFileInputRef = ref<HTMLInputElement | null>(null)
@@ -100,6 +95,8 @@ function openServerFileSelector(type: 'video' | 'subtitle') {
 const artInstance = shallowRef<Artplayer | null>(null)
 const videoObjectUrl = ref<string | null>(null)
 const subtitleObjectUrl = ref<string | null>(null)
+/** 探测本地字幕的编码要 await，回来时组件可能已经销毁。 */
+let isAlive = true
 
 function revokeBlobRef(urlRef: Ref<string | null>) {
   if (urlRef.value) {
@@ -123,22 +120,78 @@ function onLocalVideoPicked(e: Event) {
   revokeBlobRef(videoObjectUrl)
   const url = URL.createObjectURL(file)
   videoObjectUrl.value = url
+  // 本地视频旁边没有服务端字幕，上一部自动挂上的得撤掉
+  clearAutoSubtitle()
   void inst.switchUrl(url).catch(console.error)
 }
 
-function onLocalSubtitlePicked(e: Event) {
+async function onLocalSubtitlePicked(e: Event) {
   const file = takePickedFile(e)
   const inst = artInstance.value
   if (!file || !inst)
     return
   revokeBlobRef(subtitleObjectUrl)
+  // 本地字幕不经过服务端，编码只能在前端探；Artplayer 用它自己的 TextDecoder 解。
+  const encoding = await detectBlobTextEncoding(file)
+  if (!isAlive)
+    return
   const url = URL.createObjectURL(file)
   subtitleObjectUrl.value = url
   inst.subtitle.switch(url, {
     name: file.name,
-    type: inferSubtitleType(file.name),
+    type: subtitleType(file.name),
+    encoding,
   })
 }
+
+/** 自动挂上的同名字幕是否还在（用来决定换片时要不要清）。 */
+let autoSubtitleApplied = false
+let emptyVttUrl = ''
+
+/** Artplayer 没有 clear API：换到没有字幕的视频时，用一个空 VTT 把上一部的顶掉。 */
+function getEmptyVttUrl() {
+  emptyVttUrl ||= URL.createObjectURL(new Blob(['WEBVTT\n\n'], { type: 'text/vtt;charset=utf-8' }))
+  return emptyVttUrl
+}
+
+/**
+ * 挂上或清掉自动加载的同名字幕。
+ *
+ * 服务端已经把非 UTF-8 的字幕转成 UTF-8（Artplayer 默认按 UTF-8 解），srt / ass / vtt
+ * 它自己都会解析，所以直接把服务端 URL 交给它。
+ */
+function applyAutoSubtitle() {
+  const inst = artInstance.value
+  if (!inst?.isReady)
+    return
+  const path = props.subtitlePath
+  if (!path) {
+    clearAutoSubtitle()
+    return
+  }
+  void inst.subtitle.switch(fs.url(path), {
+    name: subtitleName(path),
+    type: subtitleType(path),
+  }).catch(console.error)
+  autoSubtitleApplied = true
+}
+
+/**
+ * 撤掉自动挂上的字幕。
+ *
+ * 在播放器里换片（本地视频或另一个服务端视频）之后，App 传进来的那条已经对不上号，
+ * 而 Artplayer 没有 clear API，只能用一个空 VTT 把它顶掉。
+ */
+function clearAutoSubtitle() {
+  if (!autoSubtitleApplied)
+    return
+  const inst = artInstance.value
+  if (inst?.isReady)
+    void inst.subtitle.switch(getEmptyVttUrl(), {}).catch(console.error)
+  autoSubtitleApplied = false
+}
+
+watch(() => props.subtitlePath, () => applyAutoSubtitle())
 
 /** data URL（如截图）→ 剪贴板图片，需 HTTPS 且浏览器支持 ClipboardItem */
 async function copyDataUrlImageToClipboard(dataUrl: string): Promise<void> {
@@ -287,6 +340,7 @@ onMounted(() => {
 
   art.on('ready', () => {
     applyPersistedToArt(art)
+    applyAutoSubtitle()
     emit('ready', art)
   })
 })
@@ -319,8 +373,13 @@ watch(
 
 // 组件卸载前销毁播放器，释放内存
 onBeforeUnmount(() => {
+  isAlive = false
   revokeBlobRef(videoObjectUrl)
   revokeBlobRef(subtitleObjectUrl)
+  if (emptyVttUrl) {
+    URL.revokeObjectURL(emptyVttUrl)
+    emptyVttUrl = ''
+  }
   artInstance.value?.destroy(false)
 })
 
@@ -332,6 +391,8 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
   videoObjectUrl.value = null
   const url = fs.url(joinPath(val.basePath, item.name))
   if (url) {
+    // 换的是另一个文件，App 那条自动字幕已经对不上号
+    clearAutoSubtitle()
     void inst.switchUrl(url).catch(console.error)
   }
 }
@@ -351,7 +412,7 @@ function handleFileSelect(val: FileSelectResult) {
   }
   inst.subtitle.switch(url, {
     name: item.name,
-    type: inferSubtitleType(item.name),
+    type: subtitleType(item.name),
   })
 }
 /**

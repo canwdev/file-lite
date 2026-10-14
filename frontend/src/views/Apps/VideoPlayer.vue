@@ -2,6 +2,7 @@
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { fs } from '@/utils/fs'
 import NativeOrArtVideo from './components/NativeOrArtVideo.vue'
+import { useSiblingSubtitle } from './use-sibling-subtitle'
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +30,9 @@ watch(
   },
   { immediate: true },
 )
+
+/** 同名 SRT/ASS/VTT/SSA 自动交给播放器；这一层只负责找到它。 */
+const subtitlePath = useSiblingSubtitle(() => props.appParams?.absPath ?? '')
 </script>
 
 <template>
@@ -37,6 +41,7 @@ watch(
       :src="mediaSrc"
       :controls="controls"
       :autoplay="autoplay"
+      :subtitle-path="subtitlePath"
     />
   </div>
 </template>

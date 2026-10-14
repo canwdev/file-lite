@@ -1,11 +1,14 @@
 <script lang="ts" setup="">
 import type { MenuBarOptions } from '@canwdev/vgo-ui'
+import type { LineEnding } from './text-editor-line-endings'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { ContextMenuBar, useUnSavedChanges } from '@canwdev/vgo-ui'
+import { useDebounceFn } from '@vueuse/core'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { bytesToSize } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { fs } from '@/utils/fs'
+import { applyLineEnding, detectLineEnding } from './text-editor-line-endings'
 
 const props = withDefaults(
   defineProps<{
@@ -20,6 +23,23 @@ const shortcutScope = injectShortcutScope()
 // 5 MB
 const SIZE_LIMIT = 5 * 1024 * 1024
 
+/** 编码名与行尾标记是技术名词，不进语言包。 */
+const CHARSET_LABELS: Record<string, string> = {
+  'utf-8': 'UTF-8',
+  'utf-16le': 'UTF-16 LE',
+  'utf-16be': 'UTF-16 BE',
+  'gb18030': 'GB18030',
+  'big5': 'Big5',
+  'shift_jis': 'Shift-JIS',
+}
+
+/** 状态栏是记事本式的技术标记，同样不走语言包。 */
+const LINE_ENDING_LABELS: Record<LineEnding, string> = {
+  crlf: 'Windows (CRLF)',
+  lf: 'Unix (LF)',
+  cr: 'Macintosh (CR)',
+}
+
 const { appParams } = toRefs(props)
 const absPath = computed(() => {
   return appParams.value?.absPath
@@ -33,6 +53,43 @@ const { isChanged } = useUnSavedChanges()
 watch(editContent, () => {
   isChanged.value = true
 })
+
+/** 服务端探测到的磁盘编码；空表示它不是文本文件，保存时按 UTF-8 写。 */
+const fileCharset = ref('')
+/** 文件原本的行尾；编辑器里一律是 LF，写回时按它还原。 */
+const lineEnding = ref<LineEnding>('lf')
+const totalLines = ref(1)
+const cursorLine = ref(1)
+const cursorColumn = ref(1)
+
+const encodingLabel = computed(() => CHARSET_LABELS[fileCharset.value] ?? (fileCharset.value || '—'))
+const lineEndingLabel = computed(() => LINE_ENDING_LABELS[lineEnding.value])
+const cursorPositionLabel = computed(() => `Ln ${cursorLine.value}, Col ${cursorColumn.value}`)
+const lineCountLabel = computed(() => `${totalLines.value} ${totalLines.value === 1 ? 'line' : 'lines'}`)
+
+/** 状态栏内容。一次 O(n) 扫描，所以大文件上要防抖。 */
+function refreshStatus() {
+  const text = editContent.value
+  const caret = Math.min(editRef.value?.selectionStart ?? 0, text.length)
+  let lines = 1
+  let cursor = 1
+  let lineStart = 0
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) !== 10)
+      continue
+    lines++
+    if (i < caret) {
+      cursor++
+      lineStart = i + 1
+    }
+  }
+  totalLines.value = lines
+  cursorLine.value = cursor
+  cursorColumn.value = caret - lineStart + 1
+}
+
+const scheduleStatus = useDebounceFn(refreshStatus, 80)
+watch(editContent, () => scheduleStatus())
 
 interface FileTooLarge {
   name: string
@@ -59,8 +116,10 @@ async function focusEditor() {
 }
 
 watch(editRef, (el) => {
-  if (el)
+  if (el) {
     void focusEditor()
+    refreshStatus()
+  }
 })
 
 async function confirmUnsavedChanges(message: string) {
@@ -97,6 +156,11 @@ async function openFile() {
   openController = controller
 
   fileTooLarge.value = null
+  fileCharset.value = ''
+  lineEnding.value = 'lf'
+  totalLines.value = 1
+  cursorLine.value = 1
+  cursorColumn.value = 1
   try {
     isLoading.value = true
     emit('setTitle', absPath.value)
@@ -112,12 +176,15 @@ async function openFile() {
       return
     }
 
-    // 走门面读取文本
-    const text = await fs.readText(absPath.value, { signal: controller.signal })
+    // 走门面读取文本（连同它在磁盘上的编码）
+    const { text, charset } = await fs.readTextFile(absPath.value, { signal: controller.signal })
     if (controller.signal.aborted) {
       return
     }
     editContent.value = text
+    fileCharset.value = charset
+    lineEnding.value = detectLineEnding(text)
+    refreshStatus()
     setTimeout(() => {
       isChanged.value = false
     })
@@ -172,8 +239,11 @@ async function handleSaveFile() {
     const idx = absPath.value.lastIndexOf('/') + 1
     const filename = absPath.value.slice(idx)
     // 保存就是覆盖打开的这个文件，所以显式 overwrite；门面负责分派与只读守卫。
-    const written = await fs.writeText(dirOf(absPath.value), filename, editContent.value, {
+    // 行尾与编码都按打开时的原样写回，编辑不会悄悄改变这个文件。
+    const content = applyLineEnding(editContent.value, lineEnding.value)
+    const written = await fs.writeText(dirOf(absPath.value), filename, content, {
       conflict: 'overwrite',
+      ...(fileCharset.value ? { charset: fileCharset.value } : {}),
     })
     if (!written.ok) {
       window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
@@ -265,12 +335,27 @@ useShortcut({
       <a class="vgo-button" :href="fs.url(absPath!)" target="_blank" rel="noopener">
         <i-mdi-open-in-new /> {{ $t('file_lite_i18n.open_in_browser') }} </a>
     </div>
-    <textarea
-      v-else
-      ref="editRef"
-      v-model="editContent"
-      class="vgo-input vgo-u-font-code text-editor-textarea"
-    />
+    <template v-else>
+      <textarea
+        ref="editRef"
+        v-model="editContent"
+        class="vgo-input vgo-u-font-code text-editor-textarea"
+        @input="scheduleStatus"
+        @keyup="scheduleStatus"
+        @click="scheduleStatus"
+        @select="scheduleStatus"
+      />
+      <div class="text-editor-status-bar vgo-panel vgo-panel--flat">
+        <div class="vgo-u-flex-wrap-center">
+          <span>{{ cursorPositionLabel }}</span>
+          <span>{{ lineCountLabel }}</span>
+        </div>
+        <div class="vgo-u-flex-wrap-center">
+          <span>{{ lineEndingLabel }}</span>
+          <span>{{ encodingLabel }}</span>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -297,6 +382,19 @@ useShortcut({
     width: 100%;
     flex: 1;
     resize: none;
+  }
+
+  // 记事本式状态栏：行尾与编码跟着文件走，保存时不改它们
+  .text-editor-status-bar {
+    border-top: 1px solid var(--vgo-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--vgo-space-1) var(--vgo-space-4);
+    padding: var(--vgo-space-1) var(--vgo-space-2);
+    font-size: var(--vgo-font-sm);
+    flex: unset;
   }
 
   .loading-wrapper {

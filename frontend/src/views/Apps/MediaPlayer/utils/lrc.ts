@@ -44,7 +44,7 @@ export function parseLrcString(raw: string): LyricLine[] {
       continue
     }
 
-    const tsRe = /\[(\d{2}):(\d{2})[.:](\d{2}|\d{3})\]/g
+    const tsRe = /\[(\d{2}):(\d{2})[.:](\d{1,3})\]/g
     const stamps: number[] = []
     let lastIndex = 0
     let match: RegExpExecArray | null
@@ -73,9 +73,9 @@ export function parseLrcString(raw: string): LyricLine[] {
 function timestampToSeconds(mm: string, ss: string, frac: string): number {
   const minutes = Number.parseInt(mm, 10)
   const seconds = Number.parseInt(ss, 10)
-  const ms = frac.length === 3
-    ? Number.parseInt(frac, 10)
-    : Number.parseInt(frac, 10) * 10
+  // 百分秒（`[00:12.34]`）是标准写法，但只写一位或三位小数的文件也存在，
+  // 所以按毫秒补零，而不是把一位小数当成几十毫秒。
+  const ms = Number.parseInt(frac.padEnd(3, '0'), 10)
   return (minutes * 60 + seconds) + ms / 1000
 }
 

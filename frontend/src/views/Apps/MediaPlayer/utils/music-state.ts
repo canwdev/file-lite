@@ -77,8 +77,17 @@ export class MediaItem {
     this.album = tags.album?.trim() || undefined
     this.year = tags.year
 
-    this.lyricsLines = tags.lyricsLines?.length
-      ? tags.lyricsLines.map(l => ({ time: l.time, text: l.text }))
+    this.setLyricsLines(tags.lyricsLines)
+  }
+
+  /**
+   * 设置歌词行；`undefined` 或空数组都表示这首歌没有歌词。
+   *
+   * 内嵌标签和同目录的 `.lrc` / `.vtt` 都从这里进，保证两者的拷贝与清空行为一致。
+   */
+  setLyricsLines(lines: LyricLine[] | undefined) {
+    this.lyricsLines = lines?.length
+      ? lines.map(l => ({ time: l.time, text: l.text }))
       : undefined
   }
 

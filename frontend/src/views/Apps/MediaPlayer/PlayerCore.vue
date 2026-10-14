@@ -6,8 +6,10 @@ import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
+import { useSiblingSubtitle } from '../use-sibling-subtitle'
 import defaultCoverUrl from './assets/default-cover.webp'
 import MusicDetail from './MusicDetail.vue'
+import { loadSiblingLyrics } from './utils/lyrics-file'
 import { lyricsLinesFromCommonTags } from './utils/lyrics-metadata'
 import { MusicEvents, useBusOn, useMediaStore } from './utils/media-store'
 import { useMusicSettingsStore } from './utils/music-state'
@@ -32,6 +34,8 @@ const resolvedMediaUrl = computed(() => {
   return path ? fs.url(path) : ''
 })
 const avSrc = computed(() => resolvedMediaUrl.value || undefined)
+/** 视频的同名字幕：和视频播放器 App 一样自动找、自动挂（音频不做多余的查找）。 */
+const subtitlePath = useSiblingSubtitle(() => (mediaStore.isVideo ? mediaStore.mediaItem?.absPath ?? '' : ''))
 const recordLastOpenedMedia = createLastOpenedMediaRecorder()
 
 let mediaEventsAbort: AbortController | null = null
@@ -364,6 +368,14 @@ async function loadMusicMetadata(signal: AbortSignal) {
   finally {
     await tokenizer?.close().catch(() => {})
   }
+
+  // 内嵌歌词优先（由上面的标签解析给出）；没有才去同目录找 .lrc / .vtt。
+  // 放在 try/catch 之外：标签解析失败（文件没标签、请求出错）时歌词照样该试一次。
+  if (!item.lyricsLines?.length && mediaStore.mediaItem?.guid === loadGuid) {
+    const lines = await loadSiblingLyrics(item.absPath)
+    if (lines?.length && mediaStore.mediaItem?.guid === loadGuid)
+      item.setLyricsLines(lines)
+  }
 }
 
 watch(
@@ -405,6 +417,7 @@ onBeforeUnmount(() => {
       :src="avSrc"
       :autoplay="mediaStore.isLoadedAutoplay"
       :controls="true"
+      :subtitle-path="subtitlePath"
       @media-element-ready="onVideoHtmlReady"
     />
     <template v-else>

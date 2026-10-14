@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"bytes"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,6 +66,21 @@ func serveFileContent(c echo.Context, res fileops.Resolved, attachment bool) err
 		h.Set(echo.HeaderContentDisposition, utils.AttachmentDisposition(name))
 	} else {
 		h.Set(echo.HeaderContentDisposition, utils.InlineDisposition(name))
+	}
+
+	// Normalize inline text to UTF-8 before it reaches the browser: XHR and
+	// Artplayer both assume UTF-8, so a GBK subtitle arrives as mojibake
+	// otherwise. The transcoded bytes are the representation here, which is why
+	// Range is served over them too; attachment and binary files keep the bytes
+	// on disk. The charset the file was read as travels in a header, so the
+	// editor can show it and hand it back when it saves.
+	if text, ok := readInlineText(f, res.Path, st, attachment); ok {
+		h.Set(textCharsetHeader, string(text.charset))
+		if text.utf8 != nil {
+			h.Set(echo.HeaderContentType, utf8ContentType(res.Path))
+			http.ServeContent(c.Response(), c.Request(), name, st.ModTime(), bytes.NewReader(text.utf8))
+			return nil
+		}
 	}
 
 	http.ServeContent(c.Response(), c.Request(), name, st.ModTime(), f)

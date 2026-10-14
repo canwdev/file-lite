@@ -9,7 +9,7 @@
  * 这类规则只在一处。
  */
 import type { IEntry } from '@/types/server'
-import { fsWebApi } from '@/api/filesystem'
+import { fsWebApi, TEXT_CHARSET_HEADER } from '@/api/filesystem'
 import { moveImageThumbCache } from '@/utils/image-thumb-cache'
 import { joinPath, normalizePath } from '@/utils/path/form'
 
@@ -19,8 +19,17 @@ export type FsConflictPolicy = 'error' | 'overwrite' | 'keep-both' | 'skip'
 export interface FsWriteOptions {
   conflict?: FsConflictPolicy
   signal?: AbortSignal
+  /** 落盘编码（编辑器按原编码回写）。省略时服务端原样写入。 */
+  charset?: string
   /** 已写入的字节数（上传进度用）。 */
   onProgress?: (loaded: number) => void
+}
+
+/** 读到的文本，以及服务端探测到的磁盘编码。 */
+export interface FsTextFile {
+  text: string
+  /** 空字符串表示服务端没有按文本处理这个文件（例如二进制）。 */
+  charset: string
 }
 
 /** 写入结果：`keep-both` 可能改名，调用方需要知道真正的落点。 */
@@ -86,6 +95,7 @@ export async function writeFile(
     path,
     file,
     onConflict: conflict === 'keep-both' ? 'keep-both' : conflict === 'error' ? 'error' : 'overwrite',
+    charset: options.charset,
   }, {
     signal: options.signal,
     onUploadProgress: options.onProgress
@@ -213,10 +223,24 @@ export async function upload(
   )
 }
 
-/** 读取文本内容。 */
-export async function readText(path: string, options: { signal?: AbortSignal } = {}): Promise<string> {
-  const data = await fsWebApi.stream(path, { responseType: 'text', signal: options.signal })
-  return data as unknown as string
+/**
+ * 读取文本文件：内容，以及磁盘上的编码。
+ *
+ * 内容端点已经把非 UTF-8 的文本转成 UTF-8（浏览器只认这一种），编码放在响应头里，
+ * 调用方保存时原样带回 `writeText` 的 `charset`，文件就不会被改成 UTF-8。
+ */
+export async function readTextFile(path: string, options: { signal?: AbortSignal } = {}): Promise<FsTextFile> {
+  const response = await fsWebApi.stream(path, {
+    responseType: 'text',
+    isRawResponse: true,
+    signal: options.signal,
+  }) as unknown as { data?: unknown, headers?: Record<string, unknown> }
+  const headers = response?.headers ?? {}
+  const charset = headers[TEXT_CHARSET_HEADER.toLowerCase()]
+  return {
+    text: (response?.data ?? '') as string,
+    charset: typeof charset === 'string' ? charset : '',
+  }
 }
 
 /** 读取二进制内容（图片编辑等需要拿到原始字节的调用点）。 */
@@ -235,7 +259,7 @@ export const fs = {
   writeFile,
   list,
   url,
-  readText,
+  readTextFile,
   readBlob,
   mkdir,
   rename,

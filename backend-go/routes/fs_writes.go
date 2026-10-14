@@ -234,15 +234,33 @@ func putContent(c echo.Context) error {
 	changes := &listingChangeSet{}
 	defer changes.broadcast()
 
+	// An editor that opened a GBK file sends its text back as UTF-8 plus the
+	// charset to store it in; anything else streams straight through.
+	charset, charsetErr := requestedCharset(c)
+	if charsetErr != nil {
+		return charsetErr
+	}
+	writeBody := func(w io.Writer) error {
+		_, copyErr := io.Copy(w, c.Request().Body)
+		return copyErr
+	}
+	if charset != "" {
+		body, apiErr := encodeUploadBody(c, charset)
+		if apiErr != nil {
+			return apiErr
+		}
+		writeBody = func(w io.Writer) error {
+			_, writeErr := w.Write(body)
+			return writeErr
+		}
+	}
+
 	if err := fileops.PublishFile(destOS, fileops.PublishOptions{
 		Mode: 0644,
 		// 网络位置：仍然「临时文件 + 改名」（中断的上传不留半个文件），
 		// 但跳过 fsync 与发布前的 chmod——见 PublishOptions.NetworkTarget。
 		NetworkTarget: res.Network(),
-	}, func(w io.Writer) error {
-		_, copyErr := io.Copy(w, c.Request().Body)
-		return copyErr
-	}); err != nil {
+	}, writeBody); err != nil {
 		apiErr := fsError(err, res.Network())
 		if apiErr.Status == http.StatusInternalServerError {
 			return apiErr.WithMessage("Failed to write the file")
@@ -317,9 +335,17 @@ const (
 	queryEntriesConcurrency = 16
 )
 
+// fileETagRevision versions what the content endpoint hands out for a file, not
+// the file itself. The endpoint converts non-UTF-8 text to UTF-8, so a browser
+// that cached the old mojibake under a size+mtime validator would keep reusing it
+// on a 304. Bump this whenever the bytes of a representation change for a file
+// that did not; every reader goes through this function, preconditions included,
+// so the validators stay consistent.
+const fileETagRevision = 1
+
 // fileETag 是内容端点的强校验器：大小 + 毫秒 mtime。前置条件用它比较版本。
 func fileETag(st os.FileInfo) string {
-	return fmt.Sprintf(`"%x-%x"`, st.Size(), st.ModTime().UnixMilli())
+	return fmt.Sprintf(`"%d-%x-%x"`, fileETagRevision, st.Size(), st.ModTime().UnixMilli())
 }
 
 func sanitizeUploadFilename(name string) (string, error) {

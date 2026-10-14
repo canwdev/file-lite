@@ -16,6 +16,14 @@ function entryUrl(representation: string, path: string): string {
   return `/api/fs/${representation}/${encodeURIComponent(path)}`
 }
 
+/**
+ * 文本表示在磁盘上的编码。
+ *
+ * 内容端点的响应体始终是 UTF-8，所以 GET 用这个响应头告诉客户端文件原本是什么编码；
+ * 客户端保存时把它原样带回，服务端据此编码后再落盘。
+ */
+export const TEXT_CHARSET_HEADER = 'X-Text-Charset'
+
 /** 列目录的响应（docs/design/api.md §6）。 */
 export interface ListResult {
   path: string
@@ -71,18 +79,24 @@ export const fsWebApi = {
    *   - `keep-both`  → `?onConflict=keep-both`，服务端改写成 "name (1).ext"
    *
    * `ifMatch` 用于「只有文件没被别人改过才覆盖」，值来自列表或 HEAD 的 ETag。
+   *
+   * `charset` 是请求体要落盘的编码（编辑器按原编码回写）；请求体本身始终是 UTF-8，
+   * 不带或为 utf-8 时服务端原样写入。
    */
   uploadFile(
-    params: { path: string, file: File, onConflict?: UploadConflictPolicy, ifMatch?: string },
+    params: { path: string, file: File, onConflict?: UploadConflictPolicy, ifMatch?: string, charset?: string },
     config: ServiceRequestConfig = {},
   ) {
-    const { path, file, onConflict, ifMatch } = params
+    const { path, file, onConflict, ifMatch, charset } = params
     const headers: Record<string, string> = {}
     if (onConflict === 'error') {
       headers['If-None-Match'] = '*'
     }
     if (ifMatch) {
       headers['If-Match'] = ifMatch
+    }
+    if (charset) {
+      headers[TEXT_CHARSET_HEADER] = charset
     }
 
     return service.put(entryUrl('content', path), file, {
