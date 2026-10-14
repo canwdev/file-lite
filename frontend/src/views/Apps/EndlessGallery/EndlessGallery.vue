@@ -25,6 +25,9 @@ const emit = defineEmits<{
 
 const edgeOverlayRef = ref<HTMLElement | null>(null)
 
+/** 底部缩略图条是否收起：收起后主内容区占满整高（运行时状态，不跨窗口持久化） */
+const stripCollapsed = ref(false)
+
 // ── Collection ─────────────────────────────────────────────
 
 const { collection, collectedPathSet, getCollectedInDirectory, toggleCollect, clearCollection, pruneDirectory } = useCollection()
@@ -308,127 +311,143 @@ function setWrapperRef(el: unknown): void {
 
 <template>
   <div
-    :ref="setWrapperRef"
     class="endless-gallery"
     @wheel.prevent="onWheel"
     @mousedown="onPointerDown"
     @touchstart="onPointerDown"
+    @contextmenu.prevent
   >
-    <GalleryPanels
-      :panel-items="panelItems"
-      :panel-loaded-urls="panelLoadedUrls"
-      :current-slot="currentSlot"
-      :container-style="containerStyle"
-      :current-image-style="zoom.imageStyle.value"
-      @container-ready="setSwipeContainerRef"
-      @image-load="onPanelImageLoad"
-      @current-image-ready="syncCurrentImageResolution"
-    />
+    <!-- 主内容区：媒体 + 悬浮控件。缩略图条是它下面独立的一行，不再压在画面上 -->
+    <div :ref="setWrapperRef" class="gallery-main">
+      <GalleryPanels
+        :panel-items="panelItems"
+        :panel-loaded-urls="panelLoadedUrls"
+        :current-slot="currentSlot"
+        :container-style="containerStyle"
+        :current-image-style="zoom.imageStyle.value"
+        @container-ready="setSwipeContainerRef"
+        @image-load="onPanelImageLoad"
+        @current-image-ready="syncCurrentImageResolution"
+      />
 
-    <!-- ─── Thumbnail strip ─── -->
-    <GalleryThumbStrip
-      v-if="items.length"
-      class="thumb-strip-wrap"
-      :items="items"
-      :current-index="currentIndex"
-      :base-path="appParams.basePath"
-      @select="jumpToIndex"
-    />
+      <!-- ─── Navigation arrows ─── -->
+      <div v-if="!edgeOverlay && items.length" class="nav-arrows">
+        <button
+          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
+          :title="`${$t('file_lite_i18n.previous')} (↑ / ← / k)`"
+          @click.stop="navigate(false, { instant: true })"
+          @contextmenu.prevent="jumpToIndex(0)"
+        >
+          <i-mdi-chevron-up />
+        </button>
+        <button
+          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-collect"
+          :class="{ 'is-active': collected }"
+          :title="`${$t('file_lite_i18n.collect')} (c)`"
+          @click.stop="handleToggleCollect"
+        >
+          <MdiIcon :name="collected ? 'star' : 'star-outline'" />
+        </button>
+        <button
+          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
+          :title="$t('file_lite_i18n.locate_in_folder')"
+          @click.stop="handleLocateCurrent"
+        >
+          <i-mdi-crosshairs-gps />
+        </button>
+        <button
+          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-delete"
+          :title="`${$t('file_lite_i18n.delete')} (Del)`"
+          @click.stop="handleDeleteCurrent"
+        >
+          <i-mdi-delete-outline />
+        </button>
+        <button
+          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
+          :title="`${$t('file_lite_i18n.next')} (↓ / → / j)`"
+          @click.stop="navigate(true, { instant: true })"
+          @contextmenu.prevent="jumpToIndex(items.length - 1)"
+        >
+          <i-mdi-chevron-down />
+        </button>
+      </div>
 
-    <!-- ─── Navigation arrows ─── -->
-    <div v-if="!edgeOverlay && items.length" class="nav-arrows">
-      <button
-        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :title="`${$t('file_lite_i18n.previous')} (↑ / ← / k)`"
-        @click.stop="navigate(false, { instant: true })"
-        @contextmenu.prevent="jumpToIndex(0)"
-      >
-        <i-mdi-chevron-up />
-      </button>
-      <button
-        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-collect"
-        :class="{ 'is-active': collected }"
-        :title="`${$t('file_lite_i18n.collect')} (c)`"
-        @click.stop="handleToggleCollect"
-      >
-        <MdiIcon :name="collected ? 'star' : 'star-outline'" />
-      </button>
-      <button
-        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :title="$t('file_lite_i18n.locate_in_folder')"
-        @click.stop="handleLocateCurrent"
-      >
-        <i-mdi-crosshairs-gps />
-      </button>
-      <button
-        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg nav-delete"
-        :title="`${$t('file_lite_i18n.delete')} (Del)`"
-        @click.stop="handleDeleteCurrent"
-      >
-        <i-mdi-delete-outline />
-      </button>
-      <button
-        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--lg"
-        :title="`${$t('file_lite_i18n.next')} (↓ / → / j)`"
-        @click.stop="navigate(true, { instant: true })"
-        @contextmenu.prevent="jumpToIndex(items.length - 1)"
-      >
-        <i-mdi-chevron-down />
-      </button>
+      <!-- ─── Zoom toolbar (images only) ─── -->
+      <Transition name="edge-fade">
+        <div v-if="currentItem?.type === 'image'" class="zoom-toolbar vgo-panel vgo-panel--overlay">
+          <span v-if="zoom.resolution.value" class="zoom-resolution">{{ zoom.resolution.value }}</span>
+          <button
+            class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
+            :title="`${$t('file_lite_i18n.zoom_out')} (Ctrl+scroll / right button+scroll)`"
+            @click.stop="zoom.zoomOut()"
+          >
+            <i-mdi-minus />
+          </button>
+          <button
+            class="vgo-u-button-reset zoom-scale"
+            :title="$t('file_lite_i18n.reset_zoom')"
+            @click.stop="zoom.resetZoom()"
+          >
+            {{ zoom.scalePercent.value }}
+          </button>
+          <button
+            class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
+            :title="`${$t('file_lite_i18n.zoom_in')} (Ctrl+scroll / right button+scroll)`"
+            @click.stop="zoom.zoomIn()"
+          >
+            <i-mdi-plus />
+          </button>
+        </div>
+      </Transition>
+
+      <!-- ─── Collection floating button ─── -->
+      <Transition name="edge-fade">
+        <div v-if="hasCollection && collectedInCurrentDir.length > 0" class="collection-fab-wrap">
+          <button
+            class="vgo-button vgo-button--overlay vgo-button--round vgo-button--lg collection-fab"
+            :title="$t('file_lite_i18n.select')"
+            @click="handleSelectCollected"
+          >
+            <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
+          </button>
+          <button
+            class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm collection-fab__close"
+            :title="$t('file_lite_i18n.clear')"
+            @click="clearCollection"
+          >
+            <i-mdi-close />
+          </button>
+        </div>
+      </Transition>
+
+      <!-- ─── Empty state ─── -->
+      <div v-if="!items.length" class="empty-state">
+        <i-mdi-image-off-outline />
+        <span>{{ $t('file_lite_i18n.no_media') }}</span>
+      </div>
     </div>
 
-    <!-- ─── Zoom toolbar (images only) ─── -->
-    <Transition name="edge-fade">
-      <div v-if="currentItem?.type === 'image'" class="zoom-toolbar vgo-panel vgo-panel--overlay">
-        <span v-if="zoom.resolution.value" class="zoom-resolution">{{ zoom.resolution.value }}</span>
-        <button
-          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
-          :title="`${$t('file_lite_i18n.zoom_out')} (Ctrl+scroll)`"
-          @click.stop="zoom.zoomOut()"
-        >
-          <i-mdi-minus />
-        </button>
-        <button
-          class="vgo-u-button-reset zoom-scale"
-          :title="$t('file_lite_i18n.reset_zoom')"
-          @click.stop="zoom.resetZoom()"
-        >
-          {{ zoom.scalePercent.value }}
-        </button>
-        <button
-          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm"
-          :title="`${$t('file_lite_i18n.zoom_in')} (Ctrl+scroll)`"
-          @click.stop="zoom.zoomIn()"
-        >
-          <i-mdi-plus />
-        </button>
+    <!-- ─── Thumbnail strip：独立一行，可收起。mini 按钮贴条顶边水平居中，遵循 hover 显隐 ─── -->
+    <div v-if="items.length" class="gallery-strip-wrap" :class="{ 'is-collapsed': stripCollapsed }">
+      <button
+        class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm strip-toggle"
+        :title="stripCollapsed ? $t('file_lite_i18n.show') : $t('file_lite_i18n.hide')"
+        :aria-expanded="!stripCollapsed"
+        @click.stop="stripCollapsed = !stripCollapsed"
+      >
+        <i-mdi-chevron-up v-if="stripCollapsed" />
+        <i-mdi-chevron-down v-else />
+      </button>
+      <div class="gallery-strip">
+        <div class="gallery-strip__inner">
+          <GalleryThumbStrip
+            :items="items"
+            :current-index="currentIndex"
+            :base-path="appParams.basePath"
+            @select="jumpToIndex"
+          />
+        </div>
       </div>
-    </Transition>
-
-    <!-- ─── Collection floating button ─── -->
-    <Transition name="edge-fade">
-      <div v-if="hasCollection && collectedInCurrentDir.length > 0" class="collection-fab-wrap">
-        <button
-          class="vgo-button vgo-button--overlay vgo-button--round vgo-button--lg collection-fab"
-          :title="$t('file_lite_i18n.select')"
-          @click="handleSelectCollected"
-        >
-          <span class="collection-fab__count">{{ collectedInCurrentDir.length }}</span>
-        </button>
-        <button
-          class="vgo-button vgo-button--overlay vgo-button--icon vgo-button--round vgo-button--sm collection-fab__close"
-          :title="$t('file_lite_i18n.clear')"
-          @click="clearCollection"
-        >
-          <i-mdi-close />
-        </button>
-      </div>
-    </Transition>
-
-    <!-- ─── Empty state ─── -->
-    <div v-if="!items.length" class="empty-state">
-      <i-mdi-image-off-outline />
-      <span>{{ $t('file_lite_i18n.no_media') }}</span>
     </div>
 
     <!-- ─── Edge overlay ─── -->
@@ -493,16 +512,12 @@ function setWrapperRef(el: unknown): void {
 
 <style lang="scss" scoped>
 // ── Root ────────────────────────────────────────────────────
+// 纵向两行：主内容区（媒体 + 悬浮控件）在上，缩略图条在下。缩略图条不叠在画面上。
 .endless-gallery {
-  // 底部缩略图条高度 = 轨道上下内边距(space-1×2) + 格子上下内边距(space-1×2)
-  // + 缩略图尺寸(control-lg + space-2 = 48，与 GalleryThumbStrip 的 THUMB_ICON_SIZE 一致)
-  // + 原生滚动条(space-2)。末尾留出滚动条高度，避免内容溢出时把浮层控件压住。
-  --gallery-thumb-strip-height: calc(
-    var(--vgo-space-1) * 4 + var(--vgo-control-lg) + var(--vgo-space-2) + var(--vgo-space-2)
-  );
-
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
   // 透明底的棋盘格：亮色主题用接近白的浅灰，暗色主题用深灰（跟随 html.dark）
@@ -524,6 +539,16 @@ function setWrapperRef(el: unknown): void {
     --gallery-grid-base: #0d0d0d;
     --gallery-grid-check: #181818;
   }
+}
+
+// 主内容区：媒体铺满这一块，导航 / 缩放 / 收藏浮层都相对它定位。
+// `getHeight()`（翻页位移）与缩放视口也读它，所以它必须恰好是可见媒体区，不含缩略图条。
+.gallery-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  // 裁掉相邻面板：不裁的话下一张会在翻页时盖到下面的缩略图条上
+  overflow: hidden;
 }
 
 // ── Overlay palette ──────────────────────────────────────────
@@ -553,11 +578,12 @@ function setWrapperRef(el: unknown): void {
   }
 }
 
-// 独立药丸按钮（导航 / 收藏）用**整块白色填充**，而不是继承面板里那种淡染控件
+// 独立药丸按钮（导航 / 收藏 / 缩略图条把手）用**整块白色填充**，而不是继承面板里那种淡染控件
 // （rgba(0, 0, 0, .06)）：淡染是给压在半透明浅色面板上的控件用的，药丸直接浮在
 // 暗色照片上时深色图标会看不见。白底 + 深色图标对任意亮度的图片都成立。
 .nav-arrows,
-.collection-fab-wrap {
+.collection-fab-wrap,
+.strip-toggle {
   --vgo-overlay-control: rgba(255, 255, 255, 0.75);
   --vgo-overlay-control-hover: rgba(255, 255, 255, 0.92);
   --vgo-overlay-control-active: rgba(0, 0, 0, 0.12);
@@ -612,16 +638,42 @@ function setWrapperRef(el: unknown): void {
 }
 
 // ── Thumbnail strip ──────────────────────────────────────────
-// 与 nav-arrows / zoom-toolbar 同一节奏：悬停淡入，窄屏常显。
-.thumb-strip-wrap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+// 主内容区下面独立的一行：不进 absolute，所以不会盖住画面。收起时只把内容高度收到 0，
+// 主内容区随之占满（grid-template-rows 1fr → 0fr 可以按内容自然高度做动画，不必写死条高）。
+.gallery-strip-wrap {
+  position: relative;
+  flex: 0 0 auto;
   z-index: 15;
+}
+
+.gallery-strip {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--vgo-duration-base) ease;
+}
+
+.gallery-strip-wrap.is-collapsed .gallery-strip {
+  grid-template-rows: 0fr;
+}
+
+.gallery-strip__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+// 收起 / 展开把手：mini 圆按钮，贴在缩略图条顶边水平居中（一半压在条上）。
+// 显隐沿用先前的节奏：悬停淡入，窄屏常显。
+.strip-toggle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  z-index: 16;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--vgo-duration-base);
+  transition:
+    opacity var(--vgo-duration-base),
+    transform var(--vgo-duration-base);
 
   .endless-gallery:hover & {
     opacity: 1;
@@ -632,6 +684,11 @@ function setWrapperRef(el: unknown): void {
     opacity: 1;
     pointer-events: auto;
   }
+
+  // 收起后条高为 0，把手整个退回媒体区底边之上，不会被画廊的 overflow 切掉
+  .gallery-strip-wrap.is-collapsed & {
+    transform: translate(-50%, -70%);
+  }
 }
 
 // ── Zoom toolbar ─────────────────────────────────────────────
@@ -640,7 +697,7 @@ function setWrapperRef(el: unknown): void {
   // 亮色主题下自动变成「白底 + 深色淡染按钮」。
   position: absolute;
   right: var(--vgo-space-3);
-  bottom: calc(var(--gallery-thumb-strip-height) + var(--vgo-space-3));
+  bottom: var(--vgo-space-3);
   z-index: 15;
   display: flex;
   align-items: center;
@@ -680,7 +737,7 @@ function setWrapperRef(el: unknown): void {
 .collection-fab-wrap {
   position: absolute;
   left: var(--vgo-space-4);
-  bottom: calc(var(--gallery-thumb-strip-height) + var(--vgo-space-4));
+  bottom: var(--vgo-space-4);
   z-index: 15;
 }
 

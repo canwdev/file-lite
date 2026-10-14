@@ -6,6 +6,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Endless Gallery**: The thumbnail strip is a row of its own under the picture instead of an overlay on top of it, and a mini handle centred on its top edge collapses and expands it (frontend).
+- **Endless Gallery zoom**: Holding the right mouse button while scrolling zooms around the pointer, and the right button no longer drags the picture or opens the browser's menu (frontend).
 - **Text Sync**: Opening the app focuses the textarea, so typing (or pasting) can start right away (frontend).
 - **Utility windows**: Speed Test and Keyboard Shortcuts open as normal windows instead of maximised (frontend).
 - **Gallery controls**: The whole overlay layer — navigation buttons, the collection button at the bottom left, the zoom toolbar, the thumbnail strip and its progress band — shares one palette that follows the theme (light surfaces with dark icons in light mode, dark surfaces with light icons in dark mode), and the wheel and the navigation buttons step through media instantly instead of sliding; only a swipe still animates (frontend).

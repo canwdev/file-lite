@@ -261,6 +261,11 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
 
     isTouchPointer = 'touches' in e
 
+    // 右键不是手势起点：它专门用来配合滚轮缩放，别让它顺手翻页 / 平移。
+    // （右键拖拽不做事，右键 + 滚轮见 onWheel；原生菜单由画廊根的 contextmenu.prevent 挡掉。）
+    if (!isTouchPointer && (e as MouseEvent).button !== 0)
+      return
+
     // ── Two-finger pinch — cancel any ongoing gesture and hand off to zoom ──
     if (isTouchPointer && (e as TouchEvent).touches.length === 2) {
       isDragging = false
@@ -364,7 +369,8 @@ export function useSwipe({ items, currentIndex, zoom, onAfterNavigate, onAfterJu
   }
 
   function onWheel(e: WheelEvent): void {
-    if (e.ctrlKey) {
+    // Ctrl+滚轮，或按住右键 + 滚轮：都以光标为中心缩放
+    if (e.ctrlKey || (e.buttons & 2) !== 0) {
       zoom.zoomByWheel(e.deltaY, e.clientX, e.clientY)
       return
     }

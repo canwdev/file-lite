@@ -173,12 +173,12 @@ const showPlayIcon = computed(() => props.active && isReady.value && !isPlaying.
   pointer-events: none;
 }
 
-// 与缩略图条、收藏按钮同一层：贴底缩略图条之上
+// 贴主内容区底边：缩略图条现在是下面独立的一行，不再需要让开条高
 .gallery-media__controls {
   position: absolute;
   left: var(--vgo-space-2);
   right: var(--vgo-space-2);
-  bottom: calc(var(--gallery-thumb-strip-height));
+  bottom: var(--vgo-space-2);
   display: flex;
   align-items: center;
   gap: var(--vgo-space-2);
