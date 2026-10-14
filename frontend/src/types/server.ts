@@ -125,6 +125,8 @@ export interface TaskProgress {
   itemsDone: number
   bytesTotal: number
   bytesDone: number
+  /** 0-100 的百分比进度（压缩 / 解压）：有值时字节数为 0，进度只看它。 */
+  percent?: number
   /** Set when 7-Zip has not emitted a percentage yet. */
   indeterminate?: boolean
   currentPath?: string

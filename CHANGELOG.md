@@ -99,8 +99,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Upload speed**: An uploading row shows the real transfer speed instead of a fixed 0 B/s (frontend).
 - **Text encoding**: A text file that is not UTF-8 — a GBK subtitle, a UTF-16 note — no longer opens as mojibake in the text editor, the browser view or a subtitle loaded from the server, and editing it keeps the encoding and the line endings it came with; the server detects the encoding and sends the text as UTF-8, while downloads and media streams keep their original bytes (frontend, backend).
 - **Local subtitles**: A subtitle picked from this device is decoded with its detected encoding, so a local GBK .srt no longer shows as mojibake (frontend).
+- **Compressing**: A compress or extract task shows its percentage instead of a byte count, which read "100 B" once it finished (frontend, backend).
 - **Lyrics**: Music metadata and lyrics load again in Simplified Chinese and Japanese, where a translated HTTP header name made every range request fail (frontend).
 - **Classic interface**: A long file name is clipped with an ellipsis instead of widening the name column and stretching the table (backend).
 - **Text Sync**: A channel's text now survives reopening the app, reconnecting, and the last client leaving or reloading the page — it stays in server memory until the process restarts. Joining a channel you are already in is also a no-op now, instead of leaving and re-entering it (backend).

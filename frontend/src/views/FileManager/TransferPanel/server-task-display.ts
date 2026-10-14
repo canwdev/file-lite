@@ -42,14 +42,20 @@ export function taskKindLabel(kind: TaskKind) {
   }
 }
 
-/** 0-1 的进度：有字节总量就按字节，否则按条目数（删除任务就没有字节总量）。 */
+/**
+ * 0-1 的进度：有百分比就按百分比（压缩 / 解压），有字节总量就按字节，
+ * 否则按条目数（删除任务就没有字节总量）。
+ */
 export function taskProgress(task: TaskSnapshot) {
   // A finished delete often never gets a progress tick, so itemsDone stays 0
   // and the row would read "Done 0%".
   if (task.state === 'succeeded') {
     return 1
   }
-  const { bytesTotal, bytesDone, itemsTotal, itemsDone } = task.progress
+  const { percent, bytesTotal, bytesDone, itemsTotal, itemsDone } = task.progress
+  if (percent !== undefined) {
+    return Math.min(percent / 100, 1)
+  }
   if (bytesTotal > 0) {
     return Math.min(bytesDone / bytesTotal, 1)
   }
@@ -95,6 +101,9 @@ export function taskMessage(task: TaskSnapshot) {
     default: {
       if (task.progress.indeterminate)
         return 'Working...'
+      // 压缩 / 解压只有百分比，不能拿 0-100 去走字节格式化（否则 100 显示成「100 B」）
+      if (task.progress.percent !== undefined)
+        return `${task.progress.percent}%`
       const done = task.progress.itemsDone
       const total = task.progress.itemsTotal
       const bytes = task.progress.bytesTotal > 0

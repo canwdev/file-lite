@@ -63,6 +63,10 @@ type Progress struct {
 	ItemsDone  int   `json:"itemsDone"`
 	BytesTotal int64 `json:"bytesTotal"`
 	BytesDone  int64 `json:"bytesDone"`
+	// Percent 是压缩 / 解压这类只有百分比进度的任务（7-Zip 只报百分比）。
+	// 有值时它就是 0-100 的进度，BytesTotal / BytesDone 保持 0，客户端不该按字节显示；
+	// nil 表示任务按条目或字节计数。
+	Percent *int `json:"percent,omitempty"`
 	// Indeterminate is set when the worker cannot parse a percentage yet.
 	// BytesTotal stays 0 in that case so clients do not draw a fake 0%.
 	Indeterminate bool   `json:"indeterminate,omitempty"`
@@ -249,8 +253,10 @@ func (t *task) setPercent(percent int) {
 	}
 	t.mu.Lock()
 	t.progress.Indeterminate = false
-	t.progress.BytesTotal = 100
-	t.progress.BytesDone = int64(percent)
+	// 百分比不走字节字段：以前写 BytesTotal=100 会让客户端把 100 显示成「100 B」。
+	t.progress.BytesTotal = 0
+	t.progress.BytesDone = 0
+	t.progress.Percent = &percent
 	t.mu.Unlock()
 }
 

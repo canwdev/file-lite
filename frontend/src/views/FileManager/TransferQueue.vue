@@ -188,15 +188,41 @@ async function handleUpload(data: ITransferItem, abortController: AbortControlle
   if (!file) {
     throw new Error('File is required for upload')
   }
+
+  // 上传的进度回调只给累计字节，没有速度，所以这里自己按「增量 / 时间」算单条速度。
+  // 第一个带字节的事件先结一次（从上传开始算），之后每 0.5s 采一次，免得每个分片都
+  // 重算让数字乱跳；最后一个事件（loaded === file.size）必定结算，收尾才是真实速度。
+  // 不算的话这一格会一直是 0 B/s —— 之前就是写死 0。
+  let lastLoaded = 0
+  let lastTime = performance.now()
+  let rate = 0
+  let sampled = false
+  const sampleRate = (loaded: number) => {
+    const now = performance.now()
+    const elapsed = (now - lastTime) / 1000
+    if (sampled && elapsed < 0.5 && loaded < file.size) {
+      return
+    }
+    rate = elapsed > 0 ? Math.max(loaded - lastLoaded, 0) / elapsed : 0
+    lastLoaded = loaded
+    lastTime = now
+    sampled = true
+  }
+
   // 记下服务端返回的最终路径 / 名字（keep-both 时可能被改名），
   // 供 allDone 后直接用条目级补丁改当前目录列表。
   data.result = await fs.upload(path, file, onConflict, {
     signal: abortController.signal,
     onProgress(loaded) {
+      // 还没真的发出字节：先不写 speedInfo，行上继续显示 "Uploading"，别闪一条 0 B/s
+      if (loaded <= 0) {
+        return
+      }
+      sampleRate(loaded)
       reportProgress(data, {
         loaded,
         total: file.size,
-        rate: 0,
+        rate,
         bytes: loaded,
       })
     },
@@ -714,12 +740,11 @@ function loadMockTransferList() {
       speedInfo: { loaded: 450_000, total: 1_000_000, rate: 102_400, bytes: 102_400 },
       abortObj: { abort: () => console.log('Abort Upload') },
     }),
-    // 刚开始、还没拿到任何进度
+    // 刚开始、还没拿到任何进度：此时还没有 speedInfo，行上显示 message
     createItem({
       status: 'transferring',
       message: 'Uploading',
       progress: 0,
-      speedInfo: { loaded: 0, total: 0, rate: 0, bytes: 0 },
       abortObj: { abort: () => console.log('Abort Upload') },
     }),
     createItem({ status: 'success', message: 'Success', progress: 1 }),
@@ -812,6 +837,12 @@ function loadMockTransferList() {
       toPath: '',
       fromPaths: ['/mock/junk'],
       progress: { itemsTotal: 48_213, itemsDone: 1_204, bytesTotal: 0, bytesDone: 0 },
+    }),
+    // 压缩 / 解压只有百分比进度：走 percent，字节数保持 0（不能显示成「100 B」）
+    debugServerTask('running-compress', {
+      kind: 'compress',
+      toPath: '/mock/source/backup.zip',
+      progress: { itemsTotal: 1, itemsDone: 0, bytesTotal: 0, bytesDone: 0, percent: 42 },
     }),
     debugServerTask('succeeded', {
       state: 'succeeded',
