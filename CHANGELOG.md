@@ -104,6 +104,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Upload speed**: An uploading row shows the real transfer speed instead of a fixed 0 B/s (frontend).
 - **Text encoding**: A text file that is not UTF-8 — a GBK subtitle, a UTF-16 note — no longer opens as mojibake in the text editor, the browser view or a subtitle loaded from the server, and editing it keeps the encoding and the line endings it came with; the server detects the encoding and sends the text as UTF-8, while downloads and media streams keep their original bytes (frontend, backend).
 - **Local subtitles**: A subtitle picked from this device is decoded with its detected encoding, so a local GBK .srt no longer shows as mojibake (frontend).
+- **Context menus**: A menu or submenu whose entries add up to a fraction of a pixel more than its box no longer draws a scrollbar that cannot scroll, which showed up on 175% and 200% display scaling (fixed in vgo-ui 0.4.4).
 - **Compressing**: A compress or extract task shows its percentage instead of a byte count, which read "100 B" once it finished (frontend, backend).
 - **Lyrics**: Music metadata and lyrics load again in Simplified Chinese and Japanese, where a translated HTTP header name made every range request fail (frontend).
 - **Classic interface**: A long file name is clipped with an ellipsis instead of widening the name column and stretching the table (backend).
