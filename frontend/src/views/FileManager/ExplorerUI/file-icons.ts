@@ -51,7 +51,7 @@ export function getFileIconClass(item?: IEntry) {
     if (/.vue$/.test(ext)) {
       return `mdi-vuejs`
     }
-    if (/.json$/.test(ext)) {
+    if (/.json|jsonc|json5|har$/.test(ext)) {
       return `mdi-code-json`
     }
     if (/.html|htm|hta$/.test(ext)) {

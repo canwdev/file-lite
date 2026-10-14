@@ -62,7 +62,7 @@ export function useFileActions({
   selectedItemsSet: Ref<Set<IEntry>>
   selectedItems: Ref<IEntry[]>
   enablePaste: Ref<boolean>
-  handlePaste: () => Promise<void>
+  handlePaste: (targetPath?: string) => Promise<void>
   handlePasteFromClipboard: () => Promise<void>
   handleCut: () => void
   handleCopy: () => void
@@ -381,12 +381,13 @@ export function useFileActions({
           shortcut: 'Ctrl+V',
           onClick: () => handlePaste(),
           disabled: !enablePaste.value,
-          divided: true,
         },
         {
-          label: $t('file_lite_i18n.paste'),
+          label: $t('file_lite_i18n.paste_from_clipboard'),
           icon: 'mdi mdi-clipboard-arrow-down-outline',
+          shortcut: 'Ctrl+Shift+V',
           onClick: () => handlePasteFromClipboard(),
+          divided: true,
         },
         { label: $t('file_lite_i18n.download'), icon: 'mdi mdi-download', onClick: handleDownload },
         { label: $t('file_lite_i18n.download') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
@@ -496,6 +497,13 @@ export function useFileActions({
       sevenZipMenu(),
       { label: $t('file_lite_i18n.download'), icon: 'mdi mdi-download', onClick: handleDownload },
       { label: $t('file_lite_i18n.download_to_folder') + ELLIPSIS, icon: 'mdi mdi-folder-download-outline', onClick: downloadToFolder, divided: true },
+      // 选中文件夹时的粘贴是「粘贴到该文件夹」；快捷键不带上目标，始终是当前目录，所以这里不标快捷键
+      isDirectory && {
+        label: $t('file_lite_i18n.paste'),
+        icon: 'mdi mdi-content-paste',
+        onClick: () => handlePaste(normalizePath(joinPath(basePath.value, selectedItem.name))),
+        disabled: !enablePaste.value,
+      },
       { label: $t('file_lite_i18n.cut'), icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
       { label: $t('file_lite_i18n.copy'), icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
@@ -506,7 +514,7 @@ export function useFileActions({
           onClick: handleOpenInHostExplorer,
         },
         {
-          label: $t('file_lite_i18n.copy'),
+          label: $t('file_lite_i18n.copy_path'),
           icon: 'mdi mdi-clipboard-text-outline',
           onClick: handleCopyPaths,
         },

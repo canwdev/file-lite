@@ -6,7 +6,7 @@ export const regAudioFormat = /\.(mp3|wav|aac|flac|ogg|m4a|wma|opus)$/i
 
 export const regSupportedHtmlFormat = /\.(?:html?|hta)$/i
 
-export const regSupportedTextFormat = /\.(?:txt|csv|md|log|lock|ini|conf|config|json|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|hpp|cs|rb|go|php|html|htm|hta|xml|yaml|yml|css|scss|sass|styl|less|vue|bat|cmd|ps1|sh|env|editorconfig|gitignore|gitattributes|dockerfile|makefile|sql|graphql|gql|jsonl|properties|toml|rtf|tex|bib|tsv|svg|map|lrc|reg)$/i
+export const regSupportedTextFormat = /\.(?:txt|csv|md|log|lock|ini|conf|config|json|jsonc|json5|har|js|mjs|cjs|jsx|ts|tsx|py|java|c|cpp|h|hpp|cs|rb|go|php|html|htm|hta|xml|yaml|yml|css|scss|sass|styl|less|vue|bat|cmd|ps1|sh|env|editorconfig|gitignore|gitattributes|dockerfile|makefile|sql|graphql|gql|jsonl|properties|toml|rtf|tex|bib|tsv|svg|map|lrc|reg|url|srt|ass|vtt)$/i
 
 export const regSupportedImageFormat = regImageFormat
 export const regSupportedVideoFormat = regVideoFormat

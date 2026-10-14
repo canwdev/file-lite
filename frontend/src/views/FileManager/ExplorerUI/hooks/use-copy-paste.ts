@@ -55,8 +55,11 @@ export function useCopyPaste({
   /**
    * 粘贴改为提交服务端异步任务。冲突由服务端预扫描后通过 conflict 事件
    * 触发弹窗，这里不再做前端预检（列表可能是过期的）。
+   *
+   * `targetPath` 只给右键菜单里的「粘贴到选中的文件夹」用；快捷键不带参数，
+   * 始终落到当前目录。
    */
-  const handlePaste = async () => {
+  const handlePaste = async (targetPath?: string) => {
     const isMove = explorerStore.value.cutPaths.length > 0
     const paths = isMove ? [...explorerStore.value.cutPaths] : [...explorerStore.value.copyPaths]
     if (!paths.length) {
@@ -68,7 +71,7 @@ export function useCopyPaste({
       const taskId = await createTask({
         kind: isMove ? 'move' : 'copy',
         fromPaths: paths,
-        toPath: basePath.value,
+        toPath: targetPath ?? basePath.value,
         onConflict: 'ask',
       })
       onTaskDone(taskId, (task, results, truncated) => {

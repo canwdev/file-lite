@@ -1106,6 +1106,7 @@ function viewMenuItems(): MenuItem[] {
     {
       label: $t('file_lite_i18n.list'),
       icon: isGridView.value ? '' : 'mdi mdi-check',
+      shortcut: 'Ctrl+1',
       onClick: () => {
         isGridView.value = false
       },
@@ -1113,6 +1114,7 @@ function viewMenuItems(): MenuItem[] {
     {
       label: $t('file_lite_i18n.grid'),
       icon: isGridView.value ? 'mdi mdi-check' : '',
+      shortcut: 'Ctrl+2',
       divided: true,
       onClick: () => {
         isGridView.value = true
@@ -1417,6 +1419,26 @@ useShortcut({
 useShortcut({
   disabled: shortcutsDisabled,
   scope: shortcutScope,
+  combo: ['ctrl+1', 'meta+1'],
+  description: 'List view',
+  handler: () => {
+    isGridView.value = false
+  },
+})
+
+useShortcut({
+  disabled: shortcutsDisabled,
+  scope: shortcutScope,
+  combo: ['ctrl+2', 'meta+2'],
+  description: 'Grid view',
+  handler: () => {
+    isGridView.value = true
+  },
+})
+
+useShortcut({
+  disabled: shortcutsDisabled,
+  scope: shortcutScope,
   combo: ['ctrl+x', 'meta+x'],
   description: 'Cut',
   handler: handleCut,
@@ -1435,7 +1457,15 @@ useShortcut({
   scope: shortcutScope,
   combo: ['ctrl+v', 'meta+v'],
   description: 'Paste',
-  handler: handlePaste,
+  handler: () => void handlePaste(),
+})
+
+useShortcut({
+  disabled: shortcutsDisabled,
+  scope: shortcutScope,
+  combo: ['ctrl+shift+v', 'meta+shift+v'],
+  description: 'Paste from clipboard',
+  handler: () => void handlePasteFromClipboard(),
 })
 
 useShortcut({
@@ -1798,7 +1828,7 @@ defineExpose({
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
             :disabled="!enablePaste"
             :title="`${$t('file_lite_i18n.paste')} (ctrl+v)`"
-            @click="handlePaste"
+            @click="handlePaste()"
           >
             <i-mdi-content-paste />
           </button>
