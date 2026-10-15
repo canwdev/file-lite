@@ -39,3 +39,50 @@ func TestConfigHasNoStartPath(t *testing.T) {
 		t.Fatal("Cfg 不该再有 StartPath 字段：首次打开的位置由前端的第一个挂载点决定")
 	}
 }
+
+// An auth ticket is a single-use credential: redeeming it twice must fail, and
+// the second attempt must not hand out another token.
+func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
+	ticket, err := NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first, ok := ConsumeAuthTicket(ticket.Value)
+	if !ok || first == "" {
+		t.Fatalf("first redemption failed: ok=%v token=%q", ok, first)
+	}
+	second, ok := ConsumeAuthTicket(ticket.Value)
+	if ok || second != "" {
+		t.Fatalf("a redeemed ticket was accepted again: ok=%v token=%q", ok, second)
+	}
+
+	// An unrelated ticket is still rejected, and a fresh one still works.
+	if _, ok := ConsumeAuthTicket("not-a-ticket"); ok {
+		t.Fatal("an unknown ticket was accepted")
+	}
+	fresh, err := NewAuthTicket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ConsumeAuthTicket(fresh.Value); !ok {
+		t.Fatal("a fresh ticket should be accepted")
+	}
+}
+
+// Development mode relaxes the CSRF check, so it must only answer to the
+// file-lite-specific variable. NODE_ENV is set by unrelated tooling.
+func TestIsExplicitDevModeIgnoresNodeEnv(t *testing.T) {
+	t.Setenv("NODE_ENV", "development")
+	if IsExplicitDevMode() {
+		t.Fatal("NODE_ENV=development must not enable dev mode")
+	}
+	t.Setenv("FILE_LITE_DEV_MODE", "true")
+	if !IsExplicitDevMode() {
+		t.Fatal("FILE_LITE_DEV_MODE=true should enable dev mode")
+	}
+	t.Setenv("FILE_LITE_DEV_MODE", "1")
+	if IsExplicitDevMode() {
+		t.Fatal("only the exact value \"true\" enables dev mode")
+	}
+}

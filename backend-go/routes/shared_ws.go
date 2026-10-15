@@ -123,7 +123,11 @@ func handleSharedWebSocket(c echo.Context) error {
 		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
 	}
 
-	ip := c.RealIP()
+	// The direct TCP peer, exactly like every other IP decision in the backend.
+	// Echo's c.RealIP() falls back to the client-supplied X-Forwarded-For /
+	// X-Real-IP headers (no IPExtractor is configured), which would let one client
+	// rotate the header and hand out unlimited connections past the per-IP cap.
+	ip := middlewares.ClientIP(c)
 	if !acquireSharedWSIPConnection(ip) {
 		return apierr.Write(c, apierr.TooManyRequests("Too many connections"))
 	}

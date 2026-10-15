@@ -205,6 +205,12 @@ func (s *Service) Get(ctx context.Context, path string, edge int, kind Kind) ([]
 	if fi.IsDir() {
 		return nil, "", ErrNotFound
 	}
+	// A named pipe would block the decode forever on open (and the block cannot be
+	// cancelled); sockets and device nodes are not images either. Report them the
+	// same way as any other undecodable source.
+	if !fi.Mode().IsRegular() {
+		return nil, "", ErrUnsupported
+	}
 
 	key := cacheKey(kind, path, edge, fi)
 	if data, ct, ok := s.cache.Get(key); ok {
@@ -292,14 +298,24 @@ func bytesPerPixel(m color.Model) int64 {
 	return 4
 }
 
-// checkSize 在真正解码之前，按「像素数 × 每像素字节数」估算内存占用并卡上限。
-// 只读文件头，与文件体积无关。
+// checkSize estimates the decoded size from the header and enforces the cap
+// before the image is decoded. It only reads the header, so it is independent of
+// the file size.
+//
+// The estimate is compared by division, never by multiplying Width*Height*pixel
+// bytes: those two numbers come straight from the file header and some decoders
+// do not bound them (x/image/tiff turns a uint32 ImageWidth into an int as-is),
+// so int64(w)*int64(h)*bpp overflows and can wrap to a value below the cap. A
+// crafted 4294967295x4294967295 TIFF used to pass this check and then panic in
+// image.NewRGBA. With the cap divided by the pixel size first every operand
+// stays small, so the multiplication cannot overflow.
 func checkSize(cfg image.Config) error {
 	if cfg.Width <= 0 || cfg.Height <= 0 {
 		return ErrUnsupported
 	}
-	estimated := int64(cfg.Width) * int64(cfg.Height) * bytesPerPixel(cfg.ColorModel)
-	if estimated > maxDecodedBytes {
+	// bytesPerPixel always returns 1..8, so this division is safe.
+	maxPixels := maxDecodedBytes / bytesPerPixel(cfg.ColorModel)
+	if int64(cfg.Width) > maxPixels/int64(cfg.Height) {
 		return ErrTooLarge
 	}
 	return nil

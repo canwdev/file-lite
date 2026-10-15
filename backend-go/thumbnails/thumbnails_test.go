@@ -204,6 +204,57 @@ func TestCheckSizeAccountsForBitDepth(t *testing.T) {
 	}
 }
 
+// A header may declare dimensions no real image could have: x/image/tiff does
+// int(firstVal(tImageWidth)) with no bound check, so a uint32 value reaches
+// image.Config as-is. The old estimate multiplied those two numbers and wrapped
+// around int64 (4294967295*4294967295*8 = -68719476728), which passed the
+// comparison and let the panic happen later, inside image.NewRGBA.
+func TestCheckSizeRejectsOverflowingHeader(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  image.Config
+	}{
+		{"uint32 max square", image.Config{Width: 4294967295, Height: 4294967295, ColorModel: color.RGBA64Model}},
+		{"uint32 max by one", image.Config{Width: 4294967295, Height: 1, ColorModel: color.RGBA64Model}},
+		{"one by uint32 max", image.Config{Width: 1, Height: 4294967295, ColorModel: color.NRGBAModel}},
+		{"just above the cap", image.Config{Width: 1 << 26, Height: 1 << 26, ColorModel: color.NRGBAModel}},
+	}
+	for _, tc := range cases {
+		if err := checkSize(tc.cfg); !errors.Is(err, ErrTooLarge) {
+			t.Errorf("%s: checkSize(%dx%d) = %v, want ErrTooLarge", tc.name, tc.cfg.Width, tc.cfg.Height, err)
+		}
+	}
+}
+
+// The generator runs on its own goroutine, so nothing outside flightGroup can
+// recover a decoder panic (image.NewRGBA panics on a huge rectangle that slipped
+// past checkSize). It must surface as a failed generation and must not leave the
+// key stuck in the flight map.
+func TestFlightGroupRecoversGeneratorPanic(t *testing.T) {
+	g := newFlightGroup()
+	res := <-g.DoChan("panic-key", func() flightResult {
+		panic("decoder blew up")
+	})
+	if res.err == nil || !errors.Is(res.err, ErrUnsupported) {
+		t.Fatalf("a panicking generator should come back as ErrUnsupported, got %+v", res)
+	}
+
+	// The calls map must be cleaned up, so a later request regenerates instead of
+	// waiting on a dead entry.
+	done := make(chan flightResult, 1)
+	go func() {
+		done <- <-g.DoChan("panic-key", func() flightResult { return flightResult{data: []byte("ok")} })
+	}()
+	select {
+	case again := <-done:
+		if again.err != nil || string(again.data) != "ok" {
+			t.Fatalf("second generation = %+v", again)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("second generation never ran: the failed call was left in the flight map")
+	}
+}
+
 // 端到端确认：16 位 PNG 的 DecodeConfig 确实报告 8 字节/像素的模型。
 // 若这里退化成 4，说明上游改了行为，checkSize 的估算需要跟着改。
 func TestDecodeConfigReports16BitModel(t *testing.T) {

@@ -110,8 +110,14 @@ func ConfigFilePath() string  { return configFilePath }
 func FrontendStorageFilePath() string {
 	return filepath.Join(dataBaseDir, "frontend-storage.json")
 }
+
+// IsExplicitDevMode reports whether the operator asked for development mode on
+// purpose. It gates the CSRF double-submit exemption in middlewares.AuthMiddleware,
+// so only the explicit, file-lite-specific variable counts: NODE_ENV is set by
+// unrelated container tooling and image defaults, and honoring it would silently
+// drop the check on every cookie-authenticated write.
 func IsExplicitDevMode() bool {
-	return os.Getenv("FILE_LITE_DEV_MODE") == "true" || os.Getenv("NODE_ENV") == "development"
+	return os.Getenv("FILE_LITE_DEV_MODE") == "true"
 }
 
 func LoadConfig(allowCreate bool) error {
@@ -322,13 +328,26 @@ func isWeakAuthTicket(ticket string) bool {
 	return len(counts) < 4 || maxCount > 3
 }
 
+// ConsumeAuthTicket exchanges a one-time ticket for a fresh auth token.
+//
+// Validation and invalidation happen under the same lock: the ticket is a
+// single-use credential (routes/ie.go says so, and the classic login page calls
+// an already-used ticket "expired"), so splitting the check from the clear would
+// let one ticket be redeemed twice — concurrently or by anyone who saw the
+// printed link before it expired. Burning the ticket before the token is minted
+// is deliberate: if signing somehow fails, the credential is gone rather than
+// left live.
 func ConsumeAuthTicket(ticket string) (string, bool) {
 	authTicketMu.Lock()
 	storedTicket := currentAuthTicket
-	authTicketMu.Unlock()
 	if storedTicket == nil || storedTicket.value != ticket || storedTicket.expiresAt.Before(time.Now()) {
+		authTicketMu.Unlock()
 		return "", false
 	}
+	currentAuthTicket = nil
+	authTicketMu.Unlock()
+
+	// Minted outside the lock: NewAuthToken only reads the JWT secret.
 	token, err := NewAuthToken()
 	if err != nil {
 		return "", false

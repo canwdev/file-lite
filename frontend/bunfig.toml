@@ -1,0 +1,5 @@
+# `bun test` reads the sources directly instead of running them through Vite, so
+# the `$t` that unplugin-auto-import normally injects is missing. The preload
+# installs it; see test-setup.ts.
+[test]
+preload = [ "./test-setup.ts" ]

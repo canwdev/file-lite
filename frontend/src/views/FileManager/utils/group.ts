@@ -45,14 +45,14 @@ export function dateGroupKey(ms: number, now = Date.now()): GroupKey {
 
   const weekStart = startOfWeekMonday(today)
   if (day >= weekStart)
-    return { id: 'date:earlier-this-week', label: $t('file_lite_i18n.last_week'), order: 6 }
+    return { id: 'date:earlier-this-week', label: $t('file_lite_i18n.earlier_this_week'), order: 6 }
   if (day >= weekStart - 7 * DAY_MS)
     return { id: 'date:last-week', label: $t('file_lite_i18n.last_week'), order: 5 }
 
   const todayDate = new Date(today)
   const monthStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime()
   if (day >= monthStart)
-    return { id: 'date:earlier-this-month', label: $t('file_lite_i18n.last_month'), order: 4 }
+    return { id: 'date:earlier-this-month', label: $t('file_lite_i18n.earlier_this_month'), order: 4 }
 
   const lastMonthStart = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1).getTime()
   if (day >= lastMonthStart)
@@ -60,7 +60,7 @@ export function dateGroupKey(ms: number, now = Date.now()): GroupKey {
 
   const yearStart = new Date(todayDate.getFullYear(), 0, 1).getTime()
   if (day >= yearStart)
-    return { id: 'date:earlier-this-year', label: $t('file_lite_i18n.last_year'), order: 2 }
+    return { id: 'date:earlier-this-year', label: $t('file_lite_i18n.earlier_this_year'), order: 2 }
 
   const lastYearStart = new Date(todayDate.getFullYear() - 1, 0, 1).getTime()
   if (day >= lastYearStart)

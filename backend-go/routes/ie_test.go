@@ -156,28 +156,42 @@ func TestIEClassicNeedsLogin(t *testing.T) {
 	}
 }
 
-// 票据登录：链接本身就能进，不需要先看表单再点一次。
+// 票据登录：链接本身就能进，不需要先看表单再点一次。票据是一次性的，
+// 每个入口各取一张，并验证同一张不能再用。
 func TestIEClassicTicketLogin(t *testing.T) {
 	e := newIEServer()
 
-	ticket, err := config.NewAuthTicket()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, target := range []string{
-		"/ie?ticket=" + url.QueryEscape(ticket.Value),
-		"/ie/login?ticket=" + url.QueryEscape(ticket.Value),
-	} {
-		rec := ieCall(t, e, http.MethodGet, target, "", false)
+	for _, target := range []string{"/ie", "/ie/login"} {
+		ticket, err := config.NewAuthTicket()
+		if err != nil {
+			t.Fatal(err)
+		}
+		link := target + "?ticket=" + url.QueryEscape(ticket.Value)
+
+		rec := ieCall(t, e, http.MethodGet, link, "", false)
 		if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/ie" {
-			t.Fatalf("%s = %d %q，期望 302 /ie", target, rec.Code, rec.Header().Get("Location"))
+			t.Fatalf("%s = %d %q，期望 302 /ie", link, rec.Code, rec.Header().Get("Location"))
 		}
 		if !strings.Contains(strings.Join(rec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
-			t.Fatalf("%s 没有换成会话 cookie", target)
+			t.Fatalf("%s 没有换成会话 cookie", link)
+		}
+
+		// 同一张票据再来一次：不再换 cookie。登录页会说明票据已失效，
+		// /ie 则把人送回登录页（那里同样会说明）。
+		reused := ieCall(t, e, http.MethodGet, link, "", false)
+		if strings.Contains(strings.Join(reused.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+			t.Fatalf("%s 重复使用仍然换到了 cookie", link)
+		}
+		if target == "/ie" {
+			if reused.Code != http.StatusFound || !strings.HasPrefix(reused.Header().Get("Location"), "/ie/login") {
+				t.Fatalf("%s 重复使用 = %d %q，期望 302 到登录页", link, reused.Code, reused.Header().Get("Location"))
+			}
+		} else if reused.Code != http.StatusOK || !strings.Contains(reused.Body.String(), "expired") {
+			t.Fatalf("%s 重复使用 = %d，期望登录页说明票据失效", link, reused.Code)
 		}
 	}
 
-	// 过期 / 用过的票据：留在登录页并说明原因，而不是白屏或 401。
+	// 无效的票据：留在登录页并说明原因，而不是白屏或 401。
 	bad := ieCall(t, e, http.MethodGet, "/ie/login?ticket=not-a-ticket", "", false)
 	if bad.Code != http.StatusOK {
 		t.Fatalf("无效票据 = %d，期望停在登录页", bad.Code)

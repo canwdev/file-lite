@@ -11,7 +11,14 @@ const props = defineProps<{
 
 const emit = defineEmits(['setTitle'])
 
-const FILE_VIEWER_SCRIPT_URL = 'https://unpkg.com/@file-viewer/web-full@latest/dist/flyfish-file-viewer-web-full.iife.js'
+// Pinned on purpose: this third-party IIFE is injected into the authenticated
+// origin, so `@latest` would let any upstream publish (or a CDN compromise) run
+// arbitrary JavaScript in the session. Bump the version deliberately when the
+// viewer needs an update. Loading it with an SRI hash would harden this further;
+// that needs crossOrigin="anonymous" (unpkg serves the CORS headers) and the
+// hash of the exact artifact.
+const FILE_VIEWER_SCRIPT_VERSION = '3.2.1'
+const FILE_VIEWER_SCRIPT_URL = `https://unpkg.com/@file-viewer/web-full@${FILE_VIEWER_SCRIPT_VERSION}/dist/flyfish-file-viewer-web-full.iife.js`
 
 /**
  * 文件地址。跟随应用参数变化。

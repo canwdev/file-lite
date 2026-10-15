@@ -184,7 +184,11 @@ address, so the frontend can render a QR code:
 ```
 
 `201 Created`. The backend keeps at most one ticket, so every call invalidates the URLs
-a previous call returned; the client re-mints before showing a stale QR code.
+a previous call returned; the client re-mints before showing a stale QR code. A ticket is
+**single-use**: redeeming it once consumes it, and a second attempt is rejected exactly like
+an expired one. The GET routes that can redeem a ticket (`/?ticket=`, `/ie?ticket=`,
+`/ie/login?ticket=`) are rate limited per client IP and answer `429` with
+`too_many_requests` past the limit; requests without a ticket are not counted.
 
 ## 5. Health, volumes and plugins
 

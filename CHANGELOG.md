@@ -101,6 +101,13 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Malformed images**: An image whose header declares an enormous size no longer takes the server down; the size guard cannot overflow and a decoder panic is reported as a failed thumbnail instead of ending the process (backend).
+- **Login tickets**: A ticket link is single-use now — redeeming it a second time within its two minutes no longer issues another session — and ticket links are rate limited per IP (backend).
+- **CSRF**: Only the explicit `FILE_LITE_DEV_MODE=true` enables development mode, so an unrelated `NODE_ENV=development` in the environment no longer turns the CSRF check off for cookie-authenticated writes (backend).
+- **Named pipes**: Copying a folder or downloading it as a zip skips named pipes and other non-regular files instead of hanging the operation forever, and a linked directory is no longer packed into the archive (backend).
+- **WebSocket limit**: The per-IP WebSocket connection limit counts the real client address, so a client-supplied forwarding header can no longer raise it (backend).
+- **Date groups**: The “Earlier this week”, “Earlier this month” and “Earlier this year” groups have their own labels instead of repeating “Last week”, “Last month” and “Last year” (frontend).
+- **File Viewer**: The viewer script is loaded from a pinned version of the CDN package instead of `@latest`, so an upstream publish cannot change the code running in the app (frontend).
 - **Upload speed**: An uploading row shows the real transfer speed instead of a fixed 0 B/s (frontend).
 - **Text encoding**: A text file that is not UTF-8 — a GBK subtitle, a UTF-16 note — no longer opens as mojibake in the text editor, the browser view or a subtitle loaded from the server, and editing it keeps the encoding and the line endings it came with; the server detects the encoding and sends the text as UTF-8, while downloads and media streams keep their original bytes (frontend, backend).
 - **Local subtitles**: A subtitle picked from this device is decoded with its detected encoding, so a local GBK .srt no longer shows as mojibake (frontend).
@@ -148,6 +155,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Engineering
 
+- **Docs screenshots**: `docs:screenshots` captures the transfers shot again — the generator matched the upload button by an old title that no longer ends in three dots, so that shot timed out and the README kept a stale image (frontend).
+- **CI**: A `CI` workflow runs `go vet` and the Go tests, plus lint, type check and the unit tests on the frontend, so a failing suite is visible on a pull request instead of only in a release build (frontend, backend).
+- **Unit tests**: `bun test` installs the auto-imported `$t` through a preload, so a module that uses UI copy can be unit tested instead of failing with `$t is not defined` (frontend).
 - **UPX**: Release builds compress Linux and Windows amd64 binaries with UPX before packing the zip, so those downloads are smaller. macOS and Windows ARM64 builds stay unpacked (backend).
 - **FS facade**: File reads and writes now go through one shared facade (`utils/fs`), so apps no longer import the file manager's internals or call the file API directly (frontend).
 - **Facade enforcement**: Only that facade may call the file API directly: an eslint rule rejects `fsWebApi` anywhere else, because a missed call site only shows up as an empty preview (frontend).

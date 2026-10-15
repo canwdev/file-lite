@@ -36,6 +36,22 @@ func getContent(c echo.Context) error {
 // ServeContent 会读响应头里的它。
 func serveFileContent(c echo.Context, res fileops.Resolved, attachment bool) error {
 	osPath := res.OSPath()
+	// Stat before Open. Opening a named pipe blocks until a writer appears, and the
+	// block is inside open(), so ctx cancellation cannot interrupt it — serving a
+	// FIFO would pin this handler goroutine and its connection forever. Stat follows
+	// symlinks, so a link to a pipe is caught here too; the directory check below is
+	// repeated after Open because the path can change between the two calls.
+	pre, err := os.Stat(osPath)
+	if err != nil {
+		return fsError(err, res.Network())
+	}
+	if pre.IsDir() {
+		return apierr.Conflict(apierr.CodeConflict, "Path is not a file")
+	}
+	if pre.Mode()&os.ModeNamedPipe != 0 {
+		return apierr.New(http.StatusUnsupportedMediaType, apierr.CodeUnsupportedMedia, "Path is not a regular file")
+	}
+
 	f, err := os.Open(osPath)
 	if err != nil {
 		return fsError(err, res.Network())

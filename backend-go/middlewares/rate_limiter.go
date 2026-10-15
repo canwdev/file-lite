@@ -70,12 +70,52 @@ func (l *requestLimiter) cleanupExpired(now time.Time) {
 
 var loginLimiter = newRequestLimiter(loginRateLimitMaxRequests, loginRateLimitWindow)
 
+// ticketLimiter throttles ticket-bearing GETs: /?ticket=, /ie?ticket= and
+// /ie/login?ticket=. It is separate from loginLimiter so a page visit that
+// carries a ticket does not spend the password endpoint's budget.
+var ticketLimiter = newRequestLimiter(loginRateLimitMaxRequests, loginRateLimitWindow)
+
 // LoginRateLimiter throttles POST /api/session per client IP and feeds the
 // shared failure ban. Password guessing is stopped at the only endpoint that can
 // be guessed; every other API call carries a valid JWT and is not capped by
 // request count, so bulk listing and transfers are never rejected.
 func LoginRateLimiter() echo.MiddlewareFunc {
 	return loginGuard(authLimiter, loginLimiter)
+}
+
+// TicketRateLimiter throttles requests that carry a login ticket in the query
+// string. Ticket redemption happens on GET routes (/?ticket=, /ie?ticket=,
+// /ie/login?ticket=) which LoginRateLimiter does not cover, so without this the
+// one credential that can be guessed would be the only one with no flood
+// protection.
+//
+// Requests without a ticket are untouched: static assets and every ordinary page
+// load pass through, which is why this cannot simply be another loginGuard on
+// the whole site.
+//
+// It counts requests but not failures: by design an invalid ticket passes
+// through so the page can explain it, which means this layer cannot tell success
+// from failure. A 47.6-bit ticket (62^8) at 20 attempts per IP per minute is not
+// brute-forceable. The failure ban is deliberately not consulted here — it
+// exists to stop password guessing, and a legitimate ticket holder should not be
+// blocked by someone else's failures on a shared address.
+func TicketRateLimiter() echo.MiddlewareFunc {
+	return ticketGuard(ticketLimiter)
+}
+
+// ticketGuard is the injectable form so tests can use their own counter.
+func ticketGuard(limiter *requestLimiter) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.QueryParam("ticket") == "" {
+				return next(c)
+			}
+			if !limiter.allow(clientIP(c)) {
+				return apierr.Write(c, apierr.TooManyRequests("Too many requests, please try again later."))
+			}
+			return next(c)
+		}
+	}
 }
 
 func loginGuard(ban *ipLimiter, limiter *requestLimiter) echo.MiddlewareFunc {

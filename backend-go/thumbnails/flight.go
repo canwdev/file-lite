@@ -1,6 +1,9 @@
 package thumbnails
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // flightGroup 让同一个 key 的并发请求只执行一次生成逻辑，其余请求等待并复用结果。
 //
@@ -45,6 +48,18 @@ func (g *flightGroup) DoChan(key string, fn func() flightResult) <-chan flightRe
 			delete(g.calls, key)
 			g.mu.Unlock()
 			call.wg.Done()
+		}()
+		// fn does the actual decode, and a decoder can panic on a malicious header
+		// (image.NewRGBA panics on a huge rectangle that slipped past checkSize).
+		// This is not the handler goroutine, so Echo's Recover middleware never sees
+		// it and an unrecovered panic would end the whole process. Report it as a
+		// failed generation instead; the deferred cleanup above still runs first,
+		// because defers unwind last-registered-first and this one was registered
+		// after it, so waiters read the recovered result.
+		defer func() {
+			if r := recover(); r != nil {
+				call.res = flightResult{err: fmt.Errorf("%w: decoder panic: %v", ErrUnsupported, r)}
+			}
 		}()
 		call.res = fn()
 	}()

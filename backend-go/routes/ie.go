@@ -48,8 +48,10 @@ const ieStaredPathKey = "file_lite_stared_path"
 // RegisterIE 在根路径下挂载经典界面。
 func RegisterIE(e *echo.Echo) {
 	g := e.Group("/ie")
-	g.GET("", ieIndex)
-	g.GET("/login", ieLoginPage)
+	// The two GETs below can consume ?ticket=; TicketRateLimiter only touches
+	// requests that carry one, so ordinary page loads are unaffected.
+	g.GET("", ieIndex, middlewares.TicketRateLimiter())
+	g.GET("/login", ieLoginPage, middlewares.TicketRateLimiter())
 	g.POST("/login", ieLoginSubmit, middlewares.LoginRateLimiter())
 	g.POST("/logout", ieLogout)
 	g.GET("/browse", ieBrowse, ieRequireAuth)
@@ -619,6 +621,9 @@ func decodeUploadFilename(name string) string {
 //
 // 必须在注册静态资源中间件之前调用，否则 HTML5 回落会先回一份 index.html。
 func RegisterTicketLogin(e *echo.Echo) {
+	// Throttle before redeeming: this middleware is registered first, so it sees
+	// the request before the ticket is consumed.
+	e.Use(middlewares.TicketRateLimiter())
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if c.Request().Method != http.MethodGet || c.Request().URL.Path != "/" {

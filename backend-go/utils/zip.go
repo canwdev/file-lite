@@ -31,14 +31,52 @@ func addEmptyDir(z *zip.Writer, name string, modTime time.Time) error {
 	return err
 }
 
+// zipEntryStat decides whether a path becomes a zip entry, following the same
+// rule as the flat listing: a symlink to a regular file is packed as its target
+// (that is how the listing shows it), while a symlink to a directory and every
+// non-regular file are left out.
+//
+// Nothing here opens the path, and that is the point: os.Open blocks until a
+// writer appears on a named pipe and that block cannot be cancelled, so the
+// decision has to come from Lstat/Stat alone. A linked directory is also never
+// descended into — a cycle would make the whole archive fail, and a link to
+// somewhere else would pack content outside the selection.
+//
+// skip=true means "not an entry": a missing file, a dangling link, a linked
+// directory, a named pipe / socket / device node.
+func zipEntryStat(p string) (info os.FileInfo, skip bool, err error) {
+	li, err := os.Lstat(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, true, nil
+		}
+		return nil, false, err
+	}
+	if li.Mode()&os.ModeSymlink != 0 {
+		target, statErr := os.Stat(p)
+		if statErr != nil {
+			// A dangling link has no bytes to pack.
+			return nil, true, nil
+		}
+		if target.IsDir() || !target.Mode().IsRegular() {
+			return nil, true, nil
+		}
+		return target, false, nil
+	}
+	if li.IsDir() {
+		return li, false, nil
+	}
+	if !li.Mode().IsRegular() {
+		return nil, true, nil
+	}
+	return li, false, nil
+}
+
 // zipPath 递归把 path 写入 zip。条目在压缩过程中被删除/移走时静默跳过
 // （没有内容可打包）；其它读写错误（如文件被占用、不可读）向上传播。
 func zipPath(z *zip.Writer, base string, path string) error {
-	st, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
+	st, skip, err := zipEntryStat(path)
+	if err != nil || skip {
 		return err
 	}
 	name := filepath.Join(base, filepath.Base(path))
@@ -86,12 +124,12 @@ func ZipPathsToWriter(paths []string, w io.Writer) error {
 
 // verifyZipPathReadable 递归确认 path 可读取。条目不存在时返回 nil
 // （与压缩时静默跳过的行为一致）；被占用/无权限等错误原样返回。
+//
+// 它必须与 zipPath 用同一套判定：预检若去 open 一个命名管道就会永久挂住，
+// 而 zipPath 已经决定不打包它。
 func verifyZipPathReadable(p string) error {
-	st, err := os.Stat(p)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
+	st, skip, err := zipEntryStat(p)
+	if err != nil || skip {
 		return err
 	}
 	if !st.IsDir() {

@@ -135,7 +135,9 @@ async function shotTransfersTasks(page, context) {
 
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.locator('button[title="Upload Files..."]').click(),
+    // The label ends in the ELLIPSIS character (…), not three dots, so match the
+    // prefix instead of spelling the title out.
+    page.locator('button[title^="Upload Files"]').click(),
   ])
   await chooser.setFiles(bigFile)
 

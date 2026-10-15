@@ -3,6 +3,7 @@ package fileops
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -546,6 +547,15 @@ func (rs *runState) copyFileAtomic(srcPath, dstPath string) error {
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		return copyLinkSafely(srcPath, dstPath)
+	}
+	// Only regular files have a byte stream to copy. A named pipe is the dangerous
+	// one: os.Open blocks until a writer appears and that block happens inside open,
+	// so ctx cancellation cannot interrupt it — a single FIFO in a tree would hold
+	// this goroutine (and one of the file-concurrency slots) forever, and Stop()
+	// would hang on wg.Wait(). Sockets and device nodes are either blocked the same
+	// way or would stream device contents into the destination.
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("not a regular file: %s", info.Mode().Type())
 	}
 
 	in, err := os.Open(srcPath)

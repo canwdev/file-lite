@@ -116,3 +116,43 @@ func TestClientIP(t *testing.T) {
 		}
 	}
 }
+
+// The ticket limiter must only spend budget on requests that actually carry a
+// ticket: ordinary page loads and static assets share the same routes.
+func TestTicketGuardLimitsOnlyTicketRequests(t *testing.T) {
+	e := echo.New()
+	e.Use(ticketGuard(newRequestLimiter(2, time.Minute)))
+	e.GET("/", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	call := func(target string) int {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req.RemoteAddr = "10.0.0.1:1111"
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	// Requests without a ticket never touch the counter.
+	for i := 0; i < 5; i++ {
+		if got := call("/"); got != http.StatusOK {
+			t.Fatalf("plain request %d = %d, want 200", i+1, got)
+		}
+	}
+
+	for i := 0; i < 2; i++ {
+		if got := call("/?ticket=abc"); got != http.StatusOK {
+			t.Fatalf("ticket request %d = %d, want 200", i+1, got)
+		}
+	}
+	if got := call("/?ticket=abc"); got != http.StatusTooManyRequests {
+		t.Fatalf("third ticket request = %d, want 429", got)
+	}
+	// A different IP is unaffected.
+	req := httptest.NewRequest(http.MethodGet, "/?ticket=abc", nil)
+	req.RemoteAddr = "10.0.0.2:1111"
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("another IP = %d, want 200", rec.Code)
+	}
+}
