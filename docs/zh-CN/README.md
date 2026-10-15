@@ -2,7 +2,7 @@
 
 中文 | [English](../../README.md)
 
-![File Lite](../../frontend/public/favicon.webp)
+<img src="../../frontend/public/favicon.webp" alt="File Lite" width="128" height="128">
 
 **轻量、多功能的 Web 文件管理器** · Vue 3 + TypeScript + Go
 
