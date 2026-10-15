@@ -117,8 +117,13 @@ export function useRemoteSetting<T>(options: UseRemoteSettingOptions<T>) {
       const stored = await settingsApi.getItem(key)
       applyRemoteState(stored)
       initializedSession = sessionRef.value
-      // 回写由 state 的 watcher（防抖）完成；此处 initializedSession 已就绪。
+      // `initializedSession` is set, so a write-back is allowed from here on.
+      // `applyRemoteState` suppresses the watcher until its reset microtask runs,
+      // and Vue flushes watchers before that, so a value `onLoaded` derives locally
+      // (the detected interface language) would never reach the server through the
+      // watcher. Persist explicitly; the snapshot guard skips an identical value.
       onLoaded?.(stored)
+      void persistState()
     }
     catch (error) {
       console.error(error)
