@@ -34,6 +34,16 @@ export function createDragFixture() {
 }
 
 /**
+ * A real 1-second 32x32 VP8 WebM.
+ *
+ * The media recovery test has to reach `loadedmetadata` after it replays the
+ * source, so `clip.mp4` (deliberately fake bytes, used by the selector test)
+ * cannot stand in for it. Chromium decodes this one without any external
+ * fixture or ffmpeg dependency.
+ */
+const TINY_WEBM_BASE64 = 'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAQQEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHWTbuMU6uEElTDZ1OsggEjTbuMU6uEHFO7a1OsggP67AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsCrXsYMPQkBNgIxMYXZmNjEuNy4xMDNXQYxMYXZmNjEuNy4xMDNEiYhAj0AAAAAAABZUrmvIrgEAAAAAAAA/14EBc8WI2hn7Yem59dacgQAitZyDdW5kiIEAhoVWX1ZQOIOBASPjg4QCYloA4JCwgSC6gSCagQJVsIRVuYEBElTDZ/tzc59jwIBnyJlFo4dFTkNPREVSRIeMTGF2ZjYxLjcuMTAzc3PWY8CLY8WI2hn7Yem59dZnyKFFo4dFTkNPREVSRIeUTGF2YzYxLjE5LjEwMSBsaWJ2cHhnyKFFo4hEVVJBVElPTkSHkzAwOjAwOjAxLjAwMDAwMDAwMAAfQ7Z1QlHngQCjpIEAAIAwAgCdASogACAAAEcIhYWIhYSIAgIAB5DzycD+/6tQgKOVgQAoALEBAAEQEAAYABhYL/QACHAAo5WBAFAAsQEAARAQABgAGFgv9AAIcACjlYEAeACxAQABEBAAGAAYWC/0AAhwAKOVgQCgALEBAAEQEAAYABhYL/QACHAAo5WBAMgAsQEAARAQABgAGFgv9AAIcACjlYEA8ACxAQABEBAAGAAYWC/0AAhwAKOVgQEYALEBAAEQEBRgAGFgv9AAIcAAo5WBAUAAsQEAARAQABgAGFgv9AAIcACjlYEBaACxAQABEBAAGAAYWC/0AAhwAKOVgQGQALEBAAEQEAAYABhYL/QACHAAo5WBAbgAsQEAARAQABgAGFgv9AAIcACjlYEB4ACxAQABEBAAGAAYWC/0AAhwAKOVgQIIALEBAAEQEAAYABhYL/QACHAAo5WBAjAAsQEAARAQABgAGFgv9AAIcACjlYECWACxAQABEBAAGAAYWC/0AAhwAKOVgQKAALEBAAEQEAAYABhYL/QACHAAo5WBAqgAsQEAARAQABgAGFgv9AAIcACjlYEC0ACxAQABEBAUYABhYL/QACHAAKOVgQL4ALEBAAEQEAAYABhYL/QACHAAo5WBAyAAsQEAARAQABgAGFgv9AAIcACjlYEDSACxAQABEBAAGAAYWC/0AAhwAKOVgQNwALEBAAEQEAAYABhYL/QACHAAo5WBA5gAsQEAARAQABgAGFgv9AAIcACjlYEDwACxAQABEBAAGAAYWC/0AAhwABxTu2uRu4+zgQC3iveBAfGCAaPwgQM='
+
+/**
  * 夹具文件树。测试用例都基于这个固定结构，改动这里要同步 tests/helpers.ts。
  */
 export function resetFixture() {
@@ -52,6 +62,8 @@ export function resetFixture() {
   fs.writeFileSync(path.join(filesDir, 'source', '039.+Vexento+-+Borealis.mp3'), 'fake-audio-bytes')
   // 视频占位文件：选择器用例靠它打开 Artplayer（音频走的是另一套播放界面）
   fs.writeFileSync(path.join(filesDir, 'source', 'clip.mp4'), 'fake-video-bytes')
+  // 真正可解码的短视频：媒体续期的 E2E 要走到 loadedmetadata
+  fs.writeFileSync(path.join(filesDir, 'source', 'tiny.webm'), Buffer.from(TINY_WEBM_BASE64, 'base64'))
   fs.writeFileSync(path.join(filesDir, 'source', 'report final.txt'), 'report body')
   fs.writeFileSync(path.join(filesDir, 'source', 'nested', 'deep.txt'), 'deep')
 

@@ -93,7 +93,7 @@ Rules the server relies on:
 
 | Resource | Endpoints |
 |---|---|
-| Session | `GET POST DELETE /api/session`, `POST /api/session/tickets` |
+| Session | `GET POST DELETE /api/session`, `POST /api/session/refresh`, `POST /api/session/tickets` |
 | Health | `GET /api/health` |
 | Volumes | `GET /api/volumes` |
 | Plugins | `GET /api/plugins` |
@@ -169,6 +169,23 @@ or, for a QR login ticket:
 
 Clears the cookie pair and returns `204`. Needs no session, so an expired token can
 still log out, but a live session cookie must pass the double-submit check.
+
+### `POST /api/session/refresh`
+
+Exchanges the current cookie pair for a fresh access token and returns `204`. It is
+the one JSON API endpoint that accepts a token whose 15-minute access window is
+already over, as long as the 30-day renewal window is still live.
+
+- The `file_lite_auth_token` **and** `file_lite_session` cookies are both required; the
+  request must echo the session value in `X-File-Lite-CSRF` like any other unsafe call.
+- A request authenticated with `Authorization: Bearer` is rejected with `401` even when
+  the cookies are also present: a leaked bearer token must not be able to extend itself.
+- Only the HttpOnly auth cookie is replaced. The readable session cookie is left
+  untouched, because it is the CSRF value of requests that are already in flight.
+- `401` when the renewal window is over or the cookie pair is broken; the pair is
+  cleared. `403` when the CSRF header is missing or wrong.
+- Not rate-limited and not part of the login failure ban: it is not a credential-guessing
+  endpoint.
 
 ### `POST /api/session/tickets`
 
@@ -751,19 +768,47 @@ handle it.
 - Login issues two cookies: `file_lite_auth_token` (HttpOnly, holds the JWT, never
   readable by scripts) and `file_lite_session` (readable, a random value used only for
   the double-submit check).
+- The JWT has two deadlines. `exp` is the **access** deadline (15 minutes) and `rexp`
+  is the **renewal** deadline (30 days, sliding). A token may call the API only while
+  `now < exp`; it may be exchanged at `POST /api/session/refresh` while `now < rexp`.
+  Both deadlines are signed, so a client cannot extend either.
+- A request made with the cookie pair renews the token by itself once less than five
+  minutes are left: the middleware sets a fresh auth cookie on the response. The
+  frontend also calls the refresh endpoint every five minutes while the app is open,
+  after the tab becomes visible or focused, after the network comes back, and once on
+  a `401` before retrying the original request. That covers an idle tab and a laptop
+  waking from sleep.
+- Browser-fetched media cannot use that interceptor. A `<video>`/`<audio>` element that
+  errors renews once and reloads the same source at the same position; a watchdog also
+  catches a rejected load that never reports an error. Direct GET/HEAD downloads and
+  media-metadata requests retry once after a renewal.
 - The browser sends the auth cookie automatically. Scripts may use
-  `Authorization: Bearer <jwt>` instead.
+  `Authorization: Bearer <jwt>` instead, but a bearer token cannot renew: the refresh
+  endpoint only accepts the cookie pair plus the CSRF header, so a leaked bearer token
+  dies with its 15-minute access window.
 - Every unsafe method (anything but `GET`, `HEAD`, `OPTIONS`) that is authenticated by
   cookie must echo the readable session value in the `X-File-Lite-CSRF` header. A
   mismatch (or a missing header) is `403 forbidden`. A request authenticated by the
   `Authorization` header is exempt, because another site cannot make a browser send it.
 - An auth cookie without its session partner is rejected: it is a leftover from a
   cleared or outdated login and would allow reads while every write fails.
-- A rejected cookie pair is cleared on the `401` response so the browser stops
-  replaying it.
+- A `401` whose token has a live renewal window **keeps** the cookie pair; the client
+  exchanges it at the refresh endpoint. Only a pair that is past `rexp` (or is otherwise
+  unusable) is cleared, so the browser stops replaying a dead credential.
+- Old tokens minted before 1.5.1 have no `ver`/`rexp` and are rejected. Upgrading
+  therefore signs every existing session out once.
+- `POST /api/session/refresh` is the only JSON API endpoint that accepts an expired
+  access token. It is deliberately outside `AuthMiddleware` and outside the login
+  failure ban; a failure there is not a password guess.
+- The classic `/ie` surface has no JavaScript to run the refresh dance, so a navigation
+  renews the token in place when needed. It uses the same pair and renewal window.
+- `/api/ws` authenticates at the handshake. An established socket is not re-checked
+  when its token expires; the client renews before reconnecting.
 - Login is the only endpoint with request-rate limiting, plus a 15-minute ban after 5
   failures. Authenticated calls are not capped: bulk listing and transfers must never
-  be throttled by a request counter.
+  be throttled by a request counter. Expired or otherwise rejected tokens do **not**
+  feed that ban, otherwise several parallel 401s after an idle period would lock the
+  user out.
 
 ## 15. Deliberate exceptions
 

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
@@ -55,7 +56,7 @@ func ieCall(t *testing.T, e *echo.Echo, method, target, form string, withAuth bo
 // ieAuthCookies 给请求带上与浏览器相同的两个 cookie。
 func ieAuthCookies(t *testing.T, req *http.Request) {
 	t.Helper()
-	token, err := config.NewAuthToken()
+	token, err := config.NewAuthToken(true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -973,5 +974,32 @@ func TestIEParentStopsAtAllowedRoot(t *testing.T) {
 	}
 	if got := ieParent(slash); got != "" {
 		t.Errorf("允许根本身不该再有上一级，得到 %q", got)
+	}
+}
+
+// 经典界面没有 JS 可以跑 refresh：access 过期但续期窗口还在时，导航本身换发
+// 新 token，页面照常打开。
+func TestIEClassicRenewsExpiredAccess(t *testing.T) {
+	e := newIEServer()
+	dir := t.TempDir()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet,
+		"/ie/browse?path="+url.QueryEscape(filepath.ToSlash(dir)), nil)
+	req.RemoteAddr = "10.0.0.1:1111"
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("过期 access 的 /ie 浏览 = %d，期望 200：%s", rec.Code, rec.Body.String())
+	}
+	line := strings.Join(rec.Header().Values("Set-Cookie"), "\n")
+	if !strings.Contains(line, middlewares.AuthCookieName+"=") {
+		t.Fatalf("导航没有换发 auth cookie：%v", rec.Header().Values("Set-Cookie"))
 	}
 }

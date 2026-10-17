@@ -68,7 +68,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 - 启动日志会打印生效范围：`file access scope: ... (allowedRoots)`，不配则是 `the whole file system`。
 - 目标必须在范围内；**源可以在范围外**——否则就没法把别处的文件拷进受控目录，而那正是它的主要用途。
 
-它**不是沙箱**：进程仍以服务账户的权限运行。它拦的是「认证之后的横向移动」——签名有效期长、cookie 持久化，一个泄露的 token 否则等于整台机器。已知边界：
+它**不是沙箱**：进程仍以服务账户的权限运行。它拦的是「认证之后的横向移动」——会话还活着时，一个泄露的 cookie 就等于整台机器。已知边界：
 
 - 范围内的符号链接指向范围外时不会被拦住：canonical 路径不解析符号链接（设计决策 10），要挡住得解析每一次请求，既有 TOCTOU 窗口又会让不存在的路径无法判断。
 - 通过软链访问（`/srv/files -> /mnt/pool/files`）时，范围按**软链那条路径**算：配 `allowedRoots: ["/srv/files"]` 时 `/mnt/pool/files` 不在范围内。这是有意的、可解释的行为。
@@ -78,6 +78,8 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 
 - `password` 和 `jwtToken` 是明文保存的机密：不要把 config.json 提交进仓库或分享出去。
 - 登录 token 保存在 HttpOnly cookie 里，页面脚本读不到，WebSocket URL 里也不再带它；登出会请求服务端清除。明文 HTTP 下这个 cookie 仍然不加密传输，介意时请用 `--with-tls`。
+- access token 15 分钟后过期，应用开着或仍在请求时会自动续期；续期窗口 30 天，使用中向后滑动。30 天完全没有使用的会话需要重新输入密码。改 `jwtToken` 会让所有 access 与续期 token 立刻失效。
+- `Authorization: Bearer` 客户端不能续期（refresh 接口要求浏览器的 cookie 对和 CSRF header），所以用 bearer token 的脚本 15 分钟后需要重新认证。
 - **默认情况下，服务进程有权访问的每一个路径，登录后都能读写**（`allowedRoots` 为空时）。只在你信任的网络里运行；必要时配合 `allowedCIDRs` 限制来源，或用 `allowedRoots` 把范围收窄。
 - `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
 - 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。

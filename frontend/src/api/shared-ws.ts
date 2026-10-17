@@ -1,5 +1,6 @@
 import type { SharedWsClientMessage, SharedWsServerMessage } from '@/types/server'
 import { authSession } from '@/store/auth'
+import { refreshSessionOnce } from '@/utils/session-refresh'
 
 const SHARED_WS_ENDPOINT = '/api/ws'
 const RECONNECT_DELAY_MS = 2000
@@ -103,16 +104,38 @@ export async function ensureSharedWsConnected(): Promise<WebSocket> {
 
   shouldReconnect = true
   sharedWsStatus.value = 'connecting'
-  console.log(`${LOG_PREFIX} connecting to ${buildSharedWsUrl()}`)
-  connectPromise = new Promise<WebSocket>((resolve, reject) => {
-    // The HttpOnly auth cookie rides along on the same-origin handshake, so the
-    // token never appears in a URL.
-    const ws = new WebSocket(buildSharedWsUrl())
-    sharedWs = ws
-    bindSharedWs(ws, resolve, reject)
+
+  const attempt = (async () => {
+    // The handshake only accepts a live access token, so a reconnect after the
+    // tab was idle has to renew it first. A rejected credential means the
+    // session is gone; the service interceptor handles the sign-out on the
+    // next HTTP request.
+    const refreshed = await refreshSessionOnce()
+    if (refreshed === 'rejected') {
+      sharedWsStatus.value = 'disconnected'
+      throw new Error('No session')
+    }
+
+    console.log(`${LOG_PREFIX} connecting to ${buildSharedWsUrl()}`)
+    return await new Promise<WebSocket>((resolve, reject) => {
+      // The HttpOnly auth cookie rides along on the same-origin handshake, so
+      // the token never appears in a URL.
+      const ws = new WebSocket(buildSharedWsUrl())
+      sharedWs = ws
+      bindSharedWs(ws, resolve, reject)
+    })
+  })()
+
+  connectPromise = attempt
+  // A failure before a socket exists (no session) has no onclose to clear the
+  // promise, so clear it here as well.
+  void attempt.catch(() => {
+    if (connectPromise === attempt) {
+      connectPromise = null
+    }
   })
 
-  return await connectPromise
+  return await attempt
 }
 
 export function closeSharedWs() {

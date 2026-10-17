@@ -48,24 +48,24 @@ func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, ok := ConsumeAuthTicket(ticket.Value)
+	first, ok := ConsumeAuthTicket(ticket.Value, true)
 	if !ok || first == "" {
 		t.Fatalf("first redemption failed: ok=%v token=%q", ok, first)
 	}
-	second, ok := ConsumeAuthTicket(ticket.Value)
+	second, ok := ConsumeAuthTicket(ticket.Value, true)
 	if ok || second != "" {
 		t.Fatalf("a redeemed ticket was accepted again: ok=%v token=%q", ok, second)
 	}
 
 	// An unrelated ticket is still rejected, and a fresh one still works.
-	if _, ok := ConsumeAuthTicket("not-a-ticket"); ok {
+	if _, ok := ConsumeAuthTicket("not-a-ticket", true); ok {
 		t.Fatal("an unknown ticket was accepted")
 	}
 	fresh, err := NewAuthTicket()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := ConsumeAuthTicket(fresh.Value); !ok {
+	if _, ok := ConsumeAuthTicket(fresh.Value, true); !ok {
 		t.Fatal("a fresh ticket should be accepted")
 	}
 }

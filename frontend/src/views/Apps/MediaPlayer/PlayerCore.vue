@@ -3,6 +3,7 @@ import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer } from 'music-metadata'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
+import { useMediaSessionRecovery } from '@/hooks/use-media-session-recovery'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
@@ -22,6 +23,8 @@ const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 const audioRef = ref<HTMLAudioElement | null>(null)
 const videoHostRef = ref<InstanceType<typeof NativeOrArtVideo> | null>(null)
+// Video recovery is handled inside NativeOrArtVideo; audio uses its own element.
+useMediaSessionRecovery(audioRef)
 
 const mSettingsStore = useMusicSettingsStore()
 /**
@@ -145,11 +148,6 @@ function registerMediaEvents(av: HTMLMediaElement | undefined) {
   av.addEventListener('timeupdate', (evt: Event) => {
     const target = evt.target as HTMLMediaElement
     mediaStore.currentTime = target.currentTime
-  }, { signal })
-
-  av.addEventListener('error', (error: Event) => {
-    console.error(error)
-    window.$message.error($t('file_lite_i18n.failed'))
   }, { signal })
 
   recordIfMediaReady(av)

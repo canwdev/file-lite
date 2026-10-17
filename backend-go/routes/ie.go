@@ -69,7 +69,7 @@ func ieIndex(c echo.Context) error {
 	if handled, err := ieTicketLogin(c); handled || err != nil {
 		return err
 	}
-	if !ieAuthenticated(c) {
+	if !ieEnsureSession(c) {
 		target := "/ie/login"
 		// 票据没换成会话就带着它去登录页：那里会选中票据那一栏并说明原因。
 		if ticket := c.QueryParam("ticket"); ticket != "" {
@@ -92,7 +92,7 @@ func ieTicketLogin(c echo.Context) (bool, error) {
 	if ticket == "" {
 		return false, nil
 	}
-	token, ok := config.ConsumeAuthTicket(ticket)
+	token, ok := config.ConsumeAuthTicket(ticket, true)
 	if !ok {
 		return false, nil
 	}
@@ -107,7 +107,7 @@ func ieLoginPage(c echo.Context) error {
 	if handled, err := ieTicketLogin(c); handled || err != nil {
 		return err
 	}
-	if ieAuthenticated(c) {
+	if ieEnsureSession(c) {
 		return c.Redirect(http.StatusFound, "/ie")
 	}
 	next := ieSafeNext(c.QueryParam("next"))
@@ -126,6 +126,7 @@ func ieLoginSubmit(c echo.Context) error {
 	mode := c.FormValue("mode")
 	password := c.FormValue("password")
 	ticket := c.FormValue("ticket")
+	remember := c.FormValue("remember") != ""
 	// 没有 mode 的提交（脚本、书签、老书签）：谁填了就用谁。
 	if mode != "password" && mode != "ticket" {
 		if ticket != "" {
@@ -145,18 +146,21 @@ func ieLoginSubmit(c echo.Context) error {
 			// 空字段是「没填完」，不是一次凭据尝试：400 不计入失败封禁。
 			return ieLoginForm(c, http.StatusBadRequest, next, "Enter the ticket.", "", "ticket")
 		}
+		// 票据是发给「另一台设备」的，总是持久 cookie；remember 必须与 token
+		// 里的 rem claim 保持一致，否则下一次续期会把持久 cookie 变成会话 cookie。
+		remember = true
 		// radio 是权威：选了票据就不看密码字段，反之亦然。
-		token, apiErr = authenticate(c, "", ticket)
+		token, apiErr = authenticate(c, "", ticket, remember)
 	default:
 		if password == "" {
 			return ieLoginForm(c, http.StatusBadRequest, next, "Enter the password.", "", "password")
 		}
-		token, apiErr = authenticate(c, password, "")
+		token, apiErr = authenticate(c, password, "", remember)
 	}
 	if apiErr != nil {
 		return ieLoginForm(c, apiErr.Status, next, apiErr.Message, ticket, mode)
 	}
-	if err := middlewares.SetAuthCookies(c, token, c.FormValue("remember") != ""); err != nil {
+	if err := middlewares.SetAuthCookies(c, token, remember); err != nil {
 		return ieFail(c, http.StatusInternalServerError, "Failed")
 	}
 	return c.Redirect(http.StatusFound, next)
@@ -633,7 +637,7 @@ func RegisterTicketLogin(e *echo.Echo) {
 			if ticket == "" {
 				return next(c)
 			}
-			token, ok := config.ConsumeAuthTicket(ticket)
+			token, ok := config.ConsumeAuthTicket(ticket, true)
 			if !ok {
 				return next(c)
 			}
@@ -722,18 +726,56 @@ type ieBrowseView struct {
 
 // ---- 辅助 ----
 
-func ieAuthenticated(c echo.Context) bool {
-	// 浏览器带着 HttpOnly 的鉴权 cookie；Authorization 头留给脚本。
-	if cookie, err := c.Cookie(middlewares.AuthCookieName); err == nil && cookie.Value != "" {
-		return config.VerifyAuthJWT(cookie.Value)
+// ieEnsureSession reports whether a classic-interface request is signed in, and
+// renews the access token when the request arrives near or after its expiry.
+//
+// The HTML surface has no JavaScript to run the SPA refresh dance, so a
+// navigation renews in place. The trust decision is the same as the API refresh
+// endpoint: a complete cookie pair whose renewal window is still live.
+func ieEnsureSession(c echo.Context) bool {
+	cookie, err := c.Cookie(middlewares.AuthCookieName)
+	if err == nil && cookie.Value != "" {
+		if session, err := c.Cookie(middlewares.SessionCookieName); err != nil || session.Value == "" {
+			return false
+		}
+		info, ok := config.ParseAuthToken(cookie.Value)
+		if !ok {
+			return false
+		}
+		now := time.Now()
+		if info.AccessValid(now) {
+			if info.NeedsRenewal(now) {
+				renewIECookie(c, info)
+			}
+			return true
+		}
+		if info.Renewable(now) {
+			return renewIECookie(c, info)
+		}
+		return false
 	}
+	// Authorization 头留给脚本；经典界面本身只走 cookie。
 	token := c.Request().Header.Get("Authorization")
 	return token != "" && config.VerifyAuthJWT(token)
 }
 
+func renewIECookie(c echo.Context, info config.AuthTokenInfo) bool {
+	// 写操作的双提交依赖 session cookie，续期也要求这一对完整，与 API 的
+	// refresh 接口保持一致。
+	if session, err := c.Cookie(middlewares.SessionCookieName); err != nil || session.Value == "" {
+		return false
+	}
+	token, err := config.RenewAuthToken(info)
+	if err != nil {
+		return false
+	}
+	middlewares.RenewAuthCookie(c, token, info.Remember)
+	return true
+}
+
 func ieRequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if !ieAuthenticated(c) {
+		if !ieEnsureSession(c) {
 			return c.Redirect(http.StatusFound,
 				"/ie/login?next="+url.QueryEscape(c.Request().URL.RequestURI()))
 		}

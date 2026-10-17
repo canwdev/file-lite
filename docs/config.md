@@ -68,7 +68,7 @@ Empty by default means no restriction: **after login, every path the server proc
 - The startup log prints the effective scope: `file access scope: ... (allowedRoots)`, or `the whole file system` when unset.
 - The destination must be inside the scope. **The source may be outside it** — otherwise there would be no way to copy a file from elsewhere into a controlled directory, which is the main reason the setting exists.
 
-It is **not a sandbox**. The process still runs with the service account's permissions. What it stops is lateral movement after authentication: signatures last a long time and cookies persist, so a leaked token would otherwise be the whole machine. Known boundaries:
+It is **not a sandbox**. The process still runs with the service account's permissions. What it stops is lateral movement after authentication: a leaked cookie is still the whole machine while its session is alive. Known boundaries:
 
 - A symlink inside the scope that points outside it is not blocked. Canonical paths do not resolve symlinks (design decision 10). Blocking that would mean resolving every request, which both opens a TOCTOU window and makes a path that does not exist impossible to judge.
 - Access through a symlink (`/srv/files -> /mnt/pool/files`) is judged on **the symlink's own path**. With `allowedRoots: ["/srv/files"]`, `/mnt/pool/files` is out of scope. That is intentional and explainable.
@@ -78,6 +78,8 @@ It is **not a sandbox**. The process still runs with the service account's permi
 
 - `password` and `jwtToken` are secrets stored in plaintext. Do not commit `config.json` or share it.
 - The login token is kept in an HttpOnly cookie, so page scripts cannot read it and the WebSocket URL no longer carries it. Logging out asks the server to clear the cookie. Over plain HTTP the cookie still travels unencrypted — use `--with-tls` when that matters.
+- The access token expires after 15 minutes and renews itself while the app is open or used; the renewal window is 30 days and slides forward on use. A session that sits unused for 30 days asks for the password again. Changing `jwtToken` invalidates every access and renewal token immediately.
+- `Authorization: Bearer` clients cannot renew (the refresh endpoint requires the browser cookie pair and the CSRF header), so a script that uses a bearer token re-authenticates after 15 minutes.
 - **By default, after login, every path the server process can access can be read and written** (`allowedRoots` empty). Run it only on a network you trust. Use `allowedCIDRs` to limit where clients come from, or `allowedRoots` to narrow the scope.
 - With `allowSelfUpdate` on, **any logged-in user** can upload and run an arbitrary binary, or restart or stop the service. Turn it on only on a network you trust, and pair it with `allowedCIDRs` when you need to. See [ip-allowlist.md](./ip-allowlist.md).
 - Restart the process after changing `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert`.

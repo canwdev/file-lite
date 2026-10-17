@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MediaFile } from './use-media-list.ts'
+import { useMediaSessionRecovery } from '@/hooks/use-media-session-recovery'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 import { useMediaElement } from './use-media-element.ts'
 
@@ -31,6 +32,8 @@ const {
   item: () => props.item,
   active: () => props.active,
 })
+
+useMediaSessionRecovery(elRef)
 
 const isVideo = computed(() => props.item.type === 'video')
 const isAudio = computed(() => props.item.type === 'audio')

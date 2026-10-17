@@ -2,6 +2,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 import axios from 'axios'
 import Cookies from 'js-cookie'
 import { AUTH_SESSION_COOKIE_KEY } from '@/store/auth'
+import { refreshSessionOnce } from '@/utils/session-refresh'
 
 const CSRF_HEADER = 'X-File-Lite-CSRF'
 const SAFE_METHODS = new Set(['get', 'head', 'options'])
@@ -13,6 +14,8 @@ export interface ServiceRequestConfig extends AxiosRequestConfig {
   isAuth?: boolean
   isToast?: boolean
   isRawResponse?: boolean
+  /** Internal: this request has already been replayed after a renewal. */
+  __authRetried?: boolean
 }
 
 function createService(): AxiosInstance {
@@ -64,6 +67,23 @@ function createService(): AxiosInstance {
       const isToast = requestConfig?.isToast ?? true
 
       if (response?.status === 401) {
+        if (requestConfig && requestConfig.isAuth !== false && !requestConfig.__authRetried) {
+          requestConfig.__authRetried = true
+          const refreshed = await refreshSessionOnce()
+          if (refreshed === 'renewed') {
+            // The access cookie was replaced; the browser sends the new one on
+            // the retry. A 401 comes from the auth middleware before the
+            // handler runs, so replaying even an unsafe request is safe.
+            return service.request(requestConfig)
+          }
+          if (refreshed === 'unavailable') {
+            // No verdict (network / 5xx): keep the session, do not sign out.
+            if (isToast) {
+              window.$message?.error(response?.data?.message ?? message)
+            }
+            return Promise.reject(error)
+          }
+        }
         console.log('[401] session expired')
         // The server session is already gone; just drop local state.
         window.$logout?.(false)

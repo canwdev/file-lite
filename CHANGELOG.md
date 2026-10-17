@@ -2,6 +2,18 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.5.1
+
+### Features
+
+- **Session**: The access token now expires after 15 minutes and renews itself while the app is open or used, so a stolen token is short-lived without signing the user out (frontend, backend).
+- **Session lifetime**: A session that sits unused for 30 days asks for the password again; the renewal window slides on use (frontend, backend).
+- **Session upgrade**: Sessions created before 1.5.1 sign in once after the update (backend).
+
+### Fixes
+
+- **Media playback**: A video or audio element whose request is rejected after the tab was idle renews the session once and reloads at the same position instead of stopping (frontend).
+
 ## 1.5.0
 
 ### UI

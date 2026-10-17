@@ -38,6 +38,9 @@ func registerREST(api *echo.Group) {
 	// Clearing cookies needs no session: an expired token must still be able to
 	// log out. Registered outside the authenticated group on purpose.
 	api.DELETE("/session", logout)
+	// A renewal is authorized by the renewal window, not by a valid access
+	// token, so it sits outside AuthMiddleware like the two routes above.
+	api.POST("/session/refresh", refreshSession, middlewares.RefreshAuthMiddleware)
 	session := api.Group("/session", middlewares.AuthMiddleware)
 	session.GET("", sessionInfo)
 	session.POST("/tickets", createLoginTicket)
@@ -92,13 +95,13 @@ func authWithPassword(c echo.Context) error {
 		return apierr.Write(c, apierr.BadRequest(apierr.CodeBadRequest, "Bad Request"))
 	}
 
-	token, apiErr := authenticate(c, body.Password, body.Ticket)
+	token, apiErr := authenticate(c, body.Password, body.Ticket, body.Remember)
 	if apiErr != nil {
 		return apierr.Write(c, apiErr)
 	}
 
 	// The credential leaves in an HttpOnly cookie; the body carries none, so an
-	// XSS cannot read the long-lived token out of the response or storage.
+	// XSS cannot read the access token out of the response or storage.
 	if err := middlewares.SetAuthCookies(c, token, body.Remember); err != nil {
 		return apierr.Write(c, apierr.Internal(apierr.CodeInternal, "Failed"))
 	}
@@ -108,9 +111,9 @@ func authWithPassword(c echo.Context) error {
 // authenticate 校验密码或一次性票据，返回要写进 cookie 的 token。
 //
 // JSON 接口与经典 HTML 界面共用它：两边只是响应的形态不同，凭据怎么验必须只有一处。
-func authenticate(c echo.Context, password, ticket string) (string, *apierr.Error) {
+func authenticate(c echo.Context, password, ticket string, remember bool) (string, *apierr.Error) {
 	if ticket != "" {
-		token, ok := config.ConsumeAuthTicket(ticket)
+		token, ok := config.ConsumeAuthTicket(ticket, remember)
 		if !ok {
 			return "", apierr.Unauthorized("Unauthorized")
 		}
@@ -120,7 +123,7 @@ func authenticate(c echo.Context, password, ticket string) (string, *apierr.Erro
 		utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
 		return "", apierr.Unauthorized("Unauthorized")
 	}
-	token, err := config.NewAuthToken()
+	token, err := config.NewAuthToken(remember)
 	if err != nil {
 		return "", apierr.Internal(apierr.CodeInternal, "Failed")
 	}

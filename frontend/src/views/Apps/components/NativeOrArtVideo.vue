@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { nextTick, onBeforeUnmount, onMounted, ref, unref, watch } from 'vue'
+import { useMediaSessionRecovery } from '@/hooks/use-media-session-recovery'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
 import { subtitleName, subtitleToVtt } from '../video-subtitle'
@@ -29,6 +30,9 @@ const emit = defineEmits<{
 const nativeVideoRef = ref<HTMLVideoElement | null>(null)
 const vArtRef = ref<InstanceType<typeof VArtPlayer> | null>(null)
 const isNativePlayer = computed(() => localSettingsStore.value.isNativePlayer)
+/** The element the recovery hook watches; Artplayer replaces the HTML element. */
+const mediaElement = ref<HTMLVideoElement | null>(null)
+useMediaSessionRecovery(mediaElement)
 
 type ArtplayerInstance = InstanceType<typeof import('artplayer').default>
 
@@ -62,6 +66,7 @@ function pause() {
 
 function notifyMediaReady() {
   const v = getHtmlVideo()
+  mediaElement.value = v
   if (v)
     emit('mediaElementReady', v)
 }
@@ -86,8 +91,10 @@ watch(
 
 onMounted(() => {
   nextTick(() => {
-    if (isNativePlayer.value)
-      notifyMediaReady()
+    // Artplayer's `ready` event can arrive after the initial load has already
+    // failed; ask for the element once after mount too, so the media recovery
+    // hook sees the <video> even when that event is late.
+    notifyMediaReady()
   })
 })
 

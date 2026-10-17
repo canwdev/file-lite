@@ -118,7 +118,18 @@ const (
 	CSRFTokenHeader   = "X-File-Lite-CSRF"
 )
 
+// authTokenInfoKey stores the credential RefreshAuthMiddleware validated, so
+// the handler does not have to parse the cookie a second time.
+const authTokenInfoKey = "file_lite.auth_token_info"
+
 const authSessionCookieMaxAge = 365 * 24 * 60 * 60
+
+func authCookieMaxAge(remember bool) int {
+	if remember {
+		return authSessionCookieMaxAge
+	}
+	return 0
+}
 
 // SetAuthCookies issues the HttpOnly auth token together with the readable
 // session value. remember picks a persistent cookie over a session cookie.
@@ -127,10 +138,7 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 	if err != nil {
 		return err
 	}
-	maxAge := 0
-	if remember {
-		maxAge = authSessionCookieMaxAge
-	}
+	maxAge := authCookieMaxAge(remember)
 	secure := config.IsHTTPS()
 
 	c.SetCookie(&http.Cookie{
@@ -152,6 +160,28 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 		MaxAge:   maxAge,
 	})
 	return nil
+}
+
+// RenewAuthCookie replaces only the HttpOnly auth token. The readable session
+// cookie is deliberately untouched: it is the CSRF value echoed by requests
+// that are already in flight, and rotating it would turn those into 403s.
+func RenewAuthCookie(c echo.Context, token string, remember bool) {
+	c.SetCookie(&http.Cookie{
+		Name:     AuthCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   config.IsHTTPS(),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   authCookieMaxAge(remember),
+	})
+}
+
+// AuthTokenInfoFromContext returns the credential that RefreshAuthMiddleware
+// validated for this request.
+func AuthTokenInfoFromContext(c echo.Context) (config.AuthTokenInfo, bool) {
+	info, ok := c.Get(authTokenInfoKey).(config.AuthTokenInfo)
+	return info, ok
 }
 
 // ClearAuthCookies expires both cookies. The HttpOnly token can only be removed
@@ -219,7 +249,10 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 				}
 			}
 		}
-		if token != "" && config.VerifyAuthJWT(token) {
+
+		info, tokenOK := config.ParseAuthToken(token)
+		now := time.Now()
+		if tokenOK && info.AccessValid(now) {
 			// Cookie-authenticated writes must pass the double-submit check; an
 			// explicit bearer token (curl / scripts) is exempt because a browser
 			// cannot be tricked into sending one.
@@ -229,13 +262,67 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 					return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 				}
 			}
+			// Only a cookie-authenticated request renews: a bearer token belongs
+			// to a script, and setting a browser cookie on its response would be
+			// surprising. The request is already authorized, so renewing here is
+			// invisible to the caller.
+			if fromHeader == "" && info.NeedsRenewal(now) {
+				if fresh, err := config.RenewAuthToken(info); err == nil {
+					RenewAuthCookie(c, fresh, info.Remember)
+				}
+			}
 			authLimiter.recordSuccess(ip)
 			return next(c)
 		}
-		authLimiter.recordFailure(ip)
-		// Drop cookies the server has already rejected so the browser stops
-		// replaying a dead credential on every request.
-		ClearAuthCookies(c)
+
+		// The access window is over but the renewal window is not: keep the
+		// cookie pair so the client can exchange it at POST /api/session/refresh.
+		// Clearing it here would destroy the only credential that can recover
+		// the session.
+		if fromHeader == "" && tokenOK && info.Renewable(now) {
+			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		}
+
+		// A dead credential is dropped so the browser stops replaying it. Token
+		// failures deliberately do not feed authLimiter: that ban exists for
+		// password guessing, and several parallel 401s after an idle period
+		// would otherwise lock the user out.
+		if fromHeader == "" {
+			ClearAuthCookies(c)
+		}
 		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+	}
+}
+
+// RefreshAuthMiddleware protects POST /api/session/refresh. It does not use
+// AuthMiddleware on purpose: the access window may already be over. A renewal
+// is authorized by the renewal window, the cookie pair and the CSRF header,
+// which means a leaked bearer token cannot extend itself.
+func RefreshAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if c.Request().Header.Get("Authorization") != "" {
+			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		}
+		authCookie, err := c.Cookie(AuthCookieName)
+		if err != nil || authCookie.Value == "" {
+			ClearAuthCookies(c)
+			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		}
+		session, err := c.Cookie(SessionCookieName)
+		if err != nil || session.Value == "" {
+			ClearAuthCookies(c)
+			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		}
+		if !config.IsExplicitDevMode() && c.Request().Header.Get(CSRFTokenHeader) != session.Value {
+			return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
+		}
+		info, ok := config.ParseAuthToken(authCookie.Value)
+		now := time.Now()
+		if !ok || !info.Renewable(now) {
+			ClearAuthCookies(c)
+			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		}
+		c.Set(authTokenInfoKey, info)
+		return next(c)
 	}
 }

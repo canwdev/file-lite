@@ -4,6 +4,7 @@ import { logout } from '@/api/session'
 import { resetSettingsCache } from '@/api/settings'
 import { useGlobalLanguage } from '@/hooks/use-global-language.ts'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
+import { useSessionAutoRefresh } from '@/hooks/use-session-auto-refresh.ts'
 import { confirmLeaveIfNeeded } from '@/router'
 import { clearAuthSession } from '@/store/auth'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
@@ -15,6 +16,7 @@ const router = useRouter()
 
 useGlobalTheme()
 useGlobalLanguage()
+useSessionAutoRefresh()
 
 // `clearServerSession` is false when the server already refused the request (a
 // 401): nothing is left to clear, so skip the round trip. Otherwise the

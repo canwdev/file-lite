@@ -5,8 +5,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"file-lite-go/apierr"
 	"file-lite-go/config"
 	"file-lite-go/fileops"
+	"file-lite-go/middlewares"
 	"file-lite-go/sevenzip"
 	"file-lite-go/thumbnails"
 	"file-lite-go/utils"
@@ -25,6 +27,24 @@ func healthCheck(c echo.Context) error {
 // 未登录时认证中间件已经回了 401，因此这里不再带一个恒为 true 的 authenticated 字段。
 func sessionInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, sessionPayload())
+}
+
+// refreshSession exchanges a live renewal window for a fresh access token. The
+// refresh middleware has already checked the cookie pair, the CSRF header and
+// the renewal deadline; this only mints the replacement and sets the auth
+// cookie (the readable session cookie stays untouched).
+func refreshSession(c echo.Context) error {
+	info, ok := middlewares.AuthTokenInfoFromContext(c)
+	if !ok {
+		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+	}
+	token, err := config.RenewAuthToken(info)
+	if err != nil {
+		return apierr.Write(c, apierr.Internal(apierr.CodeInternal, "Failed"))
+	}
+	middlewares.RenewAuthCookie(c, token, info.Remember)
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.NoContent(http.StatusNoContent)
 }
 
 // sessionPayload 是登录后前端一次性需要的东西：能力开关 + 访问范围。

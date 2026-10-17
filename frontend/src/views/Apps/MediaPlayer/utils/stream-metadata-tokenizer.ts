@@ -7,6 +7,7 @@ import type {
 } from '@tokenizer/range'
 import type { IRandomAccessTokenizer } from 'strtok3'
 import { parseContentRange, tokenizer } from '@tokenizer/range'
+import { fetchWithSessionRetry } from '@/utils/session-refresh'
 
 const DEFAULT_HTTP: HttpClientConfig = {
   resolveUrl: false,
@@ -85,7 +86,7 @@ class CookieRangeHttpClient implements IRangeRequestClient {
   }
 
   async getHeadInfo(): Promise<IHeadRequestInfo> {
-    const res = await fetch(this.url, {
+    const res = await fetchWithSessionRetry(this.url, {
       method: 'HEAD',
       signal: this.abortController.signal,
       credentials: 'include',
@@ -103,7 +104,7 @@ class CookieRangeHttpClient implements IRangeRequestClient {
       // is not ISO-8859-1 and makes Headers.set throw.
       headers.set('Range', `bytes=${range[0]}-${range[1]}`)
     }
-    const res = await fetch(this.resolvedUrl || this.url, {
+    const res = await fetchWithSessionRetry(this.resolvedUrl || this.url, {
       method,
       headers,
       signal: this.abortController.signal,

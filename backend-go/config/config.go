@@ -18,6 +18,27 @@ import (
 
 const authJWTSubject = "file-lite-user"
 const authJWTType = "access"
+
+const (
+	// authAccessTTL is how long an issued JWT can authenticate API requests. It
+	// is short on purpose: a leaked bearer token, or a token copied out of a log,
+	// must not stay usable for a year.
+	authAccessTTL = 15 * time.Minute
+	// authRenewWindow is how long after its last use a session may be renewed.
+	// It slides forward on every renewal.
+	authRenewWindow = 30 * 24 * time.Hour
+	// authRenewBefore is the point at which an authenticated request replaces
+	// the cookie. It matches the frontend heartbeat, so an idle tab is covered
+	// by its own timer while an active one renews on use.
+	authRenewBefore = 5 * time.Minute
+	// authMaxSession caps a session that is renewed continuously. Zero disables
+	// the cap, which keeps the previous "stay signed in while you use it"
+	// behaviour while the access token itself stays short.
+	authMaxSession = 0
+	// authTokenVer rejects tokens minted before the access/renewal split.
+	authTokenVer = 2
+)
+
 const authTicketTTL = 2 * time.Minute
 const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const authTicketLength = 8
@@ -66,7 +87,7 @@ type Cfg struct {
 }
 
 const PkgName = "file-lite-go"
-const Version = "1.5.0"
+const Version = "1.5.1"
 
 var cfg Cfg
 var dataBaseDir string
@@ -136,13 +157,13 @@ func LoadConfig(allowCreate bool) error {
 	}
 
 	def := Cfg{
-		Host:        "",
-		Port:        "",
-		Password:    "",
-		JWTToken:    "",
-		LogLevel:    LogLevelWarn,
-		SSLKey:      "",
-		SSLCert:     "",
+		Host:     "",
+		Port:     "",
+		Password: "",
+		JWTToken: "",
+		LogLevel: LogLevelWarn,
+		SSLKey:   "",
+		SSLCert:  "",
 	}
 	fp := filepath.Join(dataBaseDir, "config.json")
 	configFilePath = fp
@@ -269,8 +290,129 @@ func generatePassword() (string, error) {
 	return fmt.Sprintf("%x", b), nil
 }
 
-func NewAuthToken() (string, error) {
-	return createAuthJWT(jwtToken)
+// authClaims is the JWT payload. exp is the short access deadline; rexp is the
+// sliding renewal deadline. liat records the login time so an absolute session
+// cap can be enabled later without changing the token format again.
+type authClaims struct {
+	Subject   string `json:"sub"`
+	Type      string `json:"typ"`
+	Version   int    `json:"ver"`
+	IssuedAt  int64  `json:"iat"`
+	ExpiresAt int64  `json:"exp"`
+	RenewAt   int64  `json:"rexp"`
+	LoginAt   int64  `json:"liat"`
+	Remember  bool   `json:"rem"`
+}
+
+// Valid exists to satisfy jwt.Claims. Time windows are checked by the callers:
+// the renewal endpoint deliberately accepts a token whose access window is over.
+func (authClaims) Valid() error { return nil }
+
+// AuthTokenInfo is the decoded, signature-checked view of a token.
+type AuthTokenInfo struct {
+	ExpiresAt  time.Time
+	RenewUntil time.Time
+	LoginAt    time.Time
+	Remember   bool
+}
+
+// AccessValid reports whether the token may authenticate an API request now.
+func (i AuthTokenInfo) AccessValid(now time.Time) bool { return now.Before(i.ExpiresAt) }
+
+// Renewable reports whether the token may still be exchanged for a fresh one.
+func (i AuthTokenInfo) Renewable(now time.Time) bool { return now.Before(i.RenewUntil) }
+
+// NeedsRenewal reports whether the access window is close enough to the end
+// that an authenticated request should replace the cookie now.
+func (i AuthTokenInfo) NeedsRenewal(now time.Time) bool {
+	return !now.Add(authRenewBefore).Before(i.ExpiresAt)
+}
+
+// NewAuthToken issues the token written into the auth cookie at login.
+func NewAuthToken(remember bool) (string, error) {
+	now := time.Now()
+	return issueAuthJWT(jwtToken, now, now, remember)
+}
+
+// NewAuthTokenAt mints a token as if it had been issued at issuedAt. Tests use
+// it to create near-expiry and expired tokens without waiting; production code
+// uses NewAuthToken.
+func NewAuthTokenAt(issuedAt time.Time, remember bool) (string, error) {
+	return issueAuthJWT(jwtToken, issuedAt, issuedAt, remember)
+}
+
+// RenewAuthToken issues a fresh access token for a live renewal window. It
+// preserves the original login time and the remember flag, so the optional
+// absolute cap and the cookie's persistence stay stable across renewals.
+func RenewAuthToken(info AuthTokenInfo) (string, error) {
+	now := time.Now()
+	if !info.Renewable(now) {
+		return "", fmt.Errorf("auth token renewal window has expired")
+	}
+	return issueAuthJWT(jwtToken, now, info.LoginAt, info.Remember)
+}
+
+func issueAuthJWT(secret string, now, loginAt time.Time, remember bool) (string, error) {
+	renewAt := now.Add(authRenewWindow)
+	if authMaxSession > 0 {
+		if max := loginAt.Add(authMaxSession); max.Before(renewAt) {
+			renewAt = max
+		}
+	}
+	if !renewAt.After(now) {
+		return "", fmt.Errorf("auth session has reached its maximum lifetime")
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, authClaims{
+		Subject:   authJWTSubject,
+		Type:      authJWTType,
+		Version:   authTokenVer,
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(authAccessTTL).Unix(),
+		RenewAt:   renewAt.Unix(),
+		LoginAt:   loginAt.Unix(),
+		Remember:  remember,
+	})
+	signed, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", fmt.Errorf("sign auth token: %w", err)
+	}
+	return signed, nil
+}
+
+// ParseAuthToken verifies the signature and shape without enforcing the access
+// deadline, so the renewal endpoint can accept a token whose access window is
+// over but whose renewal window is not.
+func ParseAuthToken(tokenString string) (AuthTokenInfo, bool) {
+	parser := jwt.Parser{
+		ValidMethods:         []string{jwt.SigningMethodHS256.Alg()},
+		SkipClaimsValidation: true,
+	}
+	token, err := parser.ParseWithClaims(tokenString, &authClaims{}, func(*jwt.Token) (interface{}, error) {
+		return []byte(jwtToken), nil
+	})
+	if err != nil || token == nil || !token.Valid {
+		return AuthTokenInfo{}, false
+	}
+	claims, ok := token.Claims.(*authClaims)
+	if !ok || claims.Version != authTokenVer ||
+		claims.Subject != authJWTSubject || claims.Type != authJWTType ||
+		claims.IssuedAt == 0 || claims.ExpiresAt == 0 || claims.RenewAt == 0 || claims.LoginAt == 0 {
+		return AuthTokenInfo{}, false
+	}
+	return AuthTokenInfo{
+		ExpiresAt:  time.Unix(claims.ExpiresAt, 0),
+		RenewUntil: time.Unix(claims.RenewAt, 0),
+		LoginAt:    time.Unix(claims.LoginAt, 0),
+		Remember:   claims.Remember,
+	}, true
+}
+
+// VerifyAuthJWT reports whether the token may authenticate an API request now.
+// The WebSocket handshake and the classic HTML surface only need a yes/no
+// answer; the API middleware uses ParseAuthToken so it can also renew.
+func VerifyAuthJWT(tokenString string) bool {
+	info, ok := ParseAuthToken(tokenString)
+	return ok && info.AccessValid(time.Now())
 }
 
 func NewAuthTicket() (AuthTicketInfo, error) {
@@ -337,7 +479,7 @@ func isWeakAuthTicket(ticket string) bool {
 // printed link before it expired. Burning the ticket before the token is minted
 // is deliberate: if signing somehow fails, the credential is gone rather than
 // left live.
-func ConsumeAuthTicket(ticket string) (string, bool) {
+func ConsumeAuthTicket(ticket string, remember bool) (string, bool) {
 	authTicketMu.Lock()
 	storedTicket := currentAuthTicket
 	if storedTicket == nil || storedTicket.value != ticket || storedTicket.expiresAt.Before(time.Now()) {
@@ -348,45 +490,11 @@ func ConsumeAuthTicket(ticket string) (string, bool) {
 	authTicketMu.Unlock()
 
 	// Minted outside the lock: NewAuthToken only reads the JWT secret.
-	token, err := NewAuthToken()
+	token, err := NewAuthToken(remember)
 	if err != nil {
 		return "", false
 	}
 	return token, true
-}
-
-func createAuthJWT(secret string) (string, error) {
-	now := time.Now()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": authJWTSubject,
-		"typ": authJWTType,
-		"iat": now.Unix(),
-		"exp": now.AddDate(1, 0, 0).Unix(),
-	})
-	signed, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return "", fmt.Errorf("sign auth token: %w", err)
-	}
-	return signed, nil
-}
-
-func VerifyAuthJWT(tokenString string) bool {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if token.Method != jwt.SigningMethodHS256 {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(jwtToken), nil
-	})
-	if err != nil || token == nil || !token.Valid {
-		return false
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return false
-	}
-	sub, subOk := claims["sub"].(string)
-	typ, typOk := claims["typ"].(string)
-	return subOk && typOk && sub == authJWTSubject && typ == authJWTType
 }
 
 func Port() int {

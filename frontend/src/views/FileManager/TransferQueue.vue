@@ -16,6 +16,7 @@ import {
 } from '@/store/tasks'
 import { bytesToSize, downloadUrl } from '@/utils'
 import { fs } from '@/utils/fs'
+import { fetchWithSessionRetry } from '@/utils/session-refresh'
 import { TaskQueue } from '@/utils/task-queue'
 import { showInputPrompt } from './ExplorerUI/input-prompt'
 import { registerTransferQueue, unregisterTransferQueue } from './ExplorerUI/transfer-queue-registry'
@@ -238,7 +239,8 @@ async function handleDownload(data: ITransferItem, abortController: AbortControl
   // 文件下载逻辑：用 pipeTo 连接网络读与磁盘写，由流标准实现背压，避免读远快于写导致
   // 大量缓冲在浏览器内、到 100% 后 close() 才集中刷盘。
   // 同源 fetch 默认带上 HttpOnly 鉴权 cookie，不再手写 Authorization。
-  const response = await fetch(fs.url(path), {
+  // 息屏超过 access TTL 后第一次下载可能是 401：续期一次再重放。
+  const response = await fetchWithSessionRetry(fs.url(path), {
     signal: abortController.signal,
   })
 
