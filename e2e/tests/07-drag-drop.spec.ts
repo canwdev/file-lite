@@ -114,7 +114,7 @@ test.describe('拖拽', () => {
     // 把 archive 加入收藏，再回到 inbox 拖文件上去
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
-    await page.locator('button[title^="Toggle Star"]').click()
+    await page.locator('button[title^="Toggle Favorite"]').click()
     await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
@@ -126,7 +126,7 @@ test.describe('拖拽', () => {
 
     // 收藏是服务端设置，清理掉免得影响其它用例
     await page.locator('.star-list__item').click({ button: 'right' })
-    await page.locator('.vgo-context-menu__item', { hasText: 'UnStar' }).click()
+    await page.locator('.vgo-context-menu__item:visible').filter({ hasText: /^Remove from Favorites$/ }).last().click()
     await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 
@@ -156,7 +156,7 @@ test.describe('拖拽', () => {
         { label: 'Archive', path: `${dragArchiveDir}/` },
       ],
     }))
-    await page.locator('button[title="Reload drives"]').click()
+    await page.locator('.explorer-sidebar .sidebar-list__header button').click()
     const archiveDrive = page.locator('.drive-list__item', { hasText: 'Archive' })
     await expect(archiveDrive).toBeVisible()
 
@@ -202,7 +202,7 @@ test.describe('拖拽', () => {
     await clearStars(page)
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
-    await page.locator('button[title^="Toggle Star"]').click()
+    await page.locator('button[title^="Toggle Favorite"]').click()
     await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
@@ -214,7 +214,7 @@ test.describe('拖拽', () => {
     await expect.poll(() => readTextIfExists(path.join(filesDir, 'os-drive.txt'))).toBe('from-drive')
 
     await page.locator('.star-list__item').click({ button: 'right' })
-    await page.locator('.vgo-context-menu__item', { hasText: 'UnStar' }).click()
+    await page.locator('.vgo-context-menu__item:visible').filter({ hasText: /^Remove from Favorites$/ }).last().click()
     await expect(page.locator('.star-list__item')).toHaveCount(0)
   })
 
@@ -240,11 +240,11 @@ test.describe('拖拽', () => {
     // 先收藏 archive 再收藏 inbox，初始顺序为 archive, inbox
     await openFolder(page, 'drag')
     await openFolder(page, 'archive')
-    await page.locator('button[title^="Toggle Star"]').click()
+    await page.locator('button[title^="Toggle Favorite"]').click()
     await expect(page.locator('.star-list__item')).toHaveCount(1)
     await goBack(page)
     await openFolder(page, 'inbox')
-    await page.locator('button[title^="Toggle Star"]').click()
+    await page.locator('button[title^="Toggle Favorite"]').click()
     await expect(page.locator('.star-list__item')).toHaveCount(2)
     await expect.poll(() => starOrder(page)).toBe('archive,inbox')
 

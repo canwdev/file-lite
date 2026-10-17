@@ -248,7 +248,7 @@ test.describe('路径与挂载点', () => {
       }),
     }))
 
-    await page.locator('button[title="Reload drives"]').click()
+    await page.locator('.explorer-sidebar .sidebar-list__header button').click()
 
     const locked = page.locator('.drive-list__item', { hasText: 'BitLocker' })
     await expect(locked).toBeVisible()

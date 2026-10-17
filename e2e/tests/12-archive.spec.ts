@@ -28,7 +28,7 @@ test.describe('7-Zip', () => {
     if (!await openSevenZip(page, 'plain.txt'))
       test.skip()
 
-    await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
+    await page.locator('.vgo-context-menu__label', { hasText: 'Compress…' }).click()
     const box = page.locator('.el-message-box')
     const name = box.locator('.el-input__inner').first()
     await expect(name).toHaveValue('plain')
@@ -46,7 +46,7 @@ test.describe('7-Zip', () => {
     fs.rmSync(path.join(emptyDir, 'plain.txt'))
     if (!await openSevenZip(page, 'plain.zip'))
       test.skip()
-    await page.locator('.vgo-context-menu__label', { hasText: 'Extract...' }).click()
+    await page.locator('.vgo-context-menu__label', { hasText: 'Extract…' }).click()
     await page.locator('.el-message-box').getByRole('button', { name: 'Extract' }).click()
 
     await expect.poll(() => readTextIfExists(path.join(emptyDir, 'plain.txt'))).toBe('hello-archive')
@@ -59,7 +59,7 @@ test.describe('7-Zip', () => {
     if (!await openSevenZip(page, 'secret.txt'))
       test.skip()
 
-    await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
+    await page.locator('.vgo-context-menu__label', { hasText: 'Compress…' }).click()
     const box = page.locator('.el-message-box')
     await expect(box.locator('.el-input__inner').first()).toHaveValue('secret')
     await box.locator('input[type="password"]').fill('s3cret')
@@ -69,7 +69,7 @@ test.describe('7-Zip', () => {
     fs.rmSync(path.join(emptyDir, 'secret.txt'))
     if (!await openSevenZip(page, 'secret.zip'))
       test.skip()
-    await page.locator('.vgo-context-menu__label', { hasText: 'Extract...' }).click()
+    await page.locator('.vgo-context-menu__label', { hasText: 'Extract…' }).click()
     const extractBox = page.locator('.el-message-box')
     await extractBox.locator('input[type="password"]').fill('nope')
     await extractBox.getByRole('button', { name: 'Extract' }).click()
@@ -87,7 +87,7 @@ test.describe('7-Zip', () => {
     if (!await openSevenZip(page, 'b.txt'))
       test.skip()
 
-    await page.locator('.vgo-context-menu__label', { hasText: 'Compress...' }).click()
+    await page.locator('.vgo-context-menu__label', { hasText: 'Compress…' }).click()
     const box = page.locator('.el-message-box')
     const name = box.locator('.el-input__inner').first()
     await expect(name).toHaveValue(/^empty-\d{12}$/)
@@ -107,6 +107,6 @@ async function openSevenZip(page: import('@playwright/test').Page, name: string)
   if (await item.count() === 0)
     return false
   await item.hover()
-  await expect(page.locator('.vgo-context-menu__label', { hasText: 'Compress...' })).toBeVisible()
+  await expect(page.locator('.vgo-context-menu__label', { hasText: 'Compress…' })).toBeVisible()
   return true
 }

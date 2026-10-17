@@ -9,7 +9,7 @@ test.describe('create name', () => {
     await login(page)
     await openFolder(page, 'empty')
 
-    await page.locator('.explorer-main:visible button[title="Create Document"]').click()
+    await page.locator('.explorer-main:visible button[title="Create File"]').click()
     const fileBox = page.locator('.el-message-box')
     const fileName = fileBox.locator('input')
     await expect(fileName).toBeFocused()

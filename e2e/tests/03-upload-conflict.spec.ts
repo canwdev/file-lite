@@ -37,7 +37,7 @@ test.describe('上传同名冲突', () => {
 
     await screenshot(page, '06-upload-conflict')
 
-    await conflictDialog(page).getByText('Replace the file in the destination').click()
+    await conflictDialog(page).getByText('Replace', { exact: true }).click()
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 
@@ -52,7 +52,7 @@ test.describe('上传同名冲突', () => {
     await uploadFile(page, path.join(uploadDir, 'a.txt'))
 
     await expect(conflictDialog(page)).toBeVisible()
-    await conflictDialog(page).getByText('Skip this file').click()
+    await conflictDialog(page).getByText('Skip', { exact: true }).click()
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 

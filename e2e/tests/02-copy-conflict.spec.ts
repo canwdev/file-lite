@@ -59,7 +59,7 @@ test.describe('复制同名冲突', () => {
   test('选择 Replace 会用源文件替换目标', async ({ page }) => {
     await startConflictCopy(page)
 
-    await conflictDialog(page).getByText('Replace the file in the destination').click()
+    await conflictDialog(page).getByText('Replace', { exact: true }).click()
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 
@@ -70,7 +70,7 @@ test.describe('复制同名冲突', () => {
   test('选择 Keep both 会改名写入，两边都保留', async ({ page }) => {
     await startConflictCopy(page)
 
-    await conflictDialog(page).getByText('Keep both files').click()
+    await conflictDialog(page).getByText('Keep both', { exact: true }).click()
     await conflictDialog(page).getByRole('button', { name: 'Continue' }).click()
     await expect(conflictDialog(page)).toBeHidden()
 
