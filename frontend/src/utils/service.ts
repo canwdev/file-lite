@@ -16,6 +16,8 @@ export interface ServiceRequestConfig extends AxiosRequestConfig {
   isRawResponse?: boolean
   /** Internal: this request has already been replayed after a renewal. */
   __authRetried?: boolean
+  /** Internal: a session probe that must not trigger the global sign-out. */
+  isSessionProbe?: boolean
 }
 
 function createService(): AxiosInstance {
@@ -65,6 +67,7 @@ function createService(): AxiosInstance {
       const { response } = error || {}
       const requestConfig = response?.config as ServiceRequestConfig | undefined
       const isToast = requestConfig?.isToast ?? true
+      const isSessionProbe = requestConfig?.isSessionProbe === true
 
       if (response?.status === 401) {
         if (requestConfig && requestConfig.isAuth !== false && !requestConfig.__authRetried) {
@@ -83,6 +86,11 @@ function createService(): AxiosInstance {
             }
             return Promise.reject(error)
           }
+        }
+        // A ticket-ignore probe lets its caller fall back to redeeming the
+        // ticket; it must not clear the local state.
+        if (isSessionProbe) {
+          return Promise.reject(error)
         }
         console.log('[401] session expired')
         // The server session is already gone; just drop local state.

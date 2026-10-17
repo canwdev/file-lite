@@ -4,15 +4,29 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ## 1.5.1
 
+### UI
+
+- **Toolbar**: The eye button that toggled hidden files is now Properties, which opens the Properties window for the current selection; Ctrl+H still toggles hidden files (frontend).
+- **Settings**: The Data section is now File Management and holds Show hidden files, Show folders first and Disable preview (frontend).
+- **Fullscreen**: The global menu no longer toggles browser fullscreen; every app window has a fullscreen button in its title bar that fills the screen with that window's content, and Esc leaves it (frontend).
+- **Fonts**: The interface uses the system UI font stack instead of Inter/Avenir (frontend).
+
 ### Features
 
 - **Session**: The access token now expires after 15 minutes and renews itself while the app is open or used, so a stolen token is short-lived without signing the user out (frontend, backend).
 - **Session lifetime**: A session that sits unused for 30 days asks for the password again; the renewal window slides on use (frontend, backend).
 - **Session upgrade**: Sessions created before 1.5.1 sign in once after the update (backend).
+- **Ticket tiers**: The IP Chooser can issue a login ticket that lasts 15 minutes, 1 hour, 8 hours, or 24 hours, or the persistent renewable session (frontend, backend).
+- **Temporary sessions**: A fixed-lifetime ticket logs the device out when it expires, cannot renew, and cannot mint further tickets; the terminal's printed ticket keeps the persistent behaviour (frontend, backend).
+- **Ticket links**: A browser that is already signed in ignores a ticket link instead of replacing its current session or tier (frontend, backend).
+- **IP Chooser**: The page no longer shows a WebSocket disconnected notice, because it never opens a socket (frontend).
+- **Login**: Remember login status is unchecked by default; ticket links remain persistent (frontend, backend).
 
 ### Fixes
 
 - **Media playback**: A video or audio element whose request is rejected after the tab was idle renews the session once and reloads at the same position instead of stopping (frontend).
+- **Column resize**: The divider between two file-table column headers can be grabbed on both sides, and it highlights on hover; the drag area no longer stops at the header cell's edge (frontend).
+- **Translations**: A string a locale has not translated yet falls back to English instead of showing the raw key, and the Chinese login validity period label is back (frontend).
 
 ## 1.5.0
 

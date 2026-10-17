@@ -198,3 +198,166 @@ func TestRefreshAuthMiddleware(t *testing.T) {
 		t.Fatalf("失效 token 的 refresh = %d，期望 401", deadRes.Code)
 	}
 }
+
+func TestAuthMiddlewareDoesNotRenewFixedTier(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	// Issued 14 minutes ago for the 15-minute tier: one minute left, well
+	// inside the renewal threshold, but CanRenew is false.
+	token, err := config.NewAuthTokenAtForPolicy(
+		time.Now().Add(-14*time.Minute),
+		true,
+		config.PolicyForTicketTier(config.TicketTier15m),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/private", token, "sess", false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Header().Values("Set-Cookie")) != 0 {
+		t.Fatalf("a fixed tier must not be renewed: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestAuthMiddlewareClearsExpiredFixedTier(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAtForPolicy(
+		time.Now().Add(-16*time.Minute),
+		true,
+		config.PolicyForTicketTier(config.TicketTier15m),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/private", token, "sess", false)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	line, ok := findSetCookie(rec, AuthCookieName)
+	if !ok || !strings.Contains(line, "Max-Age=0") {
+		t.Fatalf("an expired fixed token must be cleared: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestRefreshAuthMiddlewareAcceptsValidFixedTier(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	valid, err := config.NewAuthTokenAtForPolicy(
+		time.Now(),
+		true,
+		config.PolicyForTicketTier(config.TicketTier1h),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The middleware lets a valid fixed token reach the handler; the handler
+	// itself answers 204 without setting a cookie (covered in routes tests).
+	rec := authCall(e, http.MethodPost, "/refresh", valid, "sess", true)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("valid fixed refresh = %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Header().Values("Set-Cookie")) != 0 {
+		t.Fatalf("valid fixed refresh must not set cookies: %v", rec.Header().Values("Set-Cookie"))
+	}
+
+	expired, err := config.NewAuthTokenAtForPolicy(
+		time.Now().Add(-2*time.Hour),
+		true,
+		config.PolicyForTicketTier(config.TicketTier1h),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := authCall(e, http.MethodPost, "/refresh", expired, "sess", true)
+	if dead.Code != http.StatusUnauthorized {
+		t.Fatalf("expired fixed refresh = %d, want 401", dead.Code)
+	}
+}
+
+func TestSetAuthCookiesCapsFixedTierAtTokenExpiry(t *testing.T) {
+	e := echo.New()
+	token, err := config.NewAuthTokenAtForPolicy(
+		time.Now(),
+		true,
+		config.PolicyForTicketTier(config.TicketTier1h),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := SetAuthCookies(c, token, true); err != nil {
+		t.Fatal(err)
+	}
+	cookies := rec.Result().Cookies()
+	var authCookie *http.Cookie
+	for _, cookie := range cookies {
+		if cookie.Name == AuthCookieName {
+			authCookie = cookie
+		}
+	}
+	if authCookie == nil {
+		t.Fatal("auth cookie was not set")
+	}
+	// The one-hour token must not leave the 365-day remember cookie behind.
+	if authCookie.MaxAge < 3000 || authCookie.MaxAge > 3601 {
+		t.Fatalf("fixed-tier auth cookie MaxAge = %d, want about 3600", authCookie.MaxAge)
+	}
+}
+
+func TestHasUsableSession(t *testing.T) {
+	e := echo.New()
+	now := time.Now()
+	fixedValid, err := config.NewAuthTokenAtForPolicy(now, true, config.PolicyForTicketTier(config.TicketTier1h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixedExpired, err := config.NewAuthTokenAtForPolicy(now.Add(-2*time.Hour), true, config.PolicyForTicketTier(config.TicketTier1h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewable, err := config.NewAuthTokenAt(now.Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead, err := config.NewAuthTokenAt(now.Add(-40*24*time.Hour), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name    string
+		token   string
+		session string
+		want    bool
+	}{
+		{"fixed valid", fixedValid, "sess", true},
+		{"fixed expired", fixedExpired, "sess", false},
+		{"renewable access expired", renewable, "sess", true},
+		{"dead", dead, "sess", false},
+		{"no session cookie", fixedValid, "", false},
+		{"no auth cookie", "", "sess", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if tc.token != "" {
+				req.AddCookie(&http.Cookie{Name: AuthCookieName, Value: tc.token})
+			}
+			if tc.session != "" {
+				req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: tc.session})
+			}
+			c := e.NewContext(req, httptest.NewRecorder())
+			if got := HasUsableSession(c); got != tc.want {
+				t.Fatalf("HasUsableSession = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

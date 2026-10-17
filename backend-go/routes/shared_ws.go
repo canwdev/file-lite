@@ -119,7 +119,8 @@ func handleSharedWebSocket(c echo.Context) error {
 	if c.Request().URL.Path != sharedWSPath {
 		return c.NoContent(http.StatusNotFound)
 	}
-	if !isSharedWSAuthenticated(c) {
+	info, authed := sharedWSAuthInfo(c)
+	if !authed {
 		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
 	}
 
@@ -149,6 +150,15 @@ func handleSharedWebSocket(c echo.Context) error {
 	sharedWSRegisterClient(client)
 	defer sharedWSUnregisterClient(client)
 	defer client.close()
+
+	// A fixed ticket tier must not keep a push channel alive after its token
+	// expires; renewable sessions keep the connection across access renewals.
+	if !info.CanRenew {
+		if delay := time.Until(info.ExpiresAt); delay > 0 {
+			closeTimer := time.AfterFunc(delay, client.close)
+			defer closeTimer.Stop()
+		}
+	}
 
 	// 心跳：读超时由 pong 续期，半死连接会被清理，连接计数随之释放
 	conn.SetReadLimit(sharedWSMaxMessageBytes)
@@ -267,7 +277,7 @@ func releaseSharedWSIPConnection(ip string) {
 	sharedWSIPState.counts[ip] = current - 1
 }
 
-func isSharedWSAuthenticated(c echo.Context) bool {
+func sharedWSAuthInfo(c echo.Context) (config.AuthTokenInfo, bool) {
 	// The browser sends the HttpOnly auth cookie on the same-origin handshake.
 	// A bearer header stays supported for non-browser clients; the token is no
 	// longer read from the query string, where it would leak into logs.
@@ -277,7 +287,14 @@ func isSharedWSAuthenticated(c echo.Context) bool {
 			token = cookie.Value
 		}
 	}
-	return token != "" && config.VerifyAuthJWT(token)
+	if token == "" {
+		return config.AuthTokenInfo{}, false
+	}
+	info, ok := config.ParseAuthToken(token)
+	if !ok || !info.AccessValid(time.Now()) {
+		return config.AuthTokenInfo{}, false
+	}
+	return info, true
 }
 
 func isSharedWSOriginAllowed(r *http.Request) bool {

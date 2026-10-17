@@ -82,8 +82,8 @@ const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, u
 }
 const loadingLocales = new Map<AppLocale, Promise<void>>()
 
-/** 加载语言包；同一个语言只会真正下载一次。 */
-export function loadLocaleMessages(locale: AppLocale): Promise<void> {
+/** Download and register one locale bundle; a locale is fetched only once. */
+function loadLocaleBundle(locale: AppLocale): Promise<void> {
   const running = loadingLocales.get(locale)
   if (running) {
     return running
@@ -95,7 +95,21 @@ export function loadLocaleMessages(locale: AppLocale): Promise<void> {
   return task
 }
 
-/** 启动时先把当前语言的包加载好，首屏才不会显示 key。 */
+/**
+ * Load a locale; a locale is fetched only once.
+ *
+ * A non-default locale also registers `fallbackLocale` (en-US): vue-i18n looks
+ * for fallback messages only among locales it already has. With zh-CN active
+ * and en-US never registered, an untranslated key rendered as the raw key
+ * instead of falling back to English.
+ */
+export async function loadLocaleMessages(locale: AppLocale): Promise<void> {
+  await (locale === DEFAULT_LOCALE
+    ? loadLocaleBundle(DEFAULT_LOCALE)
+    : Promise.all([loadLocaleBundle(DEFAULT_LOCALE), loadLocaleBundle(locale)]))
+}
+
+/** Load the active locale and its en-US fallback before mount, so the first paint never shows keys. */
 export function initLocaleMessages(): Promise<void> {
   return loadLocaleMessages(detectBrowserLocale())
 }

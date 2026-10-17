@@ -151,9 +151,9 @@ func TestIEClassicNeedsLogin(t *testing.T) {
 	if body := login.Body.String(); !strings.Contains(body, `action="/ie/login"`) || !strings.Contains(body, `name="password"`) {
 		t.Fatalf("登录页缺少表单：%s", body)
 	}
-	// Remember me 默认勾上（票据登录也是记住的，两边一致）。
-	if body := login.Body.String(); !strings.Contains(body, "checked") {
-		t.Fatalf("Remember me 应当默认勾上：%s", body)
+	// Remember me 默认不勾选；票据登录仍会强制持久 cookie。
+	if body := login.Body.String(); strings.Contains(body, `name="remember" value="1" checked`) {
+		t.Fatalf("Remember me 应当默认不勾选：%s", body)
 	}
 }
 
@@ -163,7 +163,7 @@ func TestIEClassicTicketLogin(t *testing.T) {
 	e := newIEServer()
 
 	for _, target := range []string{"/ie", "/ie/login"} {
-		ticket, err := config.NewAuthTicket()
+		ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -230,7 +230,7 @@ func TestIEClassicLoginFormModes(t *testing.T) {
 
 func TestIEClassicLoginSubmitModes(t *testing.T) {
 	e := newIEServer()
-	ticket, err := config.NewAuthTicket()
+	ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestIEClassicLoginSubmitModes(t *testing.T) {
 	}
 
 	// radio 是权威：选了密码就必须用密码，表单里带着有效票据也不能绕过。
-	spare, err := config.NewAuthTicket()
+	spare, err := config.NewAuthTicket(config.DefaultTicketTier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestIEClassicLoginSubmitModes(t *testing.T) {
 	}
 
 	// 没带 mode 的老式提交：谁填了用谁。
-	legacyTicket, err := config.NewAuthTicket()
+	legacyTicket, err := config.NewAuthTicket(config.DefaultTicketTier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -731,7 +731,7 @@ func TestTicketLoginMiddleware(t *testing.T) {
 	}
 	ticketURL := func(t *testing.T) string {
 		t.Helper()
-		ticket, err := config.NewAuthTicket()
+		ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -773,7 +773,7 @@ func TestIEClassicLoginLogout(t *testing.T) {
 	e := newIEServer()
 
 	// 一次性票据登录：成功即设置 cookie 并跳到列表。
-	ticket, err := config.NewAuthTicket()
+	ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 	if err != nil {
 		t.Fatal(err)
 	}

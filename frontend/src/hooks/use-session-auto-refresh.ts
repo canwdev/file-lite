@@ -1,48 +1,137 @@
-import { onMounted, onUnmounted } from 'vue'
-import { authSession } from '@/store/auth'
+import { onMounted, onUnmounted, watch } from 'vue'
+import { authSession, authSessionExpiresAt, authSessionRemainingSeconds, authSessionRenewable } from '@/store/auth'
 import { refreshSessionOnce } from '@/utils/session-refresh'
 
 /** Renew every five minutes: the access token is short-lived, the tab may be idle. */
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+/** The temporary-session badge only needs a coarse countdown. */
+const REMAINING_TICK_MS = 30 * 1000
 
 /**
- * Keep the short-lived access token fresh while the app is open.
+ * Keep a renewable access token fresh while the app is open, and log a fixed
+ * ticket session out exactly when its token expires.
  *
- * The server also renews on use, so this only covers idle periods. Timers in a
- * hidden tab are throttled to about once a minute, still far below the access
- * lifetime. Waking from sleep is covered by the visibility/focus events and by
- * the 401 retry in the service interceptor.
+ * A renewable session still relies on the server renewing on use; this covers
+ * idle periods. Timers in a hidden tab are throttled, so visibility/focus also
+ * check the deadline (and the service interceptor's 401 remains the fallback).
  */
 export function useSessionAutoRefresh() {
-  let timer: ReturnType<typeof setInterval> | null = null
+  let refreshTimer: ReturnType<typeof setInterval> | null = null
+  let expiryTimer: ReturnType<typeof setTimeout> | null = null
+  let remainingTimer: ReturnType<typeof setInterval> | null = null
+
+  const clearRefreshTimer = () => {
+    if (refreshTimer) {
+      clearInterval(refreshTimer)
+      refreshTimer = null
+    }
+  }
+
+  const clearExpiryTimers = () => {
+    if (expiryTimer) {
+      clearTimeout(expiryTimer)
+      expiryTimer = null
+    }
+    if (remainingTimer) {
+      clearInterval(remainingTimer)
+      remainingTimer = null
+    }
+  }
+
+  const updateRemaining = () => {
+    const expiresAt = authSessionExpiresAt.value
+    authSessionRemainingSeconds.value = expiresAt > 0
+      ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
+      : 0
+  }
+
+  const logout = () => {
+    if (!authSession.value) {
+      return
+    }
+    authSessionRemainingSeconds.value = 0
+    window.$logout?.(false)
+  }
 
   const refresh = () => {
-    if (authSession.value) {
-      void refreshSessionOnce()
+    if (!authSession.value) {
+      return
     }
+    void refreshSessionOnce().then((result) => {
+      if (result === 'rejected') {
+        logout()
+      }
+    })
+  }
+
+  const scheduleExpiry = () => {
+    clearExpiryTimers()
+    updateRemaining()
+    remainingTimer = setInterval(updateRemaining, REMAINING_TICK_MS)
+    const delay = authSessionExpiresAt.value - Date.now()
+    if (delay <= 0) {
+      logout()
+      return
+    }
+    expiryTimer = setTimeout(logout, delay)
+  }
+
+  const schedule = () => {
+    clearRefreshTimer()
+    clearExpiryTimers()
+    if (!authSession.value) {
+      authSessionRemainingSeconds.value = 0
+      return
+    }
+    // A fixed tier must not heartbeat; the refresh endpoint would only no-op.
+    // Without a deadline (old server / partial payload) keep the heartbeat as a
+    // fallback so a 401 still signs the user out at the server's deadline.
+    if (!authSessionRenewable.value && authSessionExpiresAt.value > 0) {
+      scheduleExpiry()
+      return
+    }
+    refreshTimer = setInterval(refresh, REFRESH_INTERVAL_MS)
+  }
+
+  const onWake = () => {
+    if (!authSession.value) {
+      return
+    }
+    if (!authSessionRenewable.value && authSessionExpiresAt.value > 0) {
+      updateRemaining()
+      if (Date.now() >= authSessionExpiresAt.value) {
+        logout()
+        return
+      }
+      // Re-arm the timeout: a throttled hidden-tab timer may have been delayed.
+      scheduleExpiry()
+      return
+    }
+    refresh()
   }
 
   const onVisibilityChange = () => {
     if (!document.hidden) {
-      refresh()
+      onWake()
     }
   }
 
   onMounted(() => {
-    timer = setInterval(refresh, REFRESH_INTERVAL_MS)
+    schedule()
     document.addEventListener('visibilitychange', onVisibilityChange)
-    window.addEventListener('focus', refresh)
-    window.addEventListener('online', refresh)
-    window.addEventListener('pageshow', refresh)
+    window.addEventListener('focus', onWake)
+    window.addEventListener('online', onWake)
+    window.addEventListener('pageshow', onWake)
   })
 
+  watch([authSession, authSessionRenewable, authSessionExpiresAt], schedule)
+
   onUnmounted(() => {
-    if (timer) {
-      clearInterval(timer)
-    }
+    clearRefreshTimer()
+    clearExpiryTimers()
     document.removeEventListener('visibilitychange', onVisibilityChange)
-    window.removeEventListener('focus', refresh)
-    window.removeEventListener('online', refresh)
-    window.removeEventListener('pageshow', refresh)
+    window.removeEventListener('focus', onWake)
+    window.removeEventListener('online', onWake)
+    window.removeEventListener('pageshow', onWake)
   })
 }

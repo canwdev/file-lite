@@ -359,8 +359,13 @@ onBeforeUnmount(() => {
     }
   }
 
+  // A header cell must not clip: the resizer hit zone straddles the column
+  // boundary, and clipping cut off its right half (~4px), so the pointer there
+  // fell through to the next column. The label ellipsis is clipped by
+  // .header-cell > span instead.
   th {
     position: relative;
+    overflow: visible;
     &.clickable {
       cursor: pointer;
       &:hover {
@@ -374,6 +379,7 @@ onBeforeUnmount(() => {
     display: table-row;
     min-height: 0;
     padding: 0;
+    outline-offset: -1px;
 
     &:hover .checkbox-auto-hidden,
     &.is-active .checkbox-auto-hidden {
@@ -419,7 +425,12 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: var(--vgo-space-2);
-    font-size: var(--vgo-font-md);
+    font-size: var(--vgo-font-sm);
+    > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 
   .sort-icon span {
@@ -436,19 +447,23 @@ onBeforeUnmount(() => {
     cursor: col-resize;
     z-index: var(--vgo-z-sticky);
     background-color: var(--vgo-border);
-    &:active {
+    &:hover {
       background-color: var(--vgo-primary);
+    }
+    &:active {
+      background-color: var(--vgo-primary-opacity);
       &::after {
-        background-color: var(--vgo-primary);
+        background-color: var(--vgo-primary-opacity);
       }
     }
+    // Hit zone: 8px wide, centred on the 1px divider, 4px on either side
     &::after {
       content: '';
       position: absolute;
       top: 0;
       bottom: 0;
       left: 50%;
-      transform: translate(-50%);
+      transform: translateX(-50%);
       width: 8px;
       z-index: var(--vgo-z-sticky);
     }

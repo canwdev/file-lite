@@ -130,7 +130,10 @@ Current session plus everything the client needs before it renders.
       { "id": "7z", "ext": "7z", "label": "7z", "password": true }
     ]
   },
-  "allowedRoots": []
+  "allowedRoots": [],
+  "expiresAt": "2026-01-02T15:19:05Z",
+  "expiresIn": 900,
+  "renewable": true
 }
 ```
 
@@ -142,6 +145,11 @@ Current session plus everything the client needs before it renders.
   Here may offer; `archiveCompressFormats` is what Compress may create.
 - `allowedRoots` — the configured file access scope. Empty means unrestricted. The
   client uses it to explain a 403 instead of showing a bare error.
+- `expiresAt` / `expiresIn` — the access token's absolute expiry and the remaining
+  seconds computed by the server. The client uses `expiresIn` for the temporary-session
+  countdown so a wrong local clock cannot make it expire early or late.
+- `renewable` — false for a fixed ticket tier. Such a session has no heartbeat; it logs
+  out at expiry and cannot mint new tickets.
 
 `401` when there is no valid session. That is the login probe; there is no
 `authenticated` field.
@@ -176,6 +184,11 @@ Exchanges the current cookie pair for a fresh access token and returns `204`. It
 the one JSON API endpoint that accepts a token whose 15-minute access window is
 already over, as long as the 30-day renewal window is still live.
 
+A fixed ticket tier is accepted while its access window is open, but the exchange is a
+**no-op**: the response is `204`, no cookie is set, and the deadline is unchanged. Once
+that window is over the request is `401` and the cookie pair is cleared. The `norenew`
+claim is signed, so a client cannot opt into renewal.
+
 - The `file_lite_auth_token` **and** `file_lite_session` cookies are both required; the
   request must echo the session value in `X-File-Lite-CSRF` like any other unsafe call.
 - A request authenticated with `Authorization: Bearer` is rejected with `401` even when
@@ -193,12 +206,26 @@ Mints a short-lived login ticket and returns one ready-to-use login URL per loca
 address, so the frontend can render a QR code:
 
 ```json
+{ "tier": "1h" }
+```
+
+```json
 {
   "value": "AB12CD",
   "urls": ["http://192.168.1.10:8080/?ticket=AB12CD"],
-  "expiresAt": "2026-01-02T15:04:05Z"
+  "expiresAt": "2026-01-02T15:04:05Z",
+  "tier": "1h"
 }
 ```
+
+- `tier` is optional. Empty or omitted means `persistent`, which is the behaviour the
+  terminal banner and older callers expect. The accepted values are `15m`, `1h`, `8h`,
+  `24h`, and `persistent`; anything else is `400`.
+- The tier is stored with the ticket, not taken from the redeeming device. `15m`/`1h`/
+  `8h`/`24h` produce a fixed-lifetime token that cannot renew; `persistent` produces the
+  15-minute access token with the 30-day sliding renewal, exactly like a password login.
+- A session whose token is fixed (`renewable: false`) cannot mint tickets: it gets `403
+  forbidden`. This keeps a temporary share from extending or re-sharing itself.
 
 `201 Created`. The backend keeps at most one ticket, so every call invalidates the URLs
 a previous call returned; the client re-mints before showing a stale QR code. A ticket is
@@ -206,6 +233,12 @@ a previous call returned; the client re-mints before showing a stale QR code. A 
 an expired one. The GET routes that can redeem a ticket (`/?ticket=`, `/ie?ticket=`,
 `/ie/login?ticket=`) are rate limited per client IP and answer `429` with
 `too_many_requests` past the limit; requests without a ticket are not counted.
+
+A browser that already has a usable cookie pair **ignores** a ticket link: the server
+redirects to a clean URL and leaves the ticket unused for the device it was meant for.
+This prevents a 15-minute link from downgrading a persistent session, and prevents a
+temporary session from using a persistent link to upgrade itself. The SPA applies the
+same rule with a session probe before consuming the query parameter.
 
 ## 5. Health, volumes and plugins
 
@@ -768,10 +801,15 @@ handle it.
 - Login issues two cookies: `file_lite_auth_token` (HttpOnly, holds the JWT, never
   readable by scripts) and `file_lite_session` (readable, a random value used only for
   the double-submit check).
-- The JWT has two deadlines. `exp` is the **access** deadline (15 minutes) and `rexp`
-  is the **renewal** deadline (30 days, sliding). A token may call the API only while
-  `now < exp`; it may be exchanged at `POST /api/session/refresh` while `now < rexp`.
-  Both deadlines are signed, so a client cannot extend either.
+- The JWT has two deadlines. `exp` is the **access** deadline (15 minutes for a
+  renewable session, or the tier itself for a fixed one) and `rexp` is the **renewal**
+  deadline (30 days, sliding, for a renewable session; equal to `exp` for a fixed one).
+  A token may call the API only while `now < exp`; a renewable token may be exchanged at
+  `POST /api/session/refresh` while `now < rexp`. Both deadlines are signed, so a client
+  cannot extend either.
+- A fixed ticket token carries `norenew: true`. The absence of that claim is what keeps
+  1.5.1 tokens renewable, so upgrading does not sign existing sessions out. The fixed
+  tiers are `15m`, `1h`, `8h`, and `24h`; `persistent` is the current behaviour.
 - A request made with the cookie pair renews the token by itself once less than five
   minutes are left: the middleware sets a fresh auth cookie on the response. The
   frontend also calls the refresh endpoint every five minutes while the app is open,
@@ -794,7 +832,17 @@ handle it.
   cleared or outdated login and would allow reads while every write fails.
 - A `401` whose token has a live renewal window **keeps** the cookie pair; the client
   exchanges it at the refresh endpoint. Only a pair that is past `rexp` (or is otherwise
-  unusable) is cleared, so the browser stops replaying a dead credential.
+  unusable) is cleared, so the browser stops replaying a dead credential. A fixed token
+  is never renewable, so an expired one is cleared immediately.
+- A fixed-tier cookie set with `remember` is capped at the token's own expiry instead of
+  the 365-day remember window. The frontend also schedules a logout at `expiresIn`; the
+  server's `401` remains the authority when a hidden tab's timer is throttled.
+- Password login leaves **Remember login status** unchecked by default (the classic
+  `/ie` form too); ticket URLs keep the pre-existing persistent-cookie behaviour. An
+  existing explicit `remember=true` value is left alone.
+- A signed-in browser ignores a `?ticket=` link: the root and `/ie` redirects do not
+  consume it, and the SPA probes `/api/session` before redeeming. The ticket stays valid
+  for a device that is not signed in.
 - Old tokens minted before 1.5.1 have no `ver`/`rexp` and are rejected. Upgrading
   therefore signs every existing session out once.
 - `POST /api/session/refresh` is the only JSON API endpoint that accepts an expired
@@ -802,8 +850,10 @@ handle it.
   failure ban; a failure there is not a password guess.
 - The classic `/ie` surface has no JavaScript to run the refresh dance, so a navigation
   renews the token in place when needed. It uses the same pair and renewal window.
-- `/api/ws` authenticates at the handshake. An established socket is not re-checked
-  when its token expires; the client renews before reconnecting.
+- `/api/ws` authenticates at the handshake. For a fixed-tier token the server closes
+  the socket at the token's `exp`; a renewable session's socket is not re-checked on
+  every access deadline because it can renew. The client also closes its socket on
+  logout, and the IP sharing page never opens one.
 - Login is the only endpoint with request-rate limiting, plus a 15-minute ban after 5
   failures. Authenticated calls are not capped: bulk listing and transfers must never
   be throttled by a request counter. Expired or otherwise rejected tokens do **not**

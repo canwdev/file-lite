@@ -78,12 +78,6 @@ function openFromName(event: MouseEvent) {
   position: relative;
   border-radius: var(--vgo-radius);
 
-  &:active,
-  &:focus {
-    outline: 1px dashed currentColor;
-    outline-offset: -1px;
-  }
-
   &:hover .file-checkbox,
   &.is-active .file-checkbox {
     visibility: visible;

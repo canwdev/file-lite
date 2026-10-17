@@ -587,5 +587,6 @@ export function useFileActions({
     handleShowCtxMenu,
     loadOpenWithPlugins,
     enableAction,
+    handleShowProperties,
   }
 }

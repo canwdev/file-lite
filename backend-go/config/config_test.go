@@ -3,6 +3,7 @@ package config
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestNormalizeLogLevel(t *testing.T) {
@@ -43,7 +44,7 @@ func TestConfigHasNoStartPath(t *testing.T) {
 // An auth ticket is a single-use credential: redeeming it twice must fail, and
 // the second attempt must not hand out another token.
 func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
-	ticket, err := NewAuthTicket()
+	ticket, err := NewAuthTicket(TicketTierPersistent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
 	if _, ok := ConsumeAuthTicket("not-a-ticket", true); ok {
 		t.Fatal("an unknown ticket was accepted")
 	}
-	fresh, err := NewAuthTicket()
+	fresh, err := NewAuthTicket(TicketTierPersistent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,5 +85,79 @@ func TestIsExplicitDevModeIgnoresNodeEnv(t *testing.T) {
 	t.Setenv("FILE_LITE_DEV_MODE", "1")
 	if IsExplicitDevMode() {
 		t.Fatal("only the exact value \"true\" enables dev mode")
+	}
+}
+
+func TestParseTicketTier(t *testing.T) {
+	if tier, ok := ParseTicketTier(""); !ok || tier != TicketTierPersistent {
+		t.Fatalf("empty tier = %q, %v; want persistent", tier, ok)
+	}
+	for _, tier := range []TicketTier{TicketTier15m, TicketTier1h, TicketTier8h, TicketTier24h, TicketTierPersistent} {
+		got, ok := ParseTicketTier(string(tier))
+		if !ok || got != tier {
+			t.Errorf("ParseTicketTier(%q) = %q, %v", tier, got, ok)
+		}
+	}
+	if _, ok := ParseTicketTier("5m"); ok {
+		t.Fatal("an unknown tier must be rejected")
+	}
+}
+
+func TestTicketTierTokenPolicy(t *testing.T) {
+	cases := []struct {
+		tier      TicketTier
+		wantRenew bool
+		wantTTL   time.Duration
+	}{
+		{TicketTier15m, false, 15 * time.Minute},
+		{TicketTier1h, false, time.Hour},
+		{TicketTier8h, false, 8 * time.Hour},
+		{TicketTier24h, false, 24 * time.Hour},
+		{TicketTierPersistent, true, authAccessTTL},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.tier), func(t *testing.T) {
+			ticket, err := NewAuthTicket(tc.tier)
+			if err != nil {
+				t.Fatal(err)
+			}
+			token, ok := ConsumeAuthTicket(ticket.Value, true)
+			if !ok {
+				t.Fatal("ticket redemption failed")
+			}
+			info, ok := ParseAuthToken(token)
+			if !ok {
+				t.Fatal("issued token did not parse")
+			}
+			if info.CanRenew != tc.wantRenew {
+				t.Fatalf("CanRenew = %v, want %v", info.CanRenew, tc.wantRenew)
+			}
+			remaining := time.Until(info.ExpiresAt)
+			if remaining < tc.wantTTL-5*time.Second || remaining > tc.wantTTL+5*time.Second {
+				t.Fatalf("expires in %v, want about %v", remaining, tc.wantTTL)
+			}
+			if info.NeedsRenewal(time.Now()) {
+				t.Fatal("a freshly issued token must not need renewal")
+			}
+			if _, err := RenewAuthToken(info); (err == nil) != tc.wantRenew {
+				t.Fatalf("RenewAuthToken error = %v, wantRenew = %v", err, tc.wantRenew)
+			}
+		})
+	}
+}
+
+// A token minted by a version without the norenew claim is still renewable:
+// the field is absent, so the parser must default to the old behaviour.
+func TestTokensWithoutNoRenewRemainRenewable(t *testing.T) {
+	token, err := NewAuthTokenAt(time.Now(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, ok := ParseAuthToken(token)
+	if !ok || !info.CanRenew {
+		t.Fatalf("legacy-shaped token CanRenew = %v, ok = %v", info.CanRenew, ok)
+	}
+	if _, err := RenewAuthToken(info); err != nil {
+		t.Fatalf("legacy-shaped token should renew: %v", err)
 	}
 }

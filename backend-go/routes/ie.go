@@ -92,6 +92,12 @@ func ieTicketLogin(c echo.Context) (bool, error) {
 	if ticket == "" {
 		return false, nil
 	}
+	// A signed-in browser keeps its session: a ticket link must not replace the
+	// current tier (a 15-minute link must not downgrade a persistent session,
+	// and a persistent link must not upgrade a temporary one).
+	if middlewares.HasUsableSession(c) {
+		return false, nil
+	}
 	token, ok := config.ConsumeAuthTicket(ticket, true)
 	if !ok {
 		return false, nil
@@ -636,6 +642,14 @@ func RegisterTicketLogin(e *echo.Echo) {
 			ticket := c.QueryParam("ticket")
 			if ticket == "" {
 				return next(c)
+			}
+			// Already signed in: drop the ticket parameter by redirecting to a
+			// clean URL, and leave the ticket unused for the intended device.
+			if middlewares.HasUsableSession(c) {
+				if isLegacyBrowser(c.Request().UserAgent()) {
+					return c.Redirect(http.StatusFound, "/ie")
+				}
+				return c.Redirect(http.StatusFound, "/")
 			}
 			token, ok := config.ConsumeAuthTicket(ticket, true)
 			if !ok {

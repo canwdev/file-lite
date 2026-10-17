@@ -221,7 +221,7 @@ func startServer() (*cli.ServerResult, error) {
 		if isHttps {
 			protocol = "https:"
 		}
-		ticket, err := config.NewAuthTicket()
+		ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 		if err != nil {
 			fmt.Println("Error generating auth ticket:", err)
 		}

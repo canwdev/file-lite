@@ -2,7 +2,7 @@
 
 :root {
   --vgo-primary-rgb: 83, 173, 228;
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system,BlinkMacSystemFont,Helvetica Neue,Helvetica,Arial,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif;
   /**
    * explorer 顶栏高度：一个 control-md 高的控件 + 上下各 space-1 内边距。
    * 顶栏（FileLite 的 .explorer-top-bar）与挂在它下面的浮层（传输面板）共用这一个值，
@@ -106,6 +106,15 @@ body,
 .el-image-viewer__btn {
   // vgo-allow: 工具条浮在固定深色遮罩上，配色与主题无关
   background-color: rgba(0, 0, 0, 0.35) !important;
+}
+
+// ── 应用窗口内容全屏 ─────────────────────────────
+// 内容盒平时比窗口矮一个标题栏（vgo-ui 的 calc(100% - 30px)），进入元素全屏后
+// 要铺满视口；圆角是窗口卡片的装饰，铺满屏幕时没有意义。
+// 多一层 .vgo-window 是为了盖过主题层的 (0,2,1)。
+.vgo-window .vgo-window__body:fullscreen {
+  height: 100%;
+  border-radius: 0;
 }
 
 // ── 图标旋转 ──────────────────

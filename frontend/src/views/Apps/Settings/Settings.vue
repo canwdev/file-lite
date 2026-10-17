@@ -309,18 +309,24 @@ const options = computed<VgoOptionItem[]>(() => [
         store: local.value,
         subtitle: $t('file_lite_i18n.apps_will_use_filtered_list_item'),
       },
+    ],
+  },
+  {
+    label: $t('file_lite_i18n.file_management'),
+    key: 'fileManagement',
+    children: [
+      {
+        label: $t('file_lite_i18n.show_hidden'),
+        key: 'showHidden',
+        type: VgoOptionType.SWITCH,
+        store: local.value,
+      },
       {
         label: $t('file_lite_i18n.show_folders_first'),
         key: 'sortFoldersFirst',
         type: VgoOptionType.SWITCH,
         store: local.value,
       },
-    ],
-  },
-  {
-    label: $t('file_lite_i18n.local_data'),
-    key: 'data',
-    children: [
       {
         label: $t('file_lite_i18n.disable_preview'),
         key: 'disablePreview',

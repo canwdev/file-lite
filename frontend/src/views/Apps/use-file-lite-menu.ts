@@ -3,8 +3,8 @@ import type { IEntry } from '@/types/server'
 import { useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { listPlugins, refreshPlugins } from '@/api/plugins'
 import { PKG_NAME, VERSION } from '@/enum/version.ts'
-import { useFullscreenToggle } from '@/hooks/use-fullscreen'
 import { useWakeLockToggle } from '@/hooks/use-wake-lock'
+import { authSessionRenewable } from '@/store/auth'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
 import { InternalAppEnum } from '@/views/Apps/apps'
@@ -26,7 +26,6 @@ const internalSpeedTestEntry: IEntry = {
 export function useFileLiteMenu() {
   const router = useRouter()
   const { isSupported: isWakeLockSupported, isActive: isWakeLockActive, toggleWakeLock } = useWakeLockToggle()
-  const { isSupported: isFullscreenSupported, isFullscreen, toggleFullscreen } = useFullscreenToggle()
 
   /** 构建全局菜单的菜单项；插件列表每次打开时现取，所以是异步的。 */
   async function buildMenuItems(): Promise<MenuItem[]> {
@@ -85,17 +84,6 @@ export function useFileLiteMenu() {
           },
         },
         {
-          label: isFullscreenSupported.value
-            ? $t('file_lite_i18n.fullscreen_0', [isFullscreen.value ? $t('file_lite_i18n.on') : $t('file_lite_i18n.off')])
-            : 'Fullscreen (unsupported)',
-          icon: isFullscreen.value ? 'mdi mdi-fullscreen-exit' : 'mdi mdi-fullscreen',
-          disabled: !isFullscreenSupported.value,
-          divided: true,
-          onClick: () => {
-            toggleFullscreen()
-          },
-        },
-        {
           label: 'Speed Test',
           icon: 'mdi mdi-speedometer',
           onClick: () => {
@@ -116,13 +104,15 @@ export function useFileLiteMenu() {
             toggleKeyboardShortcutsApp()
           },
         },
-        {
-          label: $t('file_lite_i18n.ip_chooser') + ELLIPSIS,
-          icon: 'mdi mdi-ip-network',
-          onClick: () => {
-            window.open(router.resolve({ name: 'IpChooserView' }).href, '_blank')
-          },
-        },
+        authSessionRenewable.value
+          ? {
+              label: $t('file_lite_i18n.ip_chooser') + ELLIPSIS,
+              icon: 'mdi mdi-ip-network',
+              onClick: () => {
+                window.open(router.resolve({ name: 'IpChooserView' }).href, '_blank')
+              },
+            }
+          : false,
         {
           label: $t('file_lite_i18n.legacy_page_for_ie8') + ELLIPSIS,
           icon: 'mdi mdi-microsoft-internet-explorer',

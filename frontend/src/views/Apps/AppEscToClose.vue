@@ -22,6 +22,10 @@ useShortcut({
   allowInInput: true,
   preventDefault: false,
   handler: (event) => {
+    // A fullscreen app content gets the first Esc: leave fullscreen, keep the window.
+    if (document.fullscreenElement) {
+      return
+    }
     event.preventDefault()
     emit('close')
   },

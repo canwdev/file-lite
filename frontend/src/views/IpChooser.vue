@@ -1,15 +1,37 @@
 <script setup lang="ts">
+import type { LoginTicketTier } from '@/api/session'
 import { useIntervalFn } from '@vueuse/core'
 import { useQRCode } from '@vueuse/integrations/useQRCode'
+import axios from 'axios'
 import { createLoginTicket } from '@/api/session'
+import { authSessionRenewable } from '@/store/auth'
 import { copyWithToast } from '@/utils'
 
 const currentUrl = ref('')
 const hostUrls = ref<string[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
+const restrictedError = ref(false)
 const expiresAtMs = ref(0)
 const nowMs = ref(Date.now())
+
+// The unit wording lives in i18n as "{0} minutes" / "{0} hours"; the number is
+// interpolated here so every locale only owns its own unit text.
+interface TierOption {
+  value: LoginTicketTier
+  count?: number
+  unit?: 'minutes' | 'hour' | 'hours'
+  labelKey?: 'ticket_tier_persistent'
+}
+
+const tierOptions: TierOption[] = [
+  { value: '15m', count: 15, unit: 'minutes' },
+  { value: '1h', count: 1, unit: 'hour' },
+  { value: '8h', count: 8, unit: 'hours' },
+  { value: '24h', count: 24, unit: 'hours' },
+  { value: 'persistent', labelKey: 'ticket_tier_persistent' },
+]
+const selectedTier = ref<LoginTicketTier>('1h')
 
 // The ticket embedded in every URL lives for two minutes, so the page has to
 // show how long the QR code is still good for.
@@ -33,6 +55,13 @@ const qrcode = useQRCode(currentUrl, {
   margin: 2,
 })
 
+function tierLabel(option: TierOption) {
+  if (option.labelKey) {
+    return $t(`file_lite_i18n.${option.labelKey}`)
+  }
+  return $t(`file_lite_i18n.ticket_tier_${option.unit}`, [option.count ?? 0])
+}
+
 function isIpv4Url(url: string) {
   return /^https?:\/\/\d{1,3}(\.\d{1,3}){3}([:/?]|$)/.test(url)
 }
@@ -53,23 +82,42 @@ function pickDefaultUrl(urls: string[]) {
 /**
  * Ask the backend for a fresh ticket and address list. The backend keeps a
  * single global ticket, so every call invalidates the URLs from the last one.
+ * A temporary session cannot mint tickets at all; the server returns 403 and
+ * the page explains why instead of showing a QR code.
  */
 async function loadInfo() {
+  if (!authSessionRenewable.value) {
+    restrictedError.value = true
+    return
+  }
+  // The select and the refresh button are disabled while loading; this guard
+  // also serializes the mount call with a fast user interaction.
+  if (loading.value) {
+    return
+  }
   loading.value = true
   errorMessage.value = ''
+  restrictedError.value = false
   try {
-    const info = await createLoginTicket()
+    const info = await createLoginTicket(selectedTier.value)
     hostUrls.value = info.urls ?? []
     expiresAtMs.value = info.expiresAt ? new Date(info.expiresAt).getTime() : 0
     nowMs.value = Date.now()
     currentUrl.value = pickDefaultUrl(hostUrls.value)
+    if (info.tier)
+      selectedTier.value = info.tier
   }
   catch (error) {
     console.error('Failed to load IP chooser info:', error)
     hostUrls.value = []
     currentUrl.value = ''
     expiresAtMs.value = 0
-    errorMessage.value = $t('file_lite_i18n.could_not_load_the_connection_in')
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      restrictedError.value = true
+    }
+    else {
+      errorMessage.value = $t('file_lite_i18n.could_not_load_the_connection_in')
+    }
   }
   finally {
     loading.value = false
@@ -94,7 +142,13 @@ function handleGo(url: string) {
         </RouterLink>
       </div>
 
-      <div v-if="loading" class="ip-status vgo-empty">
+      <div v-if="restrictedError || !authSessionRenewable" class="ip-status vgo-empty">
+        <span>{{ $t('file_lite_i18n.ticket_share_requires_full_session') }}</span>
+        <RouterLink class="vgo-button vgo-button--sm" :to="{ name: 'HomeView' }">
+          {{ $t('file_lite_i18n.home') }}
+        </RouterLink>
+      </div>
+      <div v-else-if="loading" class="ip-status vgo-empty">
         {{ $t('file_lite_i18n.loading') }}…
       </div>
       <div v-else-if="errorMessage" class="ip-status vgo-empty">
@@ -112,8 +166,8 @@ function handleGo(url: string) {
 
       <!-- One body for both widths: the list scrolls, the QR column stays.
            Narrow screens stack the column above the list via `order`. -->
-      <div v-else class="ip-body vgo-u-font-code">
-        <div class="ip-list vgo-panel vgo-u-scrollbar">
+      <div v-else class="ip-body">
+        <div class="ip-list vgo-panel vgo-u-scrollbar vgo-u-font-code">
           <div
             v-for="url in hostUrls"
             :key="url"
@@ -134,12 +188,20 @@ function handleGo(url: string) {
         </div>
 
         <aside class="ip-side vgo-panel">
+          <div class="ip-tier">
+            <label class="ip-tier__field">
+              <span class="ip-tier__label">{{ $t('file_lite_i18n.ticket_tier') }}</span>
+              <select v-model="selectedTier" class="vgo-input" :disabled="loading" @change="loadInfo">
+                <option v-for="tier in tierOptions" :key="tier.value" :value="tier.value">{{ tierLabel(tier) }}</option>
+              </select>
+            </label>
+          </div>
           <img v-if="qrcode && currentUrl" :src="qrcode" class="qr-img" :alt="$t('file_lite_i18n.qr_code_generator')">
-          <textarea v-model="currentUrl" class="vgo-input url-field" rows="2" :placeholder="$t('file_lite_i18n.qr_code_generator')" />
+          <textarea v-model="currentUrl" class="vgo-input url-field vgo-u-font-code" rows="2" :placeholder="$t('file_lite_i18n.qr_code_generator')" />
           <div class="qr-meta">
             <span v-if="isExpired" class="vgo-badge vgo-badge--danger">{{ $t('file_lite_i18n.expired') }}</span>
             <span v-else-if="expiresAtMs" class="ip-expiry">{{ $t('file_lite_i18n.expires_in') }} {{ remainingLabel }}</span>
-            <button class="vgo-button vgo-button--text vgo-button--sm" @click="loadInfo">
+            <button class="vgo-button vgo-button--text vgo-button--sm" :disabled="loading" @click="loadInfo">
               <i-mdi-refresh /> {{ $t('file_lite_i18n.refresh') }}
             </button>
           </div>
@@ -249,6 +311,23 @@ function handleGo(url: string) {
   font-size: var(--vgo-font-md);
   line-height: 1.4;
   resize: vertical;
+}
+
+.ip-tier {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: var(--vgo-space-1);
+}
+
+.ip-tier__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vgo-space-1);
+}
+
+.ip-tier__label {
+  font-size: var(--vgo-font-sm);
 }
 
 .qr-meta {

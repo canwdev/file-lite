@@ -39,6 +39,56 @@ const (
 	authTokenVer = 2
 )
 
+// TicketTier is the lifetime of a session created by exchanging a login ticket.
+type TicketTier string
+
+const (
+	TicketTier15m        TicketTier = "15m"
+	TicketTier1h         TicketTier = "1h"
+	TicketTier8h         TicketTier = "8h"
+	TicketTier24h        TicketTier = "24h"
+	TicketTierPersistent TicketTier = "persistent"
+)
+
+// DefaultTicketTier keeps the terminal banner and requests without a tier on
+// the behaviour that existed before tiers: a renewable session.
+const DefaultTicketTier = TicketTierPersistent
+
+// SessionPolicy is the lifetime rule encoded into a token.
+type SessionPolicy struct {
+	Renewable bool
+	TTL       time.Duration
+}
+
+var ticketTierPolicies = map[TicketTier]SessionPolicy{
+	TicketTier15m:        {Renewable: false, TTL: 15 * time.Minute},
+	TicketTier1h:         {Renewable: false, TTL: time.Hour},
+	TicketTier8h:         {Renewable: false, TTL: 8 * time.Hour},
+	TicketTier24h:        {Renewable: false, TTL: 24 * time.Hour},
+	TicketTierPersistent: {Renewable: true},
+}
+
+// ParseTicketTier validates a requested tier. Empty means the persistent tier,
+// which keeps old clients and the terminal path working unchanged.
+func ParseTicketTier(raw string) (TicketTier, bool) {
+	if raw == "" {
+		return TicketTierPersistent, true
+	}
+	tier := TicketTier(raw)
+	_, ok := ticketTierPolicies[tier]
+	return tier, ok
+}
+
+// PolicyForTicketTier returns the issue policy for a tier. Unknown values fall
+// back to persistent; callers that accept user input must validate with
+// ParseTicketTier first.
+func PolicyForTicketTier(tier TicketTier) SessionPolicy {
+	if policy, ok := ticketTierPolicies[tier]; ok {
+		return policy
+	}
+	return ticketTierPolicies[TicketTierPersistent]
+}
+
 const authTicketTTL = 2 * time.Minute
 const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const authTicketLength = 8
@@ -100,11 +150,13 @@ var currentAuthTicket *authTicket
 type authTicket struct {
 	value     string
 	expiresAt time.Time
+	policy    SessionPolicy
 }
 
 type AuthTicketInfo struct {
 	Value     string
 	ExpiresAt time.Time
+	Tier      TicketTier
 }
 
 // normalizeLogLevel 把配置里的等级归一化为四个合法值之一。空串或未知值回落到
@@ -292,7 +344,9 @@ func generatePassword() (string, error) {
 
 // authClaims is the JWT payload. exp is the short access deadline; rexp is the
 // sliding renewal deadline. liat records the login time so an absolute session
-// cap can be enabled later without changing the token format again.
+// cap can be enabled later without changing the token format again. norenew is
+// set for fixed-lifetime ticket tiers and is absent for renewable sessions,
+// which also makes 1.5.1 tokens (before this field existed) renewable.
 type authClaims struct {
 	Subject   string `json:"sub"`
 	Type      string `json:"typ"`
@@ -302,6 +356,7 @@ type authClaims struct {
 	RenewAt   int64  `json:"rexp"`
 	LoginAt   int64  `json:"liat"`
 	Remember  bool   `json:"rem"`
+	NoRenew   bool   `json:"norenew,omitempty"`
 }
 
 // Valid exists to satisfy jwt.Claims. Time windows are checked by the callers:
@@ -314,47 +369,77 @@ type AuthTokenInfo struct {
 	RenewUntil time.Time
 	LoginAt    time.Time
 	Remember   bool
+	// CanRenew is false for the fixed ticket tiers. It is signed into the token,
+	// so every server-side renewal check can rely on it.
+	CanRenew bool
 }
 
 // AccessValid reports whether the token may authenticate an API request now.
 func (i AuthTokenInfo) AccessValid(now time.Time) bool { return now.Before(i.ExpiresAt) }
 
 // Renewable reports whether the token may still be exchanged for a fresh one.
-func (i AuthTokenInfo) Renewable(now time.Time) bool { return now.Before(i.RenewUntil) }
+func (i AuthTokenInfo) Renewable(now time.Time) bool {
+	return i.CanRenew && now.Before(i.RenewUntil)
+}
 
 // NeedsRenewal reports whether the access window is close enough to the end
 // that an authenticated request should replace the cookie now.
 func (i AuthTokenInfo) NeedsRenewal(now time.Time) bool {
-	return !now.Add(authRenewBefore).Before(i.ExpiresAt)
+	return i.CanRenew && !now.Add(authRenewBefore).Before(i.ExpiresAt)
 }
 
-// NewAuthToken issues the token written into the auth cookie at login.
+// NewAuthToken issues the renewable token written into the auth cookie by the
+// password login and the persistent ticket tier.
 func NewAuthToken(remember bool) (string, error) {
 	now := time.Now()
-	return issueAuthJWT(jwtToken, now, now, remember)
+	return issueAuthJWT(jwtToken, now, now, remember, PolicyForTicketTier(TicketTierPersistent))
+}
+
+// NewAuthTokenForPolicy issues a token for one ticket tier.
+func NewAuthTokenForPolicy(remember bool, policy SessionPolicy) (string, error) {
+	now := time.Now()
+	return issueAuthJWT(jwtToken, now, now, remember, policy)
 }
 
 // NewAuthTokenAt mints a token as if it had been issued at issuedAt. Tests use
 // it to create near-expiry and expired tokens without waiting; production code
 // uses NewAuthToken.
 func NewAuthTokenAt(issuedAt time.Time, remember bool) (string, error) {
-	return issueAuthJWT(jwtToken, issuedAt, issuedAt, remember)
+	return issueAuthJWT(jwtToken, issuedAt, issuedAt, remember, PolicyForTicketTier(TicketTierPersistent))
+}
+
+// NewAuthTokenAtForPolicy is the fixed-tier counterpart of NewAuthTokenAt.
+func NewAuthTokenAtForPolicy(issuedAt time.Time, remember bool, policy SessionPolicy) (string, error) {
+	return issueAuthJWT(jwtToken, issuedAt, issuedAt, remember, policy)
 }
 
 // RenewAuthToken issues a fresh access token for a live renewal window. It
 // preserves the original login time and the remember flag, so the optional
 // absolute cap and the cookie's persistence stay stable across renewals.
+// Fixed-lifetime tokens fail here because info.Renewable is false for them.
 func RenewAuthToken(info AuthTokenInfo) (string, error) {
 	now := time.Now()
 	if !info.Renewable(now) {
 		return "", fmt.Errorf("auth token renewal window has expired")
 	}
-	return issueAuthJWT(jwtToken, now, info.LoginAt, info.Remember)
+	return issueAuthJWT(jwtToken, now, info.LoginAt, info.Remember, PolicyForTicketTier(TicketTierPersistent))
 }
 
-func issueAuthJWT(secret string, now, loginAt time.Time, remember bool) (string, error) {
+func issueAuthJWT(secret string, now, loginAt time.Time, remember bool, policy SessionPolicy) (string, error) {
+	expiresAt := now.Add(authAccessTTL)
 	renewAt := now.Add(authRenewWindow)
-	if authMaxSession > 0 {
+	noRenew := !policy.Renewable
+
+	if noRenew {
+		ttl := policy.TTL
+		if ttl <= 0 {
+			ttl = authAccessTTL
+		}
+		expiresAt = now.Add(ttl)
+		// The renewal deadline is set as well so the claim shape stays stable;
+		// CanRenew (norenew) is what actually forbids the exchange.
+		renewAt = expiresAt
+	} else if authMaxSession > 0 {
 		if max := loginAt.Add(authMaxSession); max.Before(renewAt) {
 			renewAt = max
 		}
@@ -367,10 +452,11 @@ func issueAuthJWT(secret string, now, loginAt time.Time, remember bool) (string,
 		Type:      authJWTType,
 		Version:   authTokenVer,
 		IssuedAt:  now.Unix(),
-		ExpiresAt: now.Add(authAccessTTL).Unix(),
+		ExpiresAt: expiresAt.Unix(),
 		RenewAt:   renewAt.Unix(),
 		LoginAt:   loginAt.Unix(),
 		Remember:  remember,
+		NoRenew:   noRenew,
 	})
 	signed, err := token.SignedString([]byte(secret))
 	if err != nil {
@@ -404,6 +490,7 @@ func ParseAuthToken(tokenString string) (AuthTokenInfo, bool) {
 		RenewUntil: time.Unix(claims.RenewAt, 0),
 		LoginAt:    time.Unix(claims.LoginAt, 0),
 		Remember:   claims.Remember,
+		CanRenew:   !claims.NoRenew,
 	}, true
 }
 
@@ -415,7 +502,11 @@ func VerifyAuthJWT(tokenString string) bool {
 	return ok && info.AccessValid(time.Now())
 }
 
-func NewAuthTicket() (AuthTicketInfo, error) {
+// NewAuthTicket mints one single-use login ticket bound to a tier. The tier is
+// stored server-side, so the device that redeems the ticket cannot choose a
+// longer lifetime.
+func NewAuthTicket(tier TicketTier) (AuthTicketInfo, error) {
+	policy := PolicyForTicketTier(tier)
 	ticket, err := generateAuthTicket()
 	if err != nil {
 		return AuthTicketInfo{}, err
@@ -425,9 +516,10 @@ func NewAuthTicket() (AuthTicketInfo, error) {
 	currentAuthTicket = &authTicket{
 		value:     ticket,
 		expiresAt: expiresAt,
+		policy:    policy,
 	}
 	authTicketMu.Unlock()
-	return AuthTicketInfo{Value: ticket, ExpiresAt: expiresAt}, nil
+	return AuthTicketInfo{Value: ticket, ExpiresAt: expiresAt, Tier: tier}, nil
 }
 
 func generateAuthTicket() (string, error) {
@@ -486,11 +578,12 @@ func ConsumeAuthTicket(ticket string, remember bool) (string, bool) {
 		authTicketMu.Unlock()
 		return "", false
 	}
+	policy := storedTicket.policy
 	currentAuthTicket = nil
 	authTicketMu.Unlock()
 
-	// Minted outside the lock: NewAuthToken only reads the JWT secret.
-	token, err := NewAuthToken(remember)
+	// Minted outside the lock: NewAuthTokenForPolicy only reads the JWT secret.
+	token, err := NewAuthTokenForPolicy(remember, policy)
 	if err != nil {
 		return "", false
 	}

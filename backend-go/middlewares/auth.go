@@ -131,6 +131,25 @@ func authCookieMaxAge(remember bool) int {
 	return 0
 }
 
+// authCookieMaxAgeForToken caps a persistent cookie at the token's own expiry
+// for the fixed ticket tiers. A 15-minute share must not leave a one-year cookie
+// behind; renewable tokens keep the normal remember policy.
+func authCookieMaxAgeForToken(token string, remember bool) int {
+	maxAge := authCookieMaxAge(remember)
+	if !remember {
+		return 0
+	}
+	info, ok := config.ParseAuthToken(token)
+	if !ok || info.CanRenew {
+		return maxAge
+	}
+	remaining := int(time.Until(info.ExpiresAt).Seconds())
+	if remaining < 1 {
+		remaining = 1
+	}
+	return remaining
+}
+
 // SetAuthCookies issues the HttpOnly auth token together with the readable
 // session value. remember picks a persistent cookie over a session cookie.
 func SetAuthCookies(c echo.Context, token string, remember bool) error {
@@ -138,7 +157,7 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 	if err != nil {
 		return err
 	}
-	maxAge := authCookieMaxAge(remember)
+	maxAge := authCookieMaxAgeForToken(token, remember)
 	secure := config.IsHTTPS()
 
 	c.SetCookie(&http.Cookie{
@@ -173,15 +192,35 @@ func RenewAuthCookie(c echo.Context, token string, remember bool) {
 		HttpOnly: true,
 		Secure:   config.IsHTTPS(),
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   authCookieMaxAge(remember),
+		MaxAge:   authCookieMaxAgeForToken(token, remember),
 	})
 }
 
-// AuthTokenInfoFromContext returns the credential that RefreshAuthMiddleware
-// validated for this request.
+// AuthTokenInfoFromContext returns the credential AuthMiddleware or
+// RefreshAuthMiddleware validated for this request.
 func AuthTokenInfoFromContext(c echo.Context) (config.AuthTokenInfo, bool) {
 	info, ok := c.Get(authTokenInfoKey).(config.AuthTokenInfo)
 	return info, ok
+}
+
+// HasUsableSession reports whether the request already carries a complete,
+// usable cookie pair: a live access token or a renewable token whose access
+// window is over. Ticket links call it to avoid replacing a signed-in session.
+func HasUsableSession(c echo.Context) bool {
+	authCookie, err := c.Cookie(AuthCookieName)
+	if err != nil || authCookie.Value == "" {
+		return false
+	}
+	session, err := c.Cookie(SessionCookieName)
+	if err != nil || session.Value == "" {
+		return false
+	}
+	info, ok := config.ParseAuthToken(authCookie.Value)
+	if !ok {
+		return false
+	}
+	now := time.Now()
+	return info.AccessValid(now) || info.Renewable(now)
 }
 
 // ClearAuthCookies expires both cookies. The HttpOnly token can only be removed
@@ -269,8 +308,14 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			if fromHeader == "" && info.NeedsRenewal(now) {
 				if fresh, err := config.RenewAuthToken(info); err == nil {
 					RenewAuthCookie(c, fresh, info.Remember)
+					// The handler (GET /api/session) must report the renewed
+					// deadline, not the one from the cookie we just replaced.
+					if freshInfo, ok := config.ParseAuthToken(fresh); ok {
+						info = freshInfo
+					}
 				}
 			}
+			c.Set(authTokenInfoKey, info)
 			authLimiter.recordSuccess(ip)
 			return next(c)
 		}
@@ -318,7 +363,10 @@ func RefreshAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		info, ok := config.ParseAuthToken(authCookie.Value)
 		now := time.Now()
-		if !ok || !info.Renewable(now) {
+		// A fixed tier may still be valid even though it can never be renewed;
+		// let the handler answer 204 for it. Only a token that is neither usable
+		// now nor renewable is dead at this point.
+		if !ok || (!info.AccessValid(now) && !info.Renewable(now)) {
 			ClearAuthCookies(c)
 			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
 		}

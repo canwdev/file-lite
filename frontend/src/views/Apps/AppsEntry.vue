@@ -3,6 +3,7 @@ import type { AppParams } from './apps'
 import type { AppWindowState } from './apps-store'
 import { WindowDock, WindowStack } from '@canwdev/vgo-ui'
 import ShortcutScopeProvider from '@/components/ShortcutScopeProvider.vue'
+import { useElementFullscreen } from '@/hooks/use-fullscreen'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import AppEscToClose from './AppEscToClose.vue'
@@ -44,7 +45,28 @@ function windowProps(win: AppWindowState) {
 }
 
 function contentAttrs(win: AppWindowState) {
-  return { 'data-shortcut-scope': `app:${win.id}` }
+  return { 'data-shortcut-scope': `app:${win.id}`, 'data-win-content': win.id }
+}
+
+const { isSupported: isFullscreenSupported, fullscreenElement, toggleFullscreen } = useElementFullscreen()
+
+/** Window whose content fills the screen; read back from the fullscreen element itself. */
+const fullscreenWinId = computed(() => {
+  const element = fullscreenElement.value
+  if (!(element instanceof HTMLElement)) {
+    return null
+  }
+  return element.querySelector<HTMLElement>('[data-win-content]')?.dataset.winContent ?? null
+})
+
+/** Content fullscreen targets the window's `.vgo-window__body`; the window frame stays behind. */
+function contentBodyOf(win: AppWindowState) {
+  const content = document.querySelector<HTMLElement>(`[data-win-content="${win.id}"]`)
+  return content?.closest<HTMLElement>('.vgo-window__body') ?? null
+}
+
+function toggleContentFullscreen(win: AppWindowState) {
+  void toggleFullscreen(contentBodyOf(win))
 }
 
 function setTitle(win: AppWindowState, title: string) {
@@ -100,6 +122,19 @@ function handleLocateItem(win: AppWindowState, name: string) {
       <span class="title-text">{{ win.title }}</span>
     </template>
 
+    <template #controls="{ win }">
+      <button
+        v-if="isFullscreenSupported"
+        class="window-fullscreen-toggle"
+        :title="fullscreenWinId === win.id
+          ? $t('file_lite_i18n.exit_fullscreen')
+          : $t('file_lite_i18n.fullscreen')"
+        @click="toggleContentFullscreen(win)"
+      >
+        <MdiIcon :name="fullscreenWinId === win.id ? 'fullscreen-exit' : 'fullscreen'" />
+      </button>
+    </template>
+
     <template #default="{ win, close }">
       <ShortcutScopeProvider :scope="`app:${win.id}`">
         <PluginHost
@@ -149,6 +184,14 @@ function handleLocateItem(win: AppWindowState, name: string) {
 .title-icon {
   flex-shrink: 0;
   font-size: var(--vgo-icon-md);
+}
+
+// The library sizes slot icons at --vgo-icon-sm; match the built-in window
+// buttons, which draw their glyph in a 20px box.
+.window-fullscreen-toggle {
+  :deep(svg) {
+    font-size: var(--vgo-icon-md);
+  }
 }
 
 .dock-icon-wrap {

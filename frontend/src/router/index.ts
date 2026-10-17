@@ -1,11 +1,11 @@
 import type { RouteLocationNormalized } from 'vue-router'
 import { watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { consumeTicket, getSession } from '@/api/session'
+import { consumeTicket, getSession, getSessionProbe } from '@/api/session'
 import { VERSION } from '@/enum/version.ts'
 import { composer } from '@/i18n'
 import { ensureSettingsStoreInitialized, settingsStore } from '@/store'
-import { authSession, clearAuthSession, readAuthSession, rememberAuth, setAuthSession } from '@/store/auth'
+import { authSession, clearAuthSession, readAuthSession, setAuthSession, setAuthSessionPolicy } from '@/store/auth'
 import { setServerAllowedRoots, setServerCapabilities } from '@/store/capabilities'
 import { isUnauthorizedError } from '@/utils/auth-error'
 import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
@@ -70,6 +70,7 @@ async function ensureAuthReady() {
   setServerCapabilities(info?.capabilities)
   setServerAllowedRoots(info?.allowedRoots)
   setAuthSession(readAuthSession())
+  setAuthSessionPolicy(info?.renewable ?? true, info?.expiresIn ?? 0)
   verifiedSession = authSession.value
   warmSettingsStore()
 }
@@ -151,8 +152,29 @@ router.beforeEach(async (to, from) => {
   const query = { ...to.query }
 
   if (query.ticket) {
+    // A signed-in browser ignores the ticket parameter. A ticket is a credential
+    // for a device that is not logged in; redeeming it here would replace the
+    // current tier (and could upgrade a temporary session). Probe without
+    // triggering the global sign-out, then drop the parameter.
+    if (authSession.value) {
+      try {
+        await getSessionProbe()
+        delete query.ticket
+        return {
+          path: to.path,
+          query,
+          hash: to.hash,
+          replace: true,
+        }
+      }
+      catch (error) {
+        console.error(error)
+      }
+    }
     try {
-      await consumeTicket(String(query.ticket), rememberAuth.value)
+      // URL tickets keep the pre-existing persistent-cookie behaviour; only the
+      // password form follows the "remember" checkbox.
+      await consumeTicket(String(query.ticket), true)
       setAuthSession(readAuthSession())
       delete query.ticket
       return {

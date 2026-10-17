@@ -233,6 +233,7 @@ const emptyState = computed(() => {
 function toggleShowHiddenFiles() {
   showHidden.value = !showHidden.value
 }
+
 const tableColumns = computed(() => {
   return [
     {
@@ -999,6 +1000,7 @@ const {
   handleShowCtxMenu,
   loadOpenWithPlugins,
   enableAction,
+  handleShowProperties,
 } = useFileActions({
   isLoading,
   selectedPaths,
@@ -1473,9 +1475,7 @@ useShortcut({
   scope: shortcutScope,
   combo: ['ctrl+h', 'meta+h'],
   description: 'Toggle hidden files',
-  handler: () => {
-    showHidden.value = !showHidden.value
-  },
+  handler: toggleShowHiddenFiles,
 })
 
 useShortcut({
@@ -1863,15 +1863,11 @@ defineExpose({
 
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :title="`${$t('file_lite_i18n.toggle_hidden')} (ctrl+h)`"
-          @click="toggleShowHiddenFiles"
+          :disabled="!enableAction"
+          :title="$t('file_lite_i18n.properties')"
+          @click="handleShowProperties"
         >
-          <template v-if="showHidden">
-            <i-mdi-eye-outline />
-          </template>
-          <template v-else>
-            <i-mdi-eye-off-outline />
-          </template>
+          <i-mdi-information-outline />
         </button>
 
         <template v-if="!selectFileMode || (selectFileMode && multiple)">
@@ -2206,9 +2202,7 @@ defineExpose({
 
   :deep(.vgo-list-item) {
     cursor: default;
-    &:focus {
-      outline: 1px dashed;
-    }
+
   }
 }
 </style>

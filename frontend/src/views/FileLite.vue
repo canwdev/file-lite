@@ -1,12 +1,16 @@
 <script lang="ts" setup>
+import { onBeforeUnmount, watch } from 'vue'
 import { listPlugins } from '@/api/plugins'
+import { closeSharedWs, ensureSharedWsConnected } from '@/api/shared-ws'
 import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore, settingsStore } from '@/store'
+import { authSession, authSessionRemainingSeconds, authSessionRenewable } from '@/store/auth'
 import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
 import ExplorerTabBar from '@/views/FileManager/ExplorerTabBar.vue'
 import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import TransferQueue from '@/views/FileManager/TransferQueue.vue'
+import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
 const { menuOpen, setMenuTriggerRef, toggleMenu } = useFileLiteMenu()
@@ -15,8 +19,38 @@ onMounted(() => {
   void listPlugins().catch(() => [])
 })
 
+// The shared WebSocket belongs to the file-manager shell: the IP sharing page
+// must never open one (and therefore never show a disconnected indicator).
+watch(authSession, (session) => {
+  if (session) {
+    void ensureSharedWsConnected().catch(() => {})
+  }
+  else {
+    closeSharedWs()
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  closeSharedWs()
+})
+
 const pageTitle = computed(() => settingsStore.value.pageTitle.trim())
 const sidebarVisible = computed(() => localSettingsStore.value.sidebarVisible)
+const temporaryRemaining = computed(() => {
+  if (authSessionRenewable.value) {
+    return ''
+  }
+  const seconds = authSessionRemainingSeconds.value
+  if (seconds <= 0) {
+    return ''
+  }
+  const minutes = Math.ceil(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return hours > 0
+    ? (rest > 0 ? `${hours}h ${rest}m` : `${hours}h`)
+    : `${minutes}m`
+})
 
 function toggleSidebar() {
   localSettingsStore.value.sidebarVisible = !localSettingsStore.value.sidebarVisible
@@ -78,8 +112,12 @@ function toggleTransferPanel() {
             <span v-if="transferFailed" class="vgo-badge vgo-badge--danger">{{ transferFailed }}</span>
             <span v-else-if="transferActive" class="vgo-badge vgo-badge--primary">{{ transferActive }}</span>
           </button>
-          <span v-if="pageTitle" class="vgo-badge vgo-badge--primary explorer-top-bar__title">
-            <span class="vgo-u-text-overflow">{{ pageTitle }}</span>
+          <span v-if="pageTitle || !authSessionRenewable" class="vgo-badge vgo-badge--primary explorer-top-bar__title">
+            <span v-if="pageTitle" class="vgo-u-text-overflow">{{ pageTitle }}</span>
+
+            <template v-if="temporaryRemaining">
+              <template v-if="pageTitle && temporaryRemaining">&nbsp;·&nbsp;</template>
+              {{ temporaryRemaining }}</template>
           </span>
           <button
             :ref="setMenuTriggerRef"
@@ -97,6 +135,7 @@ function toggleTransferPanel() {
   <!-- 全局唯一一份：面板 Teleport 到 body，放在顶栏只是为了有个稳定的挂载点 -->
   <TransferQueue auto-close />
   <AppsEntry />
+  <WsStatusDisplay />
 </template>
 
 <style lang="scss" scoped>
@@ -137,6 +176,11 @@ function toggleTransferPanel() {
     flex-shrink: 1;
     min-width: 0;
     padding: var(--vgo-space-1) var(--vgo-space-2);
+  }
+
+  &__temporary {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   // 图标 + 计数角标并排，不是单图标按钮：--icon 的定宽会把图标挤小

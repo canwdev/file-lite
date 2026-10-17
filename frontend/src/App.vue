@@ -2,12 +2,12 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { logout } from '@/api/session'
 import { resetSettingsCache } from '@/api/settings'
+import { closeSharedWs } from '@/api/shared-ws'
 import { useGlobalLanguage } from '@/hooks/use-global-language.ts'
 import { useGlobalTheme } from '@/hooks/use-global-theme.ts'
 import { useSessionAutoRefresh } from '@/hooks/use-session-auto-refresh.ts'
 import { confirmLeaveIfNeeded } from '@/router'
 import { clearAuthSession } from '@/store/auth'
-import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 
 window.$message = ElMessage
 window.$dialog = ElMessageBox
@@ -30,6 +30,7 @@ window.$logout = async (clearServerSession = true) => {
   if (clearServerSession) {
     void logout().catch(() => {})
   }
+  closeSharedWs()
   clearAuthSession()
   // 设置缓存是按会话读回来的：不清掉，下一个登录的人会先看到上一个人的值。
   resetSettingsCache()
@@ -40,7 +41,6 @@ window.$logout = async (clearServerSession = true) => {
 <template>
   <div class="page-root">
     <RouterView />
-    <WsStatusDisplay />
   </div>
 </template>
 

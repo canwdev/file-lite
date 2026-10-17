@@ -9,7 +9,7 @@ import type {
   TaskState,
 } from '@/types/server'
 import { ref, watch } from 'vue'
-import { closeSharedWs, ensureSharedWsConnected, sharedWsStatus, subscribeSharedWsMessage } from '@/api/shared-ws'
+import { sharedWsStatus, subscribeSharedWsMessage } from '@/api/shared-ws'
 import {
   createTask as apiCreateTask,
   deleteTask as apiDeleteTask,
@@ -18,7 +18,6 @@ import {
   retryTask as apiRetryTask,
   isTaskNotFound,
 } from '@/api/tasks'
-import { authSession } from '@/store/auth'
 import { syncImageThumbCacheWithTask } from '@/utils/thumb-cache-sync'
 
 /* ============================ 任务列表状态 ============================ */
@@ -563,17 +562,9 @@ watch(sharedWsStatus, (status) => {
   }
 }, { immediate: true })
 
-// 连接时机必须挂在**拿到会话之后**，不能在模块求值时就连：本模块可能随登录页的
-// 模块图一起被求值，那时还没有会话，提前连接只会得到一个必然失败的结果。
-// 会话清空（登出）时主动断开，避免带着失效 cookie 反复重连。
-watch(authSession, (session) => {
-  if (session) {
-    void ensureSharedWsConnected().catch(() => {})
-  }
-  else {
-    closeSharedWs()
-  }
-}, { immediate: true })
+// The connection itself is owned by the FileLite shell: it must not open on the
+// login or IP sharing page, and closing it when the shell unmounts (logout or a
+// route that leaves the file manager) releases the socket deterministically.
 
 // 冲突弹窗的两个出边：取消走执行器，决策下发给服务端。
 // 由这里注入，`task-state.ts` 因而不必认识任何执行器。
