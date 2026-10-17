@@ -47,7 +47,7 @@
 
 Download the archive for your platform from [GitHub Releases](https://github.com/canwdev/file-lite/releases), unzip it and run the binary.
 
-On Windows, unzip the archive and double-click `file-lite-go.exe`.
+On Windows, unzip the archive and double-click `file-lite-go.exe`. The x64 and x86 (32-bit) archives run on Windows 7 or later; the ARM64 archive requires Windows 10 or later.
 
 ```shell
 # Linux amd64

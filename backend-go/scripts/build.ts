@@ -44,6 +44,9 @@ interface Target {
 
 const ALL_TARGETS: Target[] = [
   { dir: 'windows_amd64', goos: 'windows', goarch: 'amd64', ext: '.exe' },
+  // 32-bit Windows: the release workflow takes its toolchain from go.mod (Go
+  // 1.20, the last release that runs on Windows 7), so Win7 x86 stays supported.
+  { dir: 'windows_386', goos: 'windows', goarch: '386', ext: '.exe' },
   { dir: 'windows_arm64', goos: 'windows', goarch: 'arm64', ext: '.exe' },
   { dir: 'linux_amd64', goos: 'linux', goarch: 'amd64', ext: '' },
   { dir: 'linux_arm64', goos: 'linux', goarch: 'arm64', ext: '' },
@@ -51,13 +54,23 @@ const ALL_TARGETS: Target[] = [
   { dir: 'mac_arm64', goos: 'darwin', goarch: 'arm64', ext: '' },
 ]
 
+/** Resolve a target by Go platform so the table order above can change freely. */
+function targetFor(goos: string, goarch: string): Target {
+  const found = ALL_TARGETS.find(target => target.goos === goos && target.goarch === goarch)
+  if (!found) {
+    throw new Error(`missing build target: ${goos}/${goarch}`)
+  }
+  return found
+}
+
 const TARGET_BY_PLATFORM: Record<string, Target> = {
-  'win32-x64': ALL_TARGETS[0],
-  'win32-arm64': ALL_TARGETS[1],
-  'linux-x64': ALL_TARGETS[2],
-  'linux-arm64': ALL_TARGETS[3],
-  'darwin-x64': ALL_TARGETS[4],
-  'darwin-arm64': ALL_TARGETS[5],
+  'win32-x64': targetFor('windows', 'amd64'),
+  'win32-ia32': targetFor('windows', '386'),
+  'win32-arm64': targetFor('windows', 'arm64'),
+  'linux-x64': targetFor('linux', 'amd64'),
+  'linux-arm64': targetFor('linux', 'arm64'),
+  'darwin-x64': targetFor('darwin', 'amd64'),
+  'darwin-arm64': targetFor('darwin', 'arm64'),
 }
 
 function currentTarget(): Target {

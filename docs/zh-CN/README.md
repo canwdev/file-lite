@@ -42,7 +42,7 @@
 
 从 [GitHub Releases](https://github.com/canwdev/file-lite/releases) 下载对应平台的压缩包，解压后运行。
 
-在 Windows 上，解压后双击 `file-lite-go.exe`。
+在 Windows 上，解压后双击 `file-lite-go.exe`。x64 和 x86（32 位）压缩包可在 Windows 7 及以上运行，ARM64 压缩包需要 Windows 10 及以上。
 
 ```shell
 # Linux amd64
