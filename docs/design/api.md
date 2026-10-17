@@ -171,7 +171,7 @@ or, for a QR login ticket:
 - `201` on success.
 - `401` on a wrong password or an expired/unknown ticket.
 - `429` when rate limited. This is the only rate-limited endpoint (20 requests per IP
-  per minute) and the only one that feeds the failure ban (5 failures ⇒ 15 minute ban).
+  per minute) and the only one that feeds the failure ban (15 failures ⇒ 15 minute ban).
 
 ### `DELETE /api/session`
 
@@ -854,7 +854,7 @@ handle it.
   the socket at the token's `exp`; a renewable session's socket is not re-checked on
   every access deadline because it can renew. The client also closes its socket on
   logout, and the IP sharing page never opens one.
-- Login is the only endpoint with request-rate limiting, plus a 15-minute ban after 5
+- Login is the only endpoint with request-rate limiting, plus a 15-minute ban after 15
   failures. Authenticated calls are not capped: bulk listing and transfers must never
   be throttled by a request counter. Expired or otherwise rejected tokens do **not**
   feed that ban, otherwise several parallel 401s after an idle period would lock the

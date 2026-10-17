@@ -31,12 +31,16 @@ type ipLimiter struct {
 	lastCleanupAt time.Time
 }
 
+// Password failures one IP may make before it is banned. Generous on purpose:
+// a few slips should not lock a legitimate user out for the whole 15 minutes.
+const authMaxAttempts = 15
+
 func newIPLimiter() *ipLimiter {
 	banDuration := 15 * time.Minute
 	return &ipLimiter{
 		failures:      map[string]failureRecord{},
 		banned:        map[string]time.Time{},
-		maxAttempts:   5,
+		maxAttempts:   authMaxAttempts,
 		banDuration:   banDuration,
 		failureWindow: banDuration,
 	}

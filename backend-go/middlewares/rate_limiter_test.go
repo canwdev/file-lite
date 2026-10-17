@@ -32,13 +32,13 @@ func TestLoginGuardBansAfterFailures(t *testing.T) {
 	limiter := newRequestLimiter(1000, time.Minute)
 	fail := true
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < ban.maxAttempts; i++ {
 		if got := loginStatus(t, ban, limiter, &fail, "10.0.0.1:1111"); got != http.StatusUnauthorized {
 			t.Fatalf("attempt %d = %d, want 401", i+1, got)
 		}
 	}
 	if got := loginStatus(t, ban, limiter, &fail, "10.0.0.1:1111"); got != http.StatusTooManyRequests {
-		t.Fatalf("after 5 failures = %d, want 429", got)
+		t.Fatalf("after %d failures = %d, want 429", ban.maxAttempts, got)
 	}
 	// 其他 IP 不受影响
 	if got := loginStatus(t, ban, limiter, &fail, "10.0.0.2:1111"); got != http.StatusUnauthorized {
@@ -51,7 +51,7 @@ func TestLoginGuardSuccessResetsFailures(t *testing.T) {
 	limiter := newRequestLimiter(1000, time.Minute)
 	fail := true
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < ban.maxAttempts-1; i++ {
 		loginStatus(t, ban, limiter, &fail, "10.0.0.1:1111")
 	}
 	fail = false
@@ -59,9 +59,10 @@ func TestLoginGuardSuccessResetsFailures(t *testing.T) {
 		t.Fatalf("successful login = %d, want 200", got)
 	}
 
-	// 成功后失败计数清零：接下来 5 次失败都应放行（第 5 次触发封禁）
+	// A success clears the counter: the next maxAttempts failures pass, and the
+	// one after them hits the ban again.
 	fail = true
-	for i := 0; i < 5; i++ {
+	for i := 0; i < ban.maxAttempts; i++ {
 		if got := loginStatus(t, ban, limiter, &fail, "10.0.0.1:1111"); got != http.StatusUnauthorized {
 			t.Fatalf("post-reset attempt %d = %d, want 401", i+1, got)
 		}
