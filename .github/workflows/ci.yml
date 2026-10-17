@@ -28,6 +28,13 @@ jobs:
         with:
           go-version-file: backend-go/go.mod
 
+      - name: Create embedded frontend placeholder
+        # main.go embeds frontend-assets.tar.gz, a gitignored build artifact that
+        # a fresh checkout does not have, so vet would fail before any test ran.
+        # No backend test reads the embedded bundle; the release build makes the
+        # real one.
+        run: tar -czf frontend-assets.tar.gz -T /dev/null
+
       - name: Vet
         run: go vet ./...
 
