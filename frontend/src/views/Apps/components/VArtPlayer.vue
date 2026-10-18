@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Option, SettingOption } from 'artplayer'
 import type { Ref } from 'vue'
+import type { SubtitleSource } from '../video-subtitle'
 import type { IEntry } from '@/types/server'
 import type { FileSelectResult } from '@/views/FileManager/types'
 import { useStorage } from '@vueuse/core'
@@ -18,14 +19,14 @@ interface Props {
   src: string
   autoplay?: boolean
   options?: Partial<Option> // 允许外部传入 Artplayer 的其他高级配置
-  /** 同名字幕的服务端路径；有就自动挂上，换片时跟着换 */
-  subtitlePath?: string
+  /** 自动找到的同名字幕；第一条自动挂上，其余放进播放器的字幕菜单 */
+  subtitles?: SubtitleSource[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   autoplay: false,
   options: () => ({}),
-  subtitlePath: '',
+  subtitles: () => [],
 })
 
 const emit = defineEmits<{
@@ -120,7 +121,8 @@ function onLocalVideoPicked(e: Event) {
   revokeBlobRef(videoObjectUrl)
   const url = URL.createObjectURL(file)
   videoObjectUrl.value = url
-  // 本地视频旁边没有服务端字幕，上一部自动挂上的得撤掉
+  // 本地视频旁边没有服务端字幕，上一部自动挂上的得撤掉，菜单也不能再列旧字幕
+  autoSubtitlesAvailable = false
   clearAutoSubtitle()
   void inst.switchUrl(url).catch(console.error)
 }
@@ -142,10 +144,22 @@ async function onLocalSubtitlePicked(e: Event) {
     type: subtitleType(file.name),
     encoding,
   })
+  // 本地字幕不在自动列表里，菜单不再把上一条标成当前项
+  subtitleAttached = true
+  activeSubtitlePath = ''
+  applySubtitleSetting()
 }
 
-/** 自动挂上的同名字幕是否还在（用来决定换片时要不要清）。 */
-let autoSubtitleApplied = false
+const AUTO_SUBTITLE_SETTING = 'auto-subtitle'
+/** 自动字幕菜单里当前挂上的那条；空字符串表示没挂。 */
+let activeSubtitlePath = ''
+/** 画面上是否挂着字幕（自动或手动载入的都算），换片时要撤掉。 */
+let subtitleAttached = false
+/** 已经自动处理过的字幕列表；同一份列表只自动挂一次，用户关掉后不会自己再打开。 */
+let appliedSubtitleList: SubtitleSource[] | null = null
+/** App 传进来的自动字幕是否还对应正在播放的视频（在播放器里换过片之后就不是了）。 */
+let autoSubtitlesAvailable = true
+let subtitleSettingAdded = false
 let emptyVttUrl = ''
 
 /** Artplayer 没有 clear API：换到没有字幕的视频时，用一个空 VTT 把上一部的顶掉。 */
@@ -154,26 +168,90 @@ function getEmptyVttUrl() {
   return emptyVttUrl
 }
 
-/**
- * 挂上或清掉自动加载的同名字幕。
- *
- * 服务端已经把非 UTF-8 的字幕转成 UTF-8（Artplayer 默认按 UTF-8 解），srt / ass / vtt
- * 它自己都会解析，所以直接把服务端 URL 交给它。
- */
+/** 当前自动字幕的名字，供菜单 tooltip 显示。 */
+function activeSubtitleLabel(): string {
+  return props.subtitles.find(source => source.path === activeSubtitlePath)?.label
+    ?? $t('file_lite_i18n.off')
+}
+
+/** 挂上字幕菜单：自动扫描到的每一条 + 关闭。 */
+function applySubtitleSetting() {
+  const inst = artInstance.value
+  if (!inst?.isReady)
+    return
+  if (!autoSubtitlesAvailable || !props.subtitles.length) {
+    if (subtitleSettingAdded) {
+      inst.setting.remove(AUTO_SUBTITLE_SETTING)
+      subtitleSettingAdded = false
+    }
+    return
+  }
+  const setting = {
+    name: AUTO_SUBTITLE_SETTING,
+    html: $t('file_lite_i18n.subtitles'),
+    tooltip: activeSubtitleLabel(),
+    selector: [
+      { html: $t('file_lite_i18n.off'), value: '', default: !activeSubtitlePath },
+      ...props.subtitles.map(source => ({
+        html: source.label,
+        value: source.path,
+        default: source.path === activeSubtitlePath,
+      })),
+    ],
+    onSelect(item: SettingOption) {
+      // 菜单自己会更新勾选与 tooltip，不必在这里重绘整份设置
+      switchSubtitle(String(item.value ?? ''), false)
+      return item.html
+    },
+  }
+  if (subtitleSettingAdded) {
+    inst.setting.update(setting)
+  }
+  else {
+    inst.setting.add(setting)
+    subtitleSettingAdded = true
+  }
+}
+
+/** 切到某条自动字幕；空路径表示关闭。 */
+function switchSubtitle(path: string, refreshSetting = true) {
+  const inst = artInstance.value
+  if (!inst?.isReady)
+    return
+  activeSubtitlePath = path
+  if (!path) {
+    subtitleAttached = false
+    void inst.subtitle.switch(getEmptyVttUrl(), {}).catch(console.error)
+  }
+  else {
+    subtitleAttached = true
+    // 服务端已经把非 UTF-8 的字幕转成 UTF-8（Artplayer 默认按 UTF-8 解），
+    // srt / ass / vtt 它自己都会解析，所以直接把服务端 URL 交给它。
+    const source = props.subtitles.find(item => item.path === path)
+    void inst.subtitle.switch(fs.url(path), {
+      name: source?.label || subtitleName(path),
+      type: subtitleType(path),
+    }).catch(console.error)
+  }
+  if (refreshSetting)
+    applySubtitleSetting()
+}
+
+/** 自动挂上列表里的第一条字幕；用户关掉后，同一份列表不会再被自动打开。 */
 function applyAutoSubtitle() {
   const inst = artInstance.value
   if (!inst?.isReady)
     return
-  const path = props.subtitlePath
-  if (!path) {
+  if (!autoSubtitlesAvailable || appliedSubtitleList === props.subtitles) {
+    applySubtitleSetting()
+    return
+  }
+  appliedSubtitleList = props.subtitles
+  if (!props.subtitles.length) {
     clearAutoSubtitle()
     return
   }
-  void inst.subtitle.switch(fs.url(path), {
-    name: subtitleName(path),
-    type: subtitleType(path),
-  }).catch(console.error)
-  autoSubtitleApplied = true
+  switchSubtitle(props.subtitles[0]!.path)
 }
 
 /**
@@ -183,15 +261,17 @@ function applyAutoSubtitle() {
  * 而 Artplayer 没有 clear API，只能用一个空 VTT 把它顶掉。
  */
 function clearAutoSubtitle() {
-  if (!autoSubtitleApplied)
-    return
-  const inst = artInstance.value
-  if (inst?.isReady)
-    void inst.subtitle.switch(getEmptyVttUrl(), {}).catch(console.error)
-  autoSubtitleApplied = false
+  activeSubtitlePath = ''
+  if (subtitleAttached) {
+    subtitleAttached = false
+    const inst = artInstance.value
+    if (inst?.isReady)
+      void inst.subtitle.switch(getEmptyVttUrl(), {}).catch(console.error)
+  }
+  applySubtitleSetting()
 }
 
-watch(() => props.subtitlePath, () => applyAutoSubtitle())
+watch(() => props.subtitles, () => applyAutoSubtitle())
 
 /** data URL（如截图）→ 剪贴板图片，需 HTTPS 且浏览器支持 ClipboardItem */
 async function copyDataUrlImageToClipboard(dataUrl: string): Promise<void> {
@@ -234,6 +314,12 @@ onMounted(() => {
     fullscreenWeb: true,
     // autoSize: true,
     theme: rgbToHex(getCurrentPrimaryRgb()) || '#53ade4',
+    // 字幕默认 20px、离底 15px，1080p 下又小又贴边。这两个变量是 Artplayer 的公开入口，
+    // 控制栏出现时它仍然会按 --art-control-height 自动上移，所以不要改用 subtitle.style。
+    cssVar: {
+      '--art-subtitle-font-size': 'clamp(24px, 2.6vw, 40px)',
+      '--art-subtitle-bottom': 'clamp(24px, 4vh, 48px)',
+    },
     // autoMini: true,
     aspectRatio: true,
     screenshot: true,
@@ -363,8 +449,12 @@ watch(
       return
     }
     revokeBlobRef(videoObjectUrl)
+    // App 换了一条视频（也可能在同一窗口重开同一部），自动字幕重新按新列表决定
+    autoSubtitlesAvailable = true
+    appliedSubtitleList = null
     void inst.switchUrl(newUrl).then(() => {
       if (inst.isReady) {
+        applyAutoSubtitle()
         emit('ready', inst)
       }
     }).catch(console.error)
@@ -391,7 +481,8 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
   videoObjectUrl.value = null
   const url = fs.url(joinPath(val.basePath, item.name))
   if (url) {
-    // 换的是另一个文件，App 那条自动字幕已经对不上号
+    // 换的是另一个文件，App 那条自动字幕已经对不上号，菜单也不能再列旧字幕
+    autoSubtitlesAvailable = false
     clearAutoSubtitle()
     void inst.switchUrl(url).catch(console.error)
   }
@@ -414,6 +505,10 @@ function handleFileSelect(val: FileSelectResult) {
     name: item.name,
     type: subtitleType(item.name),
   })
+  // 服务器字幕不在自动列表里，菜单不再把上一条标成当前项
+  subtitleAttached = true
+  activeSubtitlePath = ''
+  applySubtitleSetting()
 }
 /**
  * `art`：供 NativeOrArtVideo / PlayerCore 等统一控制播放、取 `art.video` 做 HTML 事件同步。

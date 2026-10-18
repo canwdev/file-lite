@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -62,7 +63,7 @@ func AccessLog() echo.MiddlewareFunc {
 
 			req := c.Request()
 			status := c.Response().Status
-			line := fmt.Sprintf("%d %s %s%s %s", status, req.Method, req.Host, req.RequestURI, time.Since(start))
+			line := fmt.Sprintf("%d %s %s%s %s", status, req.Method, req.Host, loggedRequestURI(req), time.Since(start))
 			if status >= http.StatusInternalServerError {
 				LogErrorf("%s", line)
 			} else {
@@ -71,4 +72,15 @@ func AccessLog() echo.MiddlewareFunc {
 			return err
 		}
 	}
+}
+
+// loggedRequestURI 是访问日志里显示的地址。
+//
+// 签名媒体直链的凭据就在 query 里（exp + sig），整条 URL 记进日志等于留下一份
+// 还能用的链接清单，所以这类请求只记路径。
+func loggedRequestURI(req *http.Request) string {
+	if strings.HasPrefix(req.URL.Path, "/api/media/") {
+		return req.URL.Path
+	}
+	return req.RequestURI
 }

@@ -13,6 +13,13 @@ export const SUBTITLE_EXTENSIONS = ['.srt', '.ass', '.vtt', '.ssa']
 /** Artplayer 的 `subtitle.switch` 与 `<track>` 认识的字幕类型。 */
 export type SubtitleType = 'srt' | 'ass' | 'vtt'
 
+/** 一份自动找到的字幕：路径 + 播放器菜单里的名字。 */
+export interface SubtitleSource {
+  path: string
+  /** 视频名后面的语言/版本中缀；完全同名时是调用方给的默认名。 */
+  label: string
+}
+
 /** 字幕类型：Artplayer 用它挑解析器。 */
 export function subtitleType(path: string): SubtitleType {
   const lower = path.toLowerCase()
@@ -26,6 +33,29 @@ export function subtitleType(path: string): SubtitleType {
 /** 字幕文件名，用作播放器字幕菜单里的名字。 */
 export function subtitleName(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1)
+}
+
+/**
+ * 字幕相对视频名的中缀，用作字幕轨的显示名。
+ *
+ * `Top002.这个杀手不太冷.mkv` + `Top002.这个杀手不太冷.简体中文.srt` → `简体中文`；
+ * 完全同名（`Top002.这个杀手不太冷.srt`）时返回空字符串，由调用方决定显示什么。
+ */
+export function subtitleLabel(videoPath: string, subtitlePath: string): string {
+  const videoStem = stemOf(videoPath)
+  if (!videoStem)
+    return ''
+  const prefix = `${videoStem}.`
+  const subtitleStem = stemOf(subtitlePath)
+  if (!subtitleStem.toLowerCase().startsWith(prefix.toLowerCase()))
+    return ''
+  return subtitleStem.slice(prefix.length)
+}
+
+function stemOf(path: string): string {
+  const name = subtitleName(path)
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(0, dot) : name
 }
 
 /**

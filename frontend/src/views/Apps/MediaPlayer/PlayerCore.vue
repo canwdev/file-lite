@@ -7,7 +7,7 @@ import { useMediaSessionRecovery } from '@/hooks/use-media-session-recovery'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
-import { useSiblingSubtitle } from '../use-sibling-subtitle'
+import { useSiblingSubtitles } from '../use-sibling-subtitle'
 import defaultCoverUrl from './assets/default-cover.webp'
 import MusicDetail from './MusicDetail.vue'
 import { loadSiblingLyrics } from './utils/lyrics-file'
@@ -38,7 +38,7 @@ const resolvedMediaUrl = computed(() => {
 })
 const avSrc = computed(() => resolvedMediaUrl.value || undefined)
 /** 视频的同名字幕：和视频播放器 App 一样自动找、自动挂（音频不做多余的查找）。 */
-const subtitlePath = useSiblingSubtitle(() => (mediaStore.isVideo ? mediaStore.mediaItem?.absPath ?? '' : ''))
+const subtitles = useSiblingSubtitles(() => (mediaStore.isVideo ? mediaStore.mediaItem?.absPath ?? '' : ''))
 const recordLastOpenedMedia = createLastOpenedMediaRecorder()
 
 let mediaEventsAbort: AbortController | null = null
@@ -415,7 +415,7 @@ onBeforeUnmount(() => {
       :src="avSrc"
       :autoplay="mediaStore.isLoadedAutoplay"
       :controls="true"
-      :subtitle-path="subtitlePath"
+      :subtitles="subtitles"
       @media-element-ready="onVideoHtmlReady"
     />
     <template v-else>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
+import type { SubtitleSource } from '../video-subtitle'
 import { nextTick, onBeforeUnmount, onMounted, ref, unref, watch } from 'vue'
 import { useMediaSessionRecovery } from '@/hooks/use-media-session-recovery'
 import { localSettingsStore } from '@/store/index'
 import { fs } from '@/utils/fs'
-import { subtitleName, subtitleToVtt } from '../video-subtitle'
+import { subtitleToVtt } from '../video-subtitle'
 import VArtPlayer from './VArtPlayer.vue'
 
 const props = withDefaults(
@@ -13,13 +14,13 @@ const props = withDefaults(
     autoplay?: boolean
     /** 仅原生 `<video>` 生效；Art 使用自带控制栏 */
     controls?: boolean
-    /** 同名字幕的服务端路径；两个播放器各自决定怎么加载 */
-    subtitlePath?: string
+    /** 自动找到的所有同名字幕；两个播放器各自决定怎么呈现 */
+    subtitles?: SubtitleSource[]
   }>(),
   {
     autoplay: true,
     controls: true,
-    subtitlePath: '',
+    subtitles: () => [],
   },
 )
 
@@ -98,72 +99,86 @@ onMounted(() => {
   })
 })
 
-/** 原生 `<video>` 只认 WebVTT，所以字幕要取回来转换；Artplayer 自己会解析。 */
-const nativeSubtitleSrc = ref('')
-let nativeSubtitleBlobUrl = ''
-/** 切片时旧请求可能后返回，用序号让它在途作废。 */
+/**
+ * 原生 `<video>` 只认 WebVTT，而且每份字幕是一个 `<track>`，所以先把所有字幕都取回来
+ * 转成 VTT。浏览器自己在原生控制栏里列出这些轨，用户选哪条由浏览器管。
+ */
+interface NativeSubtitleTrack extends SubtitleSource {
+  url: string
+}
+
+const nativeSubtitleTracks = ref<NativeSubtitleTrack[]>([])
+/** 已创建的 blob URL：数据源换了、组件销毁时要全部释放。 */
+let nativeSubtitleUrls: string[] = []
+/** 切源时旧请求可能后返回，用序号让它在途作废。 */
 let nativeSubtitleRequest = 0
 
-function clearNativeSubtitle() {
+function clearNativeSubtitles() {
   nativeSubtitleRequest++
-  if (nativeSubtitleBlobUrl) {
-    URL.revokeObjectURL(nativeSubtitleBlobUrl)
-    nativeSubtitleBlobUrl = ''
-  }
-  nativeSubtitleSrc.value = ''
-}
-
-async function loadNativeSubtitle() {
-  clearNativeSubtitle()
-  const path = props.subtitlePath
-  if (!isNativePlayer.value || !path)
-    return
-  const request = nativeSubtitleRequest
-
-  let url = ''
-  try {
-    const { text } = await fs.readTextFile(path)
-    const vtt = subtitleToVtt(path, text)
-    url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt;charset=utf-8' }))
-  }
-  catch (error) {
-    // 自动加载是尽力而为：字幕读不到就当没有字幕，不打扰用户。
-    console.error('load subtitle failed', error)
-    return
-  }
-  if (request !== nativeSubtitleRequest) {
+  for (const url of nativeSubtitleUrls)
     URL.revokeObjectURL(url)
-    return
-  }
-  nativeSubtitleBlobUrl = url
-  nativeSubtitleSrc.value = url
+  nativeSubtitleUrls = []
+  nativeSubtitleTracks.value = []
 }
 
-watch([isNativePlayer, () => props.subtitlePath], () => {
-  void loadNativeSubtitle()
+async function loadNativeSubtitles() {
+  clearNativeSubtitles()
+  const request = nativeSubtitleRequest
+  if (!isNativePlayer.value || !props.subtitles.length)
+    return
+
+  const loaded = await Promise.all(props.subtitles.map(async (source): Promise<NativeSubtitleTrack | null> => {
+    try {
+      const { text } = await fs.readTextFile(source.path)
+      const vtt = subtitleToVtt(source.path, text)
+      return { ...source, url: URL.createObjectURL(new Blob([vtt], { type: 'text/vtt;charset=utf-8' })) }
+    }
+    catch (error) {
+      // 自动加载是尽力而为：某份字幕读不到就跳过它，其余照常上轨。
+      console.error('load subtitle failed', error)
+      return null
+    }
+  }))
+
+  if (request !== nativeSubtitleRequest) {
+    for (const track of loaded) {
+      if (track)
+        URL.revokeObjectURL(track.url)
+    }
+    return
+  }
+
+  const tracks = loaded.filter((track): track is NativeSubtitleTrack => track !== null)
+  nativeSubtitleUrls = tracks.map(track => track.url)
+  nativeSubtitleTracks.value = tracks
+}
+
+watch([isNativePlayer, () => props.subtitles], () => {
+  void loadNativeSubtitles()
 }, { immediate: true })
 
 /**
- * 打开字幕轨。
+ * 打开第一条字幕轨。
  *
  * 动态插进 `<video>` 的 `<track>` 光靠 `default` 不一定会显示（`mode` 默认是
- * disabled），所以这里显式设成 showing；用户在原生控制栏里关掉字幕不会再被打开，
- * 因为只有换字幕或切成原生播放时才走这里。
+ * disabled），所以这里显式设成 showing；多轨时其余必须是 disabled，否则会叠在一起。
+ * 用户在原生控制栏里换轨后不会再被打开，因为只有字幕列表或播放器切换时才走这里。
  */
 function showSubtitleTrack() {
   const video = nativeVideoRef.value
   if (!video)
     return
-  for (const track of Array.from(video.textTracks))
-    track.mode = 'showing'
+  Array.from(video.textTracks).forEach((track, index) => {
+    track.mode = index === 0 ? 'showing' : 'disabled'
+  })
 }
 
 // 表源（getter）在创建 watch 时就会被求值，所以这里只能引用上面已经声明的东西。
-watch([isNativePlayer, nativeVideoRef, () => nativeSubtitleSrc.value], () => {
+watch([isNativePlayer, nativeVideoRef, () => nativeSubtitleTracks.value], () => {
   nextTick(() => showSubtitleTrack())
 })
 
-onBeforeUnmount(clearNativeSubtitle)
+onBeforeUnmount(clearNativeSubtitles)
 
 defineExpose({
   play,
@@ -183,12 +198,13 @@ defineExpose({
       :autoplay="autoplay"
     >
       <track
-        v-if="nativeSubtitleSrc"
-        :src="nativeSubtitleSrc"
-        :label="subtitleName(subtitlePath)"
+        v-for="(track, index) in nativeSubtitleTracks"
+        :key="track.path"
+        :src="track.url"
+        :label="track.label"
         kind="subtitles"
         srclang="und"
-        default
+        :default="index === 0"
       >
     </video>
     <VArtPlayer
@@ -196,7 +212,7 @@ defineExpose({
       ref="vArtRef"
       :src="src"
       :autoplay="autoplay"
-      :subtitle-path="subtitlePath"
+      :subtitles="subtitles"
       @ready="onArtReady"
     />
   </div>

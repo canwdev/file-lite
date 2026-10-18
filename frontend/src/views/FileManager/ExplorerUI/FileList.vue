@@ -1863,7 +1863,6 @@ defineExpose({
 
         <button
           class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
-          :disabled="!enableAction"
           :title="$t('file_lite_i18n.properties')"
           @click="handleShowProperties"
         >

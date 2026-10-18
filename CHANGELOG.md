@@ -8,12 +8,17 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - **Terminal menu**: The first menu entry is now Open Web UI, which opens the loopback page directly instead of the IP selector (backend).
 - **Toolbar**: The eye button that toggled hidden files is now Properties, which opens the Properties window for the current selection; Ctrl+H still toggles hidden files (frontend).
+- **Properties**: The toolbar Properties button also works with nothing selected and then shows the current folder (frontend).
+- **Paths**: The More menu of a selection and a folder's address-bar menu can copy a path with Windows backslashes, next to Copy Path (frontend).
+- **Subtitles**: Every subtitle matching the video is now found, including files kept in a subtitle folder beside it such as `SRT/`, `Subs/` or `字幕/`, and can be selected in the native track menu or the Artplayer settings menu (frontend).
+- **Subtitle style**: Artplayer subtitles are larger and sit farther from the bottom edge (frontend).
 - **Settings**: The Data section is now File Management and holds Show hidden files, Show folders first and Disable preview (frontend).
 - **Fullscreen**: The global menu no longer toggles browser fullscreen; every app window has a fullscreen button in its title bar that fills the screen with that window's content, and Esc leaves it (frontend).
 - **Fonts**: The interface uses the system UI font stack instead of Inter/Avenir (frontend).
 
 ### Features
 
+- **Public links**: Selected files can be copied as a public link that expires after 3 hours, 24 hours, 7 days or 30 days, or downloaded as an M3U playlist, so an external player such as PotPlayer can open the video without signing in (frontend, backend).
 - **Session**: The access token now expires after 15 minutes and renews itself while the app is open or used, so a stolen token is short-lived without signing the user out (frontend, backend).
 - **Session lifetime**: A session that sits unused for 30 days asks for the password again; the renewal window slides on use (frontend, backend).
 - **Session upgrade**: Sessions created before 1.5.1 sign in once after the update (backend).
@@ -35,6 +40,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Login attempts**: A wrong password now needs 15 failures from one IP before the 15-minute ban instead of 5, so mistyping a password no longer locks the user out so easily (backend).
 - **Windows restart**: Restarting the backend from a terminal opens a terminal window for the new process instead of continuing in the background, so the TUI comes back (backend).
 - **Media playback**: A video or audio element whose request is rejected after the tab was idle renews the session once and reloads at the same position instead of stopping (frontend).
+- **Window focus**: Clicking maximize or restore keeps focus in the app instead of moving it to the title-bar button (frontend).
 - **Column resize**: The divider between two file-table column headers can be grabbed on both sides, and it highlights on hover; the drag area no longer stops at the header cell's edge (frontend).
 - **Translations**: A string a locale has not translated yet falls back to English instead of showing the raw key, and the Chinese login validity period label is back (frontend).
 

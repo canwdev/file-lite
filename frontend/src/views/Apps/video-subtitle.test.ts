@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { subtitleName, subtitleToVtt, subtitleType } from './video-subtitle'
+import { subtitleLabel, subtitleName, subtitleToVtt, subtitleType } from './video-subtitle'
 
 describe('subtitleType', () => {
   test('maps every accepted extension, case-insensitively', () => {
@@ -15,6 +15,24 @@ describe('subtitleName', () => {
   test('is the base name, for the player menu', () => {
     expect(subtitleName('/a/b/绝命毒师 - S02E09.srt')).toBe('绝命毒师 - S02E09.srt')
     expect(subtitleName('movie.ass')).toBe('movie.ass')
+  })
+})
+
+describe('subtitleLabel', () => {
+  const video = '/电影/Top002.这个杀手不太冷.Leon.1994.mkv'
+
+  test('is the suffix after the video stem, whatever the directory', () => {
+    expect(subtitleLabel(video, '/电影/SRT/Top002.这个杀手不太冷.Leon.1994.简体中文.srt')).toBe('简体中文')
+    expect(subtitleLabel(video, '/电影/Top002.这个杀手不太冷.Leon.1994.繁体中文.srt')).toBe('繁体中文')
+  })
+
+  test('is empty for an exact match, which the caller names', () => {
+    expect(subtitleLabel(video, '/电影/Top002.这个杀手不太冷.Leon.1994.srt')).toBe('')
+  })
+
+  test('is empty when the names do not share a stem', () => {
+    expect(subtitleLabel(video, '/电影/other.chs.srt')).toBe('')
+    expect(subtitleLabel('', '/电影/other.chs.srt')).toBe('')
   })
 })
 

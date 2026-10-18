@@ -100,6 +100,8 @@ Rules the server relies on:
 | Directories | `GET PUT /api/fs/directories/{path}` |
 | Entries | `GET PATCH /api/fs/entries/{path}` |
 | Content | `GET HEAD PUT /api/fs/content/{path}` |
+| Media links | `POST /api/fs/media-links` |
+| Public media | `GET HEAD /api/media/{path}?exp=…&sig=…` |
 | Entry queries | `POST /api/fs/entry-queries` |
 | Thumbnails | `GET /api/fs/thumbnail/{path}` |
 | Downloads | `GET /api/fs/downloads?paths=…` |
@@ -454,6 +456,66 @@ uploaded. That question is what `POST /api/fs/entry-queries` answers; the precon
 above are the actual guard, so a file created between the question and the write still
 cannot be overwritten by accident.
 
+### `POST /api/fs/media-links`
+
+Mints read-only links a media player outside the browser can open. Minting is a
+write, so it needs the session and the CSRF header; the links it returns do not.
+
+```json
+{ "paths": ["/home/a/ep01.mkv", "/home/a/ep02.mkv"], "ttl": "24h" }
+```
+
+```json
+{
+  "links": [
+    {
+      "path": "/home/a/ep01.mkv",
+      "url": "/api/media/%2Fhome%2Fa%2Fep01.mkv?exp=1750000000&sig=…",
+      "expiresAt": "2025-06-15T18:00:00Z"
+    }
+  ]
+}
+```
+
+- `ttl` is one of `3h`, `24h`, `7d`, `30d`; omitted means `24h`; anything else is
+  `400`.
+- The response keeps the request order, and every `path` is the canonical path.
+- `201 Created` on success. A directory is `409` (`conflict`), an unknown path is
+  `404`, and more than 1000 paths is `400`.
+- `url` is a path relative to the app origin, not an absolute URL: the server does
+  not know which address the browser reached it on, so the frontend joins
+  `location.origin`. A link copied from a page opened at `http://192.168.1.10:3080`
+  therefore carries that LAN address, and the http/https and port come for free.
+- The link is a bearer credential for one file: it expires, it cannot list a
+  directory, and it cannot write. `allowedRoots` is still enforced when the link is
+  redeemed.
+- Links are stateless — nothing is stored for them — so restarting the backend
+  keeps every unexpired link working as long as `jwtToken` is unchanged. A new
+  `jwtToken` (or ephemeral mode, where it is generated per start) revokes them.
+
+### `GET` / `HEAD` `/api/media/{path}?exp=…&sig=…`
+
+The one file-reading route that does not take the session cookies. It exists
+because a player started outside the browser has no cookie jar, so the URL itself
+is the credential.
+
+- `sig` is `base64url(HMAC-SHA256(key, "v1\n" + path + "\n" + exp))`, where the key
+  is derived from the JWT secret (`config.MediaLinkKey`). Rotating `jwtToken`
+  therefore invalidates every outstanding link together with every session.
+- `exp` is a Unix timestamp in seconds. A link whose `exp` is in the past is
+  rejected even when the signature matches. The deadline is not refreshed on use:
+  seeking sends a new `Range` request and every request re-checks `exp`, so the TTL
+  has to cover the whole viewing session rather than one request.
+- `401` (`unauthorized`, message `Unauthorized: media link is invalid or expired`)
+  for a missing, modified or expired `exp`/`sig`, and for a path that does not
+  canonicalize to the signed one.
+- Otherwise the response is the same representation as
+  `GET /api/fs/content/{path}`: `inline`, with `Range`/`If-Range`/`ETag`/`304`
+  handled by `http.ServeContent`. The differences are `Cache-Control: private,
+  max-age=0, must-revalidate` (a shared cache must not keep a credentialed URL) and
+  `Referrer-Policy: no-referrer`.
+- A directory is `409`; a named pipe is `415`.
+
 ### `POST /api/fs/entry-queries`
 
 ```json
@@ -805,6 +867,7 @@ look like a deleted file. Only an explicit `ENOENT`/`ENOTDIR` produces
 | Endpoint | Validator | Client behavior |
 |---|---|---|
 | `GET /api/fs/content/{path}` | strong `ETag` = representation revision + size + mtime; `Last-Modified` | `max-age=0, must-revalidate`; 304 on match; `Range` supported |
+| `GET /api/media/{path}` | the same strong `ETag` as content | `private, max-age=0, must-revalidate`; 304 on match; `Range` supported |
 | `GET /api/fs/thumbnail/{path}` | strong `ETag` from kind, size, mtime | `private, max-age=0, must-revalidate`; 304 on match; the frontend also keeps a decoded copy in IndexedDB |
 | Plugin assets | `ETag` from size, mtime and the injected SDK revision | `private, max-age=0, must-revalidate` |
 | `GET /api/fs/directories/{path}` | **none** | Directory listings are not cached. They change without the directory mtime changing (a file's size or mtime), so any cheap validator would serve stale rows. Freshness comes from the `fs.changed` push and from explicit reloads |
@@ -852,6 +915,10 @@ handle it.
   `Authorization` header is exempt, because another site cannot make a browser send it.
 - An auth cookie without its session partner is rejected: it is a leftover from a
   cleared or outdated login and would allow reads while every write fails.
+- `/api/media/*` is the deliberate exception (§6): it authenticates by the signed URL
+  instead of the cookie pair, because a player outside the browser cannot present a
+  cookie. The signature covers the canonical path and the deadline, so the link
+  grants read access to that one file until `exp` and nothing else.
 - A `401` whose token has a live renewal window **keeps** the cookie pair; the client
   exchanges it at the refresh endpoint. Only a pair that is past `rexp` (or is otherwise
   unusable) is cleared, so the browser stops replaying a dead credential. A fixed token

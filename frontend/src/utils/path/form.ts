@@ -62,3 +62,13 @@ export function joinPath(base: string, name: string) {
   }
   return parent === '' ? `/${child}` : `${parent}/${child}`
 }
+
+/**
+ * canonical 路径的 Windows 写法：分隔符全部换成反斜杠。
+ *
+ * 只用于展示与复制（粘进资源管理器、命令行或播放器），不参与任何路径比较：
+ * UNC 的 `//server/share` 因此变成 `\\server\share`，盘符 `C:/x` 变成 `C:\x`。
+ */
+export function toWindowsPath(path: string) {
+  return path.replace(/\//g, '\\')
+}

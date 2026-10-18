@@ -1,5 +1,6 @@
 import type { MenuItem } from '@canwdev/vgo-ui'
 import type { Ref } from 'vue'
+import type { MediaLinkTTL } from '@/api/filesystem'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import type { PropertiesTarget } from '@/views/Apps/properties'
@@ -9,7 +10,7 @@ import { computed, h, ref } from 'vue'
 import { listPlugins } from '@/api/plugins'
 import { serverCapabilities } from '@/store/capabilities'
 import { createTask } from '@/store/tasks'
-import { copyWithToast } from '@/utils'
+import { copyWithToast, downloadUrl } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { fs } from '@/utils/fs'
@@ -19,7 +20,7 @@ import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showProperties } from '@/views/Apps/properties'
 import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
-import { getLastDirName, joinPath, normalizePath } from '../../utils'
+import { getLastDirName, joinPath, normalizePath, toWindowsPath } from '../../utils'
 import { getDefaultOpenApp } from './use-opener'
 
 function splitEntryName(name: string): { dirPrefix: string, baseName: string } {
@@ -91,13 +92,20 @@ export function useFileActions({
     }
   }
 
-  /** 单选看单条明细，多选把选中项聚合成一个统计窗口。 */
+  /** 未选中条目时的属性目标是当前文件夹。 */
+  function currentFolderTarget(): PropertiesTarget {
+    const absPath = normalizePath(basePath.value)
+    return {
+      absPath,
+      name: getLastDirName(basePath.value) || absPath,
+      isDirectory: true,
+    }
+  }
+
+  /** 单选看单条明细，多选把选中项聚合成一个统计窗口，未选中时看当前文件夹。 */
   function handleShowProperties() {
     const items = selectedItems.value
-    if (!items.length) {
-      return
-    }
-    showProperties(items.map(propertyTargetOf))
+    showProperties(items.length ? items.map(propertyTargetOf) : [currentFolderTarget()])
   }
   const handleCreateFile = async (name = '', content = '') => {
     try {
@@ -229,6 +237,118 @@ export function useFileActions({
     if (!selectedPaths.value.length)
       return
     copyWithToast(selectedPaths.value.join('\n'))
+  }
+
+  /** 同一批路径的 Windows 写法：粘进资源管理器 / 命令行 / 播放器时才是能直接用的一条。 */
+  const handleCopyWindowsPaths = () => {
+    if (!selectedPaths.value.length)
+      return
+    copyWithToast(selectedPaths.value.map(toWindowsPath).join('\n'))
+  }
+
+  /**
+   * 公开直链的有效期档位。
+   *
+   * `value` 是后端接受的取值（3h / 24h / 7d / 30d）；菜单显示的是「3 hours」这类
+   * 文案，所以数字和单位分开存，单位复用 ticket_tier_* 那组文案（没有 days 的补一条）。
+   */
+  const mediaLinkTTLOptions: { value: MediaLinkTTL, count: number, unit: 'hours' | 'days' }[] = [
+    { value: '3h', count: 3, unit: 'hours' },
+    { value: '24h', count: 24, unit: 'hours' },
+    { value: '7d', count: 7, unit: 'days' },
+    { value: '30d', count: 30, unit: 'days' },
+  ]
+
+  /** 只有文件能生成直链；混选里的目录会被跳过。 */
+  function mediaLinkTargets(): { path: string, name: string }[] {
+    return selectedItems.value
+      .filter(item => !item.isDirectory)
+      .map(item => ({
+        path: normalizePath(joinPath(basePath.value, item.name)),
+        name: item.name,
+      }))
+  }
+
+  const hasSelectedFiles = computed(() => selectedItems.value.some(item => !item.isDirectory))
+
+  function mediaLinkTtlMenu(pick: (ttl: MediaLinkTTL) => void): MenuItem[] {
+    return mediaLinkTTLOptions.map(option => ({
+      label: $t(`file_lite_i18n.ticket_tier_${option.unit}`, [option.count]),
+      onClick: () => pick(option.value),
+    }))
+  }
+
+  /**
+   * 直链是 `/api/media/…` 相对路径，这里拼上当前页面的 origin。
+   *
+   * 服务端不知道浏览器用的是 192.168.x.x 还是 localhost；用 location.origin 就等于
+   * 把「用户此刻正在用的这个内网地址」带进链接，复制出去和写进 m3u 的都是同一个源。
+   */
+  function absoluteMediaUrl(url: string): string {
+    return `${window.location.origin}${url}`
+  }
+
+  /**
+   * 复制公开直链。
+   *
+   * 链接自带签名与过期时间，不需要 cookie，所以粘进 PotPlayer 就能播放；多选时一行
+   * 一条，播放器可以整段粘进播放列表。
+   */
+  async function copyMediaLinks(ttl: MediaLinkTTL) {
+    const targets = mediaLinkTargets()
+    if (!targets.length) {
+      return
+    }
+    try {
+      const links = await fs.createMediaLinks(targets.map(target => target.path), ttl)
+      if (!links.length) {
+        return
+      }
+      copyWithToast(links.map(link => absoluteMediaUrl(link.url)).join('\n'))
+    }
+    catch {
+      // 失败原因由 service 的响应拦截器统一提示
+    }
+  }
+
+  /**
+   * 把选中的文件下载成 m3u 播放列表。
+   *
+   * 播放器打开播放列表比逐条粘 URL 稳，`#EXTINF` 还能把文件名带进列表。列表里放的
+   * 就是公开直链，因此它和链接同时过期。
+   */
+  async function downloadM3uPlaylist(ttl: MediaLinkTTL) {
+    const targets = mediaLinkTargets()
+    if (!targets.length) {
+      return
+    }
+    try {
+      const links = await fs.createMediaLinks(targets.map(target => target.path), ttl)
+      const lines = ['#EXTM3U']
+      targets.forEach((target, index) => {
+        const link = links[index]
+        if (!link) {
+          return
+        }
+        lines.push(`#EXTINF:-1,${splitEntryName(target.name).baseName}`, absoluteMediaUrl(link.url))
+      })
+      const blob = new Blob([`${lines.join('\r\n')}\r\n`], { type: 'audio/x-mpegurl' })
+      const objectUrl = URL.createObjectURL(blob)
+      downloadUrl(objectUrl, m3uPlaylistName(targets))
+      // 浏览器开始取数据之后才能释放；立即 revoke 会得到一个空文件。
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+    }
+    catch {
+      // 同上
+    }
+  }
+
+  function m3uPlaylistName(targets: { name: string }[]): string {
+    if (targets.length === 1) {
+      const stem = splitEntryName(targets[0].name).baseName.replace(/\.[^.]+$/, '')
+      return `${stem || 'playlist'}.m3u`
+    }
+    return `${getLastDirName(basePath.value) || 'playlist'}.m3u`
   }
 
   const handleOpenInHostExplorer = async () => {
@@ -395,11 +515,7 @@ export function useFileActions({
           label: $t('file_lite_i18n.properties'),
           icon: 'mdi mdi-information-outline',
           onClick: () => {
-            showProperties([{
-              absPath: basePath.value,
-              name: getLastDirName(basePath.value) || basePath.value,
-              isDirectory: true,
-            }])
+            showProperties([currentFolderTarget()])
           },
         },
       ]
@@ -513,12 +629,33 @@ export function useFileActions({
           icon: 'mdi mdi-folder-outline',
           onClick: handleOpenInHostExplorer,
         },
+        { label: $t('file_lite_i18n.duplicate'), icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
         {
           label: $t('file_lite_i18n.copy_path'),
           icon: 'mdi mdi-clipboard-text-outline',
           onClick: handleCopyPaths,
         },
-        { label: $t('file_lite_i18n.duplicate'), icon: 'mdi mdi-content-duplicate', onClick: handleDuplicate },
+        {
+          // 平台名不翻译，和「复制路径」共用一条文案，避免为后缀再开一个 key。
+          label: `${$t('file_lite_i18n.copy_path')} (Windows)`,
+          icon: 'mdi mdi-clipboard-text-outline',
+          onClick: handleCopyWindowsPaths,
+          divided: true,
+        },
+        // 外部播放器（PotPlayer 等）带不了 cookie，只能用签名直链：链接本身是凭据，
+        // 到期即失效。目录没有直链，所以整组在纯目录选中时禁用。
+        {
+          label: $t('file_lite_i18n.copy_public_link'),
+          icon: 'mdi mdi-link-variant',
+          children: mediaLinkTtlMenu((ttl) => { void copyMediaLinks(ttl) }),
+          disabled: !hasSelectedFiles.value,
+        },
+        {
+          label: $t('file_lite_i18n.download_as_m3u_playlist'),
+          icon: 'mdi mdi-playlist-music',
+          children: mediaLinkTtlMenu((ttl) => { void downloadM3uPlaylist(ttl) }),
+          disabled: !hasSelectedFiles.value,
+        },
       ] },
       isSingle && { label: $t('file_lite_i18n.rename'), icon: 'mdi mdi-rename', shortcut: 'F2', onClick: handleRename },
       {

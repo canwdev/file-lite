@@ -30,6 +30,9 @@ func newRESTTestServer() *echo.Echo {
 	fs.HEAD("/content/*", getContent)
 	fs.PUT("/content/*", putContent)
 	fs.GET("/downloads", getDownloads)
+	fs.POST("/media-links", createMediaLinks)
+	e.GET("/api/media/*", getMediaLinkContent)
+	e.HEAD("/api/media/*", getMediaLinkContent)
 	return e
 }
 

@@ -35,6 +35,13 @@ func getContent(c echo.Context) error {
 // 视频拖动、下载断点续传因此不需要自己写一套 304 逻辑。ETag 必须在调用前设好，
 // ServeContent 会读响应头里的它。
 func serveFileContent(c echo.Context, res fileops.Resolved, attachment bool) error {
+	return serveFileContentWithCache(c, res, attachment, "public, max-age=0, must-revalidate")
+}
+
+// serveFileContentWithCache 是 serveFileContent 的可变缓存策略版本。
+//
+// 签名直链用 `private`：URL 本身就是凭据，不能让共享缓存替没有它的人留住响应。
+func serveFileContentWithCache(c echo.Context, res fileops.Resolved, attachment bool, cacheControl string) error {
 	osPath := res.OSPath()
 	// Stat before Open. Opening a named pipe blocks until a writer appears, and the
 	// block is inside open(), so ctx cancellation cannot interrupt it — serving a
@@ -70,7 +77,7 @@ func serveFileContent(c echo.Context, res fileops.Resolved, attachment bool) err
 	// 大图。不允许长缓存：文件可能原地被修改，每次都必须按校验器重新验证。
 	h := c.Response().Header()
 	h.Set("ETag", fileETag(st))
-	h.Set(echo.HeaderCacheControl, "public, max-age=0, must-revalidate")
+	h.Set(echo.HeaderCacheControl, cacheControl)
 	// 流式返回的文件内容不可信。nosniff 阻止浏览器重新解释它；HTML/SVG 文档再被
 	// sandbox 到独立源——以内联方式挂在同源上，它就能读 session cookie 并调用 API。
 	h.Set("X-Content-Type-Options", "nosniff")

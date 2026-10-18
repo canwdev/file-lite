@@ -8,6 +8,7 @@
  * 为什么要有它：文件 API 曾经散布在各个 app 里，收口之后「写之前问一次能不能写」
  * 这类规则只在一处。
  */
+import type { MediaLink, MediaLinkTTL } from '@/api/filesystem'
 import type { IEntry } from '@/types/server'
 import { fsWebApi, TEXT_CHARSET_HEADER } from '@/api/filesystem'
 import { moveImageThumbCache } from '@/utils/image-thumb-cache'
@@ -189,6 +190,17 @@ export function downloadUrl(paths: string[]): string {
   return fsWebApi.getDownloadUrl(paths)
 }
 
+/**
+ * 生成公开媒体直链，顺序与入参一致。
+ *
+ * `url` 是相对路径：调用方拼上 `location.origin` 再交给播放器。链接不需要会话，
+ * 它在 `ttl` 之后失效。
+ */
+export async function createMediaLinks(paths: string[], ttl: MediaLinkTTL): Promise<MediaLink[]> {
+  const { links } = await fsWebApi.createMediaLinks(paths, ttl)
+  return links
+}
+
 /** 在宿主机资源管理器里打开若干路径。 */
 export async function openInHostExplorer(paths: string[]) {
   await fsWebApi.openInHostExplorer({ paths })
@@ -268,4 +280,5 @@ export const fs = {
   upload,
   openInHostExplorer,
   downloadUrl,
+  createMediaLinks,
 }

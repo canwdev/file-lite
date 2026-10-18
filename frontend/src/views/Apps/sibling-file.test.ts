@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { pickSuffixedSibling, siblingFileCandidates } from './sibling-file'
+import { pickSuffixedSibling, pickSuffixedSiblings, siblingFileCandidates } from './sibling-file'
 
 describe('siblingFileCandidates', () => {
   test('replaces the extension and keeps the order given', () => {
@@ -64,5 +64,32 @@ describe('pickSuffixedSibling', () => {
   test('a file name without an extension has no suffixes to match', () => {
     expect(pickSuffixedSibling('README', ['README.zh.srt'], subs)).toBe('README.zh.srt')
     expect(pickSuffixedSibling('', ['README.zh.srt'], subs)).toBeUndefined()
+  })
+})
+
+describe('pickSuffixedSiblings', () => {
+  const subs = ['.srt', '.ass', '.vtt', '.ssa']
+
+  test('returns every matching variant in preference order', () => {
+    const names = ['movie.eng.srt', 'movie.chs.srt', 'movie.zh-CN.ass', 'movie.srt', 'other.chs.srt']
+    expect(pickSuffixedSiblings('movie.mkv', names, subs)).toEqual([
+      'movie.zh-CN.ass',
+      'movie.chs.srt',
+      'movie.eng.srt',
+    ])
+  })
+
+  test('orders Chinese suffix names by language, then unknown suffixes', () => {
+    const names = ['movie.英文.srt', 'movie.简体中文.srt', 'movie.繁体中文.srt', 'movie.特效版.srt']
+    expect(pickSuffixedSiblings('movie.mkv', names, subs)).toEqual([
+      'movie.简体中文.srt',
+      'movie.繁体中文.srt',
+      'movie.英文.srt',
+      'movie.特效版.srt',
+    ])
+  })
+
+  test('an empty directory has no variants', () => {
+    expect(pickSuffixedSiblings('movie.mkv', [], subs)).toEqual([])
   })
 })

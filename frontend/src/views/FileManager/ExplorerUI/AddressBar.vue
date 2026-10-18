@@ -3,9 +3,10 @@ import type { ContextMenuInstance, MenuItem } from '@canwdev/vgo-ui'
 import type { IEntry } from '@/types/server'
 import { ContextMenu, useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { useEventListener, useResizeObserver, useThrottleFn, useTimeoutFn } from '@vueuse/core'
+import { copyWithToast } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import { resolveMenuIcons } from '@/utils/icons'
-import { getBreadcrumbSegments, normalizeListingPath, normalizePath } from '../utils'
+import { getBreadcrumbSegments, normalizeListingPath, normalizePath, toWindowsPath } from '../utils'
 import { currentChildNameFor } from '../utils/volume-mounts'
 import { driveIcon, driveList, loadDrives, pathRootIcon } from './drives'
 import { acceptDirDrag, dropIntoDir, useDragEnabled } from './entry-drag'
@@ -287,11 +288,26 @@ function onCrumbAuxClick(path: string, event: MouseEvent) {
 }
 
 function showCrumbMenu(path: string, event: MouseEvent) {
+  // 段路径是 listing 形态（带尾斜杠），复制出去的是 canonical 形态：和文件列表里
+  // 的「复制路径」保持一致。
+  const target = normalizePath(path)
   const items: MenuItem[] = [
     {
       label: $t('file_lite_i18n.open_in_new_tab'),
       icon: 'mdi mdi-open-in-new',
       onClick: () => emit('openPathInNewTab', path),
+      divided: true,
+    },
+    {
+      label: $t('file_lite_i18n.copy_path'),
+      icon: 'mdi mdi-clipboard-text-outline',
+      onClick: () => copyWithToast(target),
+    },
+    {
+      // 平台名不翻译，和「复制路径」共用一条文案，避免为后缀再开一个 key。
+      label: `${$t('file_lite_i18n.copy_path')} (Windows)`,
+      icon: 'mdi mdi-clipboard-text-outline',
+      onClick: () => copyWithToast(toWindowsPath(target)),
     },
   ]
 

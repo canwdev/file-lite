@@ -63,9 +63,16 @@ func registerREST(api *echo.Group) {
 	fs.PUT("/content/*", putContent)
 	fs.GET("/thumbnail/*", getThumbnailByPath)
 	fs.GET("/downloads", getDownloads)
+	// Minting a public link is a write: it stays behind the session and CSRF.
+	fs.POST("/media-links", createMediaLinks)
 	fs.POST("/measurements", createMeasurement)
 	fs.GET("/measurements/*", getMeasurement)
 	fs.DELETE("/measurements/*", deleteMeasurement)
+
+	// 签名媒体直链是唯一不经过会话的文件读取：外部播放器带不了 cookie，链接自己
+	// 就是凭据。它只读单个文件、带过期时间，并照常走 allowedRoots。见 media.go。
+	api.GET("/media/*", getMediaLinkContent)
+	api.HEAD("/media/*", getMediaLinkContent)
 
 	taskAPI := api.Group("/tasks", middlewares.AuthMiddleware)
 	taskAPI.GET("", listTasksAPI)

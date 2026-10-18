@@ -37,6 +37,27 @@ export interface ListResult {
 /** 上传同名冲突策略。 */
 export type UploadConflictPolicy = 'error' | 'overwrite' | 'keep-both'
 
+/**
+ * 公开媒体直链的有效期档位。
+ *
+ * 取值同时是 API 契约（后端 mediaLinkTTLs 的键），不是给人看的文案：菜单显示的是
+ * 「3 hours / 7 days」这类翻译，数字与单位由前端按 ticket_tier_* 文案组装。
+ */
+export type MediaLinkTTL = '3h' | '24h' | '7d' | '30d'
+
+/**
+ * 一条公开直链。
+ *
+ * `url` 是相对当前源的路径（`/api/media/…`）：服务端不知道浏览器用的是哪个地址，
+ * 自己猜一个只会猜错。调用方用 `location.origin` 拼上，拿到的就是这台机器此刻正在
+ * 用的内网地址。`path` 是 canonical 路径。
+ */
+export interface MediaLink {
+  path: string
+  url: string
+  expiresAt: string
+}
+
 export const fsWebApi = {
   /** 侧边栏里的可导航位置（卷 / 网络位置 / Home）。 */
   async getDrives() {
@@ -138,6 +159,16 @@ export const fsWebApi = {
   getDownloadUrl(paths: string[]) {
     const query = qs.stringify({ paths }, { arrayFormat: 'repeat' })
     return `/api/fs/downloads?${query}`
+  },
+  /**
+   * 生成公开媒体直链（需要登录 + CSRF，因为是在签发凭据）。
+   *
+   * 返回的 URL 本身就是凭据：带过期时间和签名、只读单个文件，不需要 cookie，
+   * 所以浏览器之外的播放器（PotPlayer 等）能直接打开。`url` 是相对路径，调用方
+   * 用 `location.origin` 拼成播放器能使用的地址；顺序与入参一致。
+   */
+  async createMediaLinks(paths: string[], ttl: MediaLinkTTL) {
+    return (await service.post(`/api/fs/media-links`, { paths, ttl })) as unknown as { links: MediaLink[] }
   },
   /**
    * 读取文件字节。缓存由服务端的 ETag 负责：文件没变就是 304，不要塞时间戳
