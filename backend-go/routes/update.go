@@ -43,8 +43,9 @@ func restartBackend(c echo.Context) error {
 			utils.LogErrorf("restart failed: %v", err)
 			os.Exit(1)
 		}
-		// Unix 上 Restart 是 syscall.Exec，不会走到这里；Windows 上它起了分离子进程，
-		// 父进程必须退出，否则端口被占着。
+		// On Unix Restart is syscall.Exec and never returns; on Windows it starts
+		// the successor (detached, or in a new console window) and this parent
+		// must exit so the port is free.
 		os.Exit(0)
 	}()
 
@@ -84,8 +85,9 @@ func applyUpdate(c echo.Context) error {
 			utils.LogErrorf("self-update: restart failed: %v", err)
 			os.Exit(1)
 		}
-		// Unix 上 Restart 是 syscall.Exec，不会走到这里；Windows 上它起了分离子进程，
-		// 父进程必须退出，否则端口被占着。
+		// On Unix Restart is syscall.Exec and never returns; on Windows it starts
+		// the successor (detached, or in a new console window) and this parent
+		// must exit so the port is free.
 		os.Exit(0)
 	}()
 

@@ -671,7 +671,9 @@ restarts after the response has been flushed. `400` carries the verification fai
 ### `POST /api/server/restarts`
 
 Restarts the process with its original arguments and environment (used to reload the
-config). `202` `{ "message": "Restarting" }` before the restart happens.
+config). `202` `{ "message": "Restarting" }` before the restart happens. On Windows, a
+backend that was started from a terminal gets a new console window, so the new process
+keeps the TUI; one that was running without a console stays detached.
 
 ### `DELETE /api/server`
 
