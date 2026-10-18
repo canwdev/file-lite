@@ -323,7 +323,8 @@ async function waitForServer(timeoutMs = 60_000) {
  * 登录并取回两个 cookie。
  *
  * 1.5.0 起凭证只走 HttpOnly cookie，响应体不再带 token（见后端 `authWithPassword`）：
- * `file_lite_auth_token` 是 HttpOnly 凭证，`file_lite_session` 是可读的 CSRF 双提交值。
+ * `file_lite_auth_token_http` 是 HttpOnly 凭证，`file_lite_session_http` 是可读的
+ * CSRF 双提交值（docs 夹具走 HTTP，所以是 `_http` 后缀）。
  * 两个都要注入新上下文——只给前者，截图里的写操作（上传）会因缺 CSRF 头而 403。
  */
 async function fetchAuthCookies() {
@@ -335,7 +336,9 @@ async function fetchAuthCookies() {
   if (!response.ok) {
     throw new Error(`login failed with HTTP ${response.status}`)
   }
-  const wanted = new Set(['file_lite_auth_token', 'file_lite_session'])
+  // The docs fixture serves plain HTTP, so the scheme-scoped `_http` names are
+  // the ones the backend issues.
+  const wanted = new Set(['file_lite_auth_token_http', 'file_lite_session_http'])
   // Node < 18.14 has no getSetCookie(); the fallback splits the merged header.
   // Safe here because these cookies carry Max-Age, not an Expires date with a comma.
   const rawCookies = typeof response.headers.getSetCookie === 'function'
@@ -354,7 +357,7 @@ async function fetchAuthCookies() {
       cookies.push({ name, value })
     }
   }
-  if (!cookies.some(cookie => cookie.name === 'file_lite_auth_token')) {
+  if (!cookies.some(cookie => cookie.name === 'file_lite_auth_token_http')) {
     throw new Error('login response set no auth cookie')
   }
   return cookies

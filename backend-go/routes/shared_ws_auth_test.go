@@ -23,7 +23,7 @@ func TestSharedWSAuthInfoCarriesTier(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/ws", nil)
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: fixed})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: fixed})
 	info, ok := sharedWSAuthInfo(e.NewContext(req, httptest.NewRecorder()))
 	if !ok {
 		t.Fatal("a valid fixed token should authorize the handshake")
@@ -41,7 +41,7 @@ func TestSharedWSAuthInfoCarriesTier(t *testing.T) {
 		t.Fatal(err)
 	}
 	req = httptest.NewRequest(http.MethodGet, "/api/ws", nil)
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: expired})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: expired})
 	if _, ok := sharedWSAuthInfo(e.NewContext(req, httptest.NewRecorder())); ok {
 		t.Fatal("an expired fixed token must not authorize the handshake")
 	}

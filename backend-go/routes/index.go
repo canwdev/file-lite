@@ -108,7 +108,7 @@ func authWithPassword(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]any{"ok": true})
 }
 
-// authenticate 校验密码或一次性票据，返回要写进 cookie 的 token。
+// authenticate 校验密码或票据，返回要写进 cookie 的 token。
 //
 // JSON 接口与经典 HTML 界面共用它：两边只是响应的形态不同，凭据怎么验必须只有一处。
 func authenticate(c echo.Context, password, ticket string, remember bool) (string, *apierr.Error) {
@@ -134,7 +134,7 @@ func logout(c echo.Context) error {
 	// Logout needs no session (an expired token must still be able to clear
 	// itself), but a live session cookie must pass the double-submit check so
 	// another site cannot force a logout.
-	if session, err := c.Cookie(middlewares.SessionCookieName); err == nil && session.Value != "" {
+	if session, err := c.Cookie(middlewares.SessionCookieName()); err == nil && session.Value != "" {
 		if c.Request().Header.Get(middlewares.CSRFTokenHeader) != session.Value {
 			return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 		}

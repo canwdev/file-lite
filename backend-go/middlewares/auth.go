@@ -112,15 +112,76 @@ func (l *ipLimiter) cleanupExpired(now time.Time) {
 
 var authLimiter = newIPLimiter()
 
-// Cookie and header names. AuthCookieName carries the JWT and is HttpOnly, so
-// JavaScript can never read or exfiltrate it. SessionCookieName is readable on
-// purpose: the frontend echoes it in CSRFTokenHeader for the double-submit
-// check and uses it as a synchronous "logged in" hint.
+// Cookie and header names.
+//
+// The auth and session cookies are named per scheme. A Secure cookie created
+// over HTTPS cannot be overwritten — or even deleted — by a non-secure origin,
+// and it is never sent over HTTP either. With one name for both schemes, a
+// browser that once visited https://host:port keeps a live Secure token after
+// the server switches back to HTTP: every HTTP Set-Cookie is rejected and the
+// stale cookie is not sent, so the app answers "not signed in" with no visible
+// cause. Encoding the scheme in the name gives the two jars different names;
+// the legacy unsuffixed names below are no longer read or written, which signs
+// every existing session out once.
 const (
-	AuthCookieName    = "file_lite_auth_token"
-	SessionCookieName = "file_lite_session"
-	CSRFTokenHeader   = "X-File-Lite-CSRF"
+	CSRFTokenHeader = "X-File-Lite-CSRF"
+
+	authCookieNameHTTPS    = "file_lite_auth_token_https"
+	sessionCookieNameHTTPS = "file_lite_session_https"
+	authCookieNameHTTP     = "file_lite_auth_token_http"
+	sessionCookieNameHTTP  = "file_lite_session_http"
+
+	// Pre-scheme names, kept only so ClearAuthCookies can expire them.
+	legacyAuthCookieName    = "file_lite_auth_token"
+	legacySessionCookieName = "file_lite_session"
 )
+
+// authCookieNameFor is the pure naming rule, kept separate from
+// config.IsHTTPS() so the scheme split is testable without a TLS config.
+func authCookieNameFor(https bool) string {
+	if https {
+		return authCookieNameHTTPS
+	}
+	return authCookieNameHTTP
+}
+
+func sessionCookieNameFor(https bool) string {
+	if https {
+		return sessionCookieNameHTTPS
+	}
+	return sessionCookieNameHTTP
+}
+
+// AuthCookieName carries the JWT and is HttpOnly, so JavaScript can never read
+// or exfiltrate it. It is named for the scheme the server is serving.
+func AuthCookieName() string { return authCookieNameFor(config.IsHTTPS()) }
+
+// SessionCookieName is readable on purpose: the frontend echoes it in
+// CSRFTokenHeader for the double-submit check and uses it as a synchronous
+// "logged in" hint. It is named for the scheme the server is serving.
+func SessionCookieName() string { return sessionCookieNameFor(config.IsHTTPS()) }
+
+// otherSchemeCookieNames returns the pair that belongs to the scheme the
+// server is not serving.
+func otherSchemeCookieNames() (auth string, session string) {
+	other := !config.IsHTTPS()
+	return authCookieNameFor(other), sessionCookieNameFor(other)
+}
+
+// clearCookie expires one cookie. A Secure cookie can only be removed by a
+// response served over HTTPS; when that is not the case the Set-Cookie is
+// ignored by the browser, which is harmless for the other-scheme pair.
+func clearCookie(c echo.Context, name string, httpOnly bool) {
+	c.SetCookie(&http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: httpOnly,
+		Secure:   config.IsHTTPS(),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+}
 
 // authTokenInfoKey stores the credential RefreshAuthMiddleware validated, so
 // the handler does not have to parse the cookie a second time.
@@ -156,6 +217,10 @@ func authCookieMaxAgeForToken(token string, remember bool) int {
 
 // SetAuthCookies issues the HttpOnly auth token together with the readable
 // session value. remember picks a persistent cookie over a session cookie.
+//
+// The pair for the other scheme and the legacy unsuffixed names are expired
+// here: after a login only the current scheme's two cookies remain, so the
+// frontend cannot pick a stale value for the CSRF header.
 func SetAuthCookies(c echo.Context, token string, remember bool) error {
 	session, err := newSessionID()
 	if err != nil {
@@ -165,7 +230,7 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 	secure := config.IsHTTPS()
 
 	c.SetCookie(&http.Cookie{
-		Name:     AuthCookieName,
+		Name:     AuthCookieName(),
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
@@ -174,7 +239,7 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 		MaxAge:   maxAge,
 	})
 	c.SetCookie(&http.Cookie{
-		Name:     SessionCookieName,
+		Name:     SessionCookieName(),
 		Value:    session,
 		Path:     "/",
 		HttpOnly: false,
@@ -182,7 +247,20 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   maxAge,
 	})
+	expireOtherSchemeCookies(c)
 	return nil
+}
+
+// expireOtherSchemeCookies removes the pair that does not belong to the
+// current scheme, plus the legacy names. Over HTTP a Secure cookie cannot be
+// removed, which is harmless: the browser never sends or exposes it on an HTTP
+// page.
+func expireOtherSchemeCookies(c echo.Context) {
+	otherAuth, otherSession := otherSchemeCookieNames()
+	clearCookie(c, otherAuth, true)
+	clearCookie(c, otherSession, false)
+	clearCookie(c, legacyAuthCookieName, true)
+	clearCookie(c, legacySessionCookieName, false)
 }
 
 // RenewAuthCookie replaces only the HttpOnly auth token. The readable session
@@ -190,7 +268,7 @@ func SetAuthCookies(c echo.Context, token string, remember bool) error {
 // that are already in flight, and rotating it would turn those into 403s.
 func RenewAuthCookie(c echo.Context, token string, remember bool) {
 	c.SetCookie(&http.Cookie{
-		Name:     AuthCookieName,
+		Name:     AuthCookieName(),
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
@@ -211,11 +289,11 @@ func AuthTokenInfoFromContext(c echo.Context) (config.AuthTokenInfo, bool) {
 // usable cookie pair: a live access token or a renewable token whose access
 // window is over. Ticket links call it to avoid replacing a signed-in session.
 func HasUsableSession(c echo.Context) bool {
-	authCookie, err := c.Cookie(AuthCookieName)
+	authCookie, err := c.Cookie(AuthCookieName())
 	if err != nil || authCookie.Value == "" {
 		return false
 	}
-	session, err := c.Cookie(SessionCookieName)
+	session, err := c.Cookie(SessionCookieName())
 	if err != nil || session.Value == "" {
 		return false
 	}
@@ -227,20 +305,24 @@ func HasUsableSession(c echo.Context) bool {
 	return info.AccessValid(now) || info.Renewable(now)
 }
 
-// ClearAuthCookies expires both cookies. The HttpOnly token can only be removed
-// by the server, which is why logout has to be an endpoint.
+// ClearAuthCookies expires every name the auth pair has used, including the
+// other scheme and the legacy names (best effort: a Secure cookie cannot be
+// removed from an HTTP response). The HttpOnly token can only be removed by
+// the server, which is why logout has to be an endpoint.
 func ClearAuthCookies(c echo.Context) {
-	secure := config.IsHTTPS()
-	for _, name := range []string{AuthCookieName, SessionCookieName} {
-		c.SetCookie(&http.Cookie{
-			Name:     name,
-			Value:    "",
-			Path:     "/",
-			HttpOnly: name == AuthCookieName,
-			Secure:   secure,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   -1,
-		})
+	otherAuth, otherSession := otherSchemeCookieNames()
+	for _, cookie := range []struct {
+		name     string
+		httpOnly bool
+	}{
+		{AuthCookieName(), true},
+		{SessionCookieName(), false},
+		{otherAuth, true},
+		{otherSession, false},
+		{legacyAuthCookieName, true},
+		{legacySessionCookieName, false},
+	} {
+		clearCookie(c, cookie.name, cookie.httpOnly)
 	}
 }
 
@@ -286,8 +368,8 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			// auth cookie without its session partner is a leftover (an older
 			// version, or a deleted cookie). Reject it: accepting it would allow
 			// reads while every write fails the CSRF check.
-			if authCookie, err := c.Cookie(AuthCookieName); err == nil && authCookie.Value != "" {
-				if session, err := c.Cookie(SessionCookieName); err == nil && session.Value != "" {
+			if authCookie, err := c.Cookie(AuthCookieName()); err == nil && authCookie.Value != "" {
+				if session, err := c.Cookie(SessionCookieName()); err == nil && session.Value != "" {
 					token = authCookie.Value
 				}
 			}
@@ -300,7 +382,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			// explicit bearer token (curl / scripts) is exempt because a browser
 			// cannot be tricked into sending one.
 			if !config.IsExplicitDevMode() && fromHeader == "" && !isSafeMethod(c.Request().Method) {
-				session, err := c.Cookie(SessionCookieName)
+				session, err := c.Cookie(SessionCookieName())
 				if err != nil || session.Value == "" || c.Request().Header.Get(CSRFTokenHeader) != session.Value {
 					return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 				}
@@ -359,12 +441,12 @@ func RefreshAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if c.Request().Header.Get("Authorization") != "" {
 			return apierr.Write(c, apierr.UnauthorizedReason("renewal requires the session cookies"))
 		}
-		authCookie, err := c.Cookie(AuthCookieName)
+		authCookie, err := c.Cookie(AuthCookieName())
 		if err != nil || authCookie.Value == "" {
 			ClearAuthCookies(c)
 			return apierr.Write(c, apierr.UnauthorizedReason("not signed in"))
 		}
-		session, err := c.Cookie(SessionCookieName)
+		session, err := c.Cookie(SessionCookieName())
 		if err != nil || session.Value == "" {
 			ClearAuthCookies(c)
 			return apierr.Write(c, apierr.UnauthorizedReason("session cookie is missing"))

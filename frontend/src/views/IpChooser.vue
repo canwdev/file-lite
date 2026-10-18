@@ -104,10 +104,10 @@ function pickUrl(urls: string[], previousUrl: string) {
 }
 
 /**
- * Ask the backend for a fresh ticket and address list. The backend keeps a
- * single global ticket, so every call invalidates the URLs from the last one.
- * A temporary session cannot mint tickets at all; the server returns 403 and
- * the page explains why instead of showing a QR code.
+ * Ask the backend for a fresh ticket and address list. Each address gets its
+ * own single-use ticket, so the returned URLs are alternatives; a mint replaces
+ * the previous batch. A temporary session cannot mint tickets at all; the
+ * server returns 403 and the page explains why instead of showing a QR code.
  */
 async function loadInfo() {
   if (!authSessionRenewable.value) {

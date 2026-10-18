@@ -186,7 +186,7 @@ func ieLoginForm(c echo.Context, status int, next, errMsg, ticket, mode string) 
 func ieLogout(c echo.Context) error {
 	// 与 JSON 的 logout 同一套语义：没有会话 cookie 也允许登出（过期的凭据也要能清掉），
 	// 有就要求双提交——表单只能用隐藏字段，不能用 X-File-Lite-CSRF 头。
-	if session, err := c.Cookie(middlewares.SessionCookieName); err == nil && session.Value != "" {
+	if session, err := c.Cookie(middlewares.SessionCookieName()); err == nil && session.Value != "" {
 		if c.FormValue("csrf") != session.Value {
 			return ieFail(c, http.StatusForbidden, "Forbidden")
 		}
@@ -747,9 +747,9 @@ type ieBrowseView struct {
 // navigation renews in place. The trust decision is the same as the API refresh
 // endpoint: a complete cookie pair whose renewal window is still live.
 func ieEnsureSession(c echo.Context) bool {
-	cookie, err := c.Cookie(middlewares.AuthCookieName)
+	cookie, err := c.Cookie(middlewares.AuthCookieName())
 	if err == nil && cookie.Value != "" {
-		if session, err := c.Cookie(middlewares.SessionCookieName); err != nil || session.Value == "" {
+		if session, err := c.Cookie(middlewares.SessionCookieName()); err != nil || session.Value == "" {
 			return false
 		}
 		info, ok := config.ParseAuthToken(cookie.Value)
@@ -776,7 +776,7 @@ func ieEnsureSession(c echo.Context) bool {
 func renewIECookie(c echo.Context, info config.AuthTokenInfo) bool {
 	// 写操作的双提交依赖 session cookie，续期也要求这一对完整，与 API 的
 	// refresh 接口保持一致。
-	if session, err := c.Cookie(middlewares.SessionCookieName); err != nil || session.Value == "" {
+	if session, err := c.Cookie(middlewares.SessionCookieName()); err != nil || session.Value == "" {
 		return false
 	}
 	token, err := config.RenewAuthToken(info)
@@ -806,7 +806,7 @@ func ieSafeNext(next string) string {
 }
 
 func ieCSRF(c echo.Context) string {
-	if session, err := c.Cookie(middlewares.SessionCookieName); err == nil {
+	if session, err := c.Cookie(middlewares.SessionCookieName()); err == nil {
 		return session.Value
 	}
 	return ""

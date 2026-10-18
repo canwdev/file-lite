@@ -121,19 +121,23 @@ func createLoginTicket(c echo.Context) error {
 		return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
 	}
 
-	ticket, err := config.NewAuthTicket(tier)
-	if err != nil {
-		return err
-	}
 	protocol := "http:"
 	if config.IsHTTPS() {
 		protocol = "https:"
 	}
+	// One single-use ticket per address: the caller shows several alternative
+	// URLs for the same login, and redeeming one (for example the loopback URL
+	// on this machine) must leave the others usable for the device that scans
+	// the QR code.
+	links, err := utils.BuildLoginLinks(protocol, config.Host(), config.FrontendPort(), tier)
+	if err != nil {
+		return err
+	}
 	return c.JSON(http.StatusCreated, map[string]any{
-		"value":     ticket.Value,
-		"urls":      utils.BuildConnectionURLs(protocol, config.Host(), config.FrontendPort(), ticket.Value),
-		"expiresAt": ticket.ExpiresAt,
-		"tier":      ticket.Tier,
+		"value":     links.LoopbackTicket,
+		"urls":      links.URLs,
+		"expiresAt": links.ExpiresAt,
+		"tier":      tier,
 	})
 }
 

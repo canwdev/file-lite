@@ -60,8 +60,8 @@ func ieAuthCookies(t *testing.T, req *http.Request) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName(), Value: "sess"})
 }
 
 // ieUploadPart 描述一个 multipart part：普通字段，或一个文件（file 原样进 header，
@@ -173,14 +173,14 @@ func TestIEClassicTicketLogin(t *testing.T) {
 		if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/ie" {
 			t.Fatalf("%s = %d %q，期望 302 /ie", link, rec.Code, rec.Header().Get("Location"))
 		}
-		if !strings.Contains(strings.Join(rec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+		if !strings.Contains(strings.Join(rec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 			t.Fatalf("%s 没有换成会话 cookie", link)
 		}
 
 		// 同一张票据再来一次：不再换 cookie。登录页会说明票据已失效，
 		// /ie 则把人送回登录页（那里同样会说明）。
 		reused := ieCall(t, e, http.MethodGet, link, "", false)
-		if strings.Contains(strings.Join(reused.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+		if strings.Contains(strings.Join(reused.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 			t.Fatalf("%s 重复使用仍然换到了 cookie", link)
 		}
 		if target == "/ie" {
@@ -241,7 +241,7 @@ func TestIEClassicLoginSubmitModes(t *testing.T) {
 	if ok.Code != http.StatusFound {
 		t.Fatalf("票据登录 = %d：%s", ok.Code, ok.Body.String())
 	}
-	if !strings.Contains(strings.Join(ok.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if !strings.Contains(strings.Join(ok.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatal("票据登录应当设置 cookie")
 	}
 
@@ -746,7 +746,7 @@ func TestTicketLoginMiddleware(t *testing.T) {
 	if legacy.Code != http.StatusFound || legacy.Header().Get("Location") != "/ie" {
 		t.Fatalf("IE 票据登录 = %d %q，期望 302 /ie", legacy.Code, legacy.Header().Get("Location"))
 	}
-	if !strings.Contains(strings.Join(legacy.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if !strings.Contains(strings.Join(legacy.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatal("IE 票据登录没有设置 cookie")
 	}
 
@@ -772,7 +772,7 @@ func TestTicketLoginMiddleware(t *testing.T) {
 func TestIEClassicLoginLogout(t *testing.T) {
 	e := newIEServer()
 
-	// 一次性票据登录：成功即设置 cookie 并跳到列表。
+	// 票据登录：成功即设置 cookie 并跳到列表。
 	ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
 	if err != nil {
 		t.Fatal(err)
@@ -781,7 +781,7 @@ func TestIEClassicLoginLogout(t *testing.T) {
 	if ok.Code != http.StatusFound {
 		t.Fatalf("票据登录 = %d：%s", ok.Code, ok.Body.String())
 	}
-	if !strings.Contains(strings.Join(ok.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if !strings.Contains(strings.Join(ok.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatalf("登录成功必须设置鉴权 cookie：%v", ok.Header().Values("Set-Cookie"))
 	}
 
@@ -806,7 +806,7 @@ func TestIEClassicLoginLogout(t *testing.T) {
 	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/ie/login" {
 		t.Fatalf("登出 = %d %q", logout.Code, logout.Header().Get("Location"))
 	}
-	if !strings.Contains(strings.Join(logout.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName+"=") {
+	if !strings.Contains(strings.Join(logout.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()+"=") {
 		t.Fatalf("登出必须清掉鉴权 cookie：%v", logout.Header().Values("Set-Cookie"))
 	}
 }
@@ -990,8 +990,8 @@ func TestIEClassicRenewsExpiredAccess(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet,
 		"/ie/browse?path="+url.QueryEscape(filepath.ToSlash(dir)), nil)
 	req.RemoteAddr = "10.0.0.1:1111"
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName(), Value: "sess"})
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -999,7 +999,7 @@ func TestIEClassicRenewsExpiredAccess(t *testing.T) {
 		t.Fatalf("过期 access 的 /ie 浏览 = %d，期望 200：%s", rec.Code, rec.Body.String())
 	}
 	line := strings.Join(rec.Header().Values("Set-Cookie"), "\n")
-	if !strings.Contains(line, middlewares.AuthCookieName+"=") {
+	if !strings.Contains(line, middlewares.AuthCookieName()+"=") {
 		t.Fatalf("导航没有换发 auth cookie：%v", rec.Header().Values("Set-Cookie"))
 	}
 }

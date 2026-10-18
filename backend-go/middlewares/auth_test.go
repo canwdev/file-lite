@@ -25,10 +25,10 @@ func authCall(e *echo.Echo, method, path, token, session string, csrf bool) *htt
 	req := httptest.NewRequest(method, path, nil)
 	req.RemoteAddr = "10.0.0.1:1111"
 	if token != "" {
-		req.AddCookie(&http.Cookie{Name: AuthCookieName, Value: token})
+		req.AddCookie(&http.Cookie{Name: AuthCookieName(), Value: token})
 	}
 	if session != "" {
-		req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: session})
+		req.AddCookie(&http.Cookie{Name: SessionCookieName(), Value: session})
 	}
 	if csrf {
 		req.Header.Set(CSRFTokenHeader, session)
@@ -68,11 +68,11 @@ func TestAuthMiddlewareRenewsNearExpiry(t *testing.T) {
 		t.Fatalf("status = %d，期望 200：%s", rec.Code, rec.Body.String())
 	}
 
-	line, ok := findSetCookie(rec, AuthCookieName)
+	line, ok := findSetCookie(rec, AuthCookieName())
 	if !ok {
 		t.Fatalf("近过期请求没有换发 auth cookie：%v", rec.Header().Values("Set-Cookie"))
 	}
-	renewed := cookieValue(line, AuthCookieName)
+	renewed := cookieValue(line, AuthCookieName())
 	if renewed == token {
 		t.Fatal("换发后的 cookie 与原值相同")
 	}
@@ -83,7 +83,7 @@ func TestAuthMiddlewareRenewsNearExpiry(t *testing.T) {
 	if !info.AccessValid(now.Add(10 * time.Minute)) {
 		t.Error("换发的 token 没有重新获得完整的 access 窗口")
 	}
-	if _, ok := findSetCookie(rec, SessionCookieName); ok {
+	if _, ok := findSetCookie(rec, SessionCookieName()); ok {
 		t.Error("续期不应该重写 session cookie")
 	}
 }
@@ -140,11 +140,11 @@ func TestAuthMiddlewareClearsDeadCookie(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d，期望 401", rec.Code)
 	}
-	line, ok := findSetCookie(rec, AuthCookieName)
+	line, ok := findSetCookie(rec, AuthCookieName())
 	if !ok {
 		t.Fatalf("失效凭据应当被清掉：%v", rec.Header().Values("Set-Cookie"))
 	}
-	if cookieValue(line, AuthCookieName) != "" || !strings.Contains(line, "Max-Age=0") {
+	if cookieValue(line, AuthCookieName()) != "" || !strings.Contains(line, "Max-Age=0") {
 		t.Errorf("清 cookie 的响应不对：%q", line)
 	}
 }
@@ -180,8 +180,8 @@ func TestRefreshAuthMiddleware(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
 	req.RemoteAddr = "10.0.0.1:1111"
 	req.Header.Set("Authorization", token)
-	req.AddCookie(&http.Cookie{Name: AuthCookieName, Value: token})
-	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: AuthCookieName(), Value: token})
+	req.AddCookie(&http.Cookie{Name: SessionCookieName(), Value: "sess"})
 	req.Header.Set(CSRFTokenHeader, "sess")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -238,7 +238,7 @@ func TestAuthMiddlewareClearsExpiredFixedTier(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
-	line, ok := findSetCookie(rec, AuthCookieName)
+	line, ok := findSetCookie(rec, AuthCookieName())
 	if !ok || !strings.Contains(line, "Max-Age=0") {
 		t.Fatalf("an expired fixed token must be cleared: %v", rec.Header().Values("Set-Cookie"))
 	}
@@ -299,7 +299,7 @@ func TestSetAuthCookiesCapsFixedTierAtTokenExpiry(t *testing.T) {
 	cookies := rec.Result().Cookies()
 	var authCookie *http.Cookie
 	for _, cookie := range cookies {
-		if cookie.Name == AuthCookieName {
+		if cookie.Name == AuthCookieName() {
 			authCookie = cookie
 		}
 	}
@@ -349,15 +349,77 @@ func TestHasUsableSession(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tc.token != "" {
-				req.AddCookie(&http.Cookie{Name: AuthCookieName, Value: tc.token})
+				req.AddCookie(&http.Cookie{Name: AuthCookieName(), Value: tc.token})
 			}
 			if tc.session != "" {
-				req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: tc.session})
+				req.AddCookie(&http.Cookie{Name: SessionCookieName(), Value: tc.session})
 			}
 			c := e.NewContext(req, httptest.NewRecorder())
 			if got := HasUsableSession(c); got != tc.want {
 				t.Fatalf("HasUsableSession = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// The cookie name is part of the scheme: a Secure cookie from an earlier HTTPS
+// run must not collide with the HTTP one, because Chrome refuses to overwrite
+// (or delete) a Secure cookie from a non-secure origin.
+func TestAuthCookieNamesAreSchemeScoped(t *testing.T) {
+	cases := []struct {
+		https   bool
+		auth    string
+		session string
+	}{
+		{true, "file_lite_auth_token_https", "file_lite_session_https"},
+		{false, "file_lite_auth_token_http", "file_lite_session_http"},
+	}
+	for _, tc := range cases {
+		if got := authCookieNameFor(tc.https); got != tc.auth {
+			t.Errorf("authCookieNameFor(%v) = %q, want %q", tc.https, got, tc.auth)
+		}
+		if got := sessionCookieNameFor(tc.https); got != tc.session {
+			t.Errorf("sessionCookieNameFor(%v) = %q, want %q", tc.https, got, tc.session)
+		}
+	}
+	if authCookieNameFor(true) == authCookieNameFor(false) {
+		t.Fatal("the two schemes must not share an auth cookie name")
+	}
+	if sessionCookieNameFor(true) == sessionCookieNameFor(false) {
+		t.Fatal("the two schemes must not share a session cookie name")
+	}
+}
+
+// Login expires the other scheme's pair and the legacy names, so the frontend
+// cannot read a stale value for the CSRF header.
+func TestSetAuthCookiesExpiresOtherScheme(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	token, err := config.NewAuthToken(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SetAuthCookies(c, token, true); err != nil {
+		t.Fatal(err)
+	}
+
+	// The test runs in HTTP mode, so the HTTPS pair and the legacy names are
+	// the ones that must be expired.
+	for _, name := range []string{
+		"file_lite_auth_token_https",
+		"file_lite_session_https",
+		"file_lite_auth_token",
+		"file_lite_session",
+	} {
+		line, ok := findSetCookie(rec, name)
+		if !ok {
+			t.Fatalf("no Set-Cookie for %s", name)
+		}
+		if !strings.Contains(line, "Max-Age=0") {
+			t.Fatalf("%s was not expired: %q", name, line)
+		}
 	}
 }

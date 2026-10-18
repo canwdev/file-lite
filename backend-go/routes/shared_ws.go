@@ -283,7 +283,7 @@ func sharedWSAuthInfo(c echo.Context) (config.AuthTokenInfo, bool) {
 	// longer read from the query string, where it would leak into logs.
 	token := c.Request().Header.Get("Authorization")
 	if token == "" {
-		if cookie, err := c.Cookie(middlewares.AuthCookieName); err == nil {
+		if cookie, err := c.Cookie(middlewares.AuthCookieName()); err == nil {
 			token = cookie.Value
 		}
 	}

@@ -17,8 +17,8 @@ import { login, openFolder, row } from './helpers'
  * POST /api/session/refresh, and retries the original request.
  */
 
-const AUTH_COOKIE = 'file_lite_auth_token'
-const SESSION_COOKIE = 'file_lite_session'
+const AUTH_COOKIE = 'file_lite_auth_token_http'
+const SESSION_COOKIE = 'file_lite_session_http'
 const ORIGIN = `http://127.0.0.1:${PORT}`
 
 interface AuthCookie {

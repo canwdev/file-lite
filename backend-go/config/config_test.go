@@ -71,6 +71,71 @@ func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
 	}
 }
 
+// The printed addresses are alternatives: each has its own single-use ticket,
+// so redeeming the loopback link must not burn the LAN link a phone is about
+// to open.
+func TestAuthTicketsAreIndependent(t *testing.T) {
+	tickets, err := NewAuthTickets(TicketTierPersistent, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tickets) != 3 {
+		t.Fatalf("got %d tickets, want 3", len(tickets))
+	}
+	seen := map[string]struct{}{}
+	for _, ticket := range tickets {
+		if _, duplicate := seen[ticket.Value]; duplicate {
+			t.Fatalf("duplicate ticket %q", ticket.Value)
+		}
+		seen[ticket.Value] = struct{}{}
+	}
+
+	for i, ticket := range tickets {
+		if _, ok := ConsumeAuthTicket(ticket.Value, true); !ok {
+			t.Fatalf("ticket %d was burned by redeeming an earlier one", i)
+		}
+		if _, ok := ConsumeAuthTicket(ticket.Value, true); ok {
+			t.Fatalf("ticket %d was accepted twice", i)
+		}
+	}
+}
+
+// A new mint replaces the whole batch: URLs from an earlier call stop working,
+// which is what keeps a stale QR code from being redeemed.
+func TestMintingReplacesPreviousBatch(t *testing.T) {
+	first, err := NewAuthTicket(TicketTierPersistent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewAuthTicket(TicketTierPersistent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ConsumeAuthTicket(first.Value, true); ok {
+		t.Fatal("the replaced ticket was still accepted")
+	}
+	if _, ok := ConsumeAuthTicket(second.Value, true); !ok {
+		t.Fatal("the current ticket was rejected")
+	}
+}
+
+// A ticket that was never redeemed is rejected once its five minutes are over.
+func TestExpiredTicketIsRejected(t *testing.T) {
+	ticket, err := NewAuthTicket(TicketTierPersistent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authTicketMu.Lock()
+	stored := authTickets[ticket.Value]
+	stored.expiresAt = time.Now().Add(-time.Second)
+	authTickets[ticket.Value] = stored
+	authTicketMu.Unlock()
+
+	if _, ok := ConsumeAuthTicket(ticket.Value, true); ok {
+		t.Fatal("an expired ticket was accepted")
+	}
+}
+
 // A ticket is typed by hand, so it is ten lowercase letters/digits.
 func TestAuthTicketFormat(t *testing.T) {
 	ticket, err := NewAuthTicket(TicketTierPersistent)

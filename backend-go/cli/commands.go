@@ -9,8 +9,8 @@ import (
 )
 
 type ServerResult struct {
-	UrlIpSelector string
-	PrintUrls     func()
+	UrlWebUI  string
+	PrintUrls func()
 }
 
 type CmdCtx struct {
@@ -30,13 +30,15 @@ type Command struct {
 func Commands() []Command {
 	return []Command{
 		{
-			ID:    "open-ip",
-			Label: "Open IP selector",
+			ID:    "open-web",
+			Label: "Open Web UI",
 			When:  func(ctx CmdCtx) bool { return ctx.ServerResult != nil },
 			Run: func(ctx CmdCtx) error {
 				if ctx.ServerResult != nil {
+					// Refresh the printed links, then open the loopback entry
+					// page with its own (still unused) ticket.
 					ctx.ServerResult.PrintUrls()
-					utils.Opener(ctx.ServerResult.UrlIpSelector)
+					utils.Opener(ctx.ServerResult.UrlWebUI)
 				}
 				time.Sleep(time.Second)
 				return nil

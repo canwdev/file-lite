@@ -30,8 +30,8 @@ func TestRefreshSessionEndpoint(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/session/refresh", nil)
 	req.RemoteAddr = "10.0.0.1:1111"
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: oldToken})
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: oldToken})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName(), Value: "sess"})
 	req.Header.Set(middlewares.CSRFTokenHeader, "sess")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -45,10 +45,10 @@ func TestRefreshSessionEndpoint(t *testing.T) {
 
 	var renewed string
 	for _, line := range rec.Header().Values("Set-Cookie") {
-		if !strings.HasPrefix(line, middlewares.AuthCookieName+"=") {
+		if !strings.HasPrefix(line, middlewares.AuthCookieName()+"=") {
 			continue
 		}
-		renewed = strings.TrimPrefix(strings.SplitN(line, ";", 2)[0], middlewares.AuthCookieName+"=")
+		renewed = strings.TrimPrefix(strings.SplitN(line, ";", 2)[0], middlewares.AuthCookieName()+"=")
 	}
 	if renewed == "" {
 		t.Fatalf("refresh 没有设置新的 auth cookie：%v", rec.Header().Values("Set-Cookie"))

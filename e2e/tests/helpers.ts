@@ -66,11 +66,12 @@ export async function dismissFinishedTasks(page: Page) {
  * 撞上 429，表现为一直停在登录页。第一个用例走真实登录表单，之后把拿到的两个
  * cookie 直接写进新上下文，仍然是完整走一遍鉴权。
  *
- * 两个都要带上：`file_lite_auth_token` 是 HttpOnly 凭证，`file_lite_session`
- * 是可读的 CSRF 双提交值——只注入前者，写操作会因缺 CSRF 头而 403。
+ * 两个都要带上：`file_lite_auth_token_http` 是 HttpOnly 凭证，
+ * `file_lite_session_http` 是可读的 CSRF 双提交值——只注入前者，写操作会因缺
+ * CSRF 头而 403。名字带 `_http`：e2e 走 HTTP，服务端按协议区分 cookie 名。
  */
-const AUTH_TOKEN_COOKIE = 'file_lite_auth_token'
-const AUTH_SESSION_COOKIE = 'file_lite_session'
+const AUTH_TOKEN_COOKIE = 'file_lite_auth_token_http'
+const AUTH_SESSION_COOKIE = 'file_lite_session_http'
 let sharedAuthCookies: { name: string, value: string }[] | null = null
 
 /**

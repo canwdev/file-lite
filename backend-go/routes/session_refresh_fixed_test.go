@@ -16,8 +16,8 @@ func fixedRefreshCall(t *testing.T, token string) *httptest.ResponseRecorder {
 	e := newSessionRefreshServer()
 	req := httptest.NewRequest(http.MethodPost, "/api/session/refresh", nil)
 	req.RemoteAddr = "10.0.0.1:1111"
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: token})
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName(), Value: "sess"})
 	req.Header.Set(middlewares.CSRFTokenHeader, "sess")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -58,7 +58,7 @@ func TestRefreshSessionRejectsExpiredFixedTier(t *testing.T) {
 		t.Fatalf("expired fixed refresh = %d, want 401: %s", rec.Code, rec.Body.String())
 	}
 	joined := strings.Join(rec.Header().Values("Set-Cookie"), "\n")
-	if !strings.Contains(joined, middlewares.AuthCookieName) || !strings.Contains(joined, "Max-Age=0") {
+	if !strings.Contains(joined, middlewares.AuthCookieName()) || !strings.Contains(joined, "Max-Age=0") {
 		t.Fatalf("expired fixed refresh should clear cookies: %v", rec.Header().Values("Set-Cookie"))
 	}
 }

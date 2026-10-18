@@ -1,7 +1,6 @@
 import type { AxiosInstance, AxiosRequestConfig } from 'axios'
 import axios from 'axios'
-import Cookies from 'js-cookie'
-import { AUTH_SESSION_COOKIE_KEY } from '@/store/auth'
+import { readAuthSession } from '@/store/auth'
 import { refreshSessionOnce } from '@/utils/session-refresh'
 
 const CSRF_HEADER = 'X-File-Lite-CSRF'
@@ -35,7 +34,7 @@ function createService(): AxiosInstance {
         // itself. Only the readable session value must be echoed back for the
         // double-submit check, and only on methods the backend treats as unsafe.
         const method = (config.method ?? 'get').toLowerCase()
-        const session = Cookies.get(AUTH_SESSION_COOKIE_KEY)
+        const session = readAuthSession()
         if (session && !SAFE_METHODS.has(method)) {
           config.headers[CSRF_HEADER] = session
         }

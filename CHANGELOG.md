@@ -6,6 +6,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Terminal menu**: The first menu entry is now Open Web UI, which opens the loopback page directly instead of the IP selector (backend).
 - **Toolbar**: The eye button that toggled hidden files is now Properties, which opens the Properties window for the current selection; Ctrl+H still toggles hidden files (frontend).
 - **Settings**: The Data section is now File Management and holds Show hidden files, Show folders first and Disable preview (frontend).
 - **Fullscreen**: The global menu no longer toggles browser fullscreen; every app window has a fullscreen button in its title bar that fills the screen with that window's content, and Esc leaves it (frontend).
@@ -27,6 +28,8 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **HTTPS/HTTP switch**: Auth cookies are now named per scheme, so a browser that once opened the HTTPS URL can sign in over HTTP again instead of being stuck at `not signed in`; existing sessions sign in once after the update (backend, frontend).
+- **Login links**: Every printed address now has its own one-time ticket, so opening the loopback link no longer makes the LAN link fail; a ticket is still accepted only once (backend).
 - **IP Chooser**: Refreshing the ticket keeps the address that was selected instead of switching back to the default one (frontend).
 - **Auth errors**: A rejected request or sign-in now says why — for example `Unauthorized: wrong password` or `Unauthorized: ticket is invalid or already used` — instead of a bare Unauthorized (backend).
 - **Login attempts**: A wrong password now needs 15 failures from one IP before the 15-minute ban instead of 5, so mistyping a password no longer locks the user out so easily (backend).

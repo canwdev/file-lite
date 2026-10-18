@@ -92,7 +92,8 @@ Base path: `http(s)://<host>:<port>/api`.
 - `POST /files/upload-file`: `form-data` field `file`
 - `POST /update`: `form-data` field `file`; replace the running backend binary and restart (used by the Development menu)
 
-Authentication: `Authorization: <token>` header or `file_lite_auth_token` cookie
+Authentication: `Authorization: <token>` header or the scheme-scoped
+`file_lite_auth_token_http` / `file_lite_auth_token_https` cookie
 
 ## Formatting
 

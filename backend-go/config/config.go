@@ -149,7 +149,13 @@ var jwtToken string
 var configInitialized bool
 var configFilePath string
 var authTicketMu sync.Mutex
-var currentAuthTicket *authTicket
+
+// authTickets is the current batch: one single-use ticket per address the
+// server prints. Redeeming one address's ticket must not burn the others (the
+// loopback link and the LAN link a phone is about to open are alternatives),
+// while a mint replaces the whole batch so an earlier printed URL stops
+// working, exactly like the old single-ticket store.
+var authTickets = map[string]authTicket{}
 
 type authTicket struct {
 	value     string
@@ -508,22 +514,60 @@ func VerifyAuthJWT(tokenString string) bool {
 
 // NewAuthTicket mints one single-use login ticket bound to a tier. The tier is
 // stored server-side, so the device that redeems the ticket cannot choose a
-// longer lifetime.
+// longer lifetime. Minting replaces the previous batch of printed tickets.
 func NewAuthTicket(tier TicketTier) (AuthTicketInfo, error) {
-	policy := PolicyForTicketTier(tier)
-	ticket, err := generateAuthTicket()
+	tickets, err := NewAuthTickets(tier, 1)
 	if err != nil {
 		return AuthTicketInfo{}, err
 	}
+	return tickets[0], nil
+}
+
+// NewAuthTickets mints count independent single-use tickets bound to one tier.
+// The caller hands one to every address a login URL is printed for: the
+// addresses are alternatives, so redeeming the loopback link must leave the LAN
+// link usable, while every ticket itself is accepted exactly once.
+//
+// The batch replaces any tickets from an earlier mint. That keeps the original
+// "a fresh mint invalidates the URLs a previous call returned" behaviour, so a
+// stale QR code cannot be redeemed, and bounds the store to one batch.
+func NewAuthTickets(tier TicketTier, count int) ([]AuthTicketInfo, error) {
+	if count < 1 {
+		count = 1
+	}
+	policy := PolicyForTicketTier(tier)
 	expiresAt := time.Now().Add(authTicketTTL)
+
+	values := make([]string, 0, count)
+	seen := make(map[string]struct{}, count)
+	for len(values) < count {
+		value, err := generateAuthTicket()
+		if err != nil {
+			return nil, err
+		}
+		if _, duplicate := seen[value]; duplicate {
+			continue
+		}
+		seen[value] = struct{}{}
+		values = append(values, value)
+	}
+
 	authTicketMu.Lock()
-	currentAuthTicket = &authTicket{
-		value:     ticket,
-		expiresAt: expiresAt,
-		policy:    policy,
+	authTickets = make(map[string]authTicket, len(values))
+	for _, value := range values {
+		authTickets[value] = authTicket{
+			value:     value,
+			expiresAt: expiresAt,
+			policy:    policy,
+		}
 	}
 	authTicketMu.Unlock()
-	return AuthTicketInfo{Value: ticket, ExpiresAt: expiresAt, Tier: tier}, nil
+
+	infos := make([]AuthTicketInfo, len(values))
+	for i, value := range values {
+		infos[i] = AuthTicketInfo{Value: value, ExpiresAt: expiresAt, Tier: tier}
+	}
+	return infos, nil
 }
 
 func generateAuthTicket() (string, error) {
@@ -568,26 +612,29 @@ func isWeakAuthTicket(ticket string) bool {
 
 // ConsumeAuthTicket exchanges a one-time ticket for a fresh auth token.
 //
-// Validation and invalidation happen under the same lock: the ticket is a
-// single-use credential (routes/ie.go says so, and the classic login page calls
-// an already-used ticket "expired"), so splitting the check from the clear would
-// let one ticket be redeemed twice — concurrently or by anyone who saw the
+// Validation and invalidation of that one ticket happen under the same lock: a
+// ticket is a single-use credential, so splitting the check from the delete
+// would let it be redeemed twice — concurrently or by anyone who saw the
 // printed link before it expired. Burning the ticket before the token is minted
 // is deliberate: if signing somehow fails, the credential is gone rather than
 // left live.
+//
+// Only the redeemed value is removed: the other addresses a mint printed are
+// different tickets and stay usable.
 func ConsumeAuthTicket(ticket string, remember bool) (string, bool) {
+	now := time.Now()
 	authTicketMu.Lock()
-	storedTicket := currentAuthTicket
-	if storedTicket == nil || storedTicket.value != ticket || storedTicket.expiresAt.Before(time.Now()) {
+	storedTicket, ok := authTickets[ticket]
+	if !ok || !storedTicket.expiresAt.After(now) {
+		delete(authTickets, ticket)
 		authTicketMu.Unlock()
 		return "", false
 	}
-	policy := storedTicket.policy
-	currentAuthTicket = nil
+	delete(authTickets, ticket)
 	authTicketMu.Unlock()
 
 	// Minted outside the lock: NewAuthTokenForPolicy only reads the JWT secret.
-	token, err := NewAuthTokenForPolicy(remember, policy)
+	token, err := NewAuthTokenForPolicy(remember, storedTicket.policy)
 	if err != nil {
 		return "", false
 	}

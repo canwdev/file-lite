@@ -221,30 +221,38 @@ func startServer() (*cli.ServerResult, error) {
 		if isHttps {
 			protocol = "https:"
 		}
-		ticket, err := config.NewAuthTicket(config.DefaultTicketTier)
+		frontendPort := config.FrontendPort()
+
+		// One single-use ticket per address: the printed URLs are alternatives,
+		// so opening the loopback link must not invalidate the LAN link meant
+		// for a phone.
+		links, err := utils.BuildLoginLinks(protocol, host, frontendPort, config.DefaultTicketTier)
 		if err != nil {
 			fmt.Println("Error generating auth ticket:", err)
 		}
-		ticketParam := ""
-		if ticket.Value != "" {
-			ticketParam = "ticket=" + ticket.Value
-		}
-		frontendPort := config.FrontendPort()
-
-		utils.PrintUrls(protocol, host, frontendPort, ticketParam)
+		utils.PrintUrls(protocol, host, frontendPort, links.LoopbackTicket, links.URLs)
 		fmt.Println("IP Selector:")
 
 		// The page itself is authenticated and fetches the address list from
-		// /api/files/ip-chooser; the URL only carries the regular login ticket.
+		// /api/files/ip-chooser; the URL only carries the loopback ticket.
 		urlIpSelector := fmt.Sprintf("%s//127.0.0.1:%d/ip", protocol, frontendPort)
-		if ticket.Value != "" {
-			urlIpSelector += "?ticket=" + ticket.Value
+		if links.LoopbackTicket != "" {
+			urlIpSelector += "?ticket=" + links.LoopbackTicket
 		}
-		result.UrlIpSelector = urlIpSelector
 		fmt.Println(urlIpSelector)
 		fmt.Println("")
-		fmt.Printf("Ticket: %s\n", ticket.Value)
-		fmt.Printf("Ticket expires at: %s.\n", ticket.ExpiresAt.Format("2006-01-02 15:04:05"))
+
+		// The TUI opens this URL: the first page on loopback, already signed in.
+		urlWebUI := fmt.Sprintf("%s//127.0.0.1:%d/", protocol, frontendPort)
+		if links.LoopbackTicket != "" {
+			urlWebUI += "?ticket=" + links.LoopbackTicket
+		}
+		result.UrlWebUI = urlWebUI
+
+		fmt.Printf("Ticket: %s\n", links.LoopbackTicket)
+		if !links.ExpiresAt.IsZero() {
+			fmt.Printf("Ticket expires at: %s.\n", links.ExpiresAt.Format("2006-01-02 15:04:05"))
+		}
 		fmt.Println("")
 	}
 

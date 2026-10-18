@@ -29,8 +29,8 @@ func TestRootTicketIgnoredWhenLoggedIn(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, target, nil)
-	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName, Value: sessionToken})
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: "sess"})
+	req.AddCookie(&http.Cookie{Name: middlewares.AuthCookieName(), Value: sessionToken})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName(), Value: "sess"})
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/" {
@@ -47,7 +47,7 @@ func TestRootTicketIgnoredWhenLoggedIn(t *testing.T) {
 	if freshRec.Code != http.StatusFound || freshRec.Header().Get("Location") != "/" {
 		t.Fatalf("fresh ticket = %d %q, want 302 /", freshRec.Code, freshRec.Header().Get("Location"))
 	}
-	if !strings.Contains(strings.Join(freshRec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if !strings.Contains(strings.Join(freshRec.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatal("the ignored ticket should still be redeemable")
 	}
 }
@@ -64,7 +64,7 @@ func TestIETicketIgnoredWhenLoggedIn(t *testing.T) {
 	if loggedIn.Code != http.StatusFound || loggedIn.Header().Get("Location") != "/ie" {
 		t.Fatalf("logged-in ticket = %d %q, want 302 /ie", loggedIn.Code, loggedIn.Header().Get("Location"))
 	}
-	if strings.Contains(strings.Join(loggedIn.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if strings.Contains(strings.Join(loggedIn.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatalf("logged-in ticket must not replace cookies: %v", loggedIn.Header().Values("Set-Cookie"))
 	}
 
@@ -72,7 +72,7 @@ func TestIETicketIgnoredWhenLoggedIn(t *testing.T) {
 	if fresh.Code != http.StatusFound || fresh.Header().Get("Location") != "/ie" {
 		t.Fatalf("fresh ticket = %d %q, want 302 /ie", fresh.Code, fresh.Header().Get("Location"))
 	}
-	if !strings.Contains(strings.Join(fresh.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName) {
+	if !strings.Contains(strings.Join(fresh.Header().Values("Set-Cookie"), "\n"), middlewares.AuthCookieName()) {
 		t.Fatal("the ignored ticket should still be redeemable")
 	}
 }

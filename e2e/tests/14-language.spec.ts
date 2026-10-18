@@ -31,7 +31,7 @@ async function openContext(browser: Browser, baseURL: string, options: BrowserCo
 
 async function csrfHeaders(context: BrowserContext) {
   const cookies = await context.cookies()
-  const session = cookies.find(cookie => cookie.name === 'file_lite_session')
+  const session = cookies.find(cookie => cookie.name === 'file_lite_session_http')
   return { [CSRF_HEADER]: session?.value ?? '' }
 }
 

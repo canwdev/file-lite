@@ -23,8 +23,9 @@ export interface SessionInfo {
 /** The lifetime selected when minting a share ticket. */
 export type LoginTicketTier = '15m' | '1h' | '8h' | '24h' | 'persistent'
 
-/** 扫码登录票据：一个短命票据 + 每个本机地址一条可直接打开的登录 URL。 */
+/** A short-lived login link: one ready-to-open URL per local address, each with its own single-use ticket. */
 export interface LoginTicketInfo {
+  /** The ticket in the loopback URL; every URL carries its own ticket. */
   value: string
   urls: string[]
   expiresAt: string
@@ -72,10 +73,12 @@ export function logout() {
 }
 
 /**
- * 生成扫码登录票据。
+ * Mint a login link.
  *
- * 服务端只保留一张票据，因此每次调用都会作废上一次返回的 URL；要在展示前重新生成。
- * 固定期限的临时会话不能生成新票据，服务端会返回 403。
+ * Every address gets its own single-use ticket, so the URLs in one response are
+ * alternatives: opening the loopback one does not invalidate the LAN one. A
+ * mint replaces the previous batch, so re-mint before showing a stale QR code.
+ * A temporary session cannot mint tickets; the server answers 403.
  */
 export async function createLoginTicket(tier: LoginTicketTier = 'persistent'): Promise<LoginTicketInfo> {
   return (await service.post(`/api/session/tickets`, { tier })) as unknown as LoginTicketInfo

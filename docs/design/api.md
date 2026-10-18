@@ -191,8 +191,10 @@ A fixed ticket tier is accepted while its access window is open, but the exchang
 that window is over the request is `401` and the cookie pair is cleared. The `norenew`
 claim is signed, so a client cannot opt into renewal.
 
-- The `file_lite_auth_token` **and** `file_lite_session` cookies are both required; the
-  request must echo the session value in `X-File-Lite-CSRF` like any other unsafe call.
+- The `file_lite_auth_token_http`/`_https` **and** `file_lite_session_http`/`_https`
+  cookies are both required (the suffix matches the scheme the server is serving);
+  the request must echo the session value in `X-File-Lite-CSRF` like any other unsafe
+  call.
 - A request authenticated with `Authorization: Bearer` is rejected with `401` even when
   the cookies are also present: a leaked bearer token must not be able to extend itself.
 - Only the HttpOnly auth cookie is replaced. The readable session cookie is left
@@ -204,8 +206,8 @@ claim is signed, so a client cannot opt into renewal.
 
 ### `POST /api/session/tickets`
 
-Mints a short-lived login ticket and returns one ready-to-use login URL per local
-address, so the frontend can render a QR code:
+Mints one short-lived login ticket per local address and returns a ready-to-use
+login URL for each, so the frontend can render a QR code:
 
 ```json
 { "tier": "1h" }
@@ -213,15 +215,20 @@ address, so the frontend can render a QR code:
 
 ```json
 {
-  "value": "a1b2c3d4e5",
-  "urls": ["http://192.168.1.10:8080/?ticket=a1b2c3d4e5"],
+  "value": "k9m2p4q6r8",
+  "urls": [
+    "http://192.168.1.10:8080/?ticket=a1b2c3d4e5",
+    "http://127.0.0.1:8080/?ticket=k9m2p4q6r8"
+  ],
   "expiresAt": "2026-01-02T15:04:05Z",
   "tier": "1h"
 }
 ```
 
-`value` is the ticket embedded in the URLs. A ticket is ten characters from `0-9a-z`
-(lowercase only, because it is often typed by hand).
+`value` is the ticket in the loopback URL (the one the terminal banner also prints).
+Every URL carries its own ticket, so the addresses are alternatives for the same
+login. A ticket is ten characters from `0-9a-z` (lowercase only, because it is
+often typed by hand).
 
 - `tier` is optional. Empty or omitted means `persistent`, which is the behaviour the
   terminal banner and older callers expect. The accepted values are `15m`, `1h`, `8h`,
@@ -232,11 +239,14 @@ address, so the frontend can render a QR code:
 - A session whose token is fixed (`renewable: false`) cannot mint tickets: it gets `403
   forbidden`. This keeps a temporary share from extending or re-sharing itself.
 
-`201 Created`. The ticket expires after five minutes and the backend keeps at most one,
-so every call invalidates the URLs a previous call returned; the client re-mints before
-showing a stale QR code. A ticket is **single-use**: redeeming it once consumes it, and a
-second attempt is rejected exactly like an expired one. The GET routes that can redeem a
-ticket (`/?ticket=`, `/ie?ticket=`,
+`201 Created`. Every URL carries its own ticket, because the addresses are
+alternatives: redeeming the loopback link on this machine must not make the LAN
+link a phone is about to open answer `ticket is invalid or already used`. Each
+ticket is **single-use** and valid for five minutes: a second redemption of the
+same ticket is rejected exactly like an expired one, while the other printed
+URLs still work. A mint replaces the previous batch, so every call invalidates
+the URLs a previous call returned and the client re-mints before showing a stale
+QR code. The GET routes that can redeem a ticket (`/?ticket=`, `/ie?ticket=`,
 `/ie/login?ticket=`) are rate limited per client IP and answer `429` with
 `too_many_requests` past the limit; requests without a ticket are not counted.
 
@@ -806,9 +816,13 @@ handle it.
 
 ## 14. Authentication and CSRF
 
-- Login issues two cookies: `file_lite_auth_token` (HttpOnly, holds the JWT, never
-  readable by scripts) and `file_lite_session` (readable, a random value used only for
-  the double-submit check).
+- Login issues two cookies: `file_lite_auth_token_https` (HttpOnly, holds the JWT,
+  never readable by scripts) and `file_lite_session_https` (readable, a random value
+  used only for the double-submit check). Over HTTP the same pair uses the `_http`
+  suffix. The scheme is part of the name because a Secure cookie cannot be overwritten
+  from an HTTP origin: with one shared name, a browser that once visited the HTTPS URL
+  would keep a stale Secure cookie that is neither sent over HTTP nor replaceable, and
+  every HTTP login would answer `not signed in`.
 - The JWT has two deadlines. `exp` is the **access** deadline (15 minutes for a
   renewable session, or the tier itself for a fixed one) and `rexp` is the **renewal**
   deadline (30 days, sliding, for a renewable session; equal to `exp` for a fixed one).

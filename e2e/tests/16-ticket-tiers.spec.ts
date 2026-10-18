@@ -16,8 +16,8 @@ import { login } from './helpers'
  * them in fresh browser contexts.
  */
 
-const AUTH_COOKIE = 'file_lite_auth_token'
-const SESSION_COOKIE = 'file_lite_session'
+const AUTH_COOKIE = 'file_lite_auth_token_http'
+const SESSION_COOKIE = 'file_lite_session_http'
 const ORIGIN = `http://127.0.0.1:${PORT}`
 
 interface JwtPayload {
