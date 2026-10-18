@@ -40,7 +40,6 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Login attempts**: A wrong password now needs 15 failures from one IP before the 15-minute ban instead of 5, so mistyping a password no longer locks the user out so easily (backend).
 - **Windows restart**: Restarting the backend from a terminal opens a terminal window for the new process instead of continuing in the background, so the TUI comes back (backend).
 - **Media playback**: A video or audio element whose request is rejected after the tab was idle renews the session once and reloads at the same position instead of stopping; a pause or a stall that is not about the session no longer reloads the element, and a recovery that fails is retried instead of leaving the player dead (frontend).
-- **Window focus**: Clicking maximize or restore keeps focus in the app instead of moving it to the title-bar button (frontend).
 - **Column resize**: The divider between two file-table column headers can be grabbed on both sides, and it highlights on hover; the drag area no longer stops at the header cell's edge (frontend).
 - **Translations**: A string a locale has not translated yet falls back to English instead of showing the raw key, and the Chinese login validity period label is back (frontend).
 

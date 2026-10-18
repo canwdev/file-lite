@@ -41,19 +41,7 @@ function windowProps(win: AppWindowState) {
     class: 'app-window',
     style: WINDOW_STYLE,
     initWinOptions: initWinOptions(win),
-    // 标题栏按钮属于窗口装饰，不是内容：点最大化 / 还原时不要抢走输入框或文件列表的焦点。
-    // 阻止 mousedown 的默认行为只会跳过聚焦，click 仍会正常触发。
-    onMousedownCapture: keepContentFocusOnMaximize,
   }
-}
-
-/** 最大化 / 还原按钮（含悬停弹出的布局菜单）的 mousedown 不再把焦点从窗口内容移到按钮上。 */
-function keepContentFocusOnMaximize(event: MouseEvent) {
-  const target = event.target
-  if (!(target instanceof Element))
-    return
-  if (target.closest('.vgo-window__controls .is-maximize, .vgo-window__controls .is-restore, .vgo-window__layout'))
-    event.preventDefault()
 }
 
 function contentAttrs(win: AppWindowState) {
