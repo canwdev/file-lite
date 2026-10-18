@@ -115,13 +115,13 @@ func authenticate(c echo.Context, password, ticket string, remember bool) (strin
 	if ticket != "" {
 		token, ok := config.ConsumeAuthTicket(ticket, remember)
 		if !ok {
-			return "", apierr.Unauthorized("Unauthorized")
+			return "", apierr.UnauthorizedReason("ticket is invalid or already used")
 		}
 		return token, nil
 	}
 	if password != config.Config().Password {
 		utils.LogWarnf("login failed: wrong password from %s", middlewares.ClientIP(c))
-		return "", apierr.Unauthorized("Unauthorized")
+		return "", apierr.UnauthorizedReason("wrong password")
 	}
 	token, err := config.NewAuthToken(remember)
 	if err != nil {

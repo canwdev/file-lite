@@ -790,7 +790,7 @@ func TestIEClassicLoginLogout(t *testing.T) {
 	if bad.Code != http.StatusUnauthorized {
 		t.Fatalf("错误密码 = %d，期望 401", bad.Code)
 	}
-	if !strings.Contains(bad.Body.String(), "Unauthorized") {
+	if !strings.Contains(bad.Body.String(), "Unauthorized: wrong password") {
 		t.Fatalf("错误密码应重绘表单并带原因：%s", bad.Body.String())
 	}
 	if len(bad.Header().Values("Set-Cookie")) != 0 {

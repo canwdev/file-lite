@@ -50,7 +50,7 @@ func sessionInfo(c echo.Context) error {
 func refreshSession(c echo.Context) error {
 	info, ok := middlewares.AuthTokenInfoFromContext(c)
 	if !ok {
-		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		return apierr.Write(c, apierr.UnauthorizedReason("not signed in"))
 	}
 	now := time.Now()
 	if !info.CanRenew {
@@ -59,11 +59,11 @@ func refreshSession(c echo.Context) error {
 			return c.NoContent(http.StatusNoContent)
 		}
 		middlewares.ClearAuthCookies(c)
-		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		return apierr.Write(c, apierr.UnauthorizedReason("this session cannot be renewed"))
 	}
 	if !info.Renewable(now) {
 		middlewares.ClearAuthCookies(c)
-		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		return apierr.Write(c, apierr.UnauthorizedReason("session is invalid or expired"))
 	}
 	token, err := config.RenewAuthToken(info)
 	if err != nil {
@@ -100,7 +100,7 @@ func sessionPayload() map[string]any {
 // createLoginTicket mints a short-lived ticket bound to the requested tier and
 // returns one login URL per local address, so the frontend can render a QR code
 // that signs another device in without a password. Minting a credential is a
-// write, hence POST; the ticket lives for two minutes and the frontend refreshes
+// write, hence POST; the ticket lives for five minutes and the frontend refreshes
 // it on demand. Fixed-tier sessions cannot mint new tickets: a temporary share
 // must not be able to extend or re-share itself.
 func createLoginTicket(c echo.Context) error {

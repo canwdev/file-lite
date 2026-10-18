@@ -121,7 +121,7 @@ func handleSharedWebSocket(c echo.Context) error {
 	}
 	info, authed := sharedWSAuthInfo(c)
 	if !authed {
-		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		return apierr.Write(c, apierr.UnauthorizedReason("session is invalid or expired"))
 	}
 
 	// The direct TCP peer, exactly like every other IP decision in the backend.

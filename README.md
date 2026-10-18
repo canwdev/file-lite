@@ -60,7 +60,7 @@ The console prints a ready-to-open URL, and the first run needs no password — 
 
 ```text
 Listening on: 0.0.0.0:3111
-http://192.168.1.10:3111?ticket=a1b2c3d4
+http://192.168.1.10:3111?ticket=a1b2c3d4e5
 ```
 
 Settings live in `<cwd>/file-lite/config.json`. The login password is the `password` field; if it is empty, one is generated and saved. The console does not print it.

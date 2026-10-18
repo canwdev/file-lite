@@ -89,9 +89,13 @@ func PolicyForTicketTier(tier TicketTier) SessionPolicy {
 	return ticketTierPolicies[TicketTierPersistent]
 }
 
-const authTicketTTL = 2 * time.Minute
-const authTicketChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-const authTicketLength = 8
+const authTicketTTL = 5 * time.Minute
+
+// Tickets are typed by hand (the login page has a ticket field), so the
+// alphabet is lowercase-only to avoid case mistakes; ten characters of 36
+// symbols still carry about 51 bits.
+const authTicketChars = "0123456789abcdefghijklmnopqrstuvwxyz"
+const authTicketLength = 10
 
 // 日志等级（logLevel 字段取值）。等级是打印阈值：
 // verbose 输出全部事件日志，warn 只输出警告与错误，error 只输出错误，

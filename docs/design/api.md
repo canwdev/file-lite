@@ -165,11 +165,13 @@ Creates a session and sets the cookie pair.
 or, for a QR login ticket:
 
 ```json
-{ "ticket": "AB12CD", "remember": false }
+{ "ticket": "a1b2c3d4e5", "remember": false }
 ```
 
 - `201` on success.
-- `401` on a wrong password or an expired/unknown ticket.
+- `401` on a wrong password or an expired/unknown ticket. The message names the cause
+  (`Unauthorized: wrong password`, `Unauthorized: ticket is invalid or already used`), and
+  the same shape is used by every other `401` (session expired, not signed in).
 - `429` when rate limited. This is the only rate-limited endpoint (20 requests per IP
   per minute) and the only one that feeds the failure ban (15 failures ⇒ 15 minute ban).
 
@@ -211,12 +213,15 @@ address, so the frontend can render a QR code:
 
 ```json
 {
-  "value": "AB12CD",
-  "urls": ["http://192.168.1.10:8080/?ticket=AB12CD"],
+  "value": "a1b2c3d4e5",
+  "urls": ["http://192.168.1.10:8080/?ticket=a1b2c3d4e5"],
   "expiresAt": "2026-01-02T15:04:05Z",
   "tier": "1h"
 }
 ```
+
+`value` is the ticket embedded in the URLs. A ticket is ten characters from `0-9a-z`
+(lowercase only, because it is often typed by hand).
 
 - `tier` is optional. Empty or omitted means `persistent`, which is the behaviour the
   terminal banner and older callers expect. The accepted values are `15m`, `1h`, `8h`,
@@ -227,10 +232,11 @@ address, so the frontend can render a QR code:
 - A session whose token is fixed (`renewable: false`) cannot mint tickets: it gets `403
   forbidden`. This keeps a temporary share from extending or re-sharing itself.
 
-`201 Created`. The backend keeps at most one ticket, so every call invalidates the URLs
-a previous call returned; the client re-mints before showing a stale QR code. A ticket is
-**single-use**: redeeming it once consumes it, and a second attempt is rejected exactly like
-an expired one. The GET routes that can redeem a ticket (`/?ticket=`, `/ie?ticket=`,
+`201 Created`. The ticket expires after five minutes and the backend keeps at most one,
+so every call invalidates the URLs a previous call returned; the client re-mints before
+showing a stale QR code. A ticket is **single-use**: redeeming it once consumes it, and a
+second attempt is rejected exactly like an expired one. The GET routes that can redeem a
+ticket (`/?ticket=`, `/ie?ticket=`,
 `/ie/login?ticket=`) are rate limited per client IP and answer `429` with
 `too_many_requests` past the limit; requests without a ticket are not counted.
 

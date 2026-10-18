@@ -55,7 +55,7 @@ cd linux_amd64
 
 ```text
 Listening on: 0.0.0.0:3111
-http://192.168.1.10:3111?ticket=a1b2c3d4
+http://192.168.1.10:3111?ticket=a1b2c3d4e5
 ```
 
 配置在 `<cwd>/file-lite/config.json`。登录密码是 `password` 字段；为空时会生成并保存。控制台不会打印它。

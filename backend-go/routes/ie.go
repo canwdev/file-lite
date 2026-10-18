@@ -173,7 +173,7 @@ func ieLoginSubmit(c echo.Context) error {
 }
 
 // ieLoginForm 渲染登录表单。mode 决定哪个 radio 选中，ticket 用于票据登录失败后回填
-// （8 位票据手打容易错，让用户能改而不是重来）。
+// （10 位票据手打容易错，让用户能改而不是重来）。
 func ieLoginForm(c echo.Context, status int, next, errMsg, ticket, mode string) error {
 	return ieRender(c, status, "login.html", ieLoginView{
 		Next:   next,

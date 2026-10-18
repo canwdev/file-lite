@@ -97,6 +97,13 @@ func Unauthorized(message string) *Error {
 	return New(http.StatusUnauthorized, CodeUnauthorized, message)
 }
 
+// UnauthorizedReason is the 401 shape the client shows directly: the cause is
+// appended to the status word, so a rejected login never leaves the user with a
+// bare "Unauthorized".
+func UnauthorizedReason(reason string) *Error {
+	return Unauthorized("Unauthorized: " + reason)
+}
+
 func Forbidden(code, message string) *Error {
 	return New(http.StatusForbidden, code, message)
 }

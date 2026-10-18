@@ -329,7 +329,7 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// Clearing it here would destroy the only credential that can recover
 		// the session.
 		if fromHeader == "" && tokenOK && info.Renewable(now) {
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+			return apierr.Write(c, apierr.UnauthorizedReason("session needs renewal"))
 		}
 
 		// A dead credential is dropped so the browser stops replaying it. Token
@@ -339,7 +339,14 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if fromHeader == "" {
 			ClearAuthCookies(c)
 		}
-		return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+		switch {
+		case fromHeader != "":
+			return apierr.Write(c, apierr.UnauthorizedReason("access token is invalid or expired"))
+		case token == "":
+			return apierr.Write(c, apierr.UnauthorizedReason("not signed in"))
+		default:
+			return apierr.Write(c, apierr.UnauthorizedReason("session is invalid or expired"))
+		}
 	}
 }
 
@@ -350,17 +357,17 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 func RefreshAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if c.Request().Header.Get("Authorization") != "" {
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+			return apierr.Write(c, apierr.UnauthorizedReason("renewal requires the session cookies"))
 		}
 		authCookie, err := c.Cookie(AuthCookieName)
 		if err != nil || authCookie.Value == "" {
 			ClearAuthCookies(c)
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+			return apierr.Write(c, apierr.UnauthorizedReason("not signed in"))
 		}
 		session, err := c.Cookie(SessionCookieName)
 		if err != nil || session.Value == "" {
 			ClearAuthCookies(c)
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+			return apierr.Write(c, apierr.UnauthorizedReason("session cookie is missing"))
 		}
 		if !config.IsExplicitDevMode() && c.Request().Header.Get(CSRFTokenHeader) != session.Value {
 			return apierr.Write(c, apierr.Forbidden(apierr.CodeForbidden, "Forbidden"))
@@ -372,7 +379,7 @@ func RefreshAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// now nor renewable is dead at this point.
 		if !ok || (!info.AccessValid(now) && !info.Renewable(now)) {
 			ClearAuthCookies(c)
-			return apierr.Write(c, apierr.Unauthorized("Unauthorized"))
+			return apierr.Write(c, apierr.UnauthorizedReason("session is invalid or expired"))
 		}
 		c.Set(authTokenInfoKey, info)
 		return next(c)

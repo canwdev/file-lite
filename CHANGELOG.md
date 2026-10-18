@@ -19,12 +19,16 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Ticket tiers**: The IP Chooser can issue a login ticket that lasts 15 minutes, 1 hour, 8 hours, or 24 hours, or the persistent renewable session (frontend, backend).
 - **Temporary sessions**: A fixed-lifetime ticket logs the device out when it expires, cannot renew, and cannot mint further tickets; the terminal's printed ticket keeps the persistent behaviour (frontend, backend).
 - **Ticket links**: A browser that is already signed in ignores a ticket link instead of replacing its current session or tier (frontend, backend).
+- **Login tickets**: A ticket link now stays valid for five minutes instead of two, so there is more time to open it or scan the QR code (backend).
+- **Ticket format**: A login ticket is now ten lowercase letters and digits instead of eight mixed-case characters, so it is easier to type (backend).
 - **IP Chooser**: The page no longer shows a WebSocket disconnected notice, because it never opens a socket (frontend).
 - **Login**: Remember login status is unchecked by default; ticket links remain persistent (frontend, backend).
 - **Windows 32-bit**: The release now includes a 32-bit Windows build that runs on Windows 7 or later (backend).
 
 ### Fixes
 
+- **IP Chooser**: Refreshing the ticket keeps the address that was selected instead of switching back to the default one (frontend).
+- **Auth errors**: A rejected request or sign-in now says why — for example `Unauthorized: wrong password` or `Unauthorized: ticket is invalid or already used` — instead of a bare Unauthorized (backend).
 - **Login attempts**: A wrong password now needs 15 failures from one IP before the 15-minute ban instead of 5, so mistyping a password no longer locks the user out so easily (backend).
 - **Windows restart**: Restarting the backend from a terminal opens a terminal window for the new process instead of continuing in the background, so the TUI comes back (backend).
 - **Media playback**: A video or audio element whose request is rejected after the tab was idle renews the session once and reloads at the same position instead of stopping (frontend).

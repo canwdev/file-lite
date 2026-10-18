@@ -33,7 +33,7 @@ const tierOptions: TierOption[] = [
 ]
 const selectedTier = ref<LoginTicketTier>('1h')
 
-// The ticket embedded in every URL lives for two minutes, so the page has to
+// The ticket embedded in every URL lives for five minutes, so the page has to
 // show how long the QR code is still good for.
 useIntervalFn(() => {
   nowMs.value = Date.now()
@@ -79,6 +79,30 @@ function pickDefaultUrl(urls: string[]) {
   return sameHost ?? urls[0] ?? ''
 }
 
+/** Host and port identify an address; every mint changes the ticket query. */
+function addressKey(url: string) {
+  try {
+    return new URL(url).host
+  }
+  catch {
+    return ''
+  }
+}
+
+/**
+ * Keep the address the user picked across a refresh. The URL text itself is
+ * new after every mint (the ticket changes), so the previous selection is
+ * matched by host and port and only falls back to the default when that
+ * address is gone.
+ */
+function pickUrl(urls: string[], previousUrl: string) {
+  const previousKey = addressKey(previousUrl)
+  const match = previousKey
+    ? urls.find(url => addressKey(url) === previousKey)
+    : undefined
+  return match ?? pickDefaultUrl(urls)
+}
+
 /**
  * Ask the backend for a fresh ticket and address list. The backend keeps a
  * single global ticket, so every call invalidates the URLs from the last one.
@@ -98,12 +122,14 @@ async function loadInfo() {
   loading.value = true
   errorMessage.value = ''
   restrictedError.value = false
+  // Read before awaiting, so the selection from before the refresh survives.
+  const previousUrl = currentUrl.value
   try {
     const info = await createLoginTicket(selectedTier.value)
     hostUrls.value = info.urls ?? []
     expiresAtMs.value = info.expiresAt ? new Date(info.expiresAt).getTime() : 0
     nowMs.value = Date.now()
-    currentUrl.value = pickDefaultUrl(hostUrls.value)
+    currentUrl.value = pickUrl(hostUrls.value, previousUrl)
     if (info.tier)
       selectedTier.value = info.tier
   }

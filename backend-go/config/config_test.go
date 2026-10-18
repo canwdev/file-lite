@@ -71,6 +71,24 @@ func TestConsumeAuthTicketIsSingleUse(t *testing.T) {
 	}
 }
 
+// A ticket is typed by hand, so it is ten lowercase letters/digits.
+func TestAuthTicketFormat(t *testing.T) {
+	ticket, err := NewAuthTicket(TicketTierPersistent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ticket.Value) != authTicketLength {
+		t.Fatalf("ticket %q has %d characters, want %d", ticket.Value, len(ticket.Value), authTicketLength)
+	}
+	for _, char := range ticket.Value {
+		lowercase := char >= 'a' && char <= 'z'
+		digit := char >= '0' && char <= '9'
+		if !lowercase && !digit {
+			t.Fatalf("ticket %q contains %q; only 0-9a-z is allowed", ticket.Value, char)
+		}
+	}
+}
+
 // Development mode relaxes the CSRF check, so it must only answer to the
 // file-lite-specific variable. NODE_ENV is set by unrelated tooling.
 func TestIsExplicitDevModeIgnoresNodeEnv(t *testing.T) {
