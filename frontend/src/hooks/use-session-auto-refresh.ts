@@ -4,6 +4,11 @@ import { refreshSessionOnce } from '@/utils/session-refresh'
 
 /** Renew every five minutes: the access token is short-lived, the tab may be idle. */
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+/**
+ * Switching windows fires focus/visibility several times a minute. A renewal
+ * that just happened cannot be stale, so those events do not each need a POST.
+ */
+const WAKE_REFRESH_MIN_GAP_MS = 60 * 1000
 /** The temporary-session badge only needs a coarse countdown. */
 const REMAINING_TICK_MS = 30 * 1000
 
@@ -17,6 +22,7 @@ const REMAINING_TICK_MS = 30 * 1000
  */
 export function useSessionAutoRefresh() {
   let refreshTimer: ReturnType<typeof setInterval> | null = null
+  let lastRefreshAt = 0
   let expiryTimer: ReturnType<typeof setTimeout> | null = null
   let remainingTimer: ReturnType<typeof setInterval> | null = null
 
@@ -57,6 +63,7 @@ export function useSessionAutoRefresh() {
     if (!authSession.value) {
       return
     }
+    lastRefreshAt = Date.now()
     void refreshSessionOnce().then((result) => {
       if (result === 'rejected') {
         logout()
@@ -107,6 +114,11 @@ export function useSessionAutoRefresh() {
       scheduleExpiry()
       return
     }
+    // The heartbeat already keeps an active tab fresh, so an alt-tab does not
+    // need its own renewal.
+    if (Date.now() - lastRefreshAt < WAKE_REFRESH_MIN_GAP_MS) {
+      return
+    }
     refresh()
   }
 
@@ -116,11 +128,17 @@ export function useSessionAutoRefresh() {
     }
   }
 
+  /** The network came back: a failed renewal may just have been offline. */
+  const onOnline = () => {
+    lastRefreshAt = 0
+    onWake()
+  }
+
   onMounted(() => {
     schedule()
     document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('focus', onWake)
-    window.addEventListener('online', onWake)
+    window.addEventListener('online', onOnline)
     window.addEventListener('pageshow', onWake)
   })
 
@@ -131,7 +149,7 @@ export function useSessionAutoRefresh() {
     clearExpiryTimers()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.removeEventListener('focus', onWake)
-    window.removeEventListener('online', onWake)
+    window.removeEventListener('online', onOnline)
     window.removeEventListener('pageshow', onWake)
   })
 }

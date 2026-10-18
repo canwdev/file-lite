@@ -898,13 +898,15 @@ handle it.
 - A request made with the cookie pair renews the token by itself once less than five
   minutes are left: the middleware sets a fresh auth cookie on the response. The
   frontend also calls the refresh endpoint every five minutes while the app is open,
-  after the tab becomes visible or focused, after the network comes back, and once on
-  a `401` before retrying the original request. That covers an idle tab and a laptop
-  waking from sleep.
-- Browser-fetched media cannot use that interceptor. A `<video>`/`<audio>` element that
-  errors renews once and reloads the same source at the same position; a watchdog also
-  catches a rejected load that never reports an error. Direct GET/HEAD downloads and
-  media-metadata requests retry once after a renewal.
+  after the tab becomes visible or focused (unless a renewal happened in the last
+  minute), after the network comes back, and once on a `401` before retrying the
+  original request. That covers an idle tab and a laptop waking from sleep.
+- Browser-fetched media cannot use that interceptor. When a `<video>`/`<audio>` element
+  fails, the client probes the same URL with a HEAD request and renews only when that
+  probe answers `401`; the element then reloads at the same position, staying paused or
+  playing as it was. A failure that is not about the session gets more time and at most
+  one reload, and a paused element is never treated as stalled. Direct GET/HEAD
+  downloads and media-metadata requests retry once after a renewal.
 - The browser sends the auth cookie automatically. Scripts may use
   `Authorization: Bearer <jwt>` instead, but a bearer token cannot renew: the refresh
   endpoint only accepts the cookie pair plus the CSRF header, so a leaked bearer token
