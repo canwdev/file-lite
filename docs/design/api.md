@@ -560,7 +560,8 @@ one path.
   (`Content-Disposition: attachment`, `ETag`, `Range`), because zipping one file helps
   nobody.
 - A directory, or more than one path, is streamed as a zip with an attachment filename
-  derived from the selection.
+  derived from the selection, marked `private, no-store` because it is generated per
+  request and the response may carry a renewed auth cookie.
 - `200` with either `application/zip` or the file's own type.
 - The server resolves and readability-checks every path **before** it starts writing,
   so a selection that contains an unreadable file fails with a plain JSON error instead
@@ -866,9 +867,10 @@ look like a deleted file. Only an explicit `ENOENT`/`ENOTDIR` produces
 
 | Endpoint | Validator | Client behavior |
 |---|---|---|
-| `GET /api/fs/content/{path}` | strong `ETag` = representation revision + size + mtime; `Last-Modified` | `max-age=0, must-revalidate`; 304 on match; `Range` supported |
+| `GET /api/fs/content/{path}` | strong `ETag` = representation revision + size + mtime; `Last-Modified` | `private, max-age=0, must-revalidate` (an in-place renewal carries `Set-Cookie`); 304 on match; `Range` supported |
 | `GET /api/media/{path}` | the same strong `ETag` as content | `private, max-age=0, must-revalidate`; 304 on match; `Range` supported |
 | `GET /api/fs/thumbnail/{path}` | strong `ETag` from kind, size, mtime | `private, max-age=0, must-revalidate`; 304 on match; the frontend also keeps a decoded copy in IndexedDB |
+| `GET /api/fs/downloads` (zip) | none | `private, no-store`; generated per request, may carry a renewed auth cookie |
 | Plugin assets | `ETag` from size, mtime and the injected SDK revision | `private, max-age=0, must-revalidate` |
 | `GET /api/fs/directories/{path}` | **none** | Directory listings are not cached. They change without the directory mtime changing (a file's size or mtime), so any cheap validator would serve stale rows. Freshness comes from the `fs.changed` push and from explicit reloads |
 | everything else | none | — |
@@ -889,9 +891,11 @@ handle it.
 - The JWT has two deadlines. `exp` is the **access** deadline (15 minutes for a
   renewable session, or the tier itself for a fixed one) and `rexp` is the **renewal**
   deadline (30 days, sliding, for a renewable session; equal to `exp` for a fixed one).
-  A token may call the API only while `now < exp`; a renewable token may be exchanged at
-  `POST /api/session/refresh` while `now < rexp`. Both deadlines are signed, so a client
-  cannot extend either.
+  A token may call the JSON API and open a WebSocket only while `now < exp`; a renewable
+  token may be exchanged at `POST /api/session/refresh` while `now < rexp`. Both
+  deadlines are signed, so a client cannot extend either. The exceptions are the
+  browser-driven reads below, the classic `/ie` navigation and the explicit refresh
+  endpoint: they may use the renewal window.
 - A fixed ticket token carries `norenew: true`. The absence of that claim is what keeps
   1.5.1 tokens renewable, so upgrading does not sign existing sessions out. The fixed
   tiers are `15m`, `1h`, `8h`, and `24h`; `persistent` is the current behaviour.
@@ -901,12 +905,16 @@ handle it.
   after the tab becomes visible or focused (unless a renewal happened in the last
   minute), after the network comes back, and once on a `401` before retrying the
   original request. That covers an idle tab and a laptop waking from sleep.
-- Browser-fetched media cannot use that interceptor. When a `<video>`/`<audio>` element
-  fails, the client probes the same URL with a HEAD request and renews only when that
-  probe answers `401`; the element then reloads at the same position, staying paused or
-  playing as it was. A failure that is not about the session gets more time and at most
-  one reload, and a paused element is never treated as stalled. Direct GET/HEAD
-  downloads and media-metadata requests retry once after a renewal.
+- **Browser-driven reads** are the exception to the access deadline. `GET`/`HEAD
+  /api/fs/content`, `GET /api/fs/thumbnail` and `GET /api/fs/downloads`, like every
+  classic `/ie` navigation, renew an expired token in place when the **complete cookie
+  pair** and the renewal window are live, and the response carries the fresh auth
+  cookie. The user agent issues these requests: it cannot run the JavaScript refresh
+  dance, and it cannot replay a `401`, so a paused video or a lazily loaded thumbnail
+  would otherwise break fifteen minutes after the last API call. This is the same trust
+  decision as `POST /api/session/refresh`; a bearer token is never renewed this way, a
+  fixed tier is never renewable, and an unsafe method still has to refresh and retry.
+  There is no client-side media recovery: the read itself keeps the session alive.
 - The browser sends the auth cookie automatically. Scripts may use
   `Authorization: Bearer <jwt>` instead, but a bearer token cannot renew: the refresh
   endpoint only accepts the cookie pair plus the CSRF header, so a leaked bearer token
@@ -922,9 +930,10 @@ handle it.
   cookie. The signature covers the canonical path and the deadline, so the link
   grants read access to that one file until `exp` and nothing else.
 - A `401` whose token has a live renewal window **keeps** the cookie pair; the client
-  exchanges it at the refresh endpoint. Only a pair that is past `rexp` (or is otherwise
-  unusable) is cleared, so the browser stops replaying a dead credential. A fixed token
-  is never renewable, so an expired one is cleared immediately.
+  exchanges it at the refresh endpoint, except for the browser-driven reads above, which
+  renew in place. Only a pair that is past `rexp` (or is otherwise unusable) is cleared,
+  so the browser stops replaying a dead credential. A fixed token is never renewable, so
+  an expired one is cleared immediately.
 - A fixed-tier cookie set with `remember` is capped at the token's own expiry instead of
   the 365-day remember window. The frontend also schedules a logout at `expiresIn`; the
   server's `401` remains the authority when a hidden tab's timer is throttled.
@@ -936,11 +945,13 @@ handle it.
   for a device that is not signed in.
 - Old tokens minted before 1.5.1 have no `ver`/`rexp` and are rejected. Upgrading
   therefore signs every existing session out once.
-- `POST /api/session/refresh` is the only JSON API endpoint that accepts an expired
-  access token. It is deliberately outside `AuthMiddleware` and outside the login
-  failure ban; a failure there is not a password guess.
+- Among JSON API endpoints, only `POST /api/session/refresh` accepts an expired access
+  token; the browser-driven reads above are file reads, not JSON endpoints. It is
+  deliberately outside `AuthMiddleware` and outside the login failure ban; a failure
+  there is not a password guess.
 - The classic `/ie` surface has no JavaScript to run the refresh dance, so a navigation
-  renews the token in place when needed. It uses the same pair and renewal window.
+  renews the token in place when needed. It uses the same pair and renewal window as the
+  browser-driven reads above.
 - `/api/ws` authenticates at the handshake. For a fixed-tier token the server closes
   the socket at the token's `exp`; a renewable session's socket is not re-checked on
   every access deadline because it can renew. The client also closes its socket on

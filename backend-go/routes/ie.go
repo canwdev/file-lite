@@ -784,6 +784,10 @@ func renewIECookie(c echo.Context, info config.AuthTokenInfo) bool {
 		return false
 	}
 	middlewares.RenewAuthCookie(c, token, info.Remember)
+	// The response carries Set-Cookie; a failed handler would otherwise answer
+	// with an HTML error that a shared cache may keep. File handlers overwrite
+	// this with their own private policy.
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
 	return true
 }
 

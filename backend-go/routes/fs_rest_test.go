@@ -262,6 +262,10 @@ func TestContentConditionalAndRange(t *testing.T) {
 	if rec.Header().Get("Accept-Ranges") != "bytes" {
 		t.Errorf("Accept-Ranges = %q，期望 bytes", rec.Header().Get("Accept-Ranges"))
 	}
+	// 内容是会话鉴权的，续期响应还会带 Set-Cookie：共享缓存不能存。
+	if cc := rec.Header().Get("Cache-Control"); cc != "private, max-age=0, must-revalidate" {
+		t.Errorf("Cache-Control = %q，期望 private", cc)
+	}
 	if body, _ := io.ReadAll(rec.Body); string(body) != "0123456789" {
 		t.Fatalf("body = %q", body)
 	}

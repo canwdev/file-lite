@@ -52,17 +52,25 @@ func registerREST(api *echo.Group) {
 	// 与侧边栏用同一份枚举结果（visibleDrives），避免两者漂移。
 	fileops.SetMounts(visibleDrives())
 
-	fs := api.Group("/fs", middlewares.AuthMiddleware)
+	fs := api.Group("/fs")
+	// Browser-driven reads: the user agent decides when these happen (media
+	// Range requests, <img> thumbnails, direct downloads) and cannot retry a
+	// 401, so an expired access token is renewed in place, like the classic
+	// /ie surface. They are registered before the strict middleware below,
+	// which then covers every route added after it.
+	fs.GET("/content/*", getContent, middlewares.BrowserReadAuthMiddleware)
+	fs.HEAD("/content/*", getContent, middlewares.BrowserReadAuthMiddleware)
+	fs.GET("/thumbnail/*", getThumbnailByPath, middlewares.BrowserReadAuthMiddleware)
+	fs.GET("/downloads", getDownloads, middlewares.BrowserReadAuthMiddleware)
+	// Everything else keeps the strict access deadline; the client can renew
+	// and retry these because it issues them itself.
+	fs.Use(middlewares.AuthMiddleware)
 	fs.GET("/directories/*", listDirectory)
 	fs.PUT("/directories/*", putDirectory)
 	fs.GET("/entries/*", getEntry)
 	fs.PATCH("/entries/*", patchEntry)
 	fs.POST("/entry-queries", queryEntries)
-	fs.GET("/content/*", getContent)
-	fs.HEAD("/content/*", getContent)
 	fs.PUT("/content/*", putContent)
-	fs.GET("/thumbnail/*", getThumbnailByPath)
-	fs.GET("/downloads", getDownloads)
 	// Minting a public link is a write: it stays behind the session and CSRF.
 	fs.POST("/media-links", createMediaLinks)
 	fs.POST("/measurements", createMeasurement)

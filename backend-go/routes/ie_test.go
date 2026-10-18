@@ -1002,4 +1002,7 @@ func TestIEClassicRenewsExpiredAccess(t *testing.T) {
 	if !strings.Contains(line, middlewares.AuthCookieName()+"=") {
 		t.Fatalf("导航没有换发 auth cookie：%v", rec.Header().Values("Set-Cookie"))
 	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "private, no-store" {
+		t.Errorf("换发 cookie 的页面不能进共享缓存：Cache-Control = %q", cc)
+	}
 }

@@ -35,7 +35,11 @@ func getContent(c echo.Context) error {
 // 视频拖动、下载断点续传因此不需要自己写一套 304 逻辑。ETag 必须在调用前设好，
 // ServeContent 会读响应头里的它。
 func serveFileContent(c echo.Context, res fileops.Resolved, attachment bool) error {
-	return serveFileContentWithCache(c, res, attachment, "public, max-age=0, must-revalidate")
+	// `private`: the URL is authenticated by the session cookie (or by the
+	// browser-driven read renewal), so a shared cache must not keep the bytes.
+	// A renewal response also carries Set-Cookie, which no shared cache may
+	// store. The browser still caches and revalidates through the ETag.
+	return serveFileContentWithCache(c, res, attachment, "private, max-age=0, must-revalidate")
 }
 
 // serveFileContentWithCache 是 serveFileContent 的可变缓存策略版本。
@@ -189,6 +193,9 @@ func downloadMulti(paths []string, c echo.Context) error {
 	t := downloadName + ".zip"
 	c.Response().Header().Set("Content-Disposition", utils.AttachmentDisposition(t))
 	c.Response().Header().Set("Content-Type", "application/zip")
+	// A streamed archive is generated per request and the response may carry a
+	// renewed auth cookie: no cache, shared or private, may keep it.
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
 	c.Response().WriteHeader(http.StatusOK)
 	return utils.ZipPathsToWriter(osPaths, c.Response())
 }

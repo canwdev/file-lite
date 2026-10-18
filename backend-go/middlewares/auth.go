@@ -354,7 +354,25 @@ func clientIP(c echo.Context) string {
 // 只看直连 TCP peer，不信任任何转发头。
 func ClientIP(c echo.Context) string { return clientIP(c) }
 
+// AuthMiddleware protects the JSON API. The access deadline is strict here: an
+// expired token is exchanged at POST /api/session/refresh, where the caller can
+// wait for the new cookie before the request it belongs to is sent.
 func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return authMiddleware(next, false)
+}
+
+// BrowserReadAuthMiddleware protects reads the browser makes on its own: a
+// <video>/<audio> Range request, an <img> thumbnail, or a direct download.
+// Those requests cannot run the JavaScript refresh dance and cannot replay
+// themselves after a 401, so an expired access token is renewed in place when
+// the complete cookie pair and the renewal window are still live. This is the
+// same trust decision ieEnsureSession makes for the classic /ie surface; it is
+// not a way to skip authentication.
+func BrowserReadAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return authMiddleware(next, true)
+}
+
+func authMiddleware(next echo.HandlerFunc, renewIdleRead bool) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ip := clientIP(c)
 		banned, _ := authLimiter.check(ip)
@@ -392,13 +410,10 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			// surprising. The request is already authorized, so renewing here is
 			// invisible to the caller.
 			if fromHeader == "" && info.NeedsRenewal(now) {
-				if fresh, err := config.RenewAuthToken(info); err == nil {
-					RenewAuthCookie(c, fresh, info.Remember)
-					// The handler (GET /api/session) must report the renewed
-					// deadline, not the one from the cookie we just replaced.
-					if freshInfo, ok := config.ParseAuthToken(fresh); ok {
-						info = freshInfo
-					}
+				// The handler (GET /api/session) must report the renewed
+				// deadline, not the one from the cookie we just replaced.
+				if freshInfo, renewed := renewTokenCookie(c, info); renewed {
+					info = freshInfo
 				}
 			}
 			c.Set(authTokenInfoKey, info)
@@ -406,11 +421,19 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		// The access window is over but the renewal window is not: keep the
-		// cookie pair so the client can exchange it at POST /api/session/refresh.
-		// Clearing it here would destroy the only credential that can recover
-		// the session.
+		// The access window is over but the renewal window is not. A
+		// browser-driven read may renew in place: refusing it would break a
+		// stream the user agent cannot retry, which is exactly what happens to a
+		// paused video after the access token expires. Everything else keeps the
+		// cookie pair for POST /api/session/refresh.
 		if fromHeader == "" && tokenOK && info.Renewable(now) {
+			if renewIdleRead && isReadMethod(c.Request().Method) {
+				if freshInfo, renewed := renewTokenCookie(c, info); renewed {
+					c.Set(authTokenInfoKey, freshInfo)
+					authLimiter.recordSuccess(ip)
+					return next(c)
+				}
+			}
 			return apierr.Write(c, apierr.UnauthorizedReason("session needs renewal"))
 		}
 
@@ -430,6 +453,33 @@ func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return apierr.Write(c, apierr.UnauthorizedReason("session is invalid or expired"))
 		}
 	}
+}
+
+// renewTokenCookie exchanges a live renewal window for a fresh access token and
+// writes it to the response. The caller has already checked the cookie pair and
+// the renewal window.
+//
+// The response is marked unshareable: a handler that fails after this point
+// answers with an error that carries Set-Cookie, and a cached Set-Cookie could
+// hand the fresh token to another client. A success handler that has a better
+// private cache policy (the file and thumbnail reads do) overwrites it.
+func renewTokenCookie(c echo.Context, info config.AuthTokenInfo) (config.AuthTokenInfo, bool) {
+	fresh, err := config.RenewAuthToken(info)
+	if err != nil {
+		return info, false
+	}
+	RenewAuthCookie(c, fresh, info.Remember)
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
+	if freshInfo, ok := config.ParseAuthToken(fresh); ok {
+		info = freshInfo
+	}
+	return info, true
+}
+
+// isReadMethod is the set BrowserReadAuthMiddleware may renew for. OPTIONS is
+// deliberately excluded: it has no route here and carries no credential.
+func isReadMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead
 }
 
 // RefreshAuthMiddleware protects POST /api/session/refresh. It does not use

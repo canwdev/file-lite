@@ -17,6 +17,10 @@ func newAuthTestServer() *echo.Echo {
 	private := func(c echo.Context) error { return c.String(http.StatusOK, "ok") }
 	e.GET("/private", private, AuthMiddleware)
 	e.POST("/private", private, AuthMiddleware)
+	e.GET("/read", private, BrowserReadAuthMiddleware)
+	e.HEAD("/read", private, BrowserReadAuthMiddleware)
+	e.POST("/read", private, BrowserReadAuthMiddleware)
+	e.GET("/read-fail", func(c echo.Context) error { return c.NoContent(http.StatusNotFound) }, BrowserReadAuthMiddleware)
 	e.POST("/refresh", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) }, RefreshAuthMiddleware)
 	return e
 }
@@ -85,6 +89,9 @@ func TestAuthMiddlewareRenewsNearExpiry(t *testing.T) {
 	}
 	if _, ok := findSetCookie(rec, SessionCookieName()); ok {
 		t.Error("续期不应该重写 session cookie")
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "private, no-store" {
+		t.Errorf("换发 cookie 的响应不能进共享缓存：Cache-Control = %q", cc)
 	}
 }
 
@@ -421,5 +428,204 @@ func TestSetAuthCookiesExpiresOtherScheme(t *testing.T) {
 		if !strings.Contains(line, "Max-Age=0") {
 			t.Fatalf("%s was not expired: %q", name, line)
 		}
+	}
+}
+
+// A browser-driven read is the one place an expired access token is renewed in
+// place: the browser issues the request and cannot run the JavaScript refresh
+// dance (or replay a 401) itself.
+func TestBrowserReadAuthRenewsExpiredRead(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+	now := time.Now()
+
+	// Access expired one minute ago, renewal window still live.
+	token, err := config.NewAuthTokenAt(now.Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		rec := authCall(e, method, "/read", token, "sess", false)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want 200: %s", method, rec.Code, rec.Body.String())
+		}
+		line, ok := findSetCookie(rec, AuthCookieName())
+		if !ok {
+			t.Fatalf("%s did not set a renewed auth cookie: %v", method, rec.Header().Values("Set-Cookie"))
+		}
+		renewed := cookieValue(line, AuthCookieName())
+		if renewed == token {
+			t.Fatalf("%s renewed cookie is the old value", method)
+		}
+		info, ok := config.ParseAuthToken(renewed)
+		if !ok {
+			t.Fatalf("%s renewed token does not parse", method)
+		}
+		if !info.AccessValid(now.Add(10 * time.Minute)) {
+			t.Errorf("%s renewed token has no full access window", method)
+		}
+		if !info.Remember {
+			t.Errorf("%s dropped the remember flag", method)
+		}
+		if _, ok := findSetCookie(rec, SessionCookieName()); ok {
+			t.Errorf("%s must not rewrite the session cookie", method)
+		}
+		// The response carries Set-Cookie, so no shared cache may keep it even
+		// before the handler gets to set its own private policy.
+		if cc := rec.Header().Get("Cache-Control"); cc != "private, no-store" {
+			t.Errorf("%s Cache-Control = %q, want private, no-store", method, cc)
+		}
+	}
+}
+
+func TestBrowserReadAuthRenewalIsUncacheableOnError(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read-fail", token, "sess", false)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "private, no-store" {
+		t.Errorf("Cache-Control = %q, want private, no-store: a cookie-carrying error must not be cached", cc)
+	}
+	if _, ok := findSetCookie(rec, AuthCookieName()); !ok {
+		t.Fatalf("the renewal must still happen on an error response: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestBrowserReadAuthKeepsSessionCookie(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read", token, "sess", false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	line, ok := findSetCookie(rec, AuthCookieName())
+	if !ok {
+		t.Fatalf("no renewed cookie: %v", rec.Header().Values("Set-Cookie"))
+	}
+	if strings.Contains(line, "Max-Age") {
+		t.Errorf("a renew of a non-remembered session must stay a session cookie: %q", line)
+	}
+}
+
+func TestBrowserReadAuthLeavesFreshTokenAlone(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read", token, "sess", false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Header().Values("Set-Cookie")) != 0 {
+		t.Fatalf("a fresh token must not be rotated: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestBrowserReadAuthDoesNotRelaxWrites(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodPost, "/read", token, "sess", true)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("POST status = %d, want 401: %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Header().Values("Set-Cookie")) != 0 {
+		t.Fatalf("a renewable 401 must keep the cookie pair: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestBrowserReadAuthDoesNotRenewBearer(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/read", nil)
+	req.RemoteAddr = "10.0.0.1:1111"
+	req.Header.Set("Authorization", token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("bearer status = %d, want 401", rec.Code)
+	}
+	if len(rec.Header().Values("Set-Cookie")) != 0 {
+		t.Errorf("bearer read must not set a cookie: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestBrowserReadAuthRequiresCookiePair(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-16*time.Minute), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read", token, "", false)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing session cookie status = %d, want 401", rec.Code)
+	}
+}
+
+func TestBrowserReadAuthRejectsExpiredFixedTier(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAtForPolicy(
+		time.Now().Add(-16*time.Minute),
+		true,
+		config.PolicyForTicketTier(config.TicketTier15m),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read", token, "sess", false)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired fixed tier status = %d, want 401", rec.Code)
+	}
+	line, ok := findSetCookie(rec, AuthCookieName())
+	if !ok || !strings.Contains(line, "Max-Age=0") {
+		t.Fatalf("an expired fixed token must be cleared: %v", rec.Header().Values("Set-Cookie"))
+	}
+}
+
+func TestBrowserReadAuthRejectsDeadRenewal(t *testing.T) {
+	t.Setenv("FILE_LITE_DEV_MODE", "false")
+	e := newAuthTestServer()
+
+	token, err := config.NewAuthTokenAt(time.Now().Add(-40*24*time.Hour), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := authCall(e, http.MethodGet, "/read", token, "sess", false)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("dead renewal status = %d, want 401", rec.Code)
+	}
+	line, ok := findSetCookie(rec, AuthCookieName())
+	if !ok || !strings.Contains(line, "Max-Age=0") {
+		t.Fatalf("a dead renewal window must clear the cookies: %v", rec.Header().Values("Set-Cookie"))
 	}
 }

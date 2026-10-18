@@ -4,7 +4,7 @@ import { createHmac } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { dataDir, filesDir, PORT } from '../scripts/fixture.mjs'
-import { login, openFolder, row } from './helpers'
+import { login, openFolder, row, sourceDir } from './helpers'
 
 /**
  * Short-lived access token renewal.
@@ -148,60 +148,113 @@ test('an expired access token refreshes on a classic /ie navigation', async ({ p
 })
 
 /**
- * A <video> request is made by the browser and bypasses the service interceptor.
- * When it gets a 401 the media element errors; the recovery hook must renew the
- * session once, reload the same source and reach metadata again.
+ * Browser-driven reads — a video's Range request, a thumbnail, a direct
+ * download — are issued by the user agent, which cannot run the SPA refresh
+ * dance and cannot replay a 401. The server therefore renews an expired access
+ * token in place on the read itself, exactly like the classic /ie pages, and
+ * the client-side media recovery is gone.
  *
- * The 401 is simulated with a route instead of waiting for a real token to
- * expire. The route keeps rejecting until it sees the renewal request, so the
- * retry can only succeed through the recovery path.
+ * Swapping in an expired-but-renewable token and then reading the file must
+ * succeed and renew the cookie: no 401 on the content URL and no client-side
+ * HEAD probe. A JSON call made while opening the video (the sibling-subtitle
+ * lookup) may still refresh on its own, so the refresh endpoint is not
+ * forbidden outright here.
  */
-test('a media element renews once and reloads after a 401', async ({ page }) => {
+test('browser-driven reads renew an expired access token in place', async ({ page, context }) => {
   await login(page)
   await openFolder(page, 'source')
 
-  const isRefresh = (url: string) => new URL(url).pathname === '/api/session/refresh'
-  let denied = 0
-  let allowContent = false
-  let refreshSeen = false
-
+  // A browser-driven read that hit the strict API would show up as a 401 on the
+  // content URL. The removed client recovery used to answer that with a HEAD
+  // probe; neither may happen now.
+  const contentDenied: string[] = []
+  page.on('response', (response) => {
+    const url = new URL(response.url())
+    if (url.pathname.startsWith('/api/fs/content/') && response.status() === 401) {
+      contentDenied.push(response.url())
+    }
+  })
+  const contentProbes: string[] = []
   page.on('request', (request) => {
-    if (denied > 0 && request.method() === 'POST' && isRefresh(request.url())) {
-      refreshSeen = true
-      allowContent = true
+    if (request.method() === 'HEAD' && new URL(request.url()).pathname.startsWith('/api/fs/content/')) {
+      contentProbes.push(request.url())
     }
   })
 
-  await page.route(url => url.pathname.includes('tiny.webm'), async (route) => {
-    if (!allowContent) {
-      denied += 1
-      await route.fulfill({
-        status: 401,
-        contentType: 'application/json',
-        body: '{"message":"Unauthorized"}',
-      })
-      return
+  const videoPath = path.join(sourceDir, 'tiny.webm')
+
+  // A thumbnail is fetched by <img>, which also cannot retry a 401.
+  const thumbExpired = mintExpiredAuthToken()
+  await useExpiredAuthCookie(context, thumbExpired)
+  const thumbStatus = await page.evaluate(async (target) => {
+    const response = await fetch(`/api/fs/thumbnail/${encodeURIComponent(target)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    return response.status
+  }, videoPath)
+  // 200, or a status that means "no thumbnail for this file": never a 401.
+  expect([200, 415, 422, 501]).toContain(thumbStatus)
+  expect((await readAuthCookie(context)).value).not.toBe(thumbExpired)
+
+  // A direct download is a plain file read.
+  const downloadExpired = mintExpiredAuthToken()
+  await useExpiredAuthCookie(context, downloadExpired)
+  const downloadStatus = await page.evaluate(async (target) => {
+    const response = await fetch(`/api/fs/downloads?paths=${encodeURIComponent(target)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    return response.status
+  }, videoPath)
+  expect(downloadStatus).toBe(200)
+  expect((await readAuthCookie(context)).value).not.toBe(downloadExpired)
+
+  // Isolate the media read: opening the video looks up sibling subtitles through
+  // a strict JSON directory listing, which would refresh on its own, and the app
+  // may ask for a poster/thumbnail. Neither is the read under test, so answer
+  // them without touching the session.
+  await page.route('**/api/fs/directories/**', route =>
+    route.fulfill({ status: 404, json: { code: 'path_not_found', message: 'not found' } }))
+  await page.route('**/api/fs/thumbnail/**', route =>
+    route.fulfill({ status: 404, json: { code: 'path_not_found', message: 'not found' } }))
+
+  let refreshesAfterSwap = 0
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/session/refresh') {
+      refreshesAfterSwap += 1
     }
-    await route.continue()
   })
 
-  const refreshResponse = page.waitForResponse(response =>
-    response.request().method() === 'POST' && isRefresh(response.url()),
-  )
-  const retriedContent = page.waitForResponse(response =>
-    response.url().includes('tiny.webm') && (response.status() === 200 || response.status() === 206),
-  )
-
+  // The media element's Range request must reach metadata without a 401 and
+  // without any client-side recovery.
+  const mediaExpired = mintExpiredAuthToken()
+  await useExpiredAuthCookie(context, mediaExpired)
+  const beforeRead = await readAuthCookie(context)
+  const contentResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname.startsWith('/api/fs/content/')
+      && url.pathname.includes('tiny.webm')
+      && (response.status() === 200 || response.status() === 206)
+  })
   await row(page, 'tiny.webm').dblclick()
 
   const video = page.locator('.app-window video').first()
   await expect(video).toBeVisible()
-  expect((await refreshResponse).status()).toBe(204)
-  await retriedContent
+  const response = await contentResponse
   await expect.poll(() =>
     video.evaluate(el => (el as HTMLVideoElement).readyState),
   ).toBeGreaterThanOrEqual(1)
 
-  expect(refreshSeen).toBe(true)
-  expect(denied).toBeGreaterThan(0)
+  // Authenticated content is browser-only cacheable (a renewal carries Set-Cookie).
+  expect(response.headers()['cache-control']).toBe('private, max-age=0, must-revalidate')
+  // The cookie changed while no other renewing request was possible: the
+  // content read itself did the renewal, not some other request racing it.
+  expect(beforeRead.value).toBe(mediaExpired)
+  const renewed = await readAuthCookie(context)
+  expect(renewed.value).not.toBe(mediaExpired)
+  expect(renewed.exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
+  expect(refreshesAfterSwap).toBe(0)
+  expect(contentDenied).toEqual([])
+  expect(contentProbes).toEqual([])
 })
