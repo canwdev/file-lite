@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ContextMenu } from '@canwdev/vgo-ui'
+import type { MenuItem } from '@canwdev/vgo-ui'
+import { useContextMenuTrigger } from '@canwdev/vgo-ui'
 import { useEventListener } from '@vueuse/core'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
 import { formatTimeHMS } from '@/utils'
@@ -47,46 +48,57 @@ const mSettingsStore = useMusicSettingsStore()
 const mCurrentTime = ref(0)
 const isSeeking = ref(false)
 
-function showSpeedMenu(event: MouseEvent) {
-  const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
-  const rect = button?.getBoundingClientRect()
-  ContextMenu.showContextMenu({
-    x: rect?.right ?? event.clientX,
-    y: rect?.top ?? event.clientY,
-    ...baseContextMenuOptions,
-    items: resolveMenuIcons(PLAYBACK_RATE_OPTIONS.map((opt) => {
-      const selected = rateMatches(mediaStore.playbackRate, opt.value)
-      return {
-        label: opt.label,
-        icon: selected ? 'mdi mdi-check' : '',
-        onClick: () => {
-          mediaStore.playbackRate = opt.value
-        },
-      }
-    })),
-  })
+function buildSpeedMenuItems(): MenuItem[] {
+  return resolveMenuIcons(PLAYBACK_RATE_OPTIONS.map((opt) => {
+    const selected = rateMatches(mediaStore.playbackRate, opt.value)
+    return {
+      label: opt.label,
+      icon: selected ? 'mdi mdi-check' : '',
+      onClick: () => {
+        mediaStore.playbackRate = opt.value
+      },
+    }
+  }))
 }
 
-function showLoopMenu(event: MouseEvent) {
-  const button = (event.target instanceof Element ? event.target : null)?.closest('button') as HTMLElement | undefined
-  const rect = button?.getBoundingClientRect()
-  ContextMenu.showContextMenu({
-    x: rect?.right ?? event.clientX,
-    y: rect?.top ?? event.clientY,
-    ...baseContextMenuOptions,
-    items: resolveMenuIcons(LoopModeTypeValues.map((mode) => {
-      const info = loopModeMap[mode]
-      const selected = mSettingsStore.loopMode === mode
-      return {
-        label: $t(info.i18nKey),
-        icon: selected ? 'mdi mdi-check' : (info.className || ''),
-        onClick: () => {
-          mSettingsStore.loopMode = mode
-        },
-      }
-    })),
-  })
+function buildLoopMenuItems(): MenuItem[] {
+  return resolveMenuIcons(LoopModeTypeValues.map((mode) => {
+    const info = loopModeMap[mode]
+    const selected = mSettingsStore.loopMode === mode
+    return {
+      label: $t(info.i18nKey),
+      icon: selected ? 'mdi mdi-check' : (info.className || ''),
+      onClick: () => {
+        mSettingsStore.loopMode = mode
+      },
+    }
+  }))
 }
+
+/**
+ * 「点击切换弹出/关闭」的两个按钮：位置、开合状态与「点击外部关闭」的时序都交给
+ * trigger，按钮在菜单打开期间保持 `.is-active`。控制条贴着窗口底部，所以用
+ * `direction: 'tr'` 让菜单从按钮上方弹出，避免盖住进度条和控制区。
+ */
+const {
+  setTriggerRef: setSpeedTriggerRef,
+  isOpen: speedMenuOpen,
+  toggle: toggleSpeedMenu,
+} = useContextMenuTrigger({
+  ...baseContextMenuOptions,
+  direction: 'tr',
+  items: () => buildSpeedMenuItems(),
+})
+
+const {
+  setTriggerRef: setLoopTriggerRef,
+  isOpen: loopMenuOpen,
+  toggle: toggleLoopMenu,
+} = useContextMenuTrigger({
+  ...baseContextMenuOptions,
+  direction: 'tr',
+  items: () => buildLoopMenuItems(),
+})
 
 function togglePlay(e?: Event) {
   e?.preventDefault()
@@ -260,15 +272,25 @@ function jumpBackward() {
     <div class="actionbar">
       <div class="now-playing">
         <button
-          v-if="showControls" class="vgo-button vgo-button--text vgo-button--round vgo-button--lg" :title="$t('file_lite_i18n.playback_speed')"
-          @click="showSpeedMenu"
+          v-if="showControls"
+          :ref="setSpeedTriggerRef"
+          class="vgo-button vgo-button--text vgo-button--round vgo-button--lg"
+          :class="{ 'is-active': speedMenuOpen }"
+          :title="$t('file_lite_i18n.playback_speed')"
+          :aria-expanded="speedMenuOpen"
+          @click="toggleSpeedMenu"
         >
           {{ speedMenuButtonLabel(mediaStore.playbackRate) }}
         </button>
 
         <button
-          v-if="currentLoopMode" class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg" :title="$t(currentLoopMode.i18nKey)"
-          @click="showLoopMenu"
+          v-if="currentLoopMode"
+          :ref="setLoopTriggerRef"
+          class="vgo-button vgo-button--text vgo-button--icon vgo-button--round vgo-button--lg"
+          :class="{ 'is-active': loopMenuOpen }"
+          :title="$t(currentLoopMode.i18nKey)"
+          :aria-expanded="loopMenuOpen"
+          @click="toggleLoopMenu"
         >
           <MdiIcon
             v-if="currentLoopMode.className"

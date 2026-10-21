@@ -15,6 +15,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Settings**: The Data section is now File Management and holds Show hidden files, Show folders first and Disable preview (frontend).
 - **Fullscreen**: The global menu no longer toggles browser fullscreen; every app window has a fullscreen button in its title bar that fills the screen with that window's content, and Esc leaves it (frontend).
 - **Fonts**: The interface uses the system UI font stack instead of Inter/Avenir (frontend).
+- **Player menus**: The playback speed and loop mode buttons now toggle their menus open and closed on click, stay highlighted while open, and open above the control bar (frontend).
 
 ### Features
 
