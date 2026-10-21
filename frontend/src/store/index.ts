@@ -73,7 +73,8 @@ function createDefaultLocalSettingsStore() {
     /**
      * 整体关闭内容预览（图片缩略图 / 音频封面 / 视频封面 / 文件夹内容预览）。
      * 只藏预览，不清缩略图缓存；清缓存在 Settings 里单独一项。
-     * 光盘卷不看这个开关，预览始终关闭。
+     * 光盘卷的文件列表只读缓存、不生成；这个开关打开时连缓存也不显示。
+     * 音乐播放器的封面是例外（它是播放器自己的内容，见 media-cover.ts）。
      */
     disablePreview: false,
   }

@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
 
 .lyric-line {
   margin: 0;
-  padding: 0.42em 0;
+  padding: 0.2em 0;
   text-align: center;
   line-height: 1.45;
   letter-spacing: -0.02em;

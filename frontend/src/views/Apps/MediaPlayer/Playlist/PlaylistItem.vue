@@ -2,7 +2,6 @@
 import type { MediaCoverController } from '../utils/media-cover'
 import type { MediaItem } from '../utils/music-state'
 import { useIntersectionObserver } from '@vueuse/core'
-import { localSettingsStore } from '@/store'
 import CoverMini from '../CoverMini.vue'
 import { useMediaStore } from '../utils/media-store'
 
@@ -27,21 +26,13 @@ const isCurrent = computed(() => {
  */
 const mediaCover = inject<MediaCoverController | null>('mediaCover', null)
 const rootRef = ref<HTMLElement | null>(null)
-const isVisible = ref(false)
 
 useIntersectionObserver(rootRef, ([entry]) => {
-  isVisible.value = Boolean(entry?.isIntersecting)
-  if (isVisible.value) {
-    mediaCover?.request(item.value)
+  if (entry?.isIntersecting) {
+    // fromList：光盘卷上的歌单行只读缓存，不为了滚动预生成
+    mediaCover?.request(item.value, { fromList: true })
   }
 }, { threshold: 0 })
-
-// 重新打开预览时 observer 不会自己再触发一次，可见的行要补一次请求
-watch(() => localSettingsStore.value.disablePreview, (disabled) => {
-  if (!disabled && isVisible.value) {
-    mediaCover?.request(item.value)
-  }
-})
 </script>
 
 <template>

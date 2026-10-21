@@ -24,6 +24,8 @@ export class MediaItem {
   /**
    * 封面地址（`blob:`）。统一由缩略图缓存给出：`resolveAudioCover` 的结果是
    * ≤512px 的降采样图，不再是内嵌标签里的原始分辨率图片。
+   * 播放器的封面不受 Disable Preview 影响；当前曲目即使是光盘也允许生成一次，
+   * 歌单行在光盘上只读缓存，见 media-cover.ts。
    */
   cover?: string
   /** 文件字节数；封面缓存指纹的一半，来自文件列表条目 */

@@ -52,9 +52,14 @@ export interface ImagePreviewCandidate {
   fallbackUrl?: string
   size: number
   lastModified: number
+  /**
+   * 只读共享缓存，未命中就显示类型图标，绝不生成。
+   * 光盘卷用它：已有缓存照样显示，但不会为了预览去读盘。
+   */
+  cacheOnly?: boolean
 }
 
-/** 本实例内对某个 key 的定论:direct = 走原图流,icon = 显示类型图标 */
+/** 本实例内对某个候选指纹的定论:direct = 走原图流,icon = 显示类型图标 */
 type SettledMode = 'direct' | 'icon'
 
 function revokeBlobUrl(url: string | null) {
@@ -83,6 +88,7 @@ async function resolvePreviewUrl(candidate: ImagePreviewCandidate, signal: Abort
       lastModified: candidate.lastModified,
       streamUrl: candidate.url,
       signal,
+      cacheOnly: candidate.cacheOnly,
     })
   }
 
@@ -94,6 +100,7 @@ async function resolvePreviewUrl(candidate: ImagePreviewCandidate, signal: Abort
       ? { kind: 'server', url: candidate.url }
       : { kind: 'client', url: candidate.url },
     signal,
+    cacheOnly: candidate.cacheOnly,
   })
 }
 
@@ -117,7 +124,7 @@ export interface ImagePreviewController {
 
 /** 候选的内容指纹:key 之外还要带上尺寸 / 修改时间,文件变了就得重取 */
 function candidateSignature(candidate: ImagePreviewCandidate) {
-  return `${candidate.key}\u0000${candidate.size}\u0000${candidate.lastModified}\u0000${candidate.mode}\u0000${candidate.url}`
+  return `${candidate.key}\u0000${candidate.size}\u0000${candidate.lastModified}\u0000${candidate.mode}\u0000${candidate.cacheOnly ? 'cache' : 'generate'}\u0000${candidate.url}`
 }
 
 export function useImagePreview(): ImagePreviewController {
@@ -126,7 +133,11 @@ export function useImagePreview(): ImagePreviewController {
   let seq = 0
   let abortController: AbortController | null = null
   let stopQueueTask: (() => void) | null = null
-  /** 本实例内已定论的 key:避免对同一个文件反复重试(与回退并存) */
+  /**
+   * 本实例内已定论的结果，按**候选指纹**而不是路径记：
+   * 同一个文件在光盘卷识别前后会换候选（cacheOnly 翻转），指纹变了就得重新判断；
+   * 路径级记账会让「先失败成图标」永久压住后来的缓存读取。
+   */
   const decided = new Map<string, SettledMode>()
   /** 最近一次请求的候选指纹,以及它是否还在解析中 */
   let activeSignature = ''
@@ -174,12 +185,12 @@ export function useImagePreview(): ImagePreviewController {
     stopCurrent()
     activeSignature = signature
 
-    const { key, mode } = candidate
+    const { mode } = candidate
     const mySeq = seq
     const abort = new AbortController()
     abortController = abort
 
-    const settled = decided.get(key)
+    const settled = decided.get(signature)
     if (settled === 'icon') {
       commit('')
       return
@@ -216,9 +227,10 @@ export function useImagePreview(): ImagePreviewController {
               outcome = 'icon'
             }
           }
-          else if (result.reason === 'busy') {
-            // 503 服务端暂时繁忙：本次显示图标，但**不记进 decided**，
-            // 下次滚动回来还会重试 —— 一次拥塞不该让这批图在整个会话里都变成图标。
+          else if (result.reason === 'busy' || result.reason === 'cache-miss') {
+            // 可重试：503 服务端暂时繁忙，或者光盘卷只读缓存但此刻还没有缓存。
+            // 都不记进 decided，下次滚动回来 / 缓存写入后还能再试 ——
+            // 一次拥塞或一次缓存未命中不该让这批图在整个会话里都变成图标。
           }
           else if (result.reason !== 'aborted') {
             // 422 超限 / 网络失败 / 配额：显示类型图标，本会话不再重试
@@ -236,7 +248,7 @@ export function useImagePreview(): ImagePreviewController {
           return
         }
         if (outcome)
-          decided.set(key, outcome)
+          decided.set(signature, outcome)
         // blob(缓存缩略图)或空结果立即释放占位;
         // 直连原图流由 <img> 加载,占用队列直到 settle()(load/error)
         if (!finalUrl || isBlobUrl(finalUrl))
@@ -285,6 +297,7 @@ export interface FolderImagePreviewsController {
 export function useFolderImagePreviews(items: ComputedRef<ImagePreviewCandidate[]>): FolderImagePreviewsController {
   const srcs = reactive(new Map<string, string>())
   const failedNames = ref<string[]>([])
+  /** 按候选指纹记账：候选变了（cacheOnly / 尺寸 / 修改时间）就要重新判断 */
   const decided = new Map<string, SettledMode>()
   let seq = 0
   let abortController: AbortController | null = null
@@ -333,7 +346,7 @@ export function useFolderImagePreviews(items: ComputedRef<ImagePreviewCandidate[
       if (failedNames.value.includes(name))
         continue
 
-      const settled = decided.get(key)
+      const settled = decided.get(candidateSignature(item))
       if (settled === 'icon')
         continue
 
@@ -354,8 +367,9 @@ export function useFolderImagePreviews(items: ComputedRef<ImagePreviewCandidate[
             const result = await resolvePreviewUrl(item, abort.signal)
             if (result.ok)
               finalUrl = result.url
-            // busy(503) 是可重试失败：这一格暂时显示图标，但不算作失败
-            else if (result.reason !== 'aborted' && result.reason !== 'busy')
+            // busy(503) 与 cache-miss(光盘只读缓存) 是可重试失败：
+            // 这一格暂时显示图标，但不记成本会话的最终失败
+            else if (result.reason !== 'aborted' && result.reason !== 'busy' && result.reason !== 'cache-miss')
               failed = true
           }
           catch {
@@ -370,7 +384,7 @@ export function useFolderImagePreviews(items: ComputedRef<ImagePreviewCandidate[
             return
           }
           if (failed) {
-            decided.set(key, 'icon')
+            decided.set(candidateSignature(item), 'icon')
             revokeBlobUrl(finalUrl)
             markError(name)
             return

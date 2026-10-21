@@ -426,6 +426,7 @@ export type ThumbSource
  * - `rejected` 后端拒绝，源图超过上限（HTTP 422）：调用方应显示类型图标；
  * - `empty` 文件里没有内嵌封面：确定的否定结果，显示图标并记住它；
  * - `busy` 服务端此刻不能提供（503 繁忙 / 501 能力未启用）：可重试，**不要**记住；
+ * - `cache-miss` 缓存优先模式下没有命中：可重试（其他入口之后可能写入缓存），**不要**记住；
  * - `failed` 网络 / 配额 / 解码失败：调用方应显示类型图标。
  */
 export type ThumbFailureReason
@@ -434,6 +435,7 @@ export type ThumbFailureReason
     | 'rejected'
     | 'empty'
     | 'busy'
+    | 'cache-miss'
     | 'failed'
 
 export type ThumbResolveResult
@@ -553,6 +555,11 @@ export interface ResolveThumbOptions {
   /** 缩略图字节来源 */
   source: ThumbSource
   signal?: AbortSignal
+  /**
+   * 只读缓存，绝不生成。光盘卷用它避免随机读盘：
+   * 命中就是一次 IndexedDB 读，未命中返回 `cache-miss` 让调用方显示类型图标。
+   */
+  cacheOnly?: boolean
 }
 
 /**
@@ -576,6 +583,10 @@ export async function resolveImageThumb(options: ResolveThumbOptions): Promise<T
 
     if (options.signal?.aborted)
       return { ok: false, reason: 'aborted' }
+
+    // 光盘卷：只认已经存在的缓存，绝不为它生成（生成会随机读盘）
+    if (options.cacheOnly)
+      return { ok: false, reason: 'cache-miss' }
 
     // 缓存不可用(隐私模式 / 配额策略)时照常取缩略图,只是不入库 ——
     // 不能因为存储不可用就退化成类型图标。
@@ -604,6 +615,8 @@ export async function resolveAudioCover(options: {
   /** 音频流地址(`fs.url(absPath)`),封面从它解析 */
   streamUrl: string
   signal?: AbortSignal
+  /** 只读缓存，未命中不解析音频文件（播放列表里的光盘曲目用它） */
+  cacheOnly?: boolean
 }): Promise<ThumbResolveResult> {
   return await resolveImageThumb({
     key: options.key,
@@ -611,6 +624,7 @@ export async function resolveAudioCover(options: {
     lastModified: options.lastModified,
     source: { kind: 'audio', url: options.streamUrl },
     signal: options.signal,
+    cacheOnly: options.cacheOnly,
   })
 }
 

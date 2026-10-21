@@ -283,7 +283,7 @@ watch(
 )
 
 /**
- * 封面是异步从共享缩略图缓存来的（还有可能命中缓存、也可能被 Disable Preview 收掉）：
+ * 封面是异步从共享缩略图缓存来的（可能命中缓存，也可能要解析一次才拿到）：
  * 变化后要刷新系统媒体面板的 artwork，否则它会一直停在默认封面。
  */
 watch(
@@ -299,15 +299,17 @@ watch(
 /**
  * 标签（标题 / 艺术家 / 专辑 / 歌词）的加载时机。
  *
- * **盯地址，而不是盯媒体条目**：地址变了（切歌、路径更新）才是重新解析标签的信号；
+ * **盯地址 + 条目 guid**：地址变了（切歌、路径更新）要重新解析；同一个地址被换成
+ * 新的 MediaItem（例如列表被整体重建）也必须重来一次，否则新条目是空标签，
+ * 标题 / 艺术家 / 歌词会丢到下一次切歌为止。
  * 同时用 watcher cleanup 中止上一首的在途解析。
  *
  * 封面不在这里：它由 `useMediaCoverController` 从共享缩略图缓存取（≤512px 降采样），
  * 用同一份原始解析再抽一次全分辨率图只会白占内存。
  */
 watch(
-  resolvedMediaUrl,
-  (url, _previous, onCleanup) => {
+  [resolvedMediaUrl, () => mediaStore.mediaItem?.guid],
+  ([url], _previous, onCleanup) => {
     const item = mediaStore.mediaItem
     if (!url || !item || item.type !== 'music') {
       return
@@ -348,7 +350,7 @@ async function loadMusicMetadata(signal: AbortSignal) {
       artist: artistJoined,
       album: common.album,
       year: common.year ?? undefined,
-      lyricsLines: lyricsLinesFromCommonTags(common.lyrics),
+      lyricsLines: lyricsLinesFromCommonTags(common.lyrics, meta.native),
     })
     if (mediaStore.mediaItem?.guid === loadGuid) {
       setAudioMediaSessionMetadata(item)

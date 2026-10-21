@@ -375,11 +375,18 @@ function jumpBackward() {
     gap: var(--vgo-space-3);
 
     .time {
+      // 两边的时间按内容取宽，绝不参与压缩：窄窗口下不能被压成省略号
+      flex: 0 0 auto;
       font-size: var(--vgo-font-sm);
-      width: 54px;
       text-align: center;
       color: var(--vgo-text-secondary);
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    // 中间的进度条是唯一允许缩宽的项
+    :deep(.v-seekbar) {
+      min-width: 0;
     }
   }
 
@@ -421,10 +428,6 @@ function jumpBackward() {
   .actionbar-wrapper {
     .progressbar {
       gap: var(--vgo-space-2);
-
-      .time {
-        width: 48px;
-      }
     }
 
     .actionbar {

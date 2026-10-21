@@ -63,11 +63,9 @@ const previewSizeAllowed = computed(() => props.iconSize >= MIN_PREVIEW_ICON_SIZ
 /**
  * 用户可以在菜单里整体关掉内容预览（仅存本机）。
  * 关掉后连文件夹内容预览一起不显示 —— 它同样是「预览」。
- * 光盘卷不看这个开关：随机读会让光头来回寻道，预览始终关闭。
+ * 光盘卷不在这里判断：它仍然尝试读缓存，只是绝不生成（见 previewCandidate）。
  */
-const previewDisabled = computed(() =>
-  localSettingsStore.value.disablePreview || isOpticalPath(props.absPath ?? ''),
-)
+const previewDisabled = computed(() => localSettingsStore.value.disablePreview)
 
 /** 这三类文件才可能出内容预览（图片 / 音频封面 / 视频封面） */
 function isPreviewableName(name: string) {
@@ -98,8 +96,17 @@ function isFolderCellPreviewableName(name: string) {
  *
  * 另外，后端白名单之外的图片必须由前端自己下载原图，因此受
  * IMAGE_PREVIEW_RAW_MAX_BYTES 约束，超限直接不出预览（显示类型图标）。
+ *
+ * `cacheOnly` 用于光盘卷：只构造「已经入过缓存」的候选（音频 / 大图 / 视频），
+ * 小图与 svg/ico 从来不入缓存，直接没有预览；也不会因为源图体积上限而跳过 ——
+ * 那只约束生成，缓存命中时根本不下载原图。
  */
-function buildPreviewCandidate(item: IEntry, absPath: string, name: string): ImagePreviewCandidate | null {
+function buildPreviewCandidate(
+  item: IEntry,
+  absPath: string,
+  name: string,
+  cacheOnly = false,
+): ImagePreviewCandidate | null {
   if (!absPath)
     return null
 
@@ -111,6 +118,10 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
   const smallImage = size <= IMAGE_THUMB_SMALL_DIRECT_MAX || !fingerprintable
 
   if (regSupportedImageFormat.test(item.name)) {
+    // 光盘卷：小图与 svg/ico 根本不入缓存，没有可读的东西
+    if (cacheOnly && (!fingerprintable || smallImage))
+      return null
+
     if (regServerThumbFormat.test(item.name)) {
       if (smallImage)
         return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
@@ -119,19 +130,23 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
         key: absPath,
         mode: 'server',
         url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE),
-        fallbackUrl: streamUrl,
+        // 光盘卷只读缓存：绝不能因为一个意料之外的失败回退到原图流
+        fallbackUrl: cacheOnly ? undefined : streamUrl,
         size,
         lastModified,
+        cacheOnly,
       }
     }
 
     // 以下格式都要前端自己拉原图（canvas 降采样或直连），超出上限一律不出预览
-    if (size > IMAGE_PREVIEW_RAW_MAX_BYTES)
+    if (!cacheOnly && size > IMAGE_PREVIEW_RAW_MAX_BYTES)
       return null
 
     if (regClientCanvasThumbFormat.test(item.name) && !smallImage)
-      return { name, key: absPath, mode: 'client', url: streamUrl, size, lastModified }
+      return { name, key: absPath, mode: 'client', url: streamUrl, size, lastModified, cacheOnly }
 
+    if (cacheOnly)
+      return null
     return { name, key: absPath, mode: 'direct', url: streamUrl, size, lastModified }
   }
 
@@ -139,14 +154,15 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
   if (regSupportedAudioFormat.test(item.name)) {
     if (!fingerprintable)
       return null
-    return { name, key: absPath, mode: 'audio', url: streamUrl, size, lastModified }
+    return { name, key: absPath, mode: 'audio', url: streamUrl, size, lastModified, cacheOnly }
   }
 
   // 视频封面必须由后端 ffmpeg 出；能力没开就不出预览。
+  // 缓存优先时例外：已经缓存好的封面照常显示，不需要再跑 ffmpeg。
   // 注意这里**不给 fallbackUrl**：失败时只能显示类型图标，
   // 不能为了一个网格格子去把整部影片下下来。
   if (regSupportedVideoFormat.test(item.name)) {
-    if (!fingerprintable || !serverCapabilities.value.videoThumbnail)
+    if (!fingerprintable || (!cacheOnly && !serverCapabilities.value.videoThumbnail))
       return null
     return {
       name,
@@ -155,6 +171,7 @@ function buildPreviewCandidate(item: IEntry, absPath: string, name: string): Ima
       url: fsWebApi.getThumbnailUrl(absPath, IMAGE_THUMB_MAX_EDGE, 'video'),
       size,
       lastModified,
+      cacheOnly,
     }
   }
 
@@ -168,7 +185,8 @@ const previewCandidate = computed<ImagePreviewCandidate | null>(() => {
   if (previewDisabled.value)
     return null
 
-  return buildPreviewCandidate(item, absPath, absPath)
+  // 光盘卷仍然读共享缓存，但只读不生成（cacheOnly），避免为了预览去读盘。
+  return buildPreviewCandidate(item, absPath, absPath, isOpticalPath(absPath))
 })
 
 // ---------------------------------------------------------------------------
@@ -284,6 +302,8 @@ const folderPreviewEligible = computed(() => {
   const { item, absPath } = props
   return !!item?.isDirectory && !item.error && !!absPath
     && previewSizeAllowed.value && !previewDisabled.value
+    // 光盘卷的文件夹预览要列目录、再取子项封面，全是随机读；只读缓存也救不了
+    && !isOpticalPath(absPath)
 })
 
 const folderListingPath = computed(() =>

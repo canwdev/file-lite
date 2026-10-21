@@ -40,6 +40,11 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Login attempts**: A wrong password now needs 15 failures from one IP before the 15-minute ban instead of 5, so mistyping a password no longer locks the user out so easily (backend).
 - **Windows restart**: Restarting the backend from a terminal opens a terminal window for the new process instead of continuing in the background, so the TUI comes back (backend).
 - **Media playback**: A video, thumbnail, or download requested after the access token expired now renews the session on that read itself, so playback continues from where it was instead of stopping or reloading, and the client-side media recovery is gone (frontend, backend).
+- **Player covers**: The music player still shows embedded covers when content previews are disabled; on a CD-ROM the playing track parses its cover once and caches it, and playlist rows only read the cache (frontend).
+- **Optical previews**: A file list on a CD-ROM now shows thumbnails that are already in the browser cache instead of hiding every preview, but never generates a new one (frontend).
+- **Playback controls**: The two time labels keep their full width in a narrow player window; only the progress bar between them shrinks (frontend).
+- **Resume playback**: The file list's resume button no longer restarts the track that is already playing or makes its title, artist and lyrics disappear (frontend).
+- **Lyrics**: Tracks whose timed lyrics live in a non-standard tag field (for example `UNSYNCED LYRICS`) now show them in the player instead of appearing to have none (frontend).
 - **Column resize**: The divider between two file-table column headers can be grabbed on both sides, and it highlights on hover; the drag area no longer stops at the header cell's edge (frontend).
 - **Translations**: A string a locale has not translated yet falls back to English instead of showing the raw key, and the Chinese login validity period label is back (frontend).
 

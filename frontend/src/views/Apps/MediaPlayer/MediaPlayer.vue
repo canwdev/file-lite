@@ -2,6 +2,7 @@
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { guid } from '@/utils'
 import { isSupportedMediaFormat } from '@/utils/is'
+import { joinPath, normalizePath } from '@/views/FileManager/utils'
 import MusicControl from './MusicControl.vue'
 import PlayerCore from './PlayerCore.vue'
 import MusicPlaylist from './Playlist/index.vue'
@@ -49,7 +50,16 @@ watch(
     if (!props.appParams) {
       return
     }
-    const { item, list, basePath } = props.appParams
+    const { item, list, basePath, absPath } = props.appParams
+
+    // 恢复播放按钮 / 再次打开同一个文件：这个单例窗口只是被激活，不能重建 MediaItem。
+    // 重建会触发 <audio>.load() 从头播放；而地址没变又不会重新解析标签，
+    // 标题 / 艺术家 / 歌词就会丢到下一次切歌为止。
+    const targetPath = normalizePath(absPath || joinPath(basePath, item.name))
+    if (mediaStore.mediaItem?.absPath === targetPath) {
+      return
+    }
+
     const medias = list
       // size / lastModified 是封面缓存的指纹，不能丢
       .map(i => new MediaItem(i.name, basePath, Number(i.size ?? 0), i.lastModified ?? 0))

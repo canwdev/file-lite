@@ -9,9 +9,10 @@
  * 生命周期：
  * - 当前曲目立刻请求（详情大图 / 背景 / 系统媒体面板都要它），不必等歌单可见；
  * - 歌单每一行由自己的 IntersectionObserver 在进入可视区时请求（见 PlaylistItem）；
- * - `Disable Preview` 打开时完全不取图并回收已有封面；重新打开时补当前曲目，
- *   可见的行由各自的 observer 重新请求；
- * - 光盘上的曲目同样不取封面。卷列表后到时，已经取到的封面会收掉；
+ * - 播放器**不跟随** `Disable Preview`：封面是播放器自己的内容，不是文件列表的缩略图；
+ * - 当前曲目即使来自光盘也允许生成一次缓存：先查共享缓存，命中就不读盘，未命中才用
+ *   浏览器端的标签解析取图并写回缓存，之后同一首曲子都从缓存来；
+ * - 歌单行不预生成：光盘卷上的歌单行只读缓存（cacheOnly），不为了滚动去读盘；
  * - 换列表（`playFromList`）/ 关窗时回收 objectURL。
  *
  * 每个窗口（storeId）一份控制器，objectURL 不跨窗口共享 —— 两个窗口同时显示同一张图
@@ -20,24 +21,26 @@
 import type { useMediaStore } from './media-store'
 import type { MediaItem } from './music-state'
 import { watch } from 'vue'
-import { localSettingsStore } from '@/store'
 import { fs } from '@/utils/fs'
 import { resolveAudioCover } from '@/utils/image-thumb-cache'
 import { requestPreviewLoad } from '@/utils/preview-load-queue'
-import { driveList, isOpticalPath } from '@/views/FileManager/ExplorerUI/drives'
+import { isOpticalPath } from '@/views/FileManager/ExplorerUI/drives'
 
 type MediaStore = ReturnType<typeof useMediaStore>
 
 export interface MediaCoverController {
-  /** 请求某一项的封面；重复调用 / 已有封面 / 正在解析 / 已确定没有封面都会被忽略 */
-  request: (item: MediaItem | null | undefined) => void
+  /**
+   * 请求某一项的封面；重复调用 / 已有封面 / 正在解析 / 已确定没有封面都会被忽略。
+   * `fromList` 表示这是歌单行发起的请求：光盘卷上的歌单行只读缓存，不生成。
+   */
+  request: (item: MediaItem | null | undefined, options?: { fromList?: boolean }) => void
   /** 中止在途解析并回收本窗口所有封面 objectURL */
   releaseAll: () => void
 }
 
 export function useMediaCoverController(mediaStore: MediaStore): MediaCoverController {
   /** 在途解析：按绝对路径去重 */
-  const inflight = new Map<string, { abort: AbortController, stopQueue: () => void }>()
+  const inflight = new Map<string, { abort: AbortController, stopQueue: () => void, cacheOnly: boolean }>()
   /** 已确定「文件里没有内嵌封面」的路径：本窗口内不再重复探测 */
   const noCover = new Set<string>()
 
@@ -55,15 +58,13 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
     mediaStore.mediaItem?.releaseCoverObjectUrl()
   }
 
-  function request(item: MediaItem | null | undefined) {
+  function request(item: MediaItem | null | undefined, options?: { fromList?: boolean }) {
     // 视频封面不走这条路（播放器里仍是类型图标）
     if (!item || item.type !== 'music') {
       return
     }
-    if (localSettingsStore.value.disablePreview || isOpticalPath(item.absPath)) {
-      return
-    }
-    if (item.cover || noCover.has(item.absPath) || inflight.has(item.absPath)) {
+    // 刻意不看 disablePreview：封面由播放器负责，文件列表的预览开关不该让它消失。
+    if (item.cover || noCover.has(item.absPath)) {
       return
     }
     // 没有 lastModified 就没有可用指纹，入缓存会在文件改动后一直命中旧封面
@@ -72,6 +73,21 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
     }
 
     const key = item.absPath
+    // 歌单行在光盘上只读缓存：滚动列表不该让光头为了封面来回寻道。
+    // 当前曲目（fromList 为假）不受此限：它允许生成一次，之后都从缓存来。
+    const cacheOnly = Boolean(options?.fromList) && isOpticalPath(key)
+
+    const existing = inflight.get(key)
+    if (existing) {
+      // 已经在生成，或者新的请求也只是读缓存：复用现成的请求即可。
+      // 只有「现成的只读缓存、新的要生成」才升级：取消只读请求，重新生成。
+      if (cacheOnly || !existing.cacheOnly)
+        return
+      existing.abort.abort()
+      existing.stopQueue()
+      inflight.delete(key)
+    }
+
     const abort = new AbortController()
     let stopQueue: (() => void) | null = null
 
@@ -80,12 +96,14 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
         let url: string | null = null
         let missing = false
         try {
+          // 缓存优先：命中时一次盘都不用读（光盘上的曲目尤其是这样）。
           const result = await resolveAudioCover({
             key,
             size: item.size,
             lastModified: item.lastModified,
             streamUrl: fs.url(key),
             signal: abort.signal,
+            cacheOnly,
           })
           if (result.ok) {
             url = result.url
@@ -93,7 +111,8 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
           else if (result.reason === 'empty') {
             missing = true
           }
-          // 其余失败（网络 / 解码 / 配额）只影响这一次：显示图标，不记成永久结果
+          // 其余失败（网络 / 解码 / 配额 / 缓存未命中）只影响这一次：
+          // 显示图标，不记成永久结果
         }
         catch {
           // 同上，静默回退图标
@@ -122,7 +141,7 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
       })()
     })
 
-    inflight.set(key, { abort, stopQueue })
+    inflight.set(key, { abort, stopQueue, cacheOnly })
   }
 
   // 当前曲目：详情大图 / 背景 / 系统媒体面板都要它，不等歌单打开
@@ -132,33 +151,8 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
     { immediate: true },
   )
 
-  // Disable Preview：立刻收起所有封面；重新打开时补当前曲目
-  watch(
-    () => localSettingsStore.value.disablePreview,
-    (disabled) => {
-      if (disabled) {
-        releaseAll()
-        return
-      }
-      request(mediaStore.mediaItem)
-    },
-  )
-
-  // 卷列表后到（或用户点了刷新）时，光盘上已经发出去的封面请求要停掉。
-  // 不整表 releaseAll：那会把硬盘上的封面也清掉。
-  watch(driveList, () => {
-    for (const item of mediaStore.playingList) {
-      if (!isOpticalPath(item.absPath))
-        continue
-      const pending = inflight.get(item.absPath)
-      if (pending) {
-        pending.abort.abort()
-        pending.stopQueue()
-        inflight.delete(item.absPath)
-      }
-      item.releaseCoverObjectUrl()
-    }
-  })
+  // 不监听 disablePreview / driveList：播放器的封面不受文件列表预览开关影响，
+  // 光盘卷也不会在卷列表到达后把已经取到的封面收掉。
 
   return { request, releaseAll }
 }

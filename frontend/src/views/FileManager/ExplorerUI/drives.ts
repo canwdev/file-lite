@@ -73,7 +73,10 @@ export function resolveVolumeRoot(path: string): string | null {
 
 /**
  * True when `path` sits on an optical volume (ISO 9660, UDF, or a Windows
- * CD-ROM drive). Content previews stay off there: random reads thrash the disc.
+ * CD-ROM drive). Nothing generates new previews there: random reads thrash the
+ * disc. The file list only reads the shared cache (see `ThemedIcon`), while the
+ * music player lets the current track parse once and keeps playlist rows
+ * cache-only (see `MediaPlayer/utils/media-cover.ts`).
  * Unknown until the volume list has loaded, so callers must read this from a
  * reactive context — `driveList` is what flips the answer.
  */
