@@ -1,6 +1,7 @@
 import type { SortField } from '../utils/sort'
 import type { PathState } from './path-state'
 import { useStorage } from '@vueuse/core'
+import { reactive } from 'vue'
 import { LsKeys } from '@/enum'
 import { SortType } from '@/types/server'
 import { normalizeListingPath } from '../utils'
@@ -19,6 +20,11 @@ export const explorerStateMap = useStorage<Record<string, PathState>>(
   localStorage,
   { listenToStorageChanges: false },
 )
+
+/**
+ * 滚动位置只在当前页面内存里保留（键为 listing 路径），刷新页面即失效，不持久化。
+ */
+export const scrollPositionMap = reactive<Record<string, number>>({})
 
 /** 只写某个目录**自己**的状态，不碰继承链 */
 function writeOwnPathState<K extends keyof PathState>(path: string, key: K, val: NonNullable<PathState[K]>) {

@@ -2,6 +2,12 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.5.2
+
+### Fixes
+
+- **Folder state**: The scroll position is kept only in the current page and resets after a refresh, while the sort mode remains saved per folder (frontend).
+
 ## 1.5.1
 
 ### UI

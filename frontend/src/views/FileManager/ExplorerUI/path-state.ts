@@ -3,9 +3,8 @@ import type { SortType } from '@/types/server'
 import { normalizeListingPath, normalizePath } from '../../../utils/path/form'
 import { boundaryFor, listingParent } from '../utils/volume-mounts'
 
-/** 每个目录自己的界面状态；排序 / 分组支持向祖先继承，位置与折叠组只属于自己。 */
+/** 每个目录自己的界面状态；排序 / 分组支持向祖先继承，折叠组只属于自己。 */
 export interface PathState {
-  position?: number
   sortMode?: SortType
   groupField?: SortField | 'none'
   groupDesc?: boolean

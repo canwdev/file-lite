@@ -25,7 +25,7 @@ import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
 import { composeSortMode, parseSortMode } from '../utils/sort'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
-import { explorerStateMap, groupDescRef, groupFieldRef, sortModeRef } from './explorer-state'
+import { explorerStateMap, groupDescRef, groupFieldRef, scrollPositionMap, sortModeRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import { getEntryTypeLabel } from './file-type'
 import FileGridItem from './FileGridItem.vue'
@@ -1588,7 +1588,7 @@ useShortcut({
 })
 
 // 缓存滚动位置
-function getSetScrollPosition(action: 'get' | 'set', value = 0) {
+function getSetScrollPosition(action: 'get' | 'set', value = 0): number {
   const el = explorerContentRef.value
   if (!el) {
     return 0
@@ -1596,9 +1596,8 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0) {
   if (action === 'get') {
     return el.scrollTop
   }
-  else if (action === 'set') {
-    el.scrollTop = value
-  }
+  el.scrollTop = value
+  return value
 }
 
 function scrollToFile(name: string) {
@@ -1668,10 +1667,10 @@ function selectAndReveal(name: string) {
  * 恢复本目录上次的滚动位置。
  *
  * 保活的标签被重新显示时调用：`display:none` 期间容器尺寸为 0，虚拟列表的可视区是空的，
- * 需要重新量一次并滚回去（位置按 path 存在 explorerStateMap 里）。
+ * 需要重新量一次并滚回去（位置按 path 存在内存里的 scrollPositionMap 中，刷新即失效）。
  */
 function restoreViewport() {
-  const position = explorerStateMap.value[basePath.value]?.position || 0
+  const position = scrollPositionMap[basePath.value] ?? 0
   nextTick(() => {
     virtualList.refresh()
     virtualGrid.refresh()
@@ -1686,20 +1685,13 @@ function restoreViewport() {
 }
 
 watchDebounced(files, () => {
-  if (explorerStateMap.value[basePath.value]) {
+  if (scrollPositionMap[basePath.value] !== undefined) {
     restoreViewport()
   }
 }, { debounce: 100, maxWait: 1000 })
 const debounceHandleScroll = useDebounceFn(() => {
   const position = getSetScrollPosition('get')
-  if (!explorerStateMap.value[basePath.value]) {
-    explorerStateMap.value[basePath.value] = { position }
-  }
-  else {
-    explorerStateMap.value[basePath.value].position = position
-  }
-
-  // console.log('save', basePath.value, position)
+  scrollPositionMap[basePath.value] = position
 }, 500)
 useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
 
