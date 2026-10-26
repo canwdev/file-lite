@@ -10,7 +10,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
-- **Folder state**: The scroll position is kept only in the current page and resets after a refresh, while the sort mode remains saved per folder (frontend).
+- **Folder state**: The sort mode is saved per folder and inherited by subfolders (frontend).
 
 ## 1.5.1
 
