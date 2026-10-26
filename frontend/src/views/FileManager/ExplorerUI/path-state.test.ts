@@ -6,7 +6,7 @@ import { resolveInheritedPathState } from './path-state'
 
 const MOUNTS = ['/', '/data', '//server/share']
 
-type ResolvableKey = 'sortMode' | 'groupField' | 'groupDesc'
+type ResolvableKey = 'sortMode' | 'groupField' | 'groupDesc' | 'grid'
 
 function resolve(state: Record<string, PathState>, path: string, key: ResolvableKey) {
   return resolveInheritedPathState(state, path, key, MOUNTS)
@@ -49,6 +49,12 @@ describe('resolveInheritedPathState', () => {
     // a 自己只钉了方向，字段继续跟随祖先
     expect(resolve(state, '/data/a/', 'groupField')).toBe('size')
     expect(resolve(state, '/data/a/', 'groupDesc')).toBe(false)
+  })
+
+  test('列表/图标视图同样沿祖先继承', () => {
+    expect(resolve({ '/data/': { grid: true } }, '/data/a/', 'grid')).toBe(true)
+    expect(resolve({ '/data/': { grid: true }, '/data/a/': { grid: false } }, '/data/a/', 'grid')).toBe(false)
+    expect(resolve({}, '/data/a/', 'grid')).toBeUndefined()
   })
 
   test('没有任何设置时返回 undefined', () => {

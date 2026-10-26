@@ -16,12 +16,13 @@ import { normalizeListingPath } from '../utils'
  * 「还没导航过」，外壳要靠它决定是否打开第一个磁盘，归一成 `/` 会把这个语义弄丢。
  */
 /**
- * 面板自己的视图偏好。跟标签内容一起挂在面板上持久化：拆分视图里两个面板各看各的，
+ * 面板自己的图标大小偏好。跟标签内容一起挂在面板上持久化：拆分视图里两个面板各看各的，
  * 改动一个不会带着另一个一起变。没设置过的面板（刚开、没动过）继续用全局设置，
  * 选择器窗口没有面板级状态，也一直走全局设置。
+ *
+ * 列表/图标视图（grid）不在这里：它按目录持久化并沿祖先继承，见 explorer-state.ts。
  */
 export interface ExplorerPaneView {
-  grid: boolean
   iconSizeList: number
   iconSizeGrid: number
   /** 平铺子目录中的全部文件（Total Commander Ctrl+B） */
@@ -31,7 +32,7 @@ export interface ExplorerPaneView {
 export interface ExplorerTab {
   id: string
   path: string
-  /** 面板级视图偏好；未设置时由外壳回落到全局设置 */
+  /** 面板级图标大小偏好；未设置时由外壳回落到全局设置 */
   view?: ExplorerPaneView
 }
 
@@ -64,13 +65,13 @@ function createItem(path: string, view?: ExplorerPaneView): ExplorerTabItem {
 }
 
 /**
- * 新面板继承的视图偏好。
+ * 新面板继承的图标大小偏好。
  *
- * 只带 list/grid 与图标大小：`branch`（平铺子目录）是**当前目录**的临时模式，
+ * 只带图标大小：`branch`（平铺子目录）是**当前目录**的临时模式，
  * 跟着新标签走会让它一打开就平铺整个继承来的目录，所以不继承。
  */
 function inheritedPaneView(view: ExplorerPaneView): ExplorerPaneView {
-  return { grid: view.grid, iconSizeList: view.iconSizeList, iconSizeGrid: view.iconSizeGrid }
+  return { iconSizeList: view.iconSizeList, iconSizeGrid: view.iconSizeGrid }
 }
 
 export function isSplitItem(item: ExplorerTabItem): boolean {
@@ -115,17 +116,16 @@ function normalizePanes(raw: unknown): ExplorerTab[] {
   return panes
 }
 
-/** 面板级视图偏好三项必须齐全才认，否则整份丢掉，回落到全局设置 */
+/** 面板级图标大小两项必须齐全才认，否则整份丢掉，回落到全局设置 */
 function normalizePaneView(raw: unknown): ExplorerPaneView | undefined {
   if (!raw || typeof raw !== 'object') {
     return undefined
   }
-  const { grid, iconSizeList, iconSizeGrid } = raw as Partial<ExplorerPaneView>
-  if (typeof grid !== 'boolean' || !Number.isFinite(iconSizeList) || !Number.isFinite(iconSizeGrid)) {
+  const { iconSizeList, iconSizeGrid } = raw as Partial<ExplorerPaneView>
+  if (!Number.isFinite(iconSizeList) || !Number.isFinite(iconSizeGrid)) {
     return undefined
   }
   return {
-    grid,
     iconSizeList: iconSizeList as number,
     iconSizeGrid: iconSizeGrid as number,
   }
@@ -218,8 +218,8 @@ export function useExplorerTabs() {
   /**
    * 新建标签并激活，永远追加在最后。默认沿用当前标签的路径（和资源管理器一致）。
    *
-   * 视图偏好继承**当前聚焦面板**：手动切过 list/grid 或调过图标大小之后再开新标签，
-   * 不会又退回全局默认。聚焦面板还没设过面板级视图（`view` 为空）时不写入，
+   * 图标大小偏好继承**当前聚焦面板**：调过图标大小之后再开新标签，
+   * 不会又退回全局默认。聚焦面板还没设过面板级图标大小（`view` 为空）时不写入，
    * 新面板继续走全局设置——与它的来源面板表现一致。
    */
   function addTab(path = activePath.value): string {
@@ -350,7 +350,7 @@ export function useExplorerTabs() {
     setTabPath(activeTabId.value, path)
   }
 
-  /** 写某个面板自己的视图偏好（list/grid、图标大小），只影响这一个面板 */
+  /** 写某个面板自己的图标大小偏好，只影响这一个面板 */
   function setPaneView(paneId: string, view: ExplorerPaneView) {
     const item = findPaneOwner(paneId)
     if (!item) {
@@ -369,8 +369,7 @@ export function useExplorerTabs() {
    * 拆分视图：优先吸收右邻单标签项，其次左邻，都没有就新建一个同路径标签当第二个面板。
    * 合并后的项落在两者中靠前的位置，面板顺序保持标签条原来的左右顺序。
    *
-   * 新建的那个面板继承被拆分面板的视图偏好——否则在 grid 下拆分最后一个标签会得到
-   * 「一 grid 一 list」，看起来像是拆分把视图弄丢了。
+   * 新建的那个面板继承被拆分面板的图标大小偏好，两个面板看起来一致。
    */
   function splitTab(itemId: string) {
     const index = findItemIndex(itemId)

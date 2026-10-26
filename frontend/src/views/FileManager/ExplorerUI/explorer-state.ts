@@ -54,6 +54,11 @@ export function getPathGroupDesc(path: string): boolean {
   return resolveInheritedPathState(explorerStateMap.value, path, 'groupDesc', mountPaths()) ?? false
 }
 
+/** 有效列表/图标视图：目录自己的手动设置 > 最近一个手动设置过的祖先 > 默认列表。 */
+export function getPathGrid(path: string): boolean {
+  return resolveInheritedPathState(explorerStateMap.value, path, 'grid', mountPaths()) ?? false
+}
+
 /** 排序 ref：读走继承解析，写落在当前目录自己的记录上 */
 export function sortModeRef(path: Ref<string>) {
   return computed({
@@ -75,5 +80,13 @@ export function groupDescRef(path: Ref<string>) {
   return computed({
     get: () => getPathGroupDesc(path.value),
     set: (val: boolean) => writeOwnPathState(path.value, 'groupDesc', val),
+  })
+}
+
+/** 列表/图标视图 ref，读写语义同 `sortModeRef` */
+export function gridRef(path: Ref<string>) {
+  return computed({
+    get: () => getPathGrid(path.value),
+    set: (val: boolean) => writeOwnPathState(path.value, 'grid', val),
   })
 }

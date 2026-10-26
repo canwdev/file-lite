@@ -71,7 +71,6 @@ function createDefaultLocalSettingsStore() {
     showHidden: true,
     /** 排序后是否把文件夹排在文件前面 */
     sortFoldersFirst: true,
-    isGridView: false,
     iconSizeList: 16,
     iconSizeGrid: 48,
     /**
