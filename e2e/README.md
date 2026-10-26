@@ -145,13 +145,13 @@ upload/               a.txt（与服务端同名）、fresh.txt
 `.gitignore`，这样新克隆出来的仓库里**有一个空的 `screenshots/`**，
 测试直接往里写即可，也不会留下未跟踪的空目录。
 
-> 与 README 功能表格用的截图要分清：那些是人工挑选的展示图，由
+> 与 README 展示用的截图要分清：那些是人工挑选的展示图，由
 > `bun run docs:screenshots` 生成到 `../docs/screenshots/`，**仍然提交**（只提交
 > `.webp`；同目录的 `.png` 是压缩前的中间产物，见下）。
 
 ## README 截图
 
-README 功能表格里的截图由另一个脚本产出，输出到 `../docs/screenshots/`：
+README 里的功能截图由另一个脚本产出，输出到 `../docs/screenshots/`：
 
 ```sh
 cd e2e
