@@ -1,0 +1,59 @@
+// 半透明背景主题。与明暗模式正交：亮/暗仍由 themeMode 控制，这里只把界面
+// 表面换成半透明色，让背景图从下面透出来。背景图由 JS 写入 CSS 变量：
+// 预设 URL、手动输入的 URL，或上传图片优化后的 data URL。
+:root {
+  --file-lite-wallpaper: none;
+}
+
+body.is-translucent {
+  background-image: var(--file-lite-wallpaper);
+  background-attachment: fixed;
+  background-position: center;
+  background-size: cover;
+}
+
+body.vgo-theme-default.is-translucent {
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-surface: rgba(255, 255, 255, 0.76);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-surface-raised: rgba(255, 255, 255, 0.66);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-window: rgba(243, 243, 243, 0.66);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-window-active: rgba(255, 255, 255, 0.78);
+
+  .page-root {
+    background-color: transparent;
+  }
+}
+
+html.dark body.vgo-theme-default.is-translucent {
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-surface: rgba(17, 17, 17, 0.76);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-surface-raised: rgba(43, 43, 43, 0.68);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-window: rgba(75, 75, 75, 0.62);
+  // vgo-allow: 半透明主题需要带 alpha 的表面色
+  --vgo-window-active: rgba(32, 32, 32, 0.76);
+}
+
+body.is-translucent .explorer-content {
+  background-color: var(--vgo-surface);
+}
+
+body.is-translucent .vgo-window,
+body.is-translucent .vgo-context-menu {
+  // vgo-allow: 半透明主题需要模糊窗口和菜单背后的壁纸/内容
+  backdrop-filter: blur(var(--vgo-overlay-blur));
+}
+
+// vgo-ui 把暗色令牌钉在 .is-dark 菜单根上，暗色菜单的 --vgo-surface-raised
+// 因此又变回不透明；这里只把表面令牌重新指回半透明。
+body.vgo-theme-default.is-translucent .vgo-context-menu.is-dark,
+body.vgo-theme-default.is-translucent .vgo-context-menu-bar.is-dark {
+  // vgo-allow: 暗色菜单令牌被钉在元素上，需要重新声明半透明表面
+  --vgo-surface: rgba(17, 17, 17, 0.76);
+  // vgo-allow: 暗色菜单令牌被钉在元素上，需要重新声明半透明表面
+  --vgo-surface-raised: rgba(43, 43, 43, 0.68);
+}

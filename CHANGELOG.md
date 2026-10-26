@@ -19,6 +19,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Background themes**: Settings has a separate Theme dropdown with Default and Translucent; Translucent uses a pickable wallpaper (preset, URL or uploaded image) behind semi-transparent surfaces, the light/dark and background settings stay local to the browser, and the color theme still syncs across devices (frontend).
 - **Public links**: Selected files can be copied as a public link that expires after 3 hours, 24 hours, 7 days or 30 days, or downloaded as an M3U playlist, so an external player such as PotPlayer can open the video without signing in (frontend, backend).
 - **Session**: The access token now expires after 15 minutes and renews itself while the app is open or used, so a stolen token is short-lived without signing the user out (frontend, backend).
 - **Session lifetime**: A session that sits unused for 30 days asks for the password again; the renewal window slides on use (frontend, backend).
@@ -48,6 +49,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Lyrics**: Tracks whose timed lyrics live in a non-standard tag field (for example `UNSYNCED LYRICS`) now show them in the player instead of appearing to have none (frontend).
 - **Column resize**: The divider between two file-table column headers can be grabbed on both sides, and it highlights on hover; the drag area no longer stops at the header cell's edge (frontend).
 - **Translations**: A string a locale has not translated yet falls back to English instead of showing the raw key, and the Chinese login validity period label is back (frontend).
+- **Group headers**: The pinned group header now scrolls horizontally with the file list/table instead of staying fixed at the left edge and misaligning with the columns (frontend).
 
 ## 1.5.0
 

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { ThemeMode } from '@/hooks/use-global-theme'
-import { settingsStore } from '@/store'
+import { localSettingsStore } from '@/store'
 import dynamicLoadScript from '@/utils/dynamic-load-script'
 import { fs } from '@/utils/fs'
 
@@ -32,7 +32,7 @@ const isLoading = ref(true)
 const error = ref('')
 
 const viewerTheme = computed(() => {
-  const mode = settingsStore.value.themeMode
+  const mode = localSettingsStore.value.themeMode
   if (mode === ThemeMode.Light) {
     return 'light'
   }

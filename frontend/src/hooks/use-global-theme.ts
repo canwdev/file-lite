@@ -1,5 +1,6 @@
 import { rgbToHex, syncPrimaryColor, useElementPlusTheme } from '@canwdev/vgo-ui'
 import { localSettingsStore, settingsStore } from '@/store'
+import { useTranslucentTheme } from '@/themes/translucent/use-translucent-theme'
 
 export { rgbToHex }
 
@@ -71,11 +72,12 @@ export function useGlobalTheme() {
   })
 
   const isAppDarkMode = computed(() => {
-    if (settingsStore.value.themeMode === ThemeMode.Auto) {
+    if (localSettingsStore.value.themeMode === ThemeMode.Auto) {
       return isSystemDarkMode.value
     }
-    return settingsStore.value.themeMode === ThemeMode.Dark
+    return localSettingsStore.value.themeMode === ThemeMode.Dark
   })
+  useTranslucentTheme()
   watch(
     [() => settingsStore.value.colorTheme, isAppDarkMode],
     ([label, isDark]) => {

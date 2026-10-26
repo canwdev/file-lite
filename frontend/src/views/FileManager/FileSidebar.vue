@@ -192,8 +192,6 @@ defineExpose({
       padding-left: var(--vgo-space-2);
       font-size: var(--vgo-font-sm);
       color: var(--vgo-text-secondary);
-      // 吸顶时要盖住下面滚过去的磁盘项
-      background-color: var(--vgo-surface-raised);
     }
 
     &__item {

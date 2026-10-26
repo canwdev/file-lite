@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { colorThemeOptions, setGlobalTheme, ThemeMode } from '@/hooks/use-global-theme'
-import { settingsStore } from '@/store'
+import { localSettingsStore, settingsStore } from '@/store'
 
 const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
 
 const isDark = computed(() => {
-  const mode = settingsStore.value.themeMode
+  const mode = localSettingsStore.value.themeMode
   if (mode === ThemeMode.Dark)
     return true
   if (mode === ThemeMode.Light)

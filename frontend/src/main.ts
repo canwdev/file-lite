@@ -21,6 +21,7 @@ import 'element-plus/es/components/loading/style/css'
 import 'element-plus/es/components/select/style/css'
 
 import 'normalize.css'
+import './themes/translucent/index.scss'
 
 async function bootstrap() {
   // 语言包是异步引入的：先把它加载好再挂载，首屏才不会闪出 key。

@@ -21,6 +21,7 @@ import { clearLastOpenedMediaMap } from '@/hooks/use-last-opened-media'
 import { localeOptions } from '@/i18n'
 import { localSettingsStore, settingsStore } from '@/store'
 import { serverCapabilities } from '@/store/capabilities'
+import TranslucentBackgroundSettings from '@/themes/translucent/TranslucentBackgroundSettings.vue'
 import { enableDebug } from '@/utils/debug'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
@@ -243,16 +244,34 @@ const options = computed<VgoOptionItem[]>(() => [
   {
     label: $t('file_lite_i18n.appearance'),
     key: 'appearance',
-    children: [
+    children: present([
       {
-        label: $t('file_lite_i18n.theme'),
+        label: $t('file_lite_i18n.appearance'),
         key: 'themeMode',
+        store: local.value,
         type: VgoOptionType.MULTIPLE_SWITCH,
         options: [
           { label: $t('file_lite_i18n.auto'), value: ThemeMode.Auto },
           { label: $t('file_lite_i18n.light'), value: ThemeMode.Light },
           { label: $t('file_lite_i18n.dark'), value: ThemeMode.Dark },
         ],
+      },
+      {
+        label: $t('file_lite_i18n.theme'),
+        key: 'themeStyle',
+        store: local.value,
+        type: VgoOptionType.SELECT,
+        options: [
+          { label: 'Default', value: 'default' },
+          { label: 'Translucent', value: 'translucent' },
+        ],
+      },
+      local.value.themeStyle === 'translucent' && {
+        label: 'Background',
+        key: 'wallpaper',
+        store: local.value,
+        cls: 'settings-color-row',
+        render: () => h(TranslucentBackgroundSettings),
       },
       {
         label: $t('file_lite_i18n.color'),
@@ -283,7 +302,7 @@ const options = computed<VgoOptionItem[]>(() => [
           onBlur: trimPageTitle,
         },
       },
-    ],
+    ]),
   },
   {
     label: $t('file_lite_i18n.apps'),
@@ -426,7 +445,6 @@ const options = computed<VgoOptionItem[]>(() => [
 .settings {
   height: 100%;
   overflow: auto;
-  background-color: var(--vgo-surface);
 }
 
 .settings :deep(.settings-color-row) {

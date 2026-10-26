@@ -2,6 +2,13 @@
 defineProps<{
   label: string
   collapsed: boolean
+  /**
+   * When provided, the header becomes a zero-footprint sticky bar pinned at
+   * `stickyTop` inside the nearest scroll container. Place it in the scroll
+   * content flow (not inside a table row): it sticks vertically and scrolls
+   * horizontally with the content.
+   */
+  stickyTop?: number
 }>()
 
 defineEmits<{
@@ -13,6 +20,8 @@ defineEmits<{
 <template>
   <div
     class="file-group-header"
+    :class="{ 'is-sticky': stickyTop !== undefined }"
+    :style="stickyTop !== undefined ? { top: `${stickyTop}px` } : undefined"
     role="button"
     tabindex="0"
     @click.stop="$emit('select')"
@@ -47,7 +56,6 @@ defineEmits<{
   text-align: left;
   cursor: pointer;
   color: var(--vgo-text);
-  background-color: var(--vgo-surface);
 
   > * {
     position: relative;
@@ -59,6 +67,15 @@ defineEmits<{
     position: absolute;
     inset: 0;
     background-color: var(--vgo-hover);
+  }
+
+  &.is-sticky {
+    position: sticky;
+    z-index: calc(var(--vgo-z-sticky) - 1);
+    background-color: var(--vgo-surface);
+    // Keep the flow footprint at zero so the bar overlays content instead of
+    // pushing it down; the header stays full height for the visible bar.
+    margin-bottom: calc(-1 * var(--vgo-control-md));
   }
 }
 

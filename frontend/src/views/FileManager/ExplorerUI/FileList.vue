@@ -504,12 +504,10 @@ const groupedGridSpacerStyle = computed(() => ({
 }))
 
 const groupStickyTop = ref(0)
-const stickySlotWidth = ref(0)
 let stickyMetricsObserver: ResizeObserver | undefined
 
 function updateGroupStickyMetrics() {
   const el = explorerContentRef.value
-  stickySlotWidth.value = el?.clientWidth ?? 0
   if (!el || !isGrouping.value || isGridMode.value || emptyState.value) {
     groupStickyTop.value = 0
     return
@@ -542,26 +540,29 @@ watch(
 
 onBeforeUnmount(() => stickyMetricsObserver?.disconnect())
 
-const stickyGroupSlotStyle = computed(() => ({
-  top: `${groupStickyTop.value}px`,
-  width: stickySlotWidth.value ? `${stickySlotWidth.value}px` : '100%',
-}))
-
+/** Current group header to pin; only returned once it has scrolled past its natural position. */
 const stickyGroup = computed(() => {
   if (!isGrouping.value)
     return null
   const virtual = isGridMode.value ? groupedGridVirtual : groupedListVirtual
   const y = virtual.scrollTop.value
-  let current: { id: string, label: string, collapsed: boolean } | null = null
+  let current: { id: string, label: string, collapsed: boolean, top: number } | null = null
   for (const block of virtual.positioned.value) {
     if (block.data.kind !== 'header')
       continue
-    if (block.top <= y)
-      current = block.data
-    else
+    if (block.top <= y) {
+      current = {
+        id: block.data.id,
+        label: block.data.label,
+        collapsed: block.data.collapsed,
+        top: block.top,
+      }
+    }
+    else {
       break
+    }
   }
-  return current
+  return current && y > current.top ? current : null
 })
 
 function toggleGroup(id: string) {
@@ -1893,21 +1894,6 @@ defineExpose({
 
     <div class="explorer-body">
       <div
-        v-if="stickyGroup && (isGridMode || groupStickyTop > 0)"
-        class="explorer-sticky-group-slot"
-        :style="stickyGroupSlotStyle"
-      >
-        <div class="explorer-sticky-group-slot__bar">
-          <FileGroupHeader
-            :label="stickyGroup.label"
-            :collapsed="stickyGroup.collapsed"
-            @toggle="toggleGroup(stickyGroup.id)"
-            @select="selectGroup(stickyGroup.id)"
-            @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
-          />
-        </div>
-      </div>
-      <div
         ref="explorerContentRef"
         class="explorer-content"
         @click.capture="handleContentClickCapture"
@@ -1941,6 +1927,15 @@ defineExpose({
           </button>
         </div>
         <div v-else-if="!isGridMode" class="explorer-list-view">
+          <FileGroupHeader
+            v-if="stickyGroup"
+            :sticky-top="groupStickyTop"
+            :label="stickyGroup.label"
+            :collapsed="stickyGroup.collapsed"
+            @toggle="toggleGroup(stickyGroup.id)"
+            @select="selectGroup(stickyGroup.id)"
+            @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
+          />
           <FileTable
             v-model:selected-rows="selectedItemsSet"
             :columns="tableColumns"
@@ -1961,6 +1956,15 @@ defineExpose({
           />
         </div>
         <div v-else-if="isGrouping" class="explorer-grid-view" :style="groupedGridStyle">
+          <FileGroupHeader
+            v-if="stickyGroup"
+            :sticky-top="groupStickyTop"
+            :label="stickyGroup.label"
+            :collapsed="stickyGroup.collapsed"
+            @toggle="toggleGroup(stickyGroup.id)"
+            @select="selectGroup(stickyGroup.id)"
+            @contextmenu.prevent.stop="updateMenuOptions(null, $event)"
+          />
           <div class="explorer-grid-spacer" :style="groupedGridSpacerStyle" aria-hidden="true" />
           <template v-for="block in groupedGridVirtual.visibleBlocks.value" :key="block.key">
             <FileGroupHeader
@@ -2105,23 +2109,6 @@ defineExpose({
     overflow: auto;
     user-select: none;
     position: relative;
-  }
-
-  .explorer-sticky-group-slot {
-    position: absolute;
-    left: 0;
-    height: 0;
-    z-index: var(--vgo-z-sticky);
-    overflow: visible;
-    pointer-events: none;
-    :deep(.file-group-header) {
-      pointer-events: auto;
-    }
-  }
-
-  .explorer-sticky-group-slot__bar {
-    background-color: var(--vgo-surface);
-    pointer-events: auto;
   }
 
   .explorer-selection-box {

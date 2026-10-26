@@ -215,7 +215,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="file-table-wrapper">
     <table>
-      <thead class="vgo-u-surface">
+      <thead>
         <tr>
           <!-- 多选列 -->
           <th
