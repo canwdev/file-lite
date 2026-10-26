@@ -8,6 +8,7 @@ import { ContextMenu } from '@canwdev/vgo-ui'
 import dayjs from 'dayjs'
 import { computed, h, ref } from 'vue'
 import { listPlugins } from '@/api/plugins'
+import { localSettingsStore } from '@/store'
 import { serverCapabilities } from '@/store/capabilities'
 import { createTask } from '@/store/tasks'
 import { copyWithToast, downloadUrl } from '@/utils'
@@ -15,6 +16,7 @@ import { baseContextMenuOptions } from '@/utils/context-menu'
 import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
+import { regImageFormat } from '@/utils/is'
 import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showProperties } from '@/views/Apps/properties'
@@ -640,7 +642,15 @@ export function useFileActions({
           label: `${$t('file_lite_i18n.copy_path')} (Windows)`,
           icon: 'mdi mdi-clipboard-text-outline',
           onClick: handleCopyWindowsPaths,
-          divided: true,
+        },
+        isSingle && isFile && regImageFormat.test(selectedItem.name) && {
+          label: 'Set as wallpaper',
+          icon: 'mdi mdi-image',
+          onClick: () => {
+            const absPath = normalizePath(joinPath(basePath.value, selectedItem.name))
+            localSettingsStore.value.wallpaperUrl = fs.url(absPath)
+            localSettingsStore.value.themeStyle = 'translucent'
+          },
         },
         // 外部播放器（PotPlayer 等）带不了 cookie，只能用签名直链：链接本身是凭据，
         // 到期即失效。目录没有直链，所以整组在纯目录选中时禁用。
@@ -656,7 +666,7 @@ export function useFileActions({
           children: mediaLinkTtlMenu((ttl) => { void downloadM3uPlaylist(ttl) }),
           disabled: !hasSelectedFiles.value,
         },
-      ] },
+      ].filter(Boolean) as MenuItem[] },
       isSingle && { label: $t('file_lite_i18n.rename'), icon: 'mdi mdi-rename', shortcut: 'F2', onClick: handleRename },
       {
         label: $t('file_lite_i18n.delete'),

@@ -19,7 +19,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
-- **Background themes**: Settings has a separate Theme dropdown with Default and Translucent; Translucent uses a pickable wallpaper (preset, URL or uploaded image) behind semi-transparent surfaces, the light/dark and background settings stay local to the browser, and the color theme still syncs across devices (frontend).
+- **Background themes**: Settings has a separate Theme dropdown with Default and Translucent; Translucent uses a pickable wallpaper (preset, URL, uploaded image or an image's More context menu) behind semi-transparent surfaces, the light/dark and background settings stay local to the browser, and the color theme still syncs across devices (frontend).
 - **Public links**: Selected files can be copied as a public link that expires after 3 hours, 24 hours, 7 days or 30 days, or downloaded as an M3U playlist, so an external player such as PotPlayer can open the video without signing in (frontend, backend).
 - **Session**: The access token now expires after 15 minutes and renews itself while the app is open or used, so a stolen token is short-lived without signing the user out (frontend, backend).
 - **Session lifetime**: A session that sits unused for 30 days asks for the password again; the renewal window slides on use (frontend, backend).
