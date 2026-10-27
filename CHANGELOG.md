@@ -11,6 +11,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Fixes
 
 - **Folder state**: The sort mode is saved per folder and inherited by subfolders (frontend).
+- **Subtitles**: A subtitle added outside File Lite shows up in an already open player after its folder is refreshed, without reloading the page (frontend).
 
 ## 1.5.1
 

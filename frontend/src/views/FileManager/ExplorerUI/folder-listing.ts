@@ -29,8 +29,8 @@ const inflightReads = new Map<string, Promise<IEntry[]>>()
  */
 const generations = new Map<string, number>()
 /**
- * 目录内容变化的版本号（响应式）。缓存被补丁或失效后 +1，
- * 正在展示该目录预览的组件据此重新读取。
+ * 目录内容变化的版本号（响应式）。缓存被补丁、失效或由主列表刷新写入后 +1，
+ * 正在展示该目录预览 / 扫描该目录的组件据此重新读取。
  */
 const listingVersions = reactive(new Map<string, number>())
 
@@ -131,13 +131,19 @@ export function wasFolderListingOk(path: string): boolean {
   return readOk.get(normalizeListingPath(path)) ?? false
 }
 
-/** 把刚加载完成的主列表写入缓存，保证该目录的预览/下拉内容新鲜 */
+/**
+ * 把刚加载完成的主列表写入缓存，保证该目录的预览/下拉内容新鲜。
+ *
+ * 同时 +1 版本号：这次写入也是一次刷新（刷新按钮会走到这里），订阅版本号的组件
+ * （`ThemedIcon`、自动字幕扫描）要据此重新读取这份新数据。
+ */
 export function seedFolderListing(path: string, entries: IEntry[]): void {
   const key = normalizeListingPath(path)
   bumpGeneration(key)
   rawCache.set(key, entries)
   readOk.set(key, true)
   trimRawCache()
+  bumpListingVersion(key)
 }
 
 /** 目录内容变化的版本号；在 computed / watch 里读取即可在目录变化后收到通知 */

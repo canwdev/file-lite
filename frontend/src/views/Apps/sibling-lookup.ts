@@ -1,7 +1,6 @@
 import type { IEntry } from '@/types/server'
-import { subscribeFsChanged } from '@/store/tasks'
-import { fs } from '@/utils/fs'
 import { joinPath, normalizeListingPath } from '@/utils/path/form'
+import { readFolderRawList } from '@/views/FileManager/ExplorerUI/folder-listing'
 import { pickSuffixedSiblings, siblingFileCandidates } from './sibling-file'
 
 /**
@@ -22,6 +21,12 @@ export const SUBTITLE_DIR_NAMES = [
   '字幕文件',
 ]
 
+/** 媒体文件所在目录（listing 形态，带结尾 `/`）；路径没有分隔符时返回空串。 */
+export function mediaDirectory(path: string): string {
+  const parts = splitMediaPath(path)
+  return parts ? normalizeListingPath(parts.dir) : ''
+}
+
 /**
  * 找媒体文件旁边的同名字幕 / 歌词（只要一个）。
  *
@@ -39,43 +44,40 @@ export async function findSiblingFile(mediaPath: string, extensions: readonly st
  * 完全同名的 `movie.srt`，和带中缀的 `movie.chs.srt`（中缀长度不限，只能靠扫描）。
  *
  * 返回顺序：视频所在目录优先，同目录里完全同名优先、其余按 `pickSuffixedSiblings`
- * 的语言/扩展名顺序。任何失败都当「没有」返回：自动加载不该弹错误。
+ * 的语言/扩展名顺序。
+ *
+ * 缓存与资源管理器共用（`folder-listing`）：主列表刷新（刷新按钮）会把刚拿到的
+ * 列表写进去，所以从 File Lite 之外放进去的字幕，点一次刷新就能被这里看到；
+ * 服务端的 `fs.changed` 也会让共用缓存失效/打补丁。任何失败都当「没有」返回：
+ * 自动加载不该弹错误。
+ *
+ * `refreshSubdirs`：主列表刷新只会重写视频自己的目录，`SRT/` 之类的子目录仍是旧缓存，
+ * 所以重新扫描（刷新 / `fs.changed`）时要把子目录真的再列一次。
  */
 export async function findSiblingFiles(
   mediaPath: string,
   extensions: readonly string[],
   subdirNames: readonly string[] = [],
+  options: { refreshSubdirs?: boolean } = {},
 ): Promise<string[]> {
   const parts = splitMediaPath(mediaPath)
   if (!parts)
     return []
 
-  try {
-    const entries = cachedEntries(parts.dir) ?? await listEntries(parts.dir)
-    const found = resolveSiblings(parts.dir, parts.name, entries, extensions)
-    if (!subdirNames.length)
-      return found
-
-    const wanted = new Set(subdirNames.map(name => name.toLowerCase()))
-    for (const entry of entries) {
-      if (!entry.isDirectory || !wanted.has(entry.name.toLowerCase()))
-        continue
-      const subdir = joinPath(parts.dir, entry.name)
-      try {
-        const subEntries = cachedEntries(subdir) ?? await listEntries(subdir)
-        found.push(...resolveSiblings(subdir, parts.name, subEntries, extensions))
-      }
-      catch (error) {
-        // 字幕子目录可能没有权限；不影响视频目录里已经找到的字幕
-        console.error('find sibling files in subdirectory failed', error)
-      }
-    }
+  const entries = await readFolderRawList(parts.dir)
+  const found = resolveSiblings(parts.dir, parts.name, entries, extensions)
+  if (!subdirNames.length)
     return found
+
+  const wanted = new Set(subdirNames.map(name => name.toLowerCase()))
+  for (const entry of entries) {
+    if (!entry.isDirectory || !wanted.has(entry.name.toLowerCase()))
+      continue
+    const subdir = joinPath(parts.dir, entry.name)
+    const subEntries = await readFolderRawList(subdir, { force: options.refreshSubdirs })
+    found.push(...resolveSiblings(subdir, parts.name, subEntries, extensions))
   }
-  catch (error) {
-    console.error('find sibling files failed', error)
-    return []
-  }
+  return found
 }
 
 /** 拆出所在目录与文件名；盘符根 `K:/x` 的目录是 `K:/` 而不是 `K:`。 */
@@ -106,42 +108,3 @@ function resolveSiblings(dir: string, mediaName: string, entries: readonly IEntr
   const suffixed = pickSuffixedSiblings(mediaName, names, extensions)
   return [...exact, ...suffixed].map(name => joinPath(dir, name))
 }
-
-/**
- * 目录条目缓存。
- *
- * 一个歌单里每首歌都会问一次「旁边有没有歌词」，没有歌词的话每首歌都得把整个目录列
- * 一遍。缓存整份列表就没有这个问题；字幕子目录也要靠同一份列表发现，所以缓存的是
- * 条目而不是名字。
- *
- * 失效和资源管理器的列表缓存一样，只靠服务端的 `fs.changed` 广播（新增、改名、删除、
- * 任务结束都会推；`fs.list` 过的目录服务端在监听），所以刚放进去的字幕马上能被看到，
- * 不需要 TTL 之类的兜底。
- */
-const DIR_CACHE_MAX = 8
-const dirCache = new Map<string, IEntry[]>()
-
-function cachedEntries(dir: string): IEntry[] | undefined {
-  return dirCache.get(normalizeListingPath(dir))
-}
-
-async function listEntries(dir: string): Promise<IEntry[]> {
-  const key = normalizeListingPath(dir)
-  const entries = await fs.list(dir)
-  if (dirCache.size >= DIR_CACHE_MAX) {
-    // Map 保持插入顺序，最早的目录最先被淘汰
-    const oldest = dirCache.keys().next().value
-    if (oldest)
-      dirCache.delete(oldest)
-  }
-  dirCache.set(key, entries)
-  return entries
-}
-
-// 目录变了就丢掉缓存；和资源管理器订阅的是同一条消息
-subscribeFsChanged((paths, changes) => {
-  for (const dir of paths)
-    dirCache.delete(normalizeListingPath(dir))
-  for (const change of changes)
-    dirCache.delete(normalizeListingPath(change.dir))
-})
