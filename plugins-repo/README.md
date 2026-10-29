@@ -10,6 +10,7 @@ Plugins in the repository that have already been adapted for the [File Lite plug
 
 Click the link to download the plugin archive.
 
+- [plugin-OnlyofficePersonal-9.3.0.133-20261029.7z](https://github.com/canwdev/file-lite/releases/download/v1.5.1/plugin-OnlyofficePersonal-9.3.0.133-20261029.7z): OnlyOffice Personal plugin for viewing and editing office documents. Source: [fernfei/OnlyofficePersonal](https://github.com/fernfei/OnlyofficePersonal)
 - [jspaint.7z](https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-jspaint.7z): Recreation of Microsoft Paint for drawing and editing images. [jspaint](https://github.com/1j01/jspaint)
 - [webamp-player.7z](https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-webamp-player.7z): Re-implementation of [Winamp](https://en.wikipedia.org/wiki/Winamp) in HTML5 and JavaScript, featuring full skin support and playback capabilities.
 - [markdown-viewer.7z](https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-markdown-viewer.7z): A plugin for rendering and viewing Markdown documents, built on the [Marked](https://github.com/markedjs/marked) library.
