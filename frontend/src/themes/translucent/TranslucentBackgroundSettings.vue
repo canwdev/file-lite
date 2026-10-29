@@ -131,7 +131,7 @@ async function onFileChange(event: Event) {
         :disabled="busy"
         @click="pickFile"
       >
-        {{ busy ? 'Uploading…' : 'Upload' }}
+        {{ busy ? 'Uploading' : 'Upload...' }}
       </button>
       <input ref="fileInput" class="translucent-background__file" type="file" accept="image/*" @change="onFileChange">
     </div>

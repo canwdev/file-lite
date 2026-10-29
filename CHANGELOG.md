@@ -2,6 +2,16 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.5.2
+
+### UI
+
+- **Folder view**: The list or grid view is saved per folder and inherited by its subfolders, instead of one global view for every folder (frontend).
+
+### Fixes
+
+- **Folder state**: The sort mode is saved per folder and inherited by subfolders (frontend).
+
 ## 1.5.1
 
 ### UI

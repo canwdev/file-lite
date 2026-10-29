@@ -41,7 +41,7 @@ const props = withDefaults(
     active?: boolean
     // 本面板是不是当前聚焦的面板：拆分项里两个面板只有一个是
     focused?: boolean
-    // 面板自己的视图偏好（list/grid、图标大小）；不传则用全局设置
+    // 面板自己的图标大小偏好；不传则用全局设置
     view?: ExplorerPaneView
   }>(),
   {
@@ -95,7 +95,6 @@ function syncBranchViewProp(enabled: boolean) {
   if (Boolean(props.view?.branch) === enabled)
     return
   const base = props.view ?? {
-    grid: localSettingsStore.value.isGridView,
     iconSizeList: localSettingsStore.value.iconSizeList,
     iconSizeGrid: localSettingsStore.value.iconSizeGrid,
   }

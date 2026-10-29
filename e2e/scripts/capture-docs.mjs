@@ -1,4 +1,4 @@
-// 生成 README 里那张功能表格用的截图：起一台演示服务器，把上面列出的功能逐个截下来，
+// 生成 README 展示用的功能截图：起一台演示服务器，把下面列出的功能逐个截下来，
 // 输出到 docs/screenshots/（webp，宽度 1280）。00-main.webp 是手工精修的主图，这里不碰。
 //
 //   cd e2e && bun run docs:screenshots              # 首次会下载演示素材，之后复用缓存
@@ -234,7 +234,13 @@ async function placeWindow(window, x, y) {
   }, { x, y })
 }
 
-/** 08 属性窗口：每个选中项各开一扇小窗，可同时摆开。 */
+/**
+ * 08 属性窗口：每个选中项各开一扇小窗，可同时摆开。
+ *
+ * 三扇窗排成一条向下的阶梯：起始 y 落在整个文件列表下方，标签栏、地址栏、
+ * 工具栏和文件列表都露在窗口上方，不会“挡住背后的 UI”；每扇窗只压住前一扇的
+ * 右下角，标题栏依次可见，前后层叠关系一眼能看出来。
+ */
 async function shotProperties(page) {
   await goToRoot(page)
   const names = ['Pictures', 'Documents', 'Music']
@@ -257,9 +263,9 @@ async function shotProperties(page) {
   const windows = page.locator('.app-window')
   await expect(windows).toHaveCount(3)
   const placements = [
-    [28, 56],
-    [490, 150],
-    [940, 250],
+    [130, 370],
+    [480, 445],
+    [840, 520],
   ]
   for (const [index, win] of (await windows.all()).entries()) {
     await expect(win.locator('.properties-row', { hasText: 'Contains' }).locator('.properties-value'))

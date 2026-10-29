@@ -12,16 +12,39 @@
 
 ![File Lite](../screenshots/00-main.webp)
 
-| 截图 | 功能 |
-| :-: | :-- |
-| ![标签页与分栏](../screenshots/01-tabs-split.webp) | **标签页与分栏**：类似 Chrome 的标签页，加上 Total Commander 式的多栏视图，横竖都可以，文件能从一个栏直接拖到另一个栏。 |
-| ![传输与后台任务](../screenshots/02-transfers-tasks.webp) | **传输与后台任务**：上传和下载；复制、移动、删除在服务端进行，带进度和取消，集中在右上角面板。 |
-| ![Endless Gallery](../screenshots/03-gallery.webp) | **Endless Gallery**：把当前文件夹里的图片、视频和音频排成短视频式的竖向信息流，支持触摸、滚轮和键盘，并有收藏列表。 |
-| ![音乐播放器](../screenshots/04-music-player.webp) | **音乐播放器**：播放列表、内嵌封面和同步歌词。 |
-| ![视频播放器](../screenshots/05-video-player.webp) | **视频播放器**：ArtPlayer 或原生 `<video>`，可在应用菜单里切换，并记住上次打开的文件。 |
-| ![预览与缩略图](../screenshots/06-thumbnails.webp) | **预览与缩略图**：图片预览、视频首帧（ffmpeg）和音频封面都由服务端生成，并缓存在浏览器里。 |
-| ![文本编辑器](../screenshots/07-text-editor.webp) | **文本编辑器**：在浏览器里直接编辑并保存文本文件。 |
-| ![属性窗口](../screenshots/08-properties.webp) | **Windows 风格的属性**：内置应用支持多窗口，也可以最小化。 |
+## 截图
+
+**标签页与分栏**：类似 Chrome 的标签页，加上 Total Commander 式的多栏视图，横竖都可以，文件能从一个栏直接拖到另一个栏。
+
+![标签页与分栏](../screenshots/01-tabs-split.webp)
+
+**传输与后台任务**：上传和下载；复制、移动、删除在服务端进行，带进度和取消，集中在右上角面板。
+
+![传输与后台任务](../screenshots/02-transfers-tasks.webp)
+
+**Endless Gallery**：把当前文件夹里的图片、视频和音频排成短视频式的竖向信息流，支持触摸、滚轮和键盘，并有收藏列表。
+
+![Endless Gallery](../screenshots/03-gallery.webp)
+
+**音乐播放器**：播放列表、内嵌封面和同步歌词。
+
+![音乐播放器](../screenshots/04-music-player.webp)
+
+**视频播放器**：ArtPlayer 或原生 `<video>`，可在应用菜单里切换，并记住上次打开的文件。
+
+![视频播放器](../screenshots/05-video-player.webp)
+
+**预览与缩略图**：图片预览、视频首帧（ffmpeg）和音频封面都由服务端生成，并缓存在浏览器里。
+
+![预览与缩略图](../screenshots/06-thumbnails.webp)
+
+**文本编辑器**：在浏览器里直接编辑并保存文本文件。
+
+![文本编辑器](../screenshots/07-text-editor.webp)
+
+**多窗口**：内置应用可以同时打开多个窗口，能叠放，也能最小化。
+
+![多窗口](../screenshots/08-properties.webp)
 
 - **后端**：单个 Go (Echo) 服务，界面内嵌，打成一个静态二进制
 - **体积**：大约 **10MB**

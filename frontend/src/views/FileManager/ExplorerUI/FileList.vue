@@ -25,7 +25,7 @@ import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
 import { composeSortMode, parseSortMode } from '../utils/sort'
 import { acceptDirDrag, beginEntryDrag, dragSession, dropIntoDir, endEntryDrag, isExternalFileDrag, isInternalDrag, useDragEnabled } from './entry-drag'
-import { explorerStateMap, groupDescRef, groupFieldRef, sortModeRef } from './explorer-state'
+import { explorerStateMap, gridRef, groupDescRef, groupFieldRef, scrollPositionMap, sortModeRef } from './explorer-state'
 import { createDefaultFileFilter, isFileFilterActive } from './file-filter'
 import { getEntryTypeLabel } from './file-type'
 import FileGridItem from './FileGridItem.vue'
@@ -58,7 +58,7 @@ const props = withDefaults(
      * 否则后台面板一加载完就会把活动面板抢走。
      */
     focused?: boolean
-    /** 面板自己的视图偏好（list/grid、图标大小）；不传则用全局设置 */
+    /** 面板自己的图标大小偏好；不传则用全局设置 */
     view?: ExplorerPaneView
     /**
      * 上一次列目录失败的原因；非空时列表区显示错误空状态而不是「This folder is empty」。
@@ -101,14 +101,15 @@ function clearCollapsedGroups() {
 }
 
 /**
- * 视图偏好（list/grid、图标大小）属于**面板**：拆分视图里两个面板各看各的，
+ * 图标大小偏好属于**面板**：拆分视图里两个面板各看各的，
  * 改一个不会带着另一个一起变。面板还没设置过时回落到全局设置。
  *
  * 状态由外壳持有（挂在标签 store 的面板上，跟着标签一起持久化），这里只按值收发：
  * 外壳没有接线（选择器窗口）时也不会丢，它会把这一份写回全局设置。
+ *
+ * 列表/图标视图（grid）不在面板上：它按目录持久化并沿祖先继承（见 `gridRef`）。
  */
 const paneView = computed<ExplorerPaneView>(() => props.view ?? {
-  grid: localSettingsStore.value.isGridView,
   iconSizeList: localSettingsStore.value.iconSizeList,
   iconSizeGrid: localSettingsStore.value.iconSizeGrid,
 })
@@ -117,10 +118,8 @@ function updatePaneView(patch: Partial<ExplorerPaneView>) {
   emit('update:view', { ...paneView.value, ...patch })
 }
 
-const isGridView = computed({
-  get: () => paneView.value.grid,
-  set: (val: boolean) => updatePaneView({ grid: val }),
-})
+/** 列表/图标视图：目录自己的设置 > 祖先继承 > 默认列表。 */
+const isGridView = gridRef(basePath)
 const isBranchView = computed({
   get: () => Boolean(paneView.value.branch) && !selectFileMode.value,
   set: (val: boolean) => {
@@ -1588,7 +1587,7 @@ useShortcut({
 })
 
 // 缓存滚动位置
-function getSetScrollPosition(action: 'get' | 'set', value = 0) {
+function getSetScrollPosition(action: 'get' | 'set', value = 0): number {
   const el = explorerContentRef.value
   if (!el) {
     return 0
@@ -1596,9 +1595,8 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0) {
   if (action === 'get') {
     return el.scrollTop
   }
-  else if (action === 'set') {
-    el.scrollTop = value
-  }
+  el.scrollTop = value
+  return value
 }
 
 function scrollToFile(name: string) {
@@ -1668,10 +1666,10 @@ function selectAndReveal(name: string) {
  * 恢复本目录上次的滚动位置。
  *
  * 保活的标签被重新显示时调用：`display:none` 期间容器尺寸为 0，虚拟列表的可视区是空的，
- * 需要重新量一次并滚回去（位置按 path 存在 explorerStateMap 里）。
+ * 需要重新量一次并滚回去（位置按 path 存在内存里的 scrollPositionMap 中，刷新即失效）。
  */
 function restoreViewport() {
-  const position = explorerStateMap.value[basePath.value]?.position || 0
+  const position = scrollPositionMap[basePath.value] ?? 0
   nextTick(() => {
     virtualList.refresh()
     virtualGrid.refresh()
@@ -1686,20 +1684,13 @@ function restoreViewport() {
 }
 
 watchDebounced(files, () => {
-  if (explorerStateMap.value[basePath.value]) {
+  if (scrollPositionMap[basePath.value] !== undefined) {
     restoreViewport()
   }
 }, { debounce: 100, maxWait: 1000 })
 const debounceHandleScroll = useDebounceFn(() => {
   const position = getSetScrollPosition('get')
-  if (!explorerStateMap.value[basePath.value]) {
-    explorerStateMap.value[basePath.value] = { position }
-  }
-  else {
-    explorerStateMap.value[basePath.value].position = position
-  }
-
-  // console.log('save', basePath.value, position)
+  scrollPositionMap[basePath.value] = position
 }, 500)
 useEventListener(() => explorerContentRef.value, 'scroll', debounceHandleScroll)
 

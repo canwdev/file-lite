@@ -1,6 +1,7 @@
 import type { SortField } from '../utils/sort'
 import type { PathState } from './path-state'
 import { useStorage } from '@vueuse/core'
+import { reactive } from 'vue'
 import { LsKeys } from '@/enum'
 import { SortType } from '@/types/server'
 import { normalizeListingPath } from '../utils'
@@ -19,6 +20,11 @@ export const explorerStateMap = useStorage<Record<string, PathState>>(
   localStorage,
   { listenToStorageChanges: false },
 )
+
+/**
+ * 滚动位置只在当前页面内存里保留（键为 listing 路径），刷新页面即失效，不持久化。
+ */
+export const scrollPositionMap = reactive<Record<string, number>>({})
 
 /** 只写某个目录**自己**的状态，不碰继承链 */
 function writeOwnPathState<K extends keyof PathState>(path: string, key: K, val: NonNullable<PathState[K]>) {
@@ -48,6 +54,11 @@ export function getPathGroupDesc(path: string): boolean {
   return resolveInheritedPathState(explorerStateMap.value, path, 'groupDesc', mountPaths()) ?? false
 }
 
+/** 有效列表/图标视图：目录自己的手动设置 > 最近一个手动设置过的祖先 > 默认列表。 */
+export function getPathGrid(path: string): boolean {
+  return resolveInheritedPathState(explorerStateMap.value, path, 'grid', mountPaths()) ?? false
+}
+
 /** 排序 ref：读走继承解析，写落在当前目录自己的记录上 */
 export function sortModeRef(path: Ref<string>) {
   return computed({
@@ -69,5 +80,13 @@ export function groupDescRef(path: Ref<string>) {
   return computed({
     get: () => getPathGroupDesc(path.value),
     set: (val: boolean) => writeOwnPathState(path.value, 'groupDesc', val),
+  })
+}
+
+/** 列表/图标视图 ref，读写语义同 `sortModeRef` */
+export function gridRef(path: Ref<string>) {
+  return computed({
+    get: () => getPathGrid(path.value),
+    set: (val: boolean) => writeOwnPathState(path.value, 'grid', val),
   })
 }
