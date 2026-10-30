@@ -167,7 +167,7 @@ Opens the file manager's own picker dialog and resolves with what the user chose
 - `folder` — one folder; `path` is the folder.
 - `save` — a folder plus a typed file name; `path` is the file to write.
 
-`extensions` filters what can be picked (dots included). `startPath` sets the folder the dialog opens at, `defaultName` pre-fills the name in `save` mode. Nothing is written by `pick` itself: a `save` result is a path, and the plugin still calls `writeFile`.
+`extensions` filters what can be picked (dots included). Each request is independent: omitting `extensions` or passing an empty list leaves the picker unfiltered, without reusing the extension filter of an earlier `pick`. `startPath` sets the folder the dialog opens at, `defaultName` pre-fills the name in `save` mode. Nothing is written by `pick` itself: a `save` result is a path, and the plugin still calls `writeFile`.
 
 ```js
 fileLiteSDK.pick({ mode: 'save', defaultName: 'note.txt', extensions: ['.txt'] }).then(function (target) {

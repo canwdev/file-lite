@@ -35,6 +35,8 @@ const props = withDefaults(
     contentOnly?: boolean
     // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"
     fileFilterPattern?: string
+    // 每次打开选择器都会变：用它复位选择器自己的输入（过滤条件）
+    requestId?: number
     // 快捷键作用域，供主文件管理器和文件选择器隔离
     shortcutScope: string
     // 所在标签项是否活动（拆分项里的两个面板会同时为 true）：决定是否首次加载与恢复滚动
@@ -261,17 +263,20 @@ watch(basePathNormalized, () => {
   }
 })
 
-watch(() => props.fileFilterPattern, (pattern) => {
-  if (pattern) {
-    filterState.value = {
-      text: pattern,
-      regex: true,
-      caseSensitive: false,
-    }
-  }
-}, {
-  immediate: true,
-})
+/**
+ * 选择器在两次请求之间保持挂载，过滤条件属于单次请求的输入：每次请求都从该
+ * 请求的 `fileFilterPattern` 重新开始。否则上一次按后缀过滤的条件会留到下一次
+ * （尤其是下一次不传 `extensions`，看起来就像继承了上一次的过滤）。
+ */
+watch(
+  () => [props.requestId, props.fileFilterPattern] as const,
+  ([, pattern]) => {
+    filterState.value = pattern
+      ? { text: pattern, regex: true, caseSensitive: false }
+      : createDefaultFileFilter()
+  },
+  { immediate: true },
+)
 
 watch(isLoading, async (loading) => {
   if (!loading && highlightFolderName.value) {

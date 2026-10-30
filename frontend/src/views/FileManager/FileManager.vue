@@ -580,6 +580,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
         :multiple="multiple"
         :content-only="contentOnly"
         :file-filter-pattern="fileFilterPattern"
+        :request-id="requestId"
         @update:view="onSelectorViewUpdate"
         @handle-select="emit('handleSelect', $event)"
         @cancel-select="emit('cancelSelect')"

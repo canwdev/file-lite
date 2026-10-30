@@ -14,6 +14,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **File picker**: A new pick no longer inherits the filter from the previous one, so `pick` without `extensions` shows every file (frontend).
 - **Text editor**: A text file opened for the first time showed an empty editor until the window was closed and opened again (frontend).
 - **Unsaved prompt**: The dialog asks whether to discard the changes, with a Discard button, instead of "continue to exit/reload" (frontend).
 - **Monaco Editor plugin**: Documents open and save in their own encoding, the window title is the file's full path, and the status line no longer says "Opening …" long after the document has loaded (frontend).
