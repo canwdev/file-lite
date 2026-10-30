@@ -58,7 +58,9 @@ interface FileLiteSdk {
   readFile(path: string): Promise<ArrayBuffer>
   readText(path: string): Promise<{ text: string, charset: string }>
   writeFile(path: string, data: BlobPart, options?: SdkWriteOptions): Promise<SdkWriteResult>
+  pick(options?: SdkPickOptions): Promise<SdkPickResult | null>
   url(path: string): string
+  stream(path: string, options?: { signal?: AbortSignal }): Promise<Response>
 
   getLaunch(): Promise<SdkLaunch | null>
   onOpen(callback: (launch: SdkOpenEvent | undefined) => void): void
@@ -114,6 +116,30 @@ interface SdkWriteResult {
   path: string
   name: string
 }
+
+interface SdkPickOptions {
+  /** Default `file`. */
+  mode?: 'file' | 'files' | 'folder' | 'save'
+  /** Dialog title; the host picks a sensible default. */
+  title?: string
+  /** Extensions including the dot, e.g. `['.txt', '.md']`. File modes only. */
+  extensions?: string[]
+  /** Suggested file name for `save`. */
+  defaultName?: string
+  /** Folder the dialog opens at; defaults to the launch directory. */
+  startPath?: string
+}
+
+interface SdkPickResult {
+  /** Chosen files (`file` / `files`); empty for `folder` and `save`. */
+  items: SdkEntry[]
+  /** The folder the dialog was in when it was accepted. */
+  directory: string
+  /** `save`: the path to write. `file`: the chosen file. `folder`: the folder. `files`: ''. */
+  path: string
+  /** Last segment of `path`; for `save` the name that was typed. */
+  name: string
+}
 ```
 
 ### list(path)
@@ -132,9 +158,39 @@ Reads a text file. The returned `text` is always UTF-8, and `charset` is the enc
 
 Writes `data` — an `ArrayBuffer`, a typed array or a `Blob`; a plain string is rejected, because a string has no encoding — to `path` and resolves with where it landed. A missing path is rejected before anything is written. `options.conflict` decides what happens when the file already exists; the default `overwrite` is what a save means. Without `options.charset` the bytes are stored as UTF-8.
 
+### pick(options?)
+
+Opens the file manager's own picker dialog and resolves with what the user chose, or `null` when it is cancelled. This is the only way a plugin asks for a file or a save target: the host owns the dialog, so it is the same picker the built-in apps use, and it is not limited by the plugin window's size.
+
+- `file` — one existing file; `items` has it, and `path`/`name` point at it.
+- `files` — one or more files; read `items`.
+- `folder` — one folder; `path` is the folder.
+- `save` — a folder plus a typed file name; `path` is the file to write.
+
+`extensions` filters what can be picked (dots included). `startPath` sets the folder the dialog opens at, `defaultName` pre-fills the name in `save` mode. Nothing is written by `pick` itself: a `save` result is a path, and the plugin still calls `writeFile`.
+
+```js
+fileLiteSDK.pick({ mode: 'save', defaultName: 'note.txt', extensions: ['.txt'] }).then(function (target) {
+  if (!target)
+    return // cancelled
+  return fileLiteSDK.writeFile(target.path, new Blob([text]), { conflict: 'overwrite' })
+})
+```
+
 ### url(path)
 
-Builds the stream URL synchronously, for `src` and `href`. It needs no round trip to the host, so it can be used while rendering.
+Builds the stream URL synchronously, for `src` and `href`. It needs no round trip to the host, so it can be used while rendering. The URL supports `Range` requests, so an `<audio>`/`<video>` element streams and seeks without reading the file first.
+
+### stream(path, options?)
+
+`fetch`es that same stream URL and resolves with the `Response`, so the body can be read in chunks:
+
+```js
+const response = await fileLiteSDK.stream(path)
+const reader = response.body.getReader()
+```
+
+It runs in the page (a `ReadableStream` cannot be sent through `postMessage`), so it costs no host round trip; the request carries the page's session. Use it for large files — a log, an archive, a media file — instead of `readFile`, which materialises the whole file in memory.
 
 ### getLaunch()
 
@@ -162,7 +218,7 @@ Closes the current window. `window.close` is the same call: the host overrides i
 
 `path` is always the file's full path, and read, write and explorer actions use the same scope as the file manager. Do not destructure a possibly `undefined` callback argument.
 
-There is no API to create a directory, pick a file, write a save-as back, or talk to another plugin.
+There is no API to create a directory, rename or delete, or talk to another plugin; `pick` only returns paths.
 
 ### Example
 

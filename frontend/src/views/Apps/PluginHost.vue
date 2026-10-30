@@ -5,6 +5,7 @@ import type { AppParams } from '@/views/Apps/apps.ts'
 import { createSdkBroker, dirOf } from '@/sdk/broker'
 import { createIframeBridge } from '@/sdk/iframe-bridge'
 import { fs } from '@/utils/fs'
+import { openFilePicker } from '@/views/FileManager/file-picker'
 import { launchFromParams, paramsFromLaunch } from './app-launch'
 
 const props = defineProps<{
@@ -29,6 +30,7 @@ const broker = createSdkBroker({
   setTitle: (title: string) => emit('setTitle', title),
   selectItems: (names: string[]) => emit('selectItems', names),
   revealItem: (name: string) => emit('revealItem', name),
+  pick: options => openFilePicker(options, launchFromParams(props.appParams).directory),
 }, fs)
 
 const iframeRef = ref<HTMLIFrameElement>()

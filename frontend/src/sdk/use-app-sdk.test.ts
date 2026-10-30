@@ -14,6 +14,7 @@ function host(launch: SdkLaunch | null = null) {
     setTitle: () => {},
     selectItems: () => {},
     revealItem: () => {},
+    pick: async () => null,
   }
   return context
 }

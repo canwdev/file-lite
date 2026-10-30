@@ -32,8 +32,7 @@
     "cancel": "取消",
     "cancelled": "已取消",
     "case_sensitive": "区分大小写",
-    "changes_not_saved_continue_to_ex": "更改尚未保存。仍要退出吗？",
-    "changes_not_saved_continue_to_re": "更改尚未保存。仍要重新加载吗？",
+    "changes_not_saved_continue_to_ex": "更改尚未保存，放弃更改？",
     "clear": "清除",
     "clear_failed": "清除失败项",
     "clear_finished": "清除已完成项",
@@ -118,7 +117,6 @@
     "file_picker": "文件选择器",
     "file_system": "文件系统",
     "file_too_large_to_edit": "文件过大，无法编辑",
-    "file_viewer": "文件查看器",
     "filter_bar": "筛选栏",
     "filter_by_key_scope_or_descripti": "按键、作用域或描述筛选",
     "filter_name": "筛选名称",
@@ -323,6 +321,10 @@
     "work_in_progress": "进行中",
     "yesterday": "昨天",
     "zoom_in": "放大",
-    "zoom_out": "缩小"
+    "zoom_out": "缩小",
+    "save_as": "另存为",
+    "file_name": "文件名",
+    "discard": "放弃",
+    "file_exists_overwrite_0": "“{0}”已存在，要覆盖它吗？"
   }
 }

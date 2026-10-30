@@ -1,60 +1,81 @@
 <script lang="ts" setup="">
+import type { SdkPickMode } from '@/sdk/contract'
 import type { FileSelectResult } from '@/views/FileManager/types'
 import { ModalWindow } from '@canwdev/vgo-ui'
 import FileManager from '@/views/FileManager/FileManager.vue'
 
+/**
+ * The file/folder/save picker dialog.
+ *
+ * It is driven by `file-picker.ts` (`openFilePicker`) and rendered once by
+ * `FilePickerHost.vue`; every caller — built-in app, plugin through the SDK,
+ * toolbar button — ends up here, so there is one dialog and one shortcut scope.
+ */
 const props = withDefaults(
   defineProps<{
-    // 是否文件(夹)选择器
-    selectFileMode?: 'file' | 'folder'
-    // 文件选择器允许多选
-    multiple?: boolean
-    showButton?: boolean
-    autoShow?: boolean
-    // 文件后缀过滤正则，如 "\\.(mp4|webm|mkv)$"，仅对 selectFileMode='file' 有效
-    fileFilterPattern?: string
-    // 窗口标题；缺省用动作名（Open File... / Open Folder...）
+    visible: boolean
+    /** `file` / `files` / `folder` / `save`; see `SdkPickMode`. */
+    mode?: SdkPickMode
+    /** Extensions including the dot, e.g. `['.txt', '.md']`. File modes only. */
+    extensions?: string[]
+    /** Suggested file name in `save` mode. */
+    defaultName?: string
+    /** Window title; defaults to an action name. */
     title?: string
-    // 窗口初始尺寸
+    /** Folder to start at; the picker remembers the last folder otherwise. */
+    startPath?: string
+    /** Changes on every open; the file manager resets per-dialog inputs (save name). */
+    requestId?: number
     width?: string
     height?: string
-    // 传入后记忆窗口位置与大小
+    /** Remember the window's position and size under this id. */
     wid?: string
   }>(),
   {
-    selectFileMode: 'file',
-    showButton: false,
-    multiple: false,
-    autoShow: false,
+    mode: 'file',
+    defaultName: '',
     title: '',
-    width: '500px',
-    height: '500px',
+    startPath: '',
+    width: 'min(900px, 92vw)',
+    height: 'min(640px, 88vh)',
   },
 )
+
 const emit = defineEmits<{
-  handleSelect: [item: FileSelectResult]
-  close: []
-  open: []
+  select: [result: FileSelectResult]
+  cancel: []
 }>()
-const { selectFileMode, multiple, autoShow, fileFilterPattern, title, width, height, wid } = toRefs(props)
 
-const isShowFileSelectWindow = ref(false)
-// 第一次打开后才挂载 FileManager，之后保持挂载：窗口再开关不会重建列表 / 重拉驱动器
-const hasMounted = ref(false)
+const { visible, mode, extensions, defaultName, startPath, title, width, height, wid } = toRefs(props)
 
-function handleSelect(item: FileSelectResult) {
-  isShowFileSelectWindow.value = false
-  emit('handleSelect', item)
+/** The picker speaks `file` / `folder` / `save`; multi-select is its own flag. */
+const selectFileMode = computed<'file' | 'folder' | 'save'>(() => {
+  if (mode.value === 'folder') {
+    return 'folder'
+  }
+  return mode.value === 'save' ? 'save' : 'file'
+})
+const multiple = computed(() => mode.value === 'files')
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-const actionLabel = computed(() => {
-  return selectFileMode.value === 'file'
-    ? multiple.value
-      ? $t('file_lite_i18n.open') + ELLIPSIS
-      : $t('file_lite_i18n.open') + ELLIPSIS
-    : $t('file_lite_i18n.open') + ELLIPSIS
+/** `['.txt', '.md']` → `\.(txt|md)$`, the shape `FileManager` already filters with. */
+const fileFilterPattern = computed(() => {
+  const list = (extensions.value ?? []).map(ext => escapeRegExp(ext.replace(/^\./, '')))
+  return list.length ? `\\.(${list.join('|')})$` : ''
 })
 
+const actionLabel = computed(() => {
+  if (mode.value === 'folder') {
+    return $t('file_lite_i18n.select') + ELLIPSIS
+  }
+  if (mode.value === 'save') {
+    return $t('file_lite_i18n.save_as') + ELLIPSIS
+  }
+  return $t('file_lite_i18n.open') + ELLIPSIS
+})
 const windowTitle = computed(() => title.value || actionLabel.value)
 
 const windowInit = computed(() => ({
@@ -62,59 +83,71 @@ const windowInit = computed(() => ({
   height: height.value,
 }))
 
-onMounted(() => {
-  if (autoShow.value) {
-    isShowFileSelectWindow.value = true
-  }
-})
-
-watch(isShowFileSelectWindow, (newVal) => {
-  if (newVal) {
+// 第一次打开后才挂载 FileManager，之后保持挂载：窗口再开关不会重建列表 / 重拉驱动器
+const hasMounted = ref(false)
+watch(visible, (isVisible) => {
+  if (isVisible) {
     hasMounted.value = true
-    emit('open')
+  }
+}, { immediate: true })
+
+/**
+ * The dialog reports exactly one outcome, whichever way it was closed: a
+ * selection, or a cancel (Cancel button, X, mask click, Esc). The host clears
+ * the request, which is what hides the window.
+ */
+let settled = false
+watch(visible, (isVisible) => {
+  if (isVisible) {
+    settled = false
+  }
+}, { immediate: true })
+
+function settle(result?: FileSelectResult) {
+  if (settled) {
+    return
+  }
+  settled = true
+  if (result) {
+    emit('select', result)
   }
   else {
-    emit('close')
+    emit('cancel')
   }
-})
+}
 
-defineExpose({
-  isShowFileSelectWindow,
-  show() {
-    isShowFileSelectWindow.value = true
-  },
-  close() {
-    isShowFileSelectWindow.value = false
-  },
-})
+/** ModalWindow closed itself (X / mask / Esc): that is a cancel. */
+function handleVisibleChange(isVisible: boolean) {
+  if (!isVisible) {
+    settle()
+  }
+}
 </script>
 
 <template>
-  <div class="file-selector">
-    <button v-if="showButton" class="vgo-button vgo-button--primary" @click="isShowFileSelectWindow = true">
-      {{ actionLabel }}
-    </button>
-
-    <ModalWindow
-      v-model:visible="isShowFileSelectWindow"
-      :title="windowTitle"
-      :wid="wid"
-      :init-win-options="windowInit"
-    >
-      <!-- 抵消 ModalWindow 内容区 padding，让 FileManager 铺满 -->
-      <div class="file-selector__pane">
-        <FileManager
-          v-if="hasMounted"
-          :select-file-mode="selectFileMode"
-          :multiple="multiple"
-          :file-filter-pattern="fileFilterPattern"
-          shortcut-scope="fileSelector"
-          @cancel-select="isShowFileSelectWindow = false"
-          @handle-select="handleSelect"
-        />
-      </div>
-    </ModalWindow>
-  </div>
+  <ModalWindow
+    :visible="visible"
+    :title="windowTitle"
+    :wid="wid"
+    :init-win-options="windowInit"
+    @update:visible="handleVisibleChange"
+  >
+    <!-- 抵消 ModalWindow 内容区 padding，让 FileManager 铺满 -->
+    <div class="file-selector__pane">
+      <FileManager
+        v-if="hasMounted"
+        :select-file-mode="selectFileMode"
+        :multiple="multiple"
+        :file-filter-pattern="fileFilterPattern"
+        :select-default-name="defaultName"
+        :initial-path="startPath"
+        :request-id="requestId"
+        shortcut-scope="fileSelector"
+        @cancel-select="settle()"
+        @handle-select="settle($event)"
+      />
+    </div>
+  </ModalWindow>
 </template>
 
 <style lang="scss" scoped>

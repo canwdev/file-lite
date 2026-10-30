@@ -2,17 +2,14 @@
 import type { Option, SettingOption } from 'artplayer'
 import type { Ref } from 'vue'
 import type { SubtitleSource } from '../video-subtitle'
-import type { IEntry } from '@/types/server'
-import type { FileSelectResult } from '@/views/FileManager/types'
+import type { SdkPickResult } from '@/sdk/contract'
 import { useStorage } from '@vueuse/core'
 import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
 import { useFileLiteSdk } from '@/sdk/use-app-sdk'
-import { joinPath } from '@/utils/path/form'
 import { detectBlobTextEncoding } from '@/utils/text-encoding'
-import FileSelector from '@/views/FileManager/FileSelector.vue'
 import { subtitleName, subtitleType } from '../video-subtitle'
 
 const props = withDefaults(defineProps<Props>(), {
@@ -86,13 +83,24 @@ function getPlaybackRateSelector(): PlaybackRateSettingItem[] {
 const artRef = ref<HTMLDivElement | null>(null)
 const videoFileInputRef = ref<HTMLInputElement | null>(null)
 const subtitleFileInputRef = ref<HTMLInputElement | null>(null)
-const fileSelectorRef = ref<InstanceType<typeof FileSelector> | null>(null)
-const fileSelectorType = ref<'subtitle' | 'video'>('video')
+/** 服务端文件的扩展名过滤（与自动找字幕用的列表保持一致） */
+const SERVER_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mkv', '.ogg', '.m4v']
+const SERVER_SUBTITLE_EXTENSIONS = ['.vtt', '.srt', '.ass', '.ssa']
 
-/** 打开选择器：组件常驻（首次打开才挂载内部 FileManager），这里只切可见性。 */
-function openServerFileSelector(type: 'video' | 'subtitle') {
-  fileSelectorType.value = type
-  fileSelectorRef.value?.show()
+/**
+ * 从 file-lite 里挑一个文件（视频 / 字幕）。
+ *
+ * 走 SDK 的 pick：对话框由宿主打开，所以它和文件管理器共用同一个选择器，
+ * 也不会被播放器窗口的尺寸限制。
+ */
+async function pickServerFile(type: 'video' | 'subtitle'): Promise<SdkPickResult | null> {
+  return await sdk.pick({
+    mode: 'file',
+    title: type === 'video'
+      ? $t('file_lite_i18n.open_server_video')
+      : $t('file_lite_i18n.open_server_subtitle'),
+    extensions: type === 'video' ? SERVER_VIDEO_EXTENSIONS : SERVER_SUBTITLE_EXTENSIONS,
+  })
 }
 // 使用 shallowRef 避免 Vue 深度代理复杂的第三方类实例，提升性能
 const artInstance = shallowRef<Artplayer | null>(null)
@@ -360,7 +368,7 @@ onMounted(() => {
         name: 'custom-open-server-video',
         html: $t('file_lite_i18n.open_server_video') + ELLIPSIS,
         onClick() {
-          openServerFileSelector('video')
+          void openServerVideo()
           return ''
         },
       },
@@ -377,7 +385,7 @@ onMounted(() => {
         name: 'custom-load-subtitle',
         html: $t('file_lite_i18n.load_server_subtitle') + ELLIPSIS,
         onClick() {
-          openServerFileSelector('subtitle')
+          void openServerSubtitle()
           return ''
         },
       },
@@ -475,35 +483,29 @@ onBeforeUnmount(() => {
   artInstance.value?.destroy(false)
 })
 
-function handleVideoSelect(val: FileSelectResult, item: IEntry) {
+async function openServerVideo() {
+  const picked = await pickServerFile('video')
+  const item = picked?.items[0]
   const inst = artInstance.value
-  if (!inst)
+  if (!inst || !item) {
     return
+  }
   revokeBlobRef(videoObjectUrl)
   videoObjectUrl.value = null
-  const url = sdk.url(joinPath(val.basePath, item.name))
-  if (url) {
-    // 换的是另一个文件，App 那条自动字幕已经对不上号，菜单也不能再列旧字幕
-    autoSubtitlesAvailable = false
-    clearAutoSubtitle()
-    void inst.switchUrl(url).catch(console.error)
-  }
+  // 换的是另一个文件，App 那条自动字幕已经对不上号，菜单也不能再列旧字幕
+  autoSubtitlesAvailable = false
+  clearAutoSubtitle()
+  void inst.switchUrl(sdk.url(item.path)).catch(console.error)
 }
 
-function handleFileSelect(val: FileSelectResult) {
+async function openServerSubtitle() {
+  const picked = await pickServerFile('subtitle')
+  const item = picked?.items[0]
   const inst = artInstance.value
-  const item = val.item
-  if (!inst || !item)
-    return
-  if (fileSelectorType.value === 'video') {
-    handleVideoSelect(val, item)
+  if (!inst || !item) {
     return
   }
-  const url = sdk.url(joinPath(val.basePath, item.name))
-  if (!url) {
-    return
-  }
-  inst.subtitle.switch(url, {
+  inst.subtitle.switch(sdk.url(item.path), {
     name: item.name,
     type: subtitleType(item.name),
   })
@@ -537,16 +539,6 @@ defineExpose({
       @change="onLocalSubtitlePicked"
     >
     <div ref="artRef" class="v-artplayer-container" />
-    <FileSelector
-      ref="fileSelectorRef"
-      select-file-mode="file"
-      width="min(760px, 92vw)"
-      height="min(560px, 85vh)"
-      wid="server-file-selector"
-      :title="fileSelectorType === 'video' ? $t('file_lite_i18n.open_server_video') : $t('file_lite_i18n.open_server_subtitle')"
-      :file-filter-pattern="fileSelectorType === 'video' ? '\\.(mp4|webm|mkv|ogg|m4v)$' : '\\.(vtt|srt|ass|ssa)$'"
-      @handle-select="handleFileSelect"
-    />
   </div>
 </template>
 

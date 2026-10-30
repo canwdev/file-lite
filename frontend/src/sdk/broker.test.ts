@@ -1,5 +1,5 @@
 import type { SdkFileApi } from './broker'
-import type { SdkHostContext, SdkLaunch } from './contract'
+import type { SdkHostContext, SdkLaunch, SdkPickOptions } from './contract'
 import type { IEntry } from '@/types/server'
 import { describe, expect, test } from 'bun:test'
 import { baseOf, createSdkBroker, dirOf, toSdkEntry } from './broker'
@@ -56,6 +56,7 @@ function host(launch: SdkLaunch | null = null) {
     setTitle: title => calls.push(`title:${title}`),
     selectItems: names => calls.push(`select:${names.join(',')}`),
     revealItem: name => calls.push(`reveal:${name}`),
+    pick: async options => ({ items: [], directory: '/a', path: '', name: String(options.mode ?? 'file') }),
   }
   return { context, calls, launch: () => current }
 }
@@ -183,6 +184,33 @@ describe('broker', () => {
     expect(await rejectionReason(broker.invoke('writeFile', { path: '/a.txt' })))
       .toBe('writeFile needs an ArrayBuffer, a typed array or a Blob')
     expect(files.written).toEqual([])
+  })
+
+  test('pick defaults to a single file and passes the options through', async () => {
+    const picked: unknown[] = []
+    const { context } = host()
+    context.pick = async (options) => {
+      picked.push(options)
+      return { items: [], directory: '/a', path: '', name: '' }
+    }
+    const broker = createSdkBroker(context, fakeFiles())
+
+    await broker.invoke('pick', {})
+    await broker.invoke('pick', { pick: { mode: 'save', defaultName: 'x.txt', extensions: ['.txt'] } })
+
+    expect(picked).toEqual([
+      { mode: 'file' },
+      { mode: 'save', defaultName: 'x.txt', extensions: ['.txt'] },
+    ])
+  })
+
+  test('pick rejects a mode the host does not implement', async () => {
+    const { context } = host()
+    const broker = createSdkBroker(context, fakeFiles())
+    // A plugin can send anything over `postMessage`, so validate at runtime.
+    const unknownMode = { mode: 'album' } as unknown as SdkPickOptions
+    expect(await rejectionReason(broker.invoke('pick', { pick: unknownMode })))
+      .toBe('unknown pick mode: album')
   })
 
   test('unknown methods reject', async () => {

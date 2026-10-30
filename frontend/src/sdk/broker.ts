@@ -4,6 +4,8 @@ import type {
   SdkHostContext,
   SdkLaunch,
   SdkMethod,
+  SdkPickMode,
+  SdkPickOptions,
   SdkTextFile,
   SdkWriteOptions,
   SdkWriteResult,
@@ -22,6 +24,7 @@ export interface SdkInvokePayload {
   title?: string
   names?: string[]
   name?: string
+  pick?: SdkPickOptions
 }
 
 export interface SdkBroker {
@@ -147,6 +150,16 @@ export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBro
     }
   }
 
+  const PICK_MODES: readonly SdkPickMode[] = ['file', 'files', 'folder', 'save']
+
+  async function pick(options: SdkPickOptions | undefined) {
+    const mode = options?.mode ?? 'file'
+    if (!PICK_MODES.includes(mode)) {
+      throw new TypeError(`unknown pick mode: ${String(mode)}`)
+    }
+    return await host.pick({ ...options, mode })
+  }
+
   function getLaunch(): SdkLaunch | null {
     return host.getLaunch()
   }
@@ -167,6 +180,8 @@ export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBro
           return await readText(path)
         case 'writeFile':
           return await writeFile(path, payload.data, payload.options)
+        case 'pick':
+          return await pick(payload.pick)
         case 'url':
           return files.url(path)
         case 'getLaunch':

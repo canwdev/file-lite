@@ -32,8 +32,7 @@
     "cancel": "キャンセル",
     "cancelled": "キャンセル済み",
     "case_sensitive": "大文字と小文字を区別",
-    "changes_not_saved_continue_to_ex": "変更が保存されていません。終了しますか？",
-    "changes_not_saved_continue_to_re": "変更が保存されていません。再読み込みしますか？",
+    "changes_not_saved_continue_to_ex": "変更は保存されていません。破棄しますか？",
     "clear": "クリア",
     "clear_failed": "クリア失敗",
     "clear_finished": "クリア完了",
@@ -116,7 +115,6 @@
     "file_picker": "ファイルピッカー",
     "file_system": "ファイルシステム",
     "file_too_large_to_edit": "ファイルが大きすぎて編集できません",
-    "file_viewer": "ファイルビューアー",
     "filter_bar": "フィルターバー",
     "filter_by_key_scope_or_descripti": "キー、スコープ、または説明でフィルター",
     "filter_name": "フィルター名",
@@ -319,6 +317,10 @@
     "work_in_progress": "作業中",
     "yesterday": "昨日",
     "zoom_in": "ズームイン",
-    "zoom_out": "ズームアウト"
+    "zoom_out": "ズームアウト",
+    "save_as": "名前を付けて保存",
+    "file_name": "ファイル名",
+    "discard": "破棄",
+    "file_exists_overwrite_0": "「{0}」は既に存在します。上書きしますか？"
   }
 }

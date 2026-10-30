@@ -6,13 +6,21 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
-- **Plugin SDK**: Built-in apps and plugins now share one API; plugins can read text files in their own encoding, build stream URLs, inspect and update their launch state, and select or reveal files in the explorer (frontend).
+- **Plugin SDK**: Built-in apps and plugins now share one API; plugins can read text files in their own encoding, build stream URLs, stream a file in chunks, inspect and update their launch state, select or reveal files in the explorer, and open the file picker (frontend).
+- **File picker**: The file manager's picker is now one dialog shared by everything: single files, several files, a folder, or a save target with a file name, opened through the SDK (`pick`) instead of each caller embedding its own window; saving onto an existing name asks before replacing it (frontend).
+- **Text editor**: The menu bar has one File entry (Refresh stays next to it), Open / Save / Save As choose their file in the file manager instead of a browser dialog, and unsaved changes are marked with a dot in the window title instead of a `*` in the menu (frontend).
+- **Player picker**: Opening a server video or subtitle from the player's settings uses the shared picker (frontend).
+- **Plugin menus**: Open, Save and Save As default to the file manager; opening and saving on this computer are a separate group below them, and `Ctrl+O` / `Ctrl+Shift+S` follow the same default (frontend).
 
 ### Fixes
 
 - **Text editor**: A text file opened for the first time showed an empty editor until the window was closed and opened again (frontend).
-- **Monaco Editor plugin**: Files are opened in their own encoding and saved back in it, so a GB18030 or Shift-JIS document is no longer rewritten as UTF-8; the status bar shows the encoding, and UTF-8 BOM, UTF-16 and Windows-1252 files opened from the computer keep their encoding too (frontend).
-- **Markdown Viewer plugin**: A document in a legacy encoding such as GB18030 renders correctly instead of as mojibake (frontend).
+- **Unsaved prompt**: The dialog asks whether to discard the changes, with a Discard button, instead of "continue to exit/reload" (frontend).
+- **Monaco Editor plugin**: Documents open and save in their own encoding, the window title is the file's full path, and the status line no longer says "Opening …" long after the document has loaded (frontend).
+- **Markdown Viewer plugin**: A GB18030 document renders correctly, and the file is read as a stream instead of one buffer (frontend).
+- **Webamp Player plugin**: Tracks play straight from the stream URL, so a playlist no longer reads every file into memory (frontend).
+- **Boxed Wine plugin**: Programs and archives are streamed into the emulated drive with progress, instead of being buffered first (frontend).
+- **ONLYOFFICE plugin**: The welcome page offers Open (from the file manager) and Open from this computer; a new document asks where to save it and is written as soon as it is created; Save (Ctrl+S or the toolbar button) now really writes the file instead of only reporting "all changes saved", and nothing is written without that action; the window title shows `·` while the editor has changes and `●` when the editor saved but the file manager still has the old file (spreadsheets commit a cell on blur); the title bar can no longer rename the document; Save copy asks for its target instead of auto-naming a file (frontend).
 - **Breadcrumb**: On Windows, a location that has its own name (Home, a network location) is labeled by that name in the address bar instead of showing its full path (frontend).
 
 ### Engineering

@@ -4,6 +4,7 @@ import type { AppWindowState } from './apps-store'
 import type { SdkLaunch } from '@/sdk/contract'
 import { createAppSdk, FILE_LITE_SDK_KEY } from '@/sdk/use-app-sdk'
 import { fs } from '@/utils/fs'
+import { openFilePicker } from '@/views/FileManager/file-picker'
 import { launchFromParams, openEventFromParams, paramsFromLaunch } from './app-launch'
 
 const props = defineProps<{
@@ -34,6 +35,7 @@ const transport = createAppSdk({
   setTitle: (title: string) => emit('setTitle', title),
   selectItems: (names: string[]) => emit('selectItems', names),
   revealItem: (name: string) => emit('locateItem', name),
+  pick: options => openFilePicker(options, launchFromParams(props.win.data.appParams).directory),
 }, fs)
 
 provide(FILE_LITE_SDK_KEY, transport.sdk)

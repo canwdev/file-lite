@@ -86,8 +86,19 @@
         return call('writeFile', { path: path, data: buffer, options: writeOptions })
       })
     },
+    pick: function (options) {
+      return call('pick', { pick: options })
+    },
     url: function (path) {
       return path ? STREAM_URL_PREFIX + encodeURIComponent(path) : ''
+    },
+    // Same-origin fetch of the stream URL: the body is a ReadableStream and Range
+    // requests work, so large files can be read in chunks.
+    stream: function (path, options) {
+      return fetch(STREAM_URL_PREFIX + encodeURIComponent(path), {
+        credentials: 'same-origin',
+        signal: options && options.signal,
+      })
     },
     getLaunch: function () {
       return call('getLaunch')

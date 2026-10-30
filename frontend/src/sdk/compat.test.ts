@@ -27,7 +27,9 @@ describe('plugin SDK client', () => {
 
   test('exposes every contract method', () => {
     for (const method of SDK_METHODS) {
-      expectContained(method === 'url' ? `${method}: function` : `call('${method}'`)
+      // `url` and `stream` are built in the page; everything else is a host call.
+      const local = method === 'url' || method === 'stream'
+      expectContained(local ? `${method}: function` : `call('${method}'`)
     }
     expectContained('onOpen: function')
     expectContained('window.fileLiteSDK = {')
@@ -129,6 +131,24 @@ describe('plugin SDK client behaviour', () => {
     expect(request.options).toEqual({ conflict: 'keep-both', charset: 'gb18030' })
     dispatch({ source: SDK_SOURCE_HOST, id: request.id, data: { path: '/a.txt', name: 'a.txt' } })
     expect(await pending).toEqual({ path: '/a.txt', name: 'a.txt' })
+  })
+
+  test('stream() fetches the stream URL with the page session', async () => {
+    const requests: string[] = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async (url: string) => {
+      requests.push(String(url))
+      return new Response('body')
+    }) as unknown as typeof fetch
+    try {
+      const { sdk } = loadClient()
+      const response = await sdk.stream('/a/b c.txt')
+      expect(requests).toEqual(['/api/fs/content/%2Fa%2Fb%20c.txt'])
+      expect(await response.text()).toBe('body')
+    }
+    finally {
+      globalThis.fetch = originalFetch
+    }
   })
 
   test('builds the stream URL locally and sends launch updates', async () => {

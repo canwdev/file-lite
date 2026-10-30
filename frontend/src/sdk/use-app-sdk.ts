@@ -6,6 +6,9 @@ import type {
   SdkHostContext,
   SdkLaunch,
   SdkOpenEvent,
+  SdkPickOptions,
+  SdkPickResult,
+  SdkStreamOptions,
   SdkTextFile,
   SdkWriteOptions,
   SdkWriteResult,
@@ -52,6 +55,10 @@ export function createAppSdk(host: SdkHostContext, files: SdkFileApi): AppSdkTra
     writeFile: (path: string, data: SdkBinary, options?: SdkWriteOptions) =>
       call<SdkWriteResult>('writeFile', { path, data, options }),
     url: path => files.url(path),
+    // Client side on purpose: a `ReadableStream` cannot be posted to a page, so
+    // both transports fetch the stream URL themselves (same origin, Range works).
+    stream: async (path: string, options?: SdkStreamOptions) =>
+      await fetch(files.url(path), { credentials: 'same-origin', signal: options?.signal }),
 
     getLaunch: () => call<SdkLaunch | null>('getLaunch', {}),
     onOpen: (callback) => {
@@ -73,6 +80,7 @@ export function createAppSdk(host: SdkHostContext, files: SdkFileApi): AppSdkTra
     exit: () => call<void>('exit', {}),
     selectItems: names => call<void>('selectItems', { names }),
     revealItem: name => call<void>('revealItem', { name }),
+    pick: (options?: SdkPickOptions) => call<SdkPickResult | null>('pick', { pick: options }),
   }
 
   return {

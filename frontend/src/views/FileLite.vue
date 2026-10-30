@@ -9,6 +9,7 @@ import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
 import ExplorerTabBar from '@/views/FileManager/ExplorerTabBar.vue'
 import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 import FileManager from '@/views/FileManager/FileManager.vue'
+import FilePickerHost from '@/views/FileManager/FilePickerHost.vue'
 import TransferQueue from '@/views/FileManager/TransferQueue.vue'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
@@ -135,6 +136,7 @@ function toggleTransferPanel() {
   <!-- 全局唯一一份：面板 Teleport 到 body，放在顶栏只是为了有个稳定的挂载点 -->
   <TransferQueue auto-close />
   <AppsEntry />
+  <FilePickerHost />
   <WsStatusDisplay />
 </template>
 

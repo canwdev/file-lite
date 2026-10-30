@@ -29,9 +29,15 @@ function appWindowTitled(page: Page, title: string | RegExp) {
   return page.locator('.app-window').filter({ has: page.locator('.title-text', { hasText: title }) })
 }
 
-/** 文本编辑器菜单栏里的按钮（Save / Refresh / Exit）。 */
-function menuBarItem(win: Locator, label: string) {
-  return win.locator('.vgo-context-menu-bar__item').filter({ hasText: label })
+/**
+ * 文本编辑器的菜单栏只有一个「File」，动作在它的二级菜单里。
+ * 返回展开后的菜单项（正则精确匹配，避免 Save 命中 Save As…）。
+ */
+async function fileMenu(page: Page, win: Locator, label: RegExp) {
+  await win.locator('.vgo-context-menu-bar__item').filter({ hasText: /^File$/ }).click()
+  const item = page.locator('.vgo-context-menu__item:visible').filter({ hasText: label })
+  await expect(item).toHaveCount(1)
+  return item
 }
 
 /** 双击标题栏图标 = 请求关闭窗口（与用户关窗走同一条 confirmDismiss 路径）。 */
@@ -55,13 +61,19 @@ test.describe('built-in apps', () => {
     const textarea = win.locator('.text-editor-textarea')
     await expect(textarea).toHaveValue('hello apps')
     await expect(win.locator('.text-editor-status-bar')).toContainText('UTF-8')
+    // 菜单栏只有 File 和 Refresh 两项：刷新是窗口级动作，留在根菜单
+    await expect(win.locator('.vgo-context-menu-bar__item')).toHaveCount(2)
+    await expect(win.locator('.vgo-context-menu-bar__item').nth(1)).toHaveText('Refresh')
 
+    // 改动之后标题前面出现未保存标记（与插件里的编辑器一致），菜单项不带 *
     await textarea.fill('hello saved')
-    await menuBarItem(win, 'Save').click()
+    await expect(win.locator('.title-text')).toHaveText('● hello.txt')
+    await (await fileMenu(page, win, /^Save$/)).click()
 
     await expect.poll(() => fs.readFileSync(path.join(appsDir, 'hello.txt'), 'utf8')).toBe('hello saved')
-    // 保存后不再有未保存标记（菜单项标题上的 *）
-    await expect(menuBarItem(win, 'Save')).toHaveText('Save')
+    // 保存后标记消失
+    await expect(win.locator('.title-text')).toHaveText('hello.txt')
+    await page.keyboard.press('Escape')
 
     await closeWindow(win)
     // 夹具是用例之间共用的，改完复原，后面的用例仍然看到 hello apps
@@ -78,7 +90,7 @@ test.describe('built-in apps', () => {
     await expect(win.locator('.text-editor-status-bar')).toContainText('GB18030')
 
     await textarea.fill('你好世界\n')
-    await menuBarItem(win, 'Save').click()
+    await (await fileMenu(page, win, /^Save$|^Save\*$/)).click()
 
     // 「你好世界\n」的 GB18030 字节；编辑器没有把它悄悄改成 UTF-8。
     await expect
