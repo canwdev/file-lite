@@ -27,8 +27,8 @@ const props = withDefaults(
   defineProps<{
     // 当前目录，由外壳持有
     path: string
-    // 是否文件(夹)选择器
-    selectFileMode?: 'file' | 'folder'
+    // 是否文件(夹)选择器；save 只看当前目录，不挑条目
+    selectFileMode?: 'file' | 'folder' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
     // 只展示内容
@@ -400,6 +400,10 @@ function onNavAuxClick(action: 'back' | 'forward' | 'up', event: MouseEvent) {
 
 // 启动App
 function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: string }) {
+  // save 模式只挑目录：双击文件不该打开 App，文件名由底部输入框决定
+  if (selectFileMode.value === 'save' && !item.isDirectory) {
+    return
+  }
   if (selectFileMode.value === 'file' && !item.isDirectory) {
     // 多选时双击其中一项应返回全部已选文件，而不是只返回被双击的那个
     const picked = multiple.value ? selectedFilesForPick() : []
@@ -462,7 +466,8 @@ function handleSelect() {
     handleOpen({ item: items[0], list: fileListRef.value.files })
     return
   }
-  if (selectFileMode.value === 'folder') {
+  if (selectFileMode.value === 'folder' || selectFileMode.value === 'save') {
+    // save 模式由外壳的底部输入框负责提交（它拿着文件名）
     emit('handleSelect', { basePath: fileListRef.value.basePath })
   }
   if (!items.length) {

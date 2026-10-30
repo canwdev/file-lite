@@ -44,8 +44,8 @@ const props = withDefaults(
     isLoading: boolean
     basePath: string
     filter?: FileFilterState
-    // 是否文件(夹)选择器
-    selectFileMode?: 'file' | 'folder'
+    // 是否文件(夹)选择器；save 只看当前目录，不挑条目
+    selectFileMode?: 'file' | 'folder' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
     // 是否让筛选条件同样作用于文件夹
@@ -326,7 +326,7 @@ const tableColumns = computed(() => {
 })
 
 const allowMultipleSelection = computed(() => {
-  if (selectFileMode.value === 'folder') {
+  if (selectFileMode.value === 'folder' || selectFileMode.value === 'save') {
     return false
   }
   else if (selectFileMode.value === 'file') {
@@ -1150,7 +1150,11 @@ function viewMenuItems(): MenuItem[] {
 }
 
 function getMenuOptions() {
-  // 选择器只负责挑条目：菜单里只有 Select，不提供打开 / 传输 / 删除等操作
+  // 选择器只负责挑条目：菜单里只有 Select，不提供打开 / 传输 / 删除等操作。
+  // save 模式由底部输入框提交，菜单里没有可选项。
+  if (selectFileMode.value === 'save') {
+    return []
+  }
   if (selectFileMode.value) {
     const selected = selectedItems.value
     if (!selected.length) {

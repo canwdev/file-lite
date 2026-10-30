@@ -9,15 +9,20 @@ export interface WallpaperPreset {
  * `--file-lite-wallpaper` CSS variable when picked from the settings UI.
  */
 export const WALLPAPER_PRESETS: WallpaperPreset[] = [
+  {
+    id: 'bing-daily',
+    label: 'Bing Daily',
+    url: 'https://uapis.cn/api/v1/image/bing-daily',
+  },
+  {
+    id: 'bing-daily-random',
+    label: 'Bing Daily Random',
+    url: 'https://uapis.cn/api/v1/image/bing-daily?random=true&resolution=1080',
+  },
   { id: 'picsum', label: 'Picsum', url: 'https://picsum.photos/1920/1080' },
-  // https://api.paugram.com/help/bing
-  { id: 'bing', label: 'Bing', url: 'https://api.paugram.com/bing' },
-  // https://docs.loliapi.com/api-shi-yong-wen-dang/sui-ji-er-ci-yuan-tu-pian/page-1
-  { id: 'loliapi', label: 'LoliAPI', url: 'https://www.loliapi.com/acg/' },
-  { id: 'paugram', label: 'Paugram ACG', url: 'https://api.paugram.com/wallpaper/' },
 ]
 
-export const DEFAULT_WALLPAPER_PRESET = 'picsum'
+export const DEFAULT_WALLPAPER_PRESET = 'bing-daily'
 
 export interface WallpaperSettings {
   wallpaperPreset?: string

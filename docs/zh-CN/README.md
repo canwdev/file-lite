@@ -116,6 +116,7 @@ bun run build
 - [IP 允许列表](./ip-allowlist.md)
 - [预制插件](../../plugins-repo/README.md)
 - [插件](../design/plugins.md)
+- [FileLite SDK](../design/sdk.md)
 - [标签页](../design/explorer-tabs-design.md)
 - [后台文件操作](../design/async-file-operations-ws-design.md)
 - [缩略图](../design/thumbnails.md)

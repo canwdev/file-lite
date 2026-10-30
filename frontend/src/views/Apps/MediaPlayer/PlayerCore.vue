@@ -3,8 +3,8 @@ import type { IRandomAccessTokenizer } from 'strtok3'
 import type { MediaItem } from './utils/music-state'
 import { parseFromTokenizer } from 'music-metadata'
 import { createLastOpenedMediaRecorder } from '@/hooks/use-last-opened-media'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { localSettingsStore } from '@/store/index'
-import { fs } from '@/utils/fs'
 import NativeOrArtVideo from '../components/NativeOrArtVideo.vue'
 import { useSiblingSubtitles } from '../use-sibling-subtitle'
 import defaultCoverUrl from './assets/default-cover.webp'
@@ -18,6 +18,7 @@ import { makeStreamMetadataTokenizer } from './utils/stream-metadata-tokenizer'
 const emit = defineEmits<{
   (e: 'setTitle', val: string): void
 }>()
+const sdk = useFileLiteSdk()
 const storeId = inject<Ref<string>>('storeId')!
 const mediaStore = useMediaStore(storeId.value)
 const audioRef = ref<HTMLAudioElement | null>(null)
@@ -31,7 +32,7 @@ const mSettingsStore = useMusicSettingsStore()
  */
 const resolvedMediaUrl = computed(() => {
   const path = mediaStore.mediaItem?.absPath
-  return path ? fs.url(path) : ''
+  return path ? sdk.url(path) : ''
 })
 const avSrc = computed(() => resolvedMediaUrl.value || undefined)
 /** 视频的同名字幕：和视频播放器 App 一样自动找、自动挂（音频不做多余的查找）。 */
@@ -369,7 +370,7 @@ async function loadMusicMetadata(signal: AbortSignal) {
   // 内嵌歌词优先（由上面的标签解析给出）；没有才去同目录找 .lrc / .vtt。
   // 放在 try/catch 之外：标签解析失败（文件没标签、请求出错）时歌词照样该试一次。
   if (!item.lyricsLines?.length && mediaStore.mediaItem?.guid === loadGuid) {
-    const lines = await loadSiblingLyrics(item.absPath)
+    const lines = await loadSiblingLyrics(item.absPath, sdk)
     if (lines?.length && mediaStore.mediaItem?.guid === loadGuid)
       item.setLyricsLines(lines)
   }

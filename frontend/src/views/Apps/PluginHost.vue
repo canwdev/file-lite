@@ -1,27 +1,37 @@
 <script lang="ts" setup>
 import type { PluginInfo } from '@/api/plugins'
-import type { IEntry } from '@/types/server'
+import type { SdkLaunch } from '@/sdk/contract'
 import type { AppParams } from '@/views/Apps/apps.ts'
+import { createSdkBroker, dirOf } from '@/sdk/broker'
+import { createIframeBridge } from '@/sdk/iframe-bridge'
 import { fs } from '@/utils/fs'
-import { joinPath, normalizePath } from '@/utils/path/form'
+import { openFilePicker } from '@/views/FileManager/file-picker'
+import { launchFromParams, paramsFromLaunch } from './app-launch'
 
 const props = defineProps<{
   plugin: PluginInfo
   appParams: AppParams
 }>()
-const emit = defineEmits(['setTitle', 'exit'])
+const emit = defineEmits(['setTitle', 'exit', 'selectItems', 'revealItem', 'updateAppParams'])
 
-const HOST = 'file-lite-host'
-const PLUGIN = 'file-lite-plugin'
+/** What a plugin sees as its launch state; `updateLaunch` may override it. */
+const launchOverride = ref<SdkLaunch | null>(null)
 
-interface PluginListEntry {
-  name: string
-  path: string
-  ext: string
-  isDirectory: boolean
-  size: number | null
-  lastModified: number
-}
+const broker = createSdkBroker({
+  getLaunch: () => {
+    const launch = launchOverride.value ?? launchFromParams(props.appParams)
+    return launch.path ? launch : null
+  },
+  setLaunch: (launch) => {
+    launchOverride.value = launch
+    emit('updateAppParams', paramsFromLaunch(launch, props.appParams))
+  },
+  close: () => emit('exit'),
+  setTitle: (title: string) => emit('setTitle', title),
+  selectItems: (names: string[]) => emit('selectItems', names),
+  revealItem: (name: string) => emit('revealItem', name),
+  pick: options => openFilePicker(options, launchFromParams(props.appParams).directory),
+}, fs)
 
 const iframeRef = ref<HTMLIFrameElement>()
 const isLoading = ref(true)
@@ -41,120 +51,45 @@ watch(() => props.plugin.entryUrl, () => {
   loaded.value = false
 })
 
-function entryPath(dir: string, name: string) {
-  return normalizePath(joinPath(dir, name))
-}
+watch(() => props.appParams, () => {
+  // A launch published by the plugin itself is already in the prop.
+  if (launchOverride.value?.path === (props.appParams?.absPath ?? ''))
+    return
+  launchOverride.value = null
+})
 
-function listEntry(dir: string, entry: IEntry): PluginListEntry {
-  return {
-    name: entry.name,
-    path: entryPath(dir, entry.name),
-    ext: entry.ext,
-    isDirectory: entry.isDirectory,
-    size: entry.size,
-    lastModified: entry.lastModified,
-  }
-}
-
-function dirOf(path: string) {
-  const cut = path.replace(/\/+$/, '').lastIndexOf('/')
-  return cut > 0 ? path.slice(0, cut) : path
-}
-
-function baseOf(path: string) {
-  return path.slice(path.lastIndexOf('/') + 1)
-}
-
-function reply(id: number, error?: string, data?: ArrayBuffer | PluginListEntry[]) {
-  // Hand the buffer over instead of copying it. Plugins can read large files
-  // (game archives), and structured cloning would double the peak memory.
-  const transfer = data instanceof ArrayBuffer ? [data] : []
-  iframeRef.value?.contentWindow?.postMessage({
-    source: HOST,
-    id,
-    error,
-    data,
-  }, window.location.origin, transfer)
-}
+const bridge = createIframeBridge({
+  getWindow: () => iframeRef.value?.contentWindow ?? null,
+  invoke: async (method, payload) => {
+    try {
+      return await broker.invoke(method, payload)
+    }
+    catch (error) {
+      // v1 showed a warning for failed writes; keep that, and let the reply
+      // carry the error to the plugin.
+      if (method === 'writeFile') {
+        window.$message?.warning(error instanceof Error ? error.message : 'failed')
+      }
+      throw error
+    }
+  },
+})
 
 function postOpen() {
-  const win = iframeRef.value?.contentWindow
-  if (!loaded.value || !win)
+  if (!loaded.value)
     return
   const path = props.appParams?.absPath
   if (!path) {
-    win.postMessage({
-      source: HOST,
-      event: 'open',
-    }, window.location.origin)
+    bridge.pushOpen(undefined)
     return
   }
   const filename = props.appParams.item?.name || ''
   emit('setTitle', filename)
-  win.postMessage({
-    source: HOST,
-    event: 'open',
+  bridge.pushOpen({
     path,
     filename,
-  }, window.location.origin)
-}
-
-async function onPluginMessage(event: MessageEvent) {
-  if (event.origin !== window.location.origin)
-    return
-  if (event.source !== iframeRef.value?.contentWindow)
-    return
-  const data = event.data
-  if (!data || data.source !== PLUGIN || typeof data.id !== 'number')
-    return
-
-  try {
-    if (data.method === 'list') {
-      const path = String(data.path ?? '')
-      const entries = await fs.list(path)
-      reply(data.id, undefined, entries.map(entry => listEntry(path, entry)))
-      return
-    }
-    if (data.method === 'readFile') {
-      const blob = await fs.readBlob(String(data.path ?? ''))
-      reply(data.id, undefined, await blob.arrayBuffer())
-      return
-    }
-    if (data.method === 'writeFile') {
-      const path = String(data.path ?? '')
-      try {
-        const written = await fs.writeFile(dirOf(path), baseOf(path), data.data, { conflict: 'overwrite' })
-        if (!written.ok) {
-          const reason = written.reason ?? $t('file_lite_i18n.this_location_is_read_only')
-          window.$message?.warning(reason)
-          reply(data.id, reason)
-          return
-        }
-      }
-      catch (error) {
-        const reason = error instanceof Error ? error.message : 'failed'
-        window.$message?.warning(reason)
-        reply(data.id, reason)
-        return
-      }
-      reply(data.id)
-      return
-    }
-    if (data.method === 'exit') {
-      emit('exit')
-      reply(data.id)
-      return
-    }
-    if (data.method === 'setTitle') {
-      emit('setTitle', String(data.title ?? ''))
-      reply(data.id)
-      return
-    }
-    reply(data.id, 'unknown method')
-  }
-  catch (error) {
-    reply(data.id, error instanceof Error ? error.message : 'failed')
-  }
+    directory: props.appParams.basePath || dirOf(path),
+  })
 }
 
 function handleLoad() {
@@ -164,17 +99,17 @@ function handleLoad() {
 }
 
 watch(() => props.appParams?.absPath, (path, prev) => {
-  if (!loaded.value || path === prev)
+  if (!loaded.value || path === prev || launchOverride.value?.path === path)
     return
   postOpen()
 })
 
 onMounted(() => {
-  window.addEventListener('message', onPluginMessage)
+  window.addEventListener('message', bridge.handleMessage)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('message', onPluginMessage)
+  window.removeEventListener('message', bridge.handleMessage)
 })
 </script>
 

@@ -1,9 +1,16 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = Number(process.env.E2E_PORT || 4173)
+/**
+ * 插件用例默认不跑：它们驱动 `tests/plugin-*.spec.ts`（夹具里的探针插件），
+ * 和主套件共用同一台服务，但关注点是插件宿主，跑完整套件时没必要带上。
+ * `E2E_PLUGINS=1` 才纳入。
+ */
+const includePluginSpecs = process.env.E2E_PLUGINS === '1'
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: includePluginSpecs ? [] : ['**/plugin-*.spec.ts'],
   // 所有用例共用同一个后端进程和同一份夹具目录，因此串行执行
   fullyParallel: false,
   workers: 1,

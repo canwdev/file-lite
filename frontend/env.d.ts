@@ -38,6 +38,15 @@ declare module 'bun:test' {
   }
 }
 
+/**
+ * The one Bun API a test uses to read a file that Vite would otherwise import
+ * as a URL. Declared here for the same reason as `bun:test`: no `bun-types`
+ * dependency for a single test helper.
+ */
+declare const Bun: {
+  file: (path: string | URL) => { text: () => Promise<string> }
+}
+
 interface Window {
   /**
    * File System Access API 的目录选择框（Chromium）。「下载到文件夹」用它选目标目录。

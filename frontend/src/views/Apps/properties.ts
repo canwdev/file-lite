@@ -1,9 +1,10 @@
 import type { MaybeRefOrGetter } from 'vue'
-import type { AppParams } from './apps'
 import type { MeasurementState } from '@/api/measurements'
+import type { SdkLaunch } from '@/sdk/contract'
 import type { IEntry, MeasurementsMessage } from '@/types/server'
 import { computed, onScopeDispose, ref, toValue, watch } from 'vue'
 import { createMeasurement, deleteMeasurement, getMeasurement, subscribeMeasurements } from '@/api/measurements'
+import { sdkEntryToIEntry } from './app-launch'
 import { InternalAppEnum } from './apps'
 import { openAppWindow } from './apps-store'
 
@@ -80,16 +81,32 @@ export function showProperties(targets: PropertiesTarget[]) {
   })
 }
 
-export function propertiesTargetsFromParams(params: AppParams): PropertiesTarget[] {
-  const entries = params.list.length ? params.list : [params.item]
-  return entries.map(entry => ({
-    absPath: entry.path || params.absPath,
-    name: entry.name,
-    isDirectory: entry.isDirectory,
-    ext: entry.ext,
-    isLink: entry.isLink,
-    item: entry,
-  }))
+/** The Properties selection as it arrives through the SDK launch. */
+export function propertiesTargetsFromLaunch(launch: SdkLaunch | null): PropertiesTarget[] {
+  if (!launch) {
+    return []
+  }
+  if (launch.entries.length) {
+    return launch.entries.map((entry) => {
+      const item = sdkEntryToIEntry(entry)
+      return {
+        absPath: entry.path,
+        name: entry.name,
+        isDirectory: entry.isDirectory,
+        ext: entry.ext,
+        isLink: entry.isLink,
+        item,
+      }
+    })
+  }
+  if (!launch.path) {
+    return []
+  }
+  return [{
+    absPath: launch.path,
+    name: launch.filename,
+    isDirectory: false,
+  }]
 }
 
 /** REST 的创建响应没有 scope/type：补一个，让模板只认一种形状。 */

@@ -32,8 +32,7 @@
     "cancel": "Cancel",
     "cancelled": "Cancelled",
     "case_sensitive": "Case sensitive",
-    "changes_not_saved_continue_to_ex": "Changes not saved. Continue to exit?",
-    "changes_not_saved_continue_to_re": "Changes not saved. Continue to reload?",
+    "changes_not_saved_continue_to_ex": "Changes are not saved. Discard them?",
     "clear": "Clear",
     "clear_failed": "Clear Failed",
     "clear_finished": "Clear finished",
@@ -118,7 +117,6 @@
     "file_picker": "File picker",
     "file_system": "File system",
     "file_too_large_to_edit": "File too large to edit",
-    "file_viewer": "File Viewer",
     "filter_bar": "Filter bar",
     "filter_by_key_scope_or_descripti": "Filter by key, scope or description",
     "filter_name": "Filter name",
@@ -244,6 +242,8 @@
     "reverse_loop": "Reverse Loop",
     "rewind": "Rewind",
     "save": "Save",
+    "save_as": "Save As",
+    "file_name": "File name",
     "scanning": "Scanning",
     "select": "Select",
     "select_all": "Select all",
@@ -312,7 +312,7 @@
     "uploading": "Uploading",
     "use_regular_expression": "Use regular expression",
     "used": "Used",
-    "uses_the_html5_video_player_inst": "Uses the HTML5 video player instead of APlayer.",
+    "uses_the_html5_video_player_inst": "Uses the HTML5 video player instead of ArtPlayer.",
     "video_player": "Video Player",
     "view": "View",
     "volume": "Volume",
@@ -323,6 +323,8 @@
     "work_in_progress": "Work in progress",
     "yesterday": "Yesterday",
     "zoom_in": "Zoom in",
-    "zoom_out": "Zoom out"
+    "zoom_out": "Zoom out",
+    "discard": "Discard",
+    "file_exists_overwrite_0": "{0} already exists. Overwrite it?"
   }
 }

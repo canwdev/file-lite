@@ -1,5 +1,5 @@
 import type { LyricLine } from './lrc'
-import { fs } from '@/utils/fs'
+import type { FileLiteSdk } from '@/sdk/contract'
 import { findSiblingFile } from '../../sibling-lookup'
 import { parseLrcString } from './lrc'
 import { parseVttString } from './vtt'
@@ -15,12 +15,12 @@ const LYRIC_EXTENSIONS = ['.lrc', '.vtt']
  * 内容都返回 `undefined`——自动加载不该弹错误提示。编码由内容端点统一转成 UTF-8
  * （LRC 常见 GBK）。
  */
-export async function loadSiblingLyrics(audioPath: string): Promise<LyricLine[] | undefined> {
+export async function loadSiblingLyrics(audioPath: string, sdk: FileLiteSdk): Promise<LyricLine[] | undefined> {
   try {
     const found = await findSiblingFile(audioPath, LYRIC_EXTENSIONS)
     if (!found)
       return undefined
-    const { text } = await fs.readTextFile(found)
+    const { text } = await sdk.readText(found)
     const lines = found.toLowerCase().endsWith('.lrc') ? parseLrcString(text) : parseVttString(text)
     return lines.length ? lines : undefined
   }

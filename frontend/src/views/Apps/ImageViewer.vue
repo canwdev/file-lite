@@ -1,12 +1,10 @@
 <script lang="ts" setup="">
-import type { IEntry } from '@/types/server.ts'
-import type { AppParams } from '@/views/Apps/apps.ts'
-import { fs } from '@/utils/fs'
+import type { SdkEntry } from '@/sdk/contract'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { regSupportedImageFormat } from '@/utils/is.ts'
 
 const props = withDefaults(
   defineProps<{
-    appParams: AppParams
     /** 是否使用原生图片查看器 */
     isNative?: boolean
   }>(),
@@ -14,55 +12,42 @@ const props = withDefaults(
     isNative: false,
   },
 )
-const emit = defineEmits(['setTitle', 'exit'])
 
+const sdk = useFileLiteSdk()
 const initialIndex = ref(0)
-const filteredList = ref<IEntry[]>([])
+const filteredList = ref<SdkEntry[]>([])
 const viewerKey = ref(0)
 
-/** 当前这批图片的绝对路径（列表总是来自同一个 basePath）。 */
-const imagePaths = computed(() => {
-  const base = (props.appParams?.basePath ?? '').replace(/\/+$/, '')
-  return filteredList.value.map(item => `${base}/${item.name}`)
+/** 当前这批图片的绝对路径。 */
+const imagePaths = computed(() => filteredList.value.map(item => item.path))
+
+/** 图片地址，按路径取；换一批图（切换目录、再次打开）时自动跟随。 */
+const urlMap = computed(() => new Map(imagePaths.value.map(path => [path, sdk.url(path)])))
+const urlList = computed(() => imagePaths.value.map(path => urlMap.value.get(path) ?? ''))
+
+sdk.onOpen(async (launch) => {
+  filteredList.value = []
+  initialIndex.value = 0
+  if (!launch) {
+    return
+  }
+  const current = await sdk.getLaunch()
+  const entries = current?.entries ?? []
+  filteredList.value = entries.filter((entry) => {
+    return (regSupportedImageFormat.test(entry.name) && !entry.isDirectory) || entry.name === launch.filename
+  })
+  initialIndex.value = Math.max(0, filteredList.value.findIndex(entry => entry.path === launch.path))
+  viewerKey.value += 1
 })
-
-/**
- * 图片地址，按路径取；换一批图（切换目录、切换应用参数）时自动跟随。
- */
-const urlMap = computed(() => new Map(imagePaths.value.map(path => [path, fs.url(path)])))
-const urlList = computed(() => {
-  return imagePaths.value.map(path => urlMap.value.get(path) ?? '')
-})
-
-// 应用启动传参
-watch(
-  () => props.appParams,
-  () => {
-    filteredList.value = []
-    initialIndex.value = 0
-    if (!props.appParams) {
-      return
-    }
-    const { item, list } = props.appParams
-    filteredList.value = list
-      .filter((i) => {
-        return (regSupportedImageFormat.test(i.name) && !i.isDirectory) || i.name === item.name
-      })
-
-    initialIndex.value = Math.max(0, filteredList.value.findIndex(i => i.name === item.name))
-    viewerKey.value += 1
-  },
-  { immediate: true },
-)
 
 watch(initialIndex, (val) => {
-  emit('setTitle', filteredList.value[val]?.name || '')
+  sdk.setTitle(filteredList.value[val]?.name || '')
 }, { immediate: true })
 </script>
 
 <template>
   <div class="image-viewer">
-    <img v-if="isNative" :src="urlList[initialIndex]" class="image-viewer-native-image">
+    <img v-if="props.isNative" :src="urlList[initialIndex]" class="image-viewer-native-image">
     <el-image-viewer
       v-else
       :key="viewerKey"
@@ -70,7 +55,7 @@ watch(initialIndex, (val) => {
       show-progress
       :initial-index="initialIndex"
       :hide-on-click-modal="false"
-      @close="emit('exit')"
+      @close="sdk.exit()"
       @switch="index => initialIndex = index"
     />
   </div>

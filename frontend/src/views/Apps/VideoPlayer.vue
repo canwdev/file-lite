@@ -1,12 +1,10 @@
 <script lang="ts" setup="">
-import type { AppParams } from '@/views/Apps/apps.ts'
-import { fs } from '@/utils/fs'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import NativeOrArtVideo from './components/NativeOrArtVideo.vue'
 import { useSiblingSubtitles } from './use-sibling-subtitle'
 
 const props = withDefaults(
   defineProps<{
-    appParams: AppParams
     controls?: boolean
     autoplay?: boolean
   }>(),
@@ -15,32 +13,31 @@ const props = withDefaults(
     autoplay: true,
   },
 )
-const emit = defineEmits(['setTitle'])
-const { appParams } = toRefs(props)
+const sdk = useFileLiteSdk()
+const path = ref('')
+
 // 文件地址
-const mediaSrc = computed(() => {
-  const path = appParams.value?.absPath
-  return path ? fs.url(path) : ''
+const mediaSrc = computed(() => path.value ? sdk.url(path.value) : '')
+
+sdk.onOpen((launch) => {
+  if (!launch) {
+    path.value = ''
+    return
+  }
+  path.value = launch.path
+  sdk.setTitle(launch.filename)
 })
-watch(
-  () => props.appParams,
-  () => {
-    const { item } = props.appParams
-    emit('setTitle', item?.name || '')
-  },
-  { immediate: true },
-)
 
 /** 同名 SRT/ASS/VTT/SSA 自动交给播放器，`SRT/` 里的字幕也算；这一层只负责找到它们。 */
-const subtitles = useSiblingSubtitles(() => props.appParams?.absPath ?? '')
+const subtitles = useSiblingSubtitles(() => path.value)
 </script>
 
 <template>
   <div class="media-player">
     <NativeOrArtVideo
       :src="mediaSrc"
-      :controls="controls"
-      :autoplay="autoplay"
+      :controls="props.controls"
+      :autoplay="props.autoplay"
       :subtitles="subtitles"
     />
   </div>

@@ -1,23 +1,24 @@
 <script setup lang="ts">
-import type { AppParams } from './apps'
+import type { SdkLaunch } from '@/sdk/contract'
 import type { IEntry } from '@/types/server'
 import { computed, watch } from 'vue'
 import MdiIcon from '@/components/MdiIcon.vue'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { bytesToSize, formatDate } from '@/utils'
 import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons'
 import { getEntryTypeLabel } from '@/views/FileManager/ExplorerUI/file-type'
-import { propertiesTargetsFromParams, useProperties } from './properties'
+import { propertiesTargetsFromLaunch, useProperties } from './properties'
 
-const props = defineProps<{ appParams: AppParams }>()
-
-const emit = defineEmits<{
-  exit: []
-  setTitle: [title: string]
-}>()
+const sdk = useFileLiteSdk()
+const launch = ref<SdkLaunch | null>(null)
 
 const DATE_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
-const targets = computed(() => propertiesTargetsFromParams(props.appParams))
+const targets = computed(() => propertiesTargetsFromLaunch(launch.value))
+
+sdk.onOpen(async () => {
+  launch.value = await sdk.getLaunch()
+})
 const {
   propertiesData,
   propertiesError,
@@ -229,8 +230,8 @@ const displayError = computed(() => {
 })
 
 watch(
-  [() => props.appParams, titleText],
-  () => emit('setTitle', titleText.value),
+  [launch, titleText],
+  () => sdk.setTitle(titleText.value),
   { immediate: true },
 )
 
@@ -273,7 +274,7 @@ function displayValue(row: PropertyRow) {
     </div>
 
     <div class="properties-footer">
-      <button class="vgo-button vgo-button--primary" @click="emit('exit')">
+      <button class="vgo-button vgo-button--primary" @click="sdk.exit()">
         {{ $t('file_lite_i18n.done') }}
       </button>
     </div>

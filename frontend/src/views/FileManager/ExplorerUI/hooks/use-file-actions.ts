@@ -17,9 +17,10 @@ import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { regImageFormat } from '@/utils/is'
-import { AppList, defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
+import { defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showProperties } from '@/views/Apps/properties'
+import { builtinOpenWithTargets, pluginOpenWithTargets, targetIcon, targetName } from '@/views/Apps/registry'
 import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath, toWindowsPath } from '../../utils'
@@ -383,20 +384,32 @@ export function useFileActions({
 
   const openWithPlugins = ref<PluginInfo[]>([])
 
-  function pluginsSubMenu(onPick: (plugin: PluginInfo) => void, currentId?: string | null): MenuItem | null {
-    const plugins = openWithPlugins.value.filter(plugin => plugin.openWith.length > 0)
-    if (!plugins.length)
+  function pluginsSubMenu(onPick: (pluginId: string) => void, currentId?: string | null): MenuItem | null {
+    const targets = pluginOpenWithTargets(openWithPlugins.value)
+    if (!targets.length)
       return null
     return {
       label: $t('file_lite_i18n.plugins'),
       icon: 'mdi mdi-puzzle-outline',
       divided: true,
-      children: plugins.map(plugin => ({
-        label: plugin.name,
-        icon: currentId === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
-        onClick: () => onPick(plugin),
-      })),
+      children: targets.map((target) => {
+        const plugin = target.plugin
+        return {
+          label: plugin.name,
+          icon: currentId === plugin.id ? 'mdi mdi-check' : h(PluginIcon, { plugin }),
+          onClick: () => onPick(plugin.id),
+        }
+      }),
     }
+  }
+
+  /** Built-in rows for "Open With" and "Set Default App", in registry order. */
+  function builtinOpenWithMenu(onPick: (id: string) => void, currentId?: string | null): MenuItem[] {
+    return builtinOpenWithTargets().map(target => ({
+      label: targetName(target),
+      icon: currentId === target.appName ? 'mdi mdi-check' : targetIcon(target),
+      onClick: () => onPick(target.appName),
+    }))
   }
 
   function canExtractSelection() {
@@ -557,9 +570,9 @@ export function useFileActions({
         label: $t('file_lite_i18n.open_with'),
         icon: 'mdi mdi-open-in-app',
         children: [
-          pluginsSubMenu(plugin => emit('open', {
+          pluginsSubMenu(pluginId => emit('open', {
             item: selectedItem,
-            openWith: plugin.id,
+            openWith: pluginId,
           })),
           {
             label: $t('file_lite_i18n.browser'),
@@ -572,15 +585,9 @@ export function useFileActions({
             },
             divided: true,
           },
-          ...AppList.map(app => ({
-            label: app.name,
-            icon: app.icon,
-            onClick: () => {
-              emit('open', {
-                item: selectedItem,
-                openWith: app.openWith,
-              })
-            },
+          ...builtinOpenWithMenu(id => emit('open', {
+            item: selectedItem,
+            openWith: id,
           })),
           {
             divided: 'up',
@@ -590,7 +597,7 @@ export function useFileActions({
               const ext = getFileExt(selectedItem.name)
               const current = ext ? (defaultAppMap.value[ext] ?? null) : null
               return [
-                pluginsSubMenu(plugin => setDefaultApp(ext, plugin.id), current),
+                pluginsSubMenu(pluginId => setDefaultApp(ext, pluginId), current),
                 {
                   label: $t('file_lite_i18n.default'),
                   icon: current === null ? 'mdi mdi-check' : '',
@@ -602,11 +609,7 @@ export function useFileActions({
                   icon: current === OpenWithEnum.Browser ? 'mdi mdi-check' : 'mdi mdi-open-in-new',
                   onClick: () => setDefaultApp(ext, OpenWithEnum.Browser),
                 },
-                ...AppList.map(app => ({
-                  label: app.name,
-                  icon: current === app.openWith ? 'mdi mdi-check' : app.icon,
-                  onClick: () => setDefaultApp(ext, app.openWith),
-                })),
+                ...builtinOpenWithMenu(id => setDefaultApp(ext, id), current),
               ].filter(Boolean) as MenuItem[]
             })(),
           },

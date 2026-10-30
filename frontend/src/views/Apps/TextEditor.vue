@@ -1,27 +1,73 @@
 <script lang="ts" setup="">
 import type { MenuBarOptions } from '@canwdev/vgo-ui'
 import type { LineEnding } from './text-editor-line-endings'
-import type { AppParams } from '@/views/Apps/apps.ts'
 import { ContextMenuBar, useUnSavedChanges } from '@canwdev/vgo-ui'
 import { useDebounceFn } from '@vueuse/core'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { bytesToSize } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
-import { fs } from '@/utils/fs'
 import { applyLineEnding, detectLineEnding } from './text-editor-line-endings'
 
-const props = withDefaults(
-  defineProps<{
-    appParams: AppParams
-  }>(),
-  {},
-)
-
-const emit = defineEmits(['exit', 'setTitle'])
+const sdk = useFileLiteSdk()
 const shortcutScope = injectShortcutScope()
 
 // 5 MB
 const SIZE_LIMIT = 5 * 1024 * 1024
+
+/**
+ * 选择器里的扩展名过滤。内置匹配（`regSupportedTextFormat`）决定双击时用谁打开，
+ * 这里只用来把明显不是文本的文件灰掉，所以放宽一点。
+ */
+const TEXT_EXTENSIONS = [
+  '.txt',
+  '.md',
+  '.markdown',
+  '.log',
+  '.csv',
+  '.tsv',
+  '.json',
+  '.jsonl',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.conf',
+  '.config',
+  '.env',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.jsx',
+  '.vue',
+  '.css',
+  '.scss',
+  '.less',
+  '.html',
+  '.htm',
+  '.xml',
+  '.svg',
+  '.sh',
+  '.bat',
+  '.cmd',
+  '.ps1',
+  '.py',
+  '.go',
+  '.rs',
+  '.java',
+  '.c',
+  '.h',
+  '.cpp',
+  '.hpp',
+  '.cs',
+  '.php',
+  '.rb',
+  '.sql',
+  '.lrc',
+  '.srt',
+]
 
 /** 编码名与行尾标记是技术名词，不进语言包。 */
 const CHARSET_LABELS: Record<string, string> = {
@@ -40,10 +86,10 @@ const LINE_ENDING_LABELS: Record<LineEnding, string> = {
   cr: 'Macintosh (CR)',
 }
 
-const { appParams } = toRefs(props)
-const absPath = computed(() => {
-  return appParams.value?.absPath
-})
+const absPath = ref('')
+const filename = ref('')
+/** The opened entry's size, captured with the launch so the limit check stays cheap. */
+const fileSize = ref<number | null>(null)
 
 const editRef = ref<HTMLTextAreaElement>()
 const wrapRef = ref<HTMLElement>()
@@ -126,7 +172,8 @@ async function confirmUnsavedChanges(message: string) {
   try {
     await window.$dialog.confirm(message, $t('file_lite_i18n.unsaved_changes'), {
       type: 'warning',
-      confirmButtonText: $t('file_lite_i18n.continue'),
+      // 问题是「放弃更改？」，按钮就应该是「放弃」而不是「继续」
+      confirmButtonText: $t('file_lite_i18n.discard'),
       cancelButtonText: $t('file_lite_i18n.cancel'),
     })
     return true
@@ -139,21 +186,22 @@ async function confirmUnsavedChanges(message: string) {
   }
 }
 
-function isAbortError(error: unknown) {
-  if (typeof error !== 'object' || error === null) {
-    return false
-  }
-  const { name, code } = error as { name?: string, code?: string }
-  return name === 'AbortError' || name === 'CanceledError' || code === 'ERR_CANCELED'
+/**
+ * 窗口标题 = 文件名，未保存时前面加一个圆点（与插件里的编辑器一致）。
+ * 菜单项不再需要 `*` 标记，标题本身就是「有没有改动」的指示。
+ */
+function applyTitle() {
+  const name = filename.value || absPath.value || 'Text Editor'
+  void sdk.setTitle(`${isChanged.value ? '● ' : ''}${name}`)
 }
 
-// 切换文件时旧请求可能后返回，用 AbortController 让它在途取消，避免旧内容覆盖新文件
-let openController: AbortController | null = null
+watch([filename, absPath, isChanged], applyTitle)
+
+// 切换文件时旧请求可能后返回；用一个递增的请求号让旧结果作废，避免覆盖新文件。
+let openRequest = 0
 
 async function openFile() {
-  openController?.abort()
-  const controller = new AbortController()
-  openController = controller
+  const request = ++openRequest
 
   fileTooLarge.value = null
   fileCharset.value = ''
@@ -163,22 +211,19 @@ async function openFile() {
   cursorColumn.value = 1
   try {
     isLoading.value = true
-    emit('setTitle', absPath.value)
     editContent.value = ''
 
     if (!absPath.value) {
       return
     }
 
-    const { item } = props.appParams
-    if (item.size != null && item.size > SIZE_LIMIT) {
-      fileTooLarge.value = { name: item.name, size: item.size }
+    if (fileSize.value != null && fileSize.value > SIZE_LIMIT) {
+      fileTooLarge.value = { name: filename.value, size: fileSize.value }
       return
     }
 
-    // 走门面读取文本（连同它在磁盘上的编码）
-    const { text, charset } = await fs.readTextFile(absPath.value, { signal: controller.signal })
-    if (controller.signal.aborted) {
+    const { text, charset } = await sdk.readText(absPath.value)
+    if (request !== openRequest) {
       return
     }
     editContent.value = text
@@ -190,41 +235,121 @@ async function openFile() {
     })
   }
   catch (error) {
-    if (!isAbortError(error)) {
+    if (request === openRequest) {
       console.error('open file failed', error)
     }
   }
   finally {
     // 已被更新的请求取代时不要回写 loading / 抢焦点
-    if (openController === controller) {
-      openController = null
+    if (request === openRequest) {
       isLoading.value = false
     }
   }
 }
 
-watch(
-  () => props.appParams,
-  () => {
-    openFile()
-  },
-)
+/**
+ * 换一个打开的文件。
+ *
+ * 窗口的 launch 跟着走：标题、dock、以及「关掉窗口再点同一个文件」都由宿主按
+ * launch 决定。`entries` 重新列一次，大小上限与同目录信息才不是旧的。
+ */
+async function useFile(path: string, name: string, directory: string) {
+  absPath.value = path
+  filename.value = name
+  const entries = await sdk.list(directory).catch(() => [])
+  fileSize.value = entries.find(entry => entry.path === path)?.size ?? null
+  void sdk.updateLaunch({ path, filename: name, directory, entries })
+  openFile()
+}
 
-onMounted(() => {
+/** `D:/a/b.txt` → `D:/a/`（listing 形态，末尾带斜杠）。 */
+function directoryOf(path: string) {
+  return path.slice(0, path.lastIndexOf('/') + 1) || '/'
+}
+
+/** Open…：从 file-lite 里挑一个文本文件。 */
+async function openViaPicker() {
+  if (isChanged.value) {
+    const confirmed = await confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_ex'))
+    if (!confirmed) {
+      return
+    }
+  }
+  const picked = await sdk.pick({
+    mode: 'file',
+    title: $t('file_lite_i18n.open') + ELLIPSIS,
+    extensions: TEXT_EXTENSIONS,
+  })
+  const item = picked?.items[0]
+  if (!item) {
+    return
+  }
+  await useFile(item.path, item.name, picked.directory || directoryOf(item.path))
+}
+
+sdk.onOpen(async (launch) => {
+  if (!launch) {
+    absPath.value = ''
+    filename.value = ''
+    fileSize.value = null
+    openFile()
+    return
+  }
+  const current = await sdk.getLaunch()
+  const entry = current?.entries.find(item => item.path === launch.path)
+  absPath.value = launch.path
+  filename.value = launch.filename
+  fileSize.value = entry?.size ?? null
   openFile()
 })
 
 onBeforeUnmount(() => {
-  openController?.abort()
+  openRequest++
 })
 
-/** 某个路径的父目录 */
-function dirOf(path: string) {
-  const cut = path.replace(/\/+$/, '').lastIndexOf('/')
-  return cut > 0 ? path.slice(0, cut) : path
+const isSaving = ref(false)
+
+/** 把当前内容写回 `path`（行尾与编码按打开时的原样还原）。 */
+async function writeTo(path: string) {
+  // 保存就是覆盖目标文件，所以显式 overwrite；SDK 负责分派与只读守卫。
+  const content = applyLineEnding(editContent.value, lineEnding.value)
+  await sdk.writeFile(path, new Blob([content], { type: 'text/plain' }), {
+    conflict: 'overwrite',
+    ...(fileCharset.value ? { charset: fileCharset.value } : {}),
+  })
 }
 
-const isSaving = ref(false)
+/** Save As…：挑选目录和文件名，写完把窗口切到新文件。 */
+async function saveAsViaPicker() {
+  if (isSaving.value) {
+    return
+  }
+  const picked = await sdk.pick({
+    mode: 'save',
+    title: $t('file_lite_i18n.save_as') + ELLIPSIS,
+    defaultName: filename.value || 'untitled.txt',
+    extensions: TEXT_EXTENSIONS,
+  })
+  if (!picked?.path) {
+    return
+  }
+  try {
+    isSaving.value = true
+    await writeTo(picked.path)
+    setTimeout(() => {
+      isChanged.value = false
+    })
+    // 另存之后这个窗口就编辑新文件
+    await useFile(picked.path, picked.name, picked.directory || directoryOf(picked.path))
+  }
+  catch (error) {
+    window.$message?.warning(error instanceof Error ? error.message : $t('file_lite_i18n.this_location_is_read_only'))
+  }
+  finally {
+    isSaving.value = false
+  }
+}
+
 async function handleSaveFile() {
   if (isSaving.value) {
     return
@@ -236,25 +361,14 @@ async function handleSaveFile() {
       throw new Error('absPath not exist!')
     }
 
-    const idx = absPath.value.lastIndexOf('/') + 1
-    const filename = absPath.value.slice(idx)
-    // 保存就是覆盖打开的这个文件，所以显式 overwrite；门面负责分派与只读守卫。
-    // 行尾与编码都按打开时的原样写回，编辑不会悄悄改变这个文件。
-    const content = applyLineEnding(editContent.value, lineEnding.value)
-    const written = await fs.writeText(dirOf(absPath.value), filename, content, {
-      conflict: 'overwrite',
-      ...(fileCharset.value ? { charset: fileCharset.value } : {}),
-    })
-    if (!written.ok) {
-      window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
-      return
-    }
+    await writeTo(absPath.value)
     setTimeout(() => {
       isChanged.value = false
     })
   }
   catch (error) {
-    console.error('save file failed', error)
+    const reason = error instanceof Error ? error.message : $t('file_lite_i18n.this_location_is_read_only')
+    window.$message?.warning(reason)
   }
   finally {
     isSaving.value = false
@@ -276,26 +390,46 @@ const menuOptions = computed((): MenuBarOptions => {
     ...baseContextMenuOptions,
     items: [
       {
-        label: `${$t('file_lite_i18n.save')}${isChanged.value ? '*' : ''}`,
-        onClick() {
-          handleSaveFile()
-        },
+        // 全部动作收进「文件」二级菜单，菜单栏上只占一格
+        label: $t('file_lite_i18n.file'),
+        children: [
+          {
+            label: $t('file_lite_i18n.open') + ELLIPSIS,
+            onClick() {
+              void openViaPicker()
+            },
+          },
+          {
+            label: $t('file_lite_i18n.save'),
+            onClick() {
+              handleSaveFile()
+            },
+          },
+          {
+            label: $t('file_lite_i18n.save_as') + ELLIPSIS,
+            onClick() {
+              void saveAsViaPicker()
+            },
+            divided: true,
+          },
+          {
+            label: $t('file_lite_i18n.exit'),
+            onClick: () => sdk.exit(),
+          },
+        ],
       },
       {
+        // 重新读盘是窗口级动作，放在根菜单上少点一层
         label: $t('file_lite_i18n.refresh'),
         onClick: async () => {
           if (isChanged.value) {
-            const confirmed = await confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_re'))
+            const confirmed = await confirmUnsavedChanges($t('file_lite_i18n.changes_not_saved_continue_to_ex'))
             if (!confirmed) {
               return
             }
           }
           openFile()
         },
-      },
-      {
-        label: $t('file_lite_i18n.exit'),
-        onClick: () => emit('exit'),
       },
     ],
   }
@@ -306,6 +440,22 @@ useShortcut({
   combo: ['ctrl+s', 'meta+s'],
   description: 'Save',
   handler: handleSaveFile,
+  allowInInput: true,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+o', 'meta+o'],
+  description: 'Open',
+  handler: () => void openViaPicker(),
+  allowInInput: true,
+})
+
+useShortcut({
+  scope: shortcutScope,
+  combo: ['ctrl+shift+s', 'meta+shift+s'],
+  description: 'Save As',
+  handler: () => void saveAsViaPicker(),
   allowInInput: true,
 })
 </script>
@@ -332,7 +482,7 @@ useShortcut({
         <strong>{{ fileTooLarge.name }}</strong>
         is {{ bytesToSize(fileTooLarge.size) }} {{ $t('file_lite_i18n.limit_is') }} {{ bytesToSize(SIZE_LIMIT) }}
       </p>
-      <a class="vgo-button" :href="fs.url(absPath!)" target="_blank" rel="noopener">
+      <a class="vgo-button" :href="sdk.url(absPath)" target="_blank" rel="noopener">
         <i-mdi-open-in-new /> {{ $t('file_lite_i18n.open_in_browser') }} </a>
     </div>
     <template v-else>

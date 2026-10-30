@@ -10,6 +10,7 @@ import { LsKeys } from '@/enum'
 import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore } from '@/store'
 import { baseContextMenuOptions } from '@/utils/context-menu'
+import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { appWindows, toggleKeyboardShortcutsApp, toggleSettingsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import ExplorerPane from './ExplorerPane.vue'
@@ -19,14 +20,20 @@ import { isSplitItem, useExplorerTabs } from './ExplorerUI/explorer-tabs-store'
 import { useFavourites } from './ExplorerUI/hooks/use-favourites'
 import TaskFailureDialog from './ExplorerUI/TaskFailureDialog.vue'
 import FileSidebar from './FileSidebar.vue'
-import { getLastDirName, normalizeListingPath } from './utils'
+import { getLastDirName, joinPath, normalizeListingPath } from './utils'
 
 const props = withDefaults(
   defineProps<{
-    // 是否文件(夹)选择器
-    selectFileMode?: 'file' | 'folder'
+    // 是否文件(夹)选择器；save 表示「选目录 + 输入文件名」
+    selectFileMode?: 'file' | 'folder' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
+    // save 模式下文件名输入框的初始值
+    selectDefaultName?: string
+    // 选择器打开时进入的目录（空 = 沿用上次的目录）
+    initialPath?: string
+    // 每次打开选择器都会变：用它复位「打开前就要重置」的输入（save 的文件名）
+    requestId?: number
     // 只展示内容
     contentOnly?: boolean
     // 左侧导航是否可见
@@ -40,6 +47,8 @@ const props = withDefaults(
   }>(),
   {
     multiple: false,
+    selectDefaultName: '',
+    initialPath: '',
     contentOnly: false,
     sidebarVisible: true,
     shortcutScope: 'fileManager',
@@ -81,6 +90,68 @@ const {
   setActivePath,
   setPaneView,
 } = useExplorerTabs()
+
+// 选择器可以指定打开时进入的目录（例如 App 传进来的 launch 目录）
+watch(() => props.initialPath, (path) => {
+  if (!props.selectFileMode || !path) {
+    return
+  }
+  selectorPath.value = normalizeListingPath(path)
+}, { immediate: true })
+
+/**
+ * `save` 模式的文件名。默认名来自调用方（通常是当前文件名）；输入框只接受一个
+ * 文件名——路径里出现分隔符就说明用户想换目录，那应该用上面的面包屑。
+ */
+const saveName = ref('')
+const isSaveNameValid = computed(() => {
+  const name = saveName.value.trim()
+  return name !== '' && !name.includes('/') && !name.includes('\\')
+})
+
+watch(
+  () => props.requestId,
+  () => {
+    saveName.value = props.selectFileMode === 'save' ? props.selectDefaultName : ''
+  },
+  { immediate: true },
+)
+
+/** 当前选择器目录（listing 形态），save 模式的结果以它为父目录 */
+const selectorDirectory = computed(() => normalizeListingPath(selectorPath.value))
+
+/**
+ * 提交保存：目标已存在时先问一句，不静默覆盖。
+ *
+ * 用服务端确认而不是列表缓存：弹窗打开期间别的窗口（或别的进程）也可能刚建了
+ * 同名文件，而这是要写盘的最终目标。
+ */
+async function confirmSaveName() {
+  if (!isSaveNameValid.value) {
+    return
+  }
+  const name = saveName.value.trim()
+  const directory = selectorDirectory.value
+  const existing = await fs.existingPaths([joinPath(directory, name)]).catch(() => [])
+  if (existing.length) {
+    try {
+      await window.$dialog.confirm(
+        $t('file_lite_i18n.file_exists_overwrite_0', [name]),
+        $t('file_lite_i18n.save_as'),
+        {
+          type: 'warning',
+          confirmButtonText: $t('file_lite_i18n.replace'),
+          cancelButtonText: $t('file_lite_i18n.cancel'),
+        },
+      )
+    }
+    catch {
+      // 用户选了取消：留在选择器里换一个名字
+      return
+    }
+  }
+  emit('handleSelect', { basePath: directory, name })
+}
 
 /**
  * 选择器窗口的视图偏好。选择器没有面板级状态，所以本地留一份用于当次显示，
@@ -519,10 +590,28 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     <ConflictDialog />
     <TaskFailureDialog />
 
-    <!-- 文件选择器 -->
+    <!-- 文件选择器：save 模式多一个文件名输入框 -->
     <div v-if="selectFileMode && selectorPaneRef?.hasFileList" class="vgo-u-surface explorer-bottom-wrap">
-      <button class="vgo-button vgo-button--primary" @click="selectorPaneRef?.handleSelect()">
-        {{ selectFileMode === 'file' || selectorPaneRef?.isSelectAFolder ? 'Open' : 'Select Folder' }}
+      <template v-if="selectFileMode === 'save'">
+        <input
+          v-model="saveName"
+          class="vgo-input explorer-save-name"
+          :placeholder="$t('file_lite_i18n.file_name')"
+          :aria-label="$t('file_lite_i18n.file_name')"
+          @keydown.enter.prevent="confirmSaveName"
+        >
+        <button class="vgo-button vgo-button--primary" :disabled="!isSaveNameValid" @click="confirmSaveName">
+          {{ $t('file_lite_i18n.save') }}
+        </button>
+      </template>
+      <button
+        v-else
+        class="vgo-button vgo-button--primary"
+        @click="selectorPaneRef?.handleSelect()"
+      >
+        {{ selectFileMode === 'file' || selectorPaneRef?.isSelectAFolder
+          ? $t('file_lite_i18n.open')
+          : $t('file_lite_i18n.select') }}
       </button>
       <button class="vgo-button" @click="emit('cancelSelect')">
         {{ $t('file_lite_i18n.cancel') }}
@@ -655,8 +744,14 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
   .explorer-bottom-wrap {
     padding: var(--vgo-space-1);
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: var(--vgo-space-1);
+  }
+
+  .explorer-save-name {
+    flex: 1;
+    min-width: 0;
   }
 }
 </style>
