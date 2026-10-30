@@ -286,7 +286,7 @@ export function useOpener(basePath: { value: string }) {
           && matchesExtractExtension(item.name, serverCapabilities.value.archiveExtractExtensions)
         type UnsupportedAction = 'viewer' | 'extract' | 'browser'
         const buttons: ModalWindowButton[] = [
-          { label: $t('file_lite_i18n.file_viewer'), value: 'viewer' },
+          { label: `File Viewer`, value: 'viewer' },
         ]
         if (canExtract) {
           buttons.push({ label: $t('file_lite_i18n.extract') + ELLIPSIS, value: 'extract' })

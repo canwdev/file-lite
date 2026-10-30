@@ -113,7 +113,7 @@ export const AppList: AppListItem[] = [
   },
   {
     get name() {
-      return $t('file_lite_i18n.file_viewer')
+      return `File Viewer`
     },
     openWith: OpenWithEnum.FileViewer,
     icon: 'mdi mdi-asterisk',
