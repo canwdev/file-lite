@@ -20,6 +20,9 @@ export const dragInboxDir = path.join(dragDir, 'inbox')
 export const dragSubDir = path.join(dragInboxDir, 'sub')
 export const dragArchiveDir = path.join(dragDir, 'archive')
 
+/** 内置 App 用例专用夹具（见 fixture.mjs 的 createAppsFixture）。 */
+export const appsDir = path.join(filesDir, 'apps')
+
 export { filesDir, uploadDir, PASSWORD }
 
 /** 保存一张说明用截图（提交进仓库，供文档引用）。 */

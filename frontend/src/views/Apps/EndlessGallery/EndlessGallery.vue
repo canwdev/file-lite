@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import type { WalkDirection } from './folder-nav/tree-walk.ts'
+import type { IEntry } from '@/types/server'
 import type { AppParams } from '@/views/Apps/apps.ts'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { createTask, onTaskDone } from '@/store/tasks'
 import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { joinPath, normalizePath } from '@/utils/path/form'
+import { launchFromParams, paramsFromLaunch } from '../app-launch'
 import { useFolderNavigation } from './folder-nav/use-folder-navigation.ts'
 import GalleryPanels from './GalleryPanels.vue'
 import GalleryThumbStrip from './GalleryThumbStrip.vue'
@@ -14,14 +17,44 @@ import { useMediaList } from './use-media-list.ts'
 import { useSwipe } from './use-swipe.ts'
 import { useZoom } from './use-zoom.ts'
 
-const props = defineProps<{ appParams: AppParams }>()
-const emit = defineEmits<{
-  (e: 'setTitle', val: string): void
-  (e: 'exit'): void
-  (e: 'selectItems', names: string[]): void
-  (e: 'locateItem', name: string): void
-  (e: 'updateAppParams', params: AppParams): void
-}>()
+const sdk = useFileLiteSdk()
+
+const EMPTY_ENTRY: IEntry = {
+  name: '',
+  path: '',
+  ext: '',
+  isDirectory: false,
+  hidden: false,
+  lastModified: 0,
+  birthtime: 0,
+  size: null,
+  error: null,
+}
+
+/** Local launch state; the SDK is the source of truth for the window. */
+const appParams = ref<AppParams>({
+  absPath: '',
+  item: { ...EMPTY_ENTRY },
+  basePath: '',
+  list: [],
+})
+
+let launchRequest = 0
+sdk.onOpen(async () => {
+  const request = ++launchRequest
+  const launch = await sdk.getLaunch()
+  if (request !== launchRequest) {
+    return
+  }
+  appParams.value = launch
+    ? paramsFromLaunch(launch, appParams.value)
+    : {
+        absPath: '',
+        item: { ...EMPTY_ENTRY },
+        basePath: '',
+        list: [],
+      }
+})
 
 const edgeOverlayRef = ref<HTMLElement | null>(null)
 
@@ -35,23 +68,23 @@ const { collection, collectedPathSet, getCollectedInDirectory, toggleCollect, cl
 // ── Media list ─────────────────────────────────────────────
 
 const { items, currentIndex, currentItem, folderName, removeItem }
-  = useMediaList(() => props.appParams, pruneDirectory)
+  = useMediaList(() => appParams.value, pruneDirectory, sdk)
 
 watch(currentItem, (item) => {
   if (item) {
-    emit('setTitle', `[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
+    sdk.setTitle(`[${currentIndex.value + 1}/${items.value.length}] ${item.name} - ${folderName.value}`)
     return
   }
   // Nothing left to show: an empty folder, or the last item was just deleted
-  emit('setTitle', folderName.value)
+  sdk.setTitle(folderName.value)
 }, { immediate: true })
 
 // ── Collection computed ─────────────────────────────────────
 
 const currentAbsPath = computed(() => {
-  if (!props.appParams?.basePath || !currentItem.value)
+  if (!appParams.value.basePath || !currentItem.value)
     return ''
-  return normalizePath(joinPath(props.appParams.basePath, currentItem.value.name))
+  return normalizePath(joinPath(appParams.value.basePath, currentItem.value.name))
 })
 
 const collected = computed(() =>
@@ -61,7 +94,7 @@ const collected = computed(() =>
 const hasCollection = computed(() => collection.value.length > 0)
 
 const collectedInCurrentDir = computed(() =>
-  getCollectedInDirectory(props.appParams?.basePath ?? ''),
+  getCollectedInDirectory(appParams.value.basePath),
 )
 
 function handleToggleCollect(): void {
@@ -69,7 +102,7 @@ function handleToggleCollect(): void {
     return
   toggleCollect({
     name: currentItem.value.name,
-    basePath: props.appParams.basePath,
+    basePath: appParams.value.basePath,
     absPath: currentAbsPath.value,
   })
 }
@@ -78,15 +111,15 @@ function handleSelectCollected(): void {
   const collectedItems = collectedInCurrentDir.value
   if (!collectedItems.length)
     return
-  emit('selectItems', collectedItems.map(i => i.name))
-  emit('exit')
+  sdk.selectItems(collectedItems.map(i => i.name))
+  sdk.exit()
 }
 
 function handleLocateCurrent(): void {
   if (!currentItem.value)
     return
-  emit('locateItem', currentItem.value.name)
-  emit('exit')
+  sdk.revealItem(currentItem.value.name)
+  sdk.exit()
 }
 
 // ── Delete ─────────────────────────────────────────────────
@@ -149,7 +182,7 @@ function showNeighbourAfterDelete(name: string, direction: number): void {
   // The slot at this index holds another file now, so a zoom kept from the deleted one
   // would be wrong; `watch(currentIndex)` misses the case where the index itself stays put.
   zoom.resetZoom()
-  pruneDirectory(props.appParams?.basePath ?? '', new Set(items.value.map(item => item.name)))
+  pruneDirectory(appParams.value.basePath, new Set(items.value.map(item => item.name)))
 
   if (keepName) {
     const stillThere = items.value.findIndex(item => item.name === keepName)
@@ -228,7 +261,7 @@ useShortcut({
 
 // ── Folder navigation ──────────────────────────────────────
 
-const { isScanning, navigateFolder, cancelScan } = useFolderNavigation(() => props.appParams)
+const { isScanning, navigateFolder, cancelScan } = useFolderNavigation(() => appParams.value)
 
 // 关闭 overlay（Dismiss / Esc / 点击遮罩）即放弃扫描
 watch(edgeOverlay, (val) => {
@@ -292,7 +325,8 @@ async function handleFolderNav(direction: WalkDirection): Promise<void> {
   if (!nextParams || !edgeOverlay.value)
     return
 
-  emit('updateAppParams', nextParams)
+  appParams.value = nextParams
+  void sdk.updateLaunch(launchFromParams(nextParams))
   edgeOverlay.value = null
   // 新旧索引相同时 watch(currentIndex) 不触发，这里显式重置
   zoom.resetZoom()

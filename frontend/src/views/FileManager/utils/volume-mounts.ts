@@ -161,12 +161,22 @@ export function breadcrumbSegmentsFor(path: string, mounts: readonly string[]): 
   return out
 }
 
-/** 盘符根（`C:` / `C:/`）。规则复用 splitRoot，不在这里另写一套盘符判定。 */
+/**
+ * 盘符**根**（`C:` / `C:/`），不是「以盘符根开头的任意路径」。
+ *
+ * `D:/work` 也以盘符根开头，但它是 D: 上的一个目录；带 Label 的挂载点（Home、
+ * 网络位置、允许根）完全可能落在盘符里，把它们当成盘符根就会丢掉 Label。
+ */
 function isDriveLetterRoot(path: string): boolean {
   try {
-    const { root } = splitRoot(normalizePath(path))
+    const canonical = normalizePath(path)
+    const { root } = splitRoot(canonical)
     // splitRoot 对盘符返回 `${Letter}:/`，长度恒为 3
-    return root.length === 3 && root[1] === ':' && root.endsWith('/')
+    if (root.length !== 3 || root[1] !== ':' || !root.endsWith('/')) {
+      return false
+    }
+    const trimmed = canonical.replace(/\/+$/, '')
+    return trimmed === '' || trimmed === root.replace(/\/+$/, '')
   }
   catch (error) {
     if (!(error instanceof PathError)) {

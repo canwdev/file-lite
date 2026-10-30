@@ -200,15 +200,6 @@ export const appMetaByName = [...AppList, ...InternalAppList].reduce(
   {} as Partial<Record<AppName, AppListItem | InternalAppListItem>>,
 )
 
-export const Apps = [...AppList, ...InternalAppList].reduce(
-  (acc, app) => {
-    const appName = 'openWith' in app ? app.openWith : app.appName
-    acc[appName] = app.component
-    return acc
-  },
-  {} as Record<AppName, Component>,
-)
-
 export function getFileExt(filename: string): string {
   const dot = filename.lastIndexOf('.')
   return dot > 0 ? filename.slice(dot).toLowerCase() : ''

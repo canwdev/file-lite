@@ -2,8 +2,8 @@
 import type { Ref } from 'vue'
 import type { SubtitleSource } from '../video-subtitle'
 import { nextTick, onBeforeUnmount, onMounted, ref, unref, watch } from 'vue'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { localSettingsStore } from '@/store/index'
-import { fs } from '@/utils/fs'
 import { subtitleToVtt } from '../video-subtitle'
 import VArtPlayer from './VArtPlayer.vue'
 
@@ -26,6 +26,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'mediaElementReady', video: HTMLVideoElement): void
 }>()
+
+const sdk = useFileLiteSdk()
 
 const nativeVideoRef = ref<HTMLVideoElement | null>(null)
 const vArtRef = ref<InstanceType<typeof VArtPlayer> | null>(null)
@@ -124,7 +126,7 @@ async function loadNativeSubtitles() {
 
   const loaded = await Promise.all(props.subtitles.map(async (source): Promise<NativeSubtitleTrack | null> => {
     try {
-      const { text } = await fs.readTextFile(source.path)
+      const { text } = await sdk.readText(source.path)
       const vtt = subtitleToVtt(source.path, text)
       return { ...source, url: URL.createObjectURL(new Blob([vtt], { type: 'text/vtt;charset=utf-8' })) }
     }

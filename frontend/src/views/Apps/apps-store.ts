@@ -1,13 +1,23 @@
 import type { ManagedWindow } from '@canwdev/vgo-ui'
 import type { AppName, AppParams } from './apps'
+import type { AppTarget } from './registry'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
 import { createWindowManager } from '@canwdev/vgo-ui'
-import { appMetaByName, InternalAppEnum } from './apps'
+import { InternalAppEnum } from './apps'
+import {
+  builtinTarget,
+  pluginTarget,
+  targetChrome,
+  targetId,
+  targetName,
+  targetSingleInstance,
+} from './registry'
 
 export interface AppWindowData {
-  appName: AppName | null
-  plugin: PluginInfo | null
+  /** The app or plugin that owns the window. */
+  target: AppTarget
+  /** Launch state in the window manager's own shape; `app-launch.ts` maps it to the SDK's. */
   appParams: AppParams
 }
 
@@ -53,9 +63,7 @@ export const appWindows = createWindowManager<AppWindowData>({
 
 /** Title shown when the app has not set its own. */
 export function defaultAppTitle(data: AppWindowData) {
-  if (data.plugin)
-    return data.plugin.name
-  return (data.appName && appMetaByName[data.appName]?.name) || data.appParams.item.name
+  return targetName(data.target) || data.appParams.item.name
 }
 
 const emptyInternalEntry: IEntry = {
@@ -71,22 +79,16 @@ const emptyInternalEntry: IEntry = {
 }
 
 /**
- * The window an app can be reused into, if it declares itself single-instance.
+ * The window a target can be reused into, if it declares itself single-instance.
  *
- * `singleInstance` lives with the app in `AppList` / `InternalAppList` (plugins carry it in
- * their manifest), so the app decides this, not a user preference.
+ * `singleInstance` lives with the app in `AppList` / `InternalAppList` and with
+ * the plugin in its manifest, so the target decides this, not a preference.
  */
-function getReusableAppWindow(appName: AppName): AppWindowState | undefined {
-  if (!appMetaByName[appName]?.singleInstance) {
+function getReusableWindow(target: AppTarget): AppWindowState | undefined {
+  if (!targetSingleInstance(target)) {
     return undefined
   }
-  return appWindows.windows.find(w => w.data.appName === appName && !w.isClosing)
-}
-
-function getReusablePluginWindow(plugin: PluginInfo): AppWindowState | undefined {
-  if (!plugin.singleInstance)
-    return undefined
-  return appWindows.windows.find(w => w.data.plugin?.id === plugin.id && !w.isClosing)
+  return appWindows.windows.find(w => targetId(w.data.target) === targetId(target) && !w.isClosing)
 }
 
 function reuseWindow(win: AppWindowState, data: AppWindowData, title: string) {
@@ -97,22 +99,29 @@ function reuseWindow(win: AppWindowState, data: AppWindowData, title: string) {
 }
 
 function openWindow(data: AppWindowData, title: string) {
-  const maximized = data.appName ? (appMetaByName[data.appName]?.chrome?.maximized ?? true) : true
+  const maximized = targetChrome(data.target)?.maximized ?? true
   const win = appWindows.open(data, { title, maximized })
   rememberExplorerFocus(win.id)
+}
+
+/** Open (or reuse) a window for a built-in app or a plugin. */
+export function openTarget(target: AppTarget, appParams: AppParams) {
+  const data: AppWindowData = { target, appParams }
+  const reusableWin = getReusableWindow(target)
+  if (reusableWin) {
+    reuseWindow(reusableWin, data, target.kind === 'plugin'
+      ? (appParams.absPath ? appParams.item.name : targetName(target))
+      : defaultAppTitle(data))
+    return
+  }
+  openWindow(data, defaultAppTitle(data))
 }
 
 /**
  * 打开新 App 窗口并设为当前活动窗口
  */
 export function openAppWindow(appName: AppName, appParams: AppParams) {
-  const data: AppWindowData = { appName, plugin: null, appParams }
-  const reusableWin = getReusableAppWindow(appName)
-  if (reusableWin) {
-    reuseWindow(reusableWin, data, defaultAppTitle(data))
-    return
-  }
-  openWindow(data, defaultAppTitle(data))
+  openTarget(builtinTarget(appName), appParams)
 }
 
 export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
@@ -122,19 +131,13 @@ export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {
     basePath: '',
     list: [],
   }
-  const data: AppWindowData = { appName: null, plugin, appParams: params }
-  const reusableWin = getReusablePluginWindow(plugin)
-  if (reusableWin) {
-    reuseWindow(reusableWin, data, params.absPath ? params.item.name : plugin.name)
-    return
-  }
-  openWindow(data, plugin.name)
+  openTarget(pluginTarget(plugin), params)
 }
 
 /** 打开或关闭指定单例内部 App（F1 / `?` / 主菜单共用） */
 function toggleInternalApp(appName: InternalAppEnum, entryName: string) {
   const existing = appWindows.windows.find(
-    w => w.data.appName === appName && !w.isClosing,
+    w => targetId(w.data.target) === appName && !w.isClosing,
   )
   if (existing) {
     appWindows.close(existing.id)

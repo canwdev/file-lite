@@ -10,6 +10,7 @@ import { resolveMenuIcons } from '@/utils/icons'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow, toggleKeyboardShortcutsApp, toggleSettingsApp, toggleTextSyncApp } from '@/views/Apps/apps-store'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
+import { pluginTargets, targetVersion } from '@/views/Apps/registry'
 
 const internalSpeedTestEntry: IEntry = {
   name: 'SpeedTest',
@@ -42,12 +43,12 @@ export function useFileLiteMenu() {
             void refreshPlugins()
           },
         },
-        ...plugins.map(plugin => ({
-          label: plugin.name,
-          icon: h(PluginIcon, { plugin }),
-          shortcut: plugin.version || undefined,
+        ...pluginTargets(plugins).map(target => ({
+          label: target.plugin.name,
+          icon: h(PluginIcon, { plugin: target.plugin }),
+          shortcut: targetVersion(target) || undefined,
           onClick: () => {
-            openPluginWindow(plugin)
+            openPluginWindow(target.plugin)
           },
         })),
       ],

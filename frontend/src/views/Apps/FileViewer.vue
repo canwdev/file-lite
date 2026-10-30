@@ -1,15 +1,10 @@
 <script lang="ts" setup>
-import type { AppParams } from '@/views/Apps/apps.ts'
 import { ThemeMode } from '@/hooks/use-global-theme'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { localSettingsStore } from '@/store'
 import dynamicLoadScript from '@/utils/dynamic-load-script'
-import { fs } from '@/utils/fs'
 
-const props = defineProps<{
-  appParams: AppParams
-}>()
-
-const emit = defineEmits(['setTitle'])
+const sdk = useFileLiteSdk()
 
 // Pinned on purpose: this third-party IIFE is injected into the authenticated
 // origin, so `@latest` would let any upstream publish (or a CDN compromise) run
@@ -20,14 +15,11 @@ const emit = defineEmits(['setTitle'])
 const FILE_VIEWER_SCRIPT_VERSION = '3.2.1'
 const FILE_VIEWER_SCRIPT_URL = `https://unpkg.com/@file-viewer/web-full@${FILE_VIEWER_SCRIPT_VERSION}/dist/flyfish-file-viewer-web-full.iife.js`
 
-/**
- * 文件地址。跟随应用参数变化。
- */
-const src = computed(() => {
-  const path = props.appParams?.absPath
-  return path ? fs.url(path) : ''
-})
+const path = ref('')
 const filename = ref('')
+
+/** 文件地址。跟随当前打开的文件变化。 */
+const src = computed(() => path.value ? sdk.url(path.value) : '')
 const isLoading = ref(true)
 const error = ref('')
 
@@ -55,14 +47,16 @@ async function loadViewer() {
   }
 }
 
-watch(() => props.appParams, () => {
-  const { appParams } = props
-  if (!appParams?.absPath) {
+sdk.onOpen((launch) => {
+  if (!launch) {
+    path.value = ''
+    filename.value = ''
     return
   }
-  emit('setTitle', appParams.item.name)
-  filename.value = appParams.item.name
-}, { immediate: true })
+  path.value = launch.path
+  filename.value = launch.filename
+  sdk.setTitle(launch.filename)
+})
 
 onMounted(loadViewer)
 </script>

@@ -12,7 +12,9 @@ Static pages in the data directory's `plugins/` folder. The host scans that dire
 
 ## Contract
 
-Do not lift the existing app interfaces into the SDK. The SDK only exposes host-window capabilities: read and write files, list a directory, close the window, and change the title. The text editor, players, and gallery stay in the host. When a window capability is missing, add that one capability. Do not mirror a built-in app's interface into the SDK.
+The SDK is the single host API for both plugins and built-in apps. A plugin gets it as `window.fileLiteSDK` through `postMessage`; a built-in app gets the same object from `useFileLiteSdk()` in the host. When a capability is missing, add it to the SDK once for both transports; never implement it for one transport only.
+
+Host UI is not a capability: dialogs, i18n, the theme, the router, stores and keyboard shortcuts stay in the host. Built-in apps keep their implementation private; the SDK describes window and file capabilities, not a particular app's interface.
 
 ## Development
 
@@ -46,28 +48,140 @@ The directory defaults to `file-lite/plugins` under the process working director
 
 Register it synchronously in the page script. The host pushes `onOpen` after the iframe `load` event. A callback registered after that push does not receive it.
 
-| Method | Returns | Role |
-| --- | --- | --- |
-| `readFile(path)` | `Promise<ArrayBuffer>` | Read `path`. Rejects on failure |
-| `writeFile(path, data)` | `Promise<void>` | Overwrite `path`. `data` is an `ArrayBuffer`, `Uint8Array`, or `Blob`. Rejects on failure |
-| `list(path)` | `Promise<object[]>` | List one level of `path`, not recursively. Rejects on failure. Each item is `{ name, path, ext, isDirectory, size, lastModified }`. `path` is that item's full path; `size` is `null` for a directory; `lastModified` is a timestamp in milliseconds |
-| `onOpen(callback)` |  | Called when a new window starts. The argument is `{ path, filename }` when a file was opened, otherwise `undefined`. Called again when a `singleInstance: true` window is opened again |
-| `exit()` | `Promise<void>` | Close the current window |
-| `setTitle(title)` | `Promise<void>` | Change the host window title, not `document.title` |
+The whole surface is one object. Nothing is optional: a method that exists always answers, and a failure always rejects.
 
-`path` is the file's full path. `filename` is the file name. Read and write use the same scope as the file manager. Do not destructure `undefined`.
+```ts
+interface FileLiteSdk {
+  readonly version: 2
 
-`window.close` is `fileLiteSDK.exit()`. There is no unload API in the other direction: closing the window removes the iframe.
+  list(path: string): Promise<SdkEntry[]>
+  readFile(path: string): Promise<ArrayBuffer>
+  readText(path: string): Promise<{ text: string, charset: string }>
+  writeFile(path: string, data: BlobPart, options?: SdkWriteOptions): Promise<SdkWriteResult>
+  url(path: string): string
+
+  getLaunch(): Promise<SdkLaunch | null>
+  onOpen(callback: (launch: SdkOpenEvent | undefined) => void): void
+  updateLaunch(launch: Partial<SdkLaunch>): Promise<void>
+  setTitle(title: string): Promise<void>
+  selectItems(names: string[]): Promise<void>
+  revealItem(name: string): Promise<void>
+  exit(): Promise<void>
+}
+
+interface SdkEntry {
+  name: string
+  /** Full path of the entry. */
+  path: string
+  ext: string
+  isDirectory: boolean
+  isLink?: boolean
+  hidden?: boolean
+  /** `null` for a directory. */
+  size: number | null
+  /** Milliseconds. */
+  lastModified: number
+  /** Milliseconds. */
+  birthtime?: number
+}
+
+interface SdkLaunch {
+  /** Full path of the opened file, `''` when the window has none. */
+  path: string
+  /** Base name of `path`, `''` when the window has none. */
+  filename: string
+  /** Directory used by `selectItems` / `revealItem`. */
+  directory: string
+  /** The directory listing captured when the window opened. */
+  entries: SdkEntry[]
+}
+
+interface SdkOpenEvent {
+  path: string
+  filename: string
+  directory: string
+}
+
+interface SdkWriteOptions {
+  /** Default `overwrite`. */
+  conflict?: 'error' | 'overwrite' | 'keep-both' | 'skip'
+  /** Encoding to write back, from `readText`. Omitted means UTF-8. */
+  charset?: string
+}
+
+interface SdkWriteResult {
+  /** Where the bytes landed; `keep-both` may rename the file. */
+  path: string
+  name: string
+}
+```
+
+### list(path)
+
+Lists one level of `path`, not recursively. Each item is an `SdkEntry` whose `path` is already the full path, so a caller never joins names by hand.
+
+### readFile(path)
+
+Reads the raw bytes as an `ArrayBuffer`. Use it for images, archives and any binary format.
+
+### readText(path)
+
+Reads a text file. The returned `text` is always UTF-8, and `charset` is the encoding the file actually has on disk (`''` when the server did not treat it as text). Pass that `charset` back to `writeFile` and the file keeps its encoding after an edit.
+
+### writeFile(path, data, options?)
+
+Writes `data` — an `ArrayBuffer`, a typed array or a `Blob`; a plain string is rejected, because a string has no encoding — to `path` and resolves with where it landed. A missing path is rejected before anything is written. `options.conflict` decides what happens when the file already exists; the default `overwrite` is what a save means. Without `options.charset` the bytes are stored as UTF-8.
+
+### url(path)
+
+Builds the stream URL synchronously, for `src` and `href`. It needs no round trip to the host, so it can be used while rendering.
+
+### getLaunch()
+
+Returns the current launch, or `null` when the window was opened without a file. `entries` is the directory listing the file manager had when the window opened; ask for it only when the listing is needed, because it can be large.
+
+### onOpen(callback)
+
+Called when the window starts, and again every time a `singleInstance: true` window is reused for another file. The argument is an `SdkOpenEvent`, or `undefined` when the window has no file. Register it synchronously in the page script: the host pushes the launch right after the iframe `load` event, and a callback registered later does not receive that first push. The push carries the target only; call `getLaunch()` for the listing.
+
+### updateLaunch(launch)
+
+Merges a partial launch into the window state (for example after navigating inside your page) and updates the host window. It does not call `onOpen` again, so a plugin that publishes its own navigation cannot loop.
+
+### setTitle(title)
+
+Sets the host window title. `document.title` is not the window title.
+
+### selectItems(names) / revealItem(name)
+
+Act on the launch's `directory`: select those names in the file manager, or reveal one of them. Scrolling, focus and the surrounding UI belong to the host.
+
+### exit()
+
+Closes the current window. `window.close` is the same call: the host overrides it because closing an iframe is not something a page can do by itself. There is no unload API in the other direction — closing the window removes the iframe.
+
+`path` is always the file's full path, and read, write and explorer actions use the same scope as the file manager. Do not destructure a possibly `undefined` callback argument.
 
 There is no API to create a directory, pick a file, write a save-as back, or talk to another plugin.
+
+### Example
 
 ```html
 <script>
 fileLiteSDK.onOpen(function (file) {
   if (!file)
     return
-  var { path, filename } = file
-  fileLiteSDK.readFile(path)
+  var path = file.path
+  fileLiteSDK.readText(path).then(function (result) {
+    // result.text is UTF-8; result.charset is the encoding on disk
+    editor.value = result.text
+    return fileLiteSDK.writeFile(path, new Blob([result.text]), {
+      conflict: 'overwrite',
+      charset: result.charset,
+    })
+  })
 })
 </script>
 ```
+
+Read `readText` and write with its `charset` whenever the plugin edits text: the server converts the file to UTF-8 for the page and encodes it back on write, so a GB18030 or Shift-JIS document stays in its own encoding.

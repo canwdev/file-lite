@@ -55,6 +55,7 @@ files/
 ├── target/           a.txt(existing-alpha) nested/     ← 预置同名文件，冲突用例靠它
 ├── empty/            （空目录，用来制造「不可写」的失败场景）
 ├── drag/             inbox/（move-me.txt、copy-me.txt、ctrl-me.txt、sub/back.txt）+ archive/
+├── apps/             hello.txt note.md gbk.txt(GB18030) page.html picture.png picture2.png
 └── （根目录还会临时出现拖拽用例落在磁盘根 / 面包屑上的文件，复位时清掉）
 upload/               a.txt（与服务端同名）、fresh.txt
 ```
@@ -121,8 +122,9 @@ upload/               a.txt（与服务端同名）、fresh.txt
 | `14-language.spec.ts` | 界面语言：首次访问按浏览器语言初始化并写回服务端；服务端已保存的语言优先于浏览器语言；在设置里切换语言后刷新仍然生效 | — |
 | `15-session-refresh.spec.ts` | 短期 access token：过期后页面加载会先刷新再重试原请求；经典 `/ie` 导航也会在服务端换发 token；媒体元素 401 后换发一次并重载 | — |
 | `16-ticket-tiers.spec.ts` | 记住登录默认不勾选；IP Chooser 选择票档、不连接 WebSocket；已登录时忽略 ticket 且不消费；临时会话隐藏分享入口、到期自动登出 | — |
+| `17-apps.spec.ts` | 内置 App 走 SDK 之后的行为：文本编辑器**首次打开**就有内容、保存落盘；GB18030 文件读成文本并以原编码写回；HTML 查看器经 `sdk.url()` 加载；Open With / Set Default App 来自同一份注册表；画廊单例复用并 `revealItem` 选中文件；Properties、Settings、MediaPlayer 窗口 | — |
 
-合计 68 个用例，单次运行约 2 分钟。
+合计 77 个用例，单次运行约 2.5 分钟。
 
 ## 测试发现的真实缺陷
 
@@ -180,6 +182,10 @@ bun run docs:screenshots --refresh    # 重新下载演示素材
 - 每个功能点用独立的浏览器上下文截图，所以标签页、视图、滚动位置互不干扰。
 
 ## 排查
+
+**`17-apps` 里关窗口的断言超时**
+App 窗口在关闭动画期间仍在 DOM 里，所以「关掉了」要用 `closeWindow()`（双击标题栏图标再等
+窗口 `toBeHidden()`）。不要改成按 Esc：Esc 只在焦点位于 App 的快捷键作用域里才生效。
 
 **`port 4173 is already in use`**
 上一次运行被强杀留下了孤儿服务进程。测试脚本会直接报错退出（而不是让第二个服务悄悄起不来、

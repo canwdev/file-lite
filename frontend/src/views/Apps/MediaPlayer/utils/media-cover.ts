@@ -1,3 +1,5 @@
+import type { useMediaStore } from './media-store'
+import type { MediaItem } from './music-state'
 /**
  * 播放器封面的统一加载器。
  *
@@ -18,10 +20,8 @@
  * 每个窗口（storeId）一份控制器，objectURL 不跨窗口共享 —— 两个窗口同时显示同一张图
  * 时共享 URL 会被先销毁的一方 revoke 掉（与 image-thumb-cache 的单飞表同样的理由）。
  */
-import type { useMediaStore } from './media-store'
-import type { MediaItem } from './music-state'
+import type { FileLiteSdk } from '@/sdk/contract'
 import { watch } from 'vue'
-import { fs } from '@/utils/fs'
 import { resolveAudioCover } from '@/utils/image-thumb-cache'
 import { requestPreviewLoad } from '@/utils/preview-load-queue'
 import { isOpticalPath } from '@/views/FileManager/ExplorerUI/drives'
@@ -38,7 +38,7 @@ export interface MediaCoverController {
   releaseAll: () => void
 }
 
-export function useMediaCoverController(mediaStore: MediaStore): MediaCoverController {
+export function useMediaCoverController(mediaStore: MediaStore, sdk: FileLiteSdk): MediaCoverController {
   /** 在途解析：按绝对路径去重 */
   const inflight = new Map<string, { abort: AbortController, stopQueue: () => void, cacheOnly: boolean }>()
   /** 已确定「文件里没有内嵌封面」的路径：本窗口内不再重复探测 */
@@ -101,7 +101,7 @@ export function useMediaCoverController(mediaStore: MediaStore): MediaCoverContr
             key,
             size: item.size,
             lastModified: item.lastModified,
-            streamUrl: fs.url(key),
+            streamUrl: sdk.url(key),
             signal: abort.signal,
             cacheOnly,
           })

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import type { AppParams } from '@/views/Apps/apps.ts'
+import type { SdkEntry } from '@/sdk/contract'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { guid } from '@/utils'
 import { isSupportedMediaFormat } from '@/utils/is'
 import { joinPath, normalizePath } from '@/views/FileManager/utils'
@@ -10,18 +11,7 @@ import { useMediaCoverController } from './utils/media-cover'
 import { useMediaStore } from './utils/media-store'
 import { MediaItem } from './utils/music-state'
 
-const props = withDefaults(
-  defineProps<{
-    appParams: AppParams
-  }>(),
-  {},
-)
-const emit = defineEmits<{
-  (e: 'locateItem', name: string): void
-  (e: 'setTitle', val: string): void
-}>()
-
-// const {params} = toRefs(props)
+const sdk = useFileLiteSdk()
 
 const storeId = ref(`mediaStore_${guid()}`)
 // 向所有子组件传参
@@ -34,7 +24,7 @@ const showPlaylist = ref(false)
  * 封面加载器：当前曲目与歌单每一行的封面都从共享缩略图缓存取（见 media-cover.ts）。
  * 每行通过 inject 拿它，关窗时统一回收 objectURL。
  */
-const mediaCover = useMediaCoverController(mediaStore)
+const mediaCover = useMediaCoverController(mediaStore, sdk)
 provide('mediaCover', mediaCover)
 onBeforeUnmount(() => mediaCover.releaseAll())
 
@@ -43,35 +33,46 @@ const coverBackgroundStyle = computed(() => {
   return cover ? { '--media-cover-bg': `url(${cover})` } : {}
 })
 
-// 应用启动传参
-watch(
-  () => props.appParams,
-  () => {
-    if (!props.appParams) {
-      return
-    }
-    const { item, list, basePath, absPath } = props.appParams
+// 每次打开 / 单例复用都把新的播放目标交给播放器。连续复用只认最后一次。
+let openRequest = 0
+sdk.onOpen(async (launch) => {
+  const request = ++openRequest
+  if (!launch) {
+    return
+  }
+  const current = await sdk.getLaunch()
+  if (request !== openRequest) {
+    return
+  }
+  const basePath = current?.directory || launch.directory
+  // A Properties-style launch (selection without a directory listing) still has a target.
+  const entries: SdkEntry[] = current?.entries.length
+    ? current.entries
+    : [{
+        name: launch.filename,
+        path: launch.path,
+        ext: '',
+        isDirectory: false,
+        size: null,
+        lastModified: 0,
+      }]
 
-    // 恢复播放按钮 / 再次打开同一个文件：这个单例窗口只是被激活，不能重建 MediaItem。
-    // 重建会触发 <audio>.load() 从头播放；而地址没变又不会重新解析标签，
-    // 标题 / 艺术家 / 歌词就会丢到下一次切歌为止。
-    const targetPath = normalizePath(absPath || joinPath(basePath, item.name))
-    if (mediaStore.mediaItem?.absPath === targetPath) {
-      return
-    }
+  // 恢复播放按钮 / 再次打开同一个文件：这个单例窗口只是被激活，不能重建 MediaItem。
+  // 重建会触发 <audio>.load() 从头播放；而地址没变又不会重新解析标签，
+  // 标题 / 艺术家 / 歌词就会丢到下一次切歌为止。
+  const targetPath = normalizePath(launch.path || joinPath(basePath, launch.filename))
+  if (mediaStore.mediaItem?.absPath === targetPath) {
+    return
+  }
 
-    const medias = list
-      // size / lastModified 是封面缓存的指纹，不能丢
-      .map(i => new MediaItem(i.name, basePath, Number(i.size ?? 0), i.lastModified ?? 0))
-      .filter((i) => {
-        return isSupportedMediaFormat(i.filename)
-      })
-    const idx = medias.findIndex(i => i.filename === item.name)
+  const medias = entries
+  // size / lastModified 是封面缓存的指纹，不能丢
+    .map(entry => new MediaItem(entry.name, basePath, Number(entry.size ?? 0), entry.lastModified ?? 0))
+    .filter(media => isSupportedMediaFormat(media.filename))
+  const idx = medias.findIndex(media => media.filename === launch.filename)
 
-    mediaStore.playFromList(medias, idx)
-  },
-  { immediate: true },
-)
+  mediaStore.playFromList(medias, idx)
+})
 </script>
 
 <template>
@@ -83,7 +84,7 @@ watch(
     <div v-if="mediaStore.mediaItem?.cover" class="app-cover-bg" />
     <div class="music-above">
       <div class="media-detail">
-        <PlayerCore @set-title="(val: string) => emit('setTitle', val)" />
+        <PlayerCore @set-title="(val: string) => sdk.setTitle(val)" />
       </div>
     </div>
 
@@ -106,7 +107,7 @@ watch(
               <i-mdi-close />
             </button>
           </div>
-          <MusicPlaylist @locate-item="(name: string) => emit('locateItem', name)" />
+          <MusicPlaylist @locate-item="(name: string) => sdk.revealItem(name)" />
         </aside>
       </div>
     </Transition>

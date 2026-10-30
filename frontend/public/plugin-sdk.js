@@ -1,5 +1,7 @@
 /* File Lite plugin SDK. Injected into a plugin's entry HTML. */
 (function () {
+  var VERSION = 2
+  var STREAM_URL_PREFIX = '/api/fs/content/'
   var PLUGIN = 'file-lite-plugin'
   var HOST = 'file-lite-host'
   var nextId = 0
@@ -35,6 +37,15 @@
     return Promise.reject(new Error('unsupported data'))
   }
 
+  function dispatchOpen(data) {
+    var file = data.path
+      ? { path: data.path, filename: data.filename || '', directory: data.directory || '' }
+      : undefined
+    openHandlers.forEach(function (cb) {
+      cb(file)
+    })
+  }
+
   window.addEventListener('message', function (event) {
     if (event.origin !== window.location.origin)
       return
@@ -42,12 +53,7 @@
     if (!data || data.source !== HOST)
       return
     if (data.event === 'open') {
-      var file = data.path
-        ? { path: data.path, filename: data.filename || '' }
-        : undefined
-      openHandlers.forEach(function (cb) {
-        cb(file)
-      })
+      dispatchOpen(data)
       return
     }
     var waiter = pending.get(data.id)
@@ -61,25 +67,48 @@
   })
 
   window.fileLiteSDK = {
+    version: VERSION,
     list: function (path) {
       return call('list', { path: path })
     },
     readFile: function (path) {
       return call('readFile', { path: path })
     },
-    writeFile: function (path, data) {
+    readText: function (path) {
+      return call('readText', { path: path })
+    },
+    writeFile: function (path, data, options) {
+      // Only clone-safe fields travel over postMessage; callbacks stay host-side.
+      var writeOptions = options
+        ? { conflict: options.conflict, charset: options.charset }
+        : undefined
       return toArrayBuffer(data).then(function (buffer) {
-        return call('writeFile', { path: path, data: buffer })
+        return call('writeFile', { path: path, data: buffer, options: writeOptions })
       })
+    },
+    url: function (path) {
+      return path ? STREAM_URL_PREFIX + encodeURIComponent(path) : ''
+    },
+    getLaunch: function () {
+      return call('getLaunch')
     },
     onOpen: function (cb) {
       openHandlers.push(cb)
+    },
+    updateLaunch: function (launch) {
+      return call('updateLaunch', { launch: launch })
     },
     exit: function () {
       return call('exit')
     },
     setTitle: function (title) {
       return call('setTitle', { title: title })
+    },
+    selectItems: function (names) {
+      return call('selectItems', { names: names })
+    },
+    revealItem: function (name) {
+      return call('revealItem', { name: name })
     },
   }
 

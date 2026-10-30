@@ -1,23 +1,15 @@
 <script lang="ts" setup="">
 import type { MenuBarOptions } from '@canwdev/vgo-ui'
 import type { LineEnding } from './text-editor-line-endings'
-import type { AppParams } from '@/views/Apps/apps.ts'
 import { ContextMenuBar, useUnSavedChanges } from '@canwdev/vgo-ui'
 import { useDebounceFn } from '@vueuse/core'
 import { injectShortcutScope, useShortcut } from '@/hooks/use-shortcut'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { bytesToSize } from '@/utils'
 import { baseContextMenuOptions } from '@/utils/context-menu'
-import { fs } from '@/utils/fs'
 import { applyLineEnding, detectLineEnding } from './text-editor-line-endings'
 
-const props = withDefaults(
-  defineProps<{
-    appParams: AppParams
-  }>(),
-  {},
-)
-
-const emit = defineEmits(['exit', 'setTitle'])
+const sdk = useFileLiteSdk()
 const shortcutScope = injectShortcutScope()
 
 // 5 MB
@@ -40,10 +32,10 @@ const LINE_ENDING_LABELS: Record<LineEnding, string> = {
   cr: 'Macintosh (CR)',
 }
 
-const { appParams } = toRefs(props)
-const absPath = computed(() => {
-  return appParams.value?.absPath
-})
+const absPath = ref('')
+const filename = ref('')
+/** The opened entry's size, captured with the launch so the limit check stays cheap. */
+const fileSize = ref<number | null>(null)
 
 const editRef = ref<HTMLTextAreaElement>()
 const wrapRef = ref<HTMLElement>()
@@ -139,21 +131,11 @@ async function confirmUnsavedChanges(message: string) {
   }
 }
 
-function isAbortError(error: unknown) {
-  if (typeof error !== 'object' || error === null) {
-    return false
-  }
-  const { name, code } = error as { name?: string, code?: string }
-  return name === 'AbortError' || name === 'CanceledError' || code === 'ERR_CANCELED'
-}
-
-// 切换文件时旧请求可能后返回，用 AbortController 让它在途取消，避免旧内容覆盖新文件
-let openController: AbortController | null = null
+// 切换文件时旧请求可能后返回；用一个递增的请求号让旧结果作废，避免覆盖新文件。
+let openRequest = 0
 
 async function openFile() {
-  openController?.abort()
-  const controller = new AbortController()
-  openController = controller
+  const request = ++openRequest
 
   fileTooLarge.value = null
   fileCharset.value = ''
@@ -163,22 +145,20 @@ async function openFile() {
   cursorColumn.value = 1
   try {
     isLoading.value = true
-    emit('setTitle', absPath.value)
+    sdk.setTitle(filename.value || absPath.value)
     editContent.value = ''
 
     if (!absPath.value) {
       return
     }
 
-    const { item } = props.appParams
-    if (item.size != null && item.size > SIZE_LIMIT) {
-      fileTooLarge.value = { name: item.name, size: item.size }
+    if (fileSize.value != null && fileSize.value > SIZE_LIMIT) {
+      fileTooLarge.value = { name: filename.value, size: fileSize.value }
       return
     }
 
-    // 走门面读取文本（连同它在磁盘上的编码）
-    const { text, charset } = await fs.readTextFile(absPath.value, { signal: controller.signal })
-    if (controller.signal.aborted) {
+    const { text, charset } = await sdk.readText(absPath.value)
+    if (request !== openRequest) {
       return
     }
     editContent.value = text
@@ -190,39 +170,37 @@ async function openFile() {
     })
   }
   catch (error) {
-    if (!isAbortError(error)) {
+    if (request === openRequest) {
       console.error('open file failed', error)
     }
   }
   finally {
     // 已被更新的请求取代时不要回写 loading / 抢焦点
-    if (openController === controller) {
-      openController = null
+    if (request === openRequest) {
       isLoading.value = false
     }
   }
 }
 
-watch(
-  () => props.appParams,
-  () => {
+sdk.onOpen(async (launch) => {
+  if (!launch) {
+    absPath.value = ''
+    filename.value = ''
+    fileSize.value = null
     openFile()
-  },
-)
-
-onMounted(() => {
+    return
+  }
+  const current = await sdk.getLaunch()
+  const entry = current?.entries.find(item => item.path === launch.path)
+  absPath.value = launch.path
+  filename.value = launch.filename
+  fileSize.value = entry?.size ?? null
   openFile()
 })
 
 onBeforeUnmount(() => {
-  openController?.abort()
+  openRequest++
 })
-
-/** 某个路径的父目录 */
-function dirOf(path: string) {
-  const cut = path.replace(/\/+$/, '').lastIndexOf('/')
-  return cut > 0 ? path.slice(0, cut) : path
-}
 
 const isSaving = ref(false)
 async function handleSaveFile() {
@@ -236,25 +214,20 @@ async function handleSaveFile() {
       throw new Error('absPath not exist!')
     }
 
-    const idx = absPath.value.lastIndexOf('/') + 1
-    const filename = absPath.value.slice(idx)
-    // 保存就是覆盖打开的这个文件，所以显式 overwrite；门面负责分派与只读守卫。
+    // 保存就是覆盖打开的这个文件，所以显式 overwrite；SDK 负责分派与只读守卫。
     // 行尾与编码都按打开时的原样写回，编辑不会悄悄改变这个文件。
     const content = applyLineEnding(editContent.value, lineEnding.value)
-    const written = await fs.writeText(dirOf(absPath.value), filename, content, {
+    await sdk.writeFile(absPath.value, new Blob([content], { type: 'text/plain' }), {
       conflict: 'overwrite',
       ...(fileCharset.value ? { charset: fileCharset.value } : {}),
     })
-    if (!written.ok) {
-      window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
-      return
-    }
     setTimeout(() => {
       isChanged.value = false
     })
   }
   catch (error) {
-    console.error('save file failed', error)
+    const reason = error instanceof Error ? error.message : $t('file_lite_i18n.this_location_is_read_only')
+    window.$message?.warning(reason)
   }
   finally {
     isSaving.value = false
@@ -295,7 +268,7 @@ const menuOptions = computed((): MenuBarOptions => {
       },
       {
         label: $t('file_lite_i18n.exit'),
-        onClick: () => emit('exit'),
+        onClick: () => sdk.exit(),
       },
     ],
   }
@@ -332,7 +305,7 @@ useShortcut({
         <strong>{{ fileTooLarge.name }}</strong>
         is {{ bytesToSize(fileTooLarge.size) }} {{ $t('file_lite_i18n.limit_is') }} {{ bytesToSize(SIZE_LIMIT) }}
       </p>
-      <a class="vgo-button" :href="fs.url(absPath!)" target="_blank" rel="noopener">
+      <a class="vgo-button" :href="sdk.url(absPath)" target="_blank" rel="noopener">
         <i-mdi-open-in-new /> {{ $t('file_lite_i18n.open_in_browser') }} </a>
     </div>
     <template v-else>

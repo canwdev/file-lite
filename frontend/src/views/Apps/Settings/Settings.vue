@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { VgoOptionItem } from '@canwdev/vgo-ui'
-import type { AppParams } from '@/views/Apps/apps'
 import { OptionUI, VgoOptionType } from '@canwdev/vgo-ui'
 import {
   ElCheckbox,
@@ -27,19 +26,13 @@ import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thu
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { appWindows } from '@/views/Apps/apps-store'
 import { useCollection } from '@/views/Apps/EndlessGallery/use-collection'
+import { builtinAppOf } from '@/views/Apps/registry'
 import ThemeSwatches from '@/views/Apps/Settings/ThemeSwatches.vue'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import 'element-plus/es/components/input/style/css'
 import 'element-plus/es/components/space/style/css'
 import 'element-plus/es/components/switch/style/css'
-
-defineProps<{ appParams: AppParams }>()
-
-defineEmits<{
-  exit: []
-  setTitle: [title: string]
-}>()
 
 // OptionUI resolves el-* at runtime. This app registers components on demand,
 // so the rest of the UI can keep importing Element Plus per component.
@@ -93,7 +86,7 @@ async function refreshCacheStats() {
 
 watch(() => appWindows.activeId, (id) => {
   const win = id ? appWindows.get(id) : undefined
-  if (win?.data.appName === InternalAppEnum.Settings)
+  if (win && builtinAppOf(win.data.target) === InternalAppEnum.Settings)
     void refreshCacheStats()
 }, { immediate: true })
 

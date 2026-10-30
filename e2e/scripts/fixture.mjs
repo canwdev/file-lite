@@ -34,6 +34,37 @@ export function createDragFixture() {
 }
 
 /**
+ * 内置 App 用例的夹具树。
+ *
+ * 单独一个目录，避免往 source/ 里加文件影响其它用例的行数与排序：
+ * - `hello.txt` 文本编辑器第一次打开必须有内容；
+ * - `gbk.txt` 是 GB18030 的「你好」+ 换行，用来验证编码往返；
+ * - `page.html` HTML 查看器要能读到 iframe 里的标题；
+ * - `picture.png` / `picture2.png` 给看图与画廊（单例复用）；
+ * - `note.md` 给默认 App 匹配（.md 由文本编辑器打开）。
+ */
+export function createAppsFixture() {
+  const apps = path.join(filesDir, 'apps')
+  fs.rmSync(apps, { recursive: true, force: true })
+  fs.mkdirSync(apps, { recursive: true })
+  fs.writeFileSync(path.join(apps, 'hello.txt'), 'hello apps')
+  fs.writeFileSync(path.join(apps, 'note.md'), '# app note')
+  // GB18030：「你好」= C4 E3 BA C3
+  fs.writeFileSync(path.join(apps, 'gbk.txt'), Buffer.from([0xC4, 0xE3, 0xBA, 0xC3, 0x0A]))
+  fs.writeFileSync(
+    path.join(apps, 'page.html'),
+    '<!doctype html><meta charset="utf-8"><title>page</title><h1 id="hello">html-viewer-ok</h1>',
+  )
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  )
+  fs.writeFileSync(path.join(apps, 'picture.png'), png)
+  fs.writeFileSync(path.join(apps, 'picture2.png'), png)
+  return apps
+}
+
+/**
  * A real 1-second 32x32 VP8 WebM.
  *
  * The media recovery test has to reach `loadedmetadata` after it replays the
@@ -77,6 +108,7 @@ export function resetFixture() {
   fs.writeFileSync(path.join(uploadDir, 'fresh.txt'), 'fresh-upload')
 
   createDragFixture()
+  createAppsFixture()
 
   fs.mkdirSync(dataDir, { recursive: true })
   fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({

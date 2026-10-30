@@ -1,6 +1,6 @@
+import type { FileLiteSdk } from '@/sdk/contract'
 import type { IEntry } from '@/types/server.ts'
 import type { AppParams } from '@/views/Apps/apps.ts'
-import { fs } from '@/utils/fs'
 import {
   regSupportedAudioFormat,
   regSupportedImageFormat,
@@ -28,6 +28,7 @@ export function getMediaType(name: string): MediaFile['type'] | null {
 export function useMediaList(
   getAppParams: () => AppParams | undefined,
   pruneDirectory: (basePath: string, existingNames: Set<string>) => void,
+  sdk: FileLiteSdk,
 ) {
   const rawItems = ref<Omit<MediaFile, 'url'>[]>([])
   const currentIndex = ref(0)
@@ -40,7 +41,7 @@ export function useMediaList(
     return rawItems.value.map(i => `${base}/${i.name}`)
   })
 
-  const urlMap = computed(() => new Map(itemPaths.value.map(path => [path, fs.url(path)])))
+  const urlMap = computed(() => new Map(itemPaths.value.map(path => [path, sdk.url(path)])))
 
   const items = computed<MediaFile[]>(() => {
     return rawItems.value.map((item, index) => ({

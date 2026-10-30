@@ -7,13 +7,14 @@ import { useElementFullscreen } from '@/hooks/use-fullscreen'
 import { baseContextMenuOptions } from '@/utils/context-menu'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import AppEscToClose from './AppEscToClose.vue'
-import { appMetaByName, Apps } from './apps'
 import { appWindows, defaultAppTitle } from './apps-store'
+import AppSdkProvider from './AppSdkProvider.vue'
 import PluginHost from './PluginHost.vue'
 import PluginIcon from './PluginIcon.vue'
+import { builtinAppOf, pluginOf, targetChrome, targetComponent, targetIcon } from './registry'
 
-function appMeta(win: AppWindowState) {
-  return win.data.appName ? appMetaByName[win.data.appName] : undefined
+function componentOf(win: AppWindowState) {
+  return win.data.target.kind === 'builtin' ? targetComponent(win.data.target) : null
 }
 
 const DEFAULT_WINDOW_SIZE = {
@@ -28,7 +29,7 @@ const WINDOW_STYLE = {
 }
 
 function initWinOptions(win: AppWindowState) {
-  const chrome = appMeta(win)?.chrome
+  const chrome = targetChrome(win.data.target)
   return {
     width: chrome?.width ?? DEFAULT_WINDOW_SIZE.width,
     height: chrome?.height ?? DEFAULT_WINDOW_SIZE.height,
@@ -106,15 +107,15 @@ function handleLocateItem(win: AppWindowState, name: string) {
   <WindowStack :manager="appWindows" :window-props="windowProps" :content-attrs="contentAttrs">
     <template #title="{ win }">
       <PluginIcon
-        v-if="win.data.plugin"
-        :plugin="win.data.plugin"
+        v-if="pluginOf(win.data.target)"
+        :plugin="pluginOf(win.data.target)!"
         class="title-icon"
         @click.stop
         @dblclick.stop="appWindows.requestClose(win.id)"
       />
       <MdiIcon
         v-else
-        :name="appMeta(win)?.icon"
+        :name="targetIcon(win.data.target)"
         class="title-icon"
         @click.stop
         @dblclick.stop="appWindows.requestClose(win.id)"
@@ -138,16 +139,8 @@ function handleLocateItem(win: AppWindowState, name: string) {
     <template #default="{ win, close }">
       <ShortcutScopeProvider :scope="`app:${win.id}`">
         <PluginHost
-          v-if="win.data.plugin"
-          :plugin="win.data.plugin"
-          :app-params="win.data.appParams"
-          @exit="close"
-          @set-title="(val: string) => setTitle(win, val)"
-        />
-        <component
-          :is="Apps[win.data.appName]"
-          v-else-if="win.data.appName"
-          :ref="(el: unknown) => bindAppInstance(win, el)"
+          v-if="pluginOf(win.data.target)"
+          :plugin="pluginOf(win.data.target)!"
           :app-params="win.data.appParams"
           @exit="close"
           @set-title="(val: string) => setTitle(win, val)"
@@ -155,6 +148,20 @@ function handleLocateItem(win: AppWindowState, name: string) {
           @locate-item="(name: string) => handleLocateItem(win, name)"
           @update-app-params="(params: AppParams) => { win.data.appParams = params }"
         />
+        <AppSdkProvider
+          v-else-if="builtinAppOf(win.data.target)"
+          :win="win"
+          @exit="close"
+          @set-title="(val: string) => setTitle(win, val)"
+          @select-items="(names: string[]) => handleSelectItems(win, names)"
+          @locate-item="(name: string) => handleLocateItem(win, name)"
+          @update-app-params="(params: AppParams) => { win.data.appParams = params }"
+        >
+          <component
+            :is="componentOf(win)"
+            :ref="(el: unknown) => bindAppInstance(win, el)"
+          />
+        </AppSdkProvider>
         <AppEscToClose :scope="`app:${win.id}`" @close="close" />
       </ShortcutScopeProvider>
     </template>
@@ -168,8 +175,8 @@ function handleLocateItem(win: AppWindowState, name: string) {
   >
     <template #icon="{ win }">
       <span class="dock-icon-wrap vgo-panel">
-        <PluginIcon v-if="win.data.plugin" :plugin="win.data.plugin" />
-        <MdiIcon v-else :name="appMeta(win)?.icon" />
+        <PluginIcon v-if="pluginOf(win.data.target)" :plugin="pluginOf(win.data.target)!" />
+        <MdiIcon v-else :name="targetIcon(win.data.target)" />
       </span>
     </template>
   </WindowDock>

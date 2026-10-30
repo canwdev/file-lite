@@ -122,6 +122,7 @@ bun run build
 - [IP allowlist](./docs/ip-allowlist.md)
 - [Prebuilt plugins](./plugins-repo/README.md)
 - [Plugins](./docs/design/plugins.md)
+- [FileLite SDK](./docs/design/sdk.md)
 - [Tabs](./docs/design/explorer-tabs-design.md)
 - [Background file operations](./docs/design/async-file-operations-ws-design.md)
 - [7-Zip](./docs/design/7zip.md)

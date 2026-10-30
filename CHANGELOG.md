@@ -2,6 +2,23 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.6.0
+
+### Features
+
+- **Plugin SDK**: Built-in apps and plugins now share one API; plugins can read text files in their own encoding, build stream URLs, inspect and update their launch state, and select or reveal files in the explorer (frontend).
+
+### Fixes
+
+- **Text editor**: A text file opened for the first time showed an empty editor until the window was closed and opened again (frontend).
+- **Monaco Editor plugin**: Files are opened in their own encoding and saved back in it, so a GB18030 or Shift-JIS document is no longer rewritten as UTF-8; the status bar shows the encoding, and UTF-8 BOM, UTF-16 and Windows-1252 files opened from the computer keep their encoding too (frontend).
+- **Markdown Viewer plugin**: A document in a legacy encoding such as GB18030 renders correctly instead of as mojibake (frontend).
+- **Breadcrumb**: On Windows, a location that has its own name (Home, a network location) is labeled by that name in the address bar instead of showing its full path (frontend).
+
+### Engineering
+
+- **Plugin API**: Plugins no longer get a compatibility branch: `onOpen` always receives one `{ path, filename, directory }` object, and the old `(path, filename)` callback form and `name` field are gone (frontend).
+
 ## 1.5.2
 
 ### UI

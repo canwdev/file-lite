@@ -9,19 +9,11 @@ import Artplayer from 'artplayer'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { LsKeys } from '@/enum'
 import { getCurrentPrimaryRgb, rgbToHex } from '@/hooks/use-global-theme'
-import { fs } from '@/utils/fs'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { joinPath } from '@/utils/path/form'
 import { detectBlobTextEncoding } from '@/utils/text-encoding'
 import FileSelector from '@/views/FileManager/FileSelector.vue'
 import { subtitleName, subtitleType } from '../video-subtitle'
-
-interface Props {
-  src: string
-  autoplay?: boolean
-  options?: Partial<Option> // 允许外部传入 Artplayer 的其他高级配置
-  /** 自动找到的同名字幕；第一条自动挂上，其余放进播放器的字幕菜单 */
-  subtitles?: SubtitleSource[]
-}
 
 const props = withDefaults(defineProps<Props>(), {
   autoplay: false,
@@ -35,6 +27,16 @@ const emit = defineEmits<{
   (e: 'play', event: Event): void
   (e: 'ready', art: Artplayer): void // 抛出实例以便父组件获取控制权
 }>()
+
+const sdk = useFileLiteSdk()
+
+interface Props {
+  src: string
+  autoplay?: boolean
+  options?: Partial<Option> // 允许外部传入 Artplayer 的其他高级配置
+  /** 自动找到的同名字幕；第一条自动挂上，其余放进播放器的字幕菜单 */
+  subtitles?: SubtitleSource[]
+}
 
 const storageOpts = { listenToStorageChanges: false as const }
 
@@ -228,7 +230,7 @@ function switchSubtitle(path: string, refreshSetting = true) {
     // 服务端已经把非 UTF-8 的字幕转成 UTF-8（Artplayer 默认按 UTF-8 解），
     // srt / ass / vtt 它自己都会解析，所以直接把服务端 URL 交给它。
     const source = props.subtitles.find(item => item.path === path)
-    void inst.subtitle.switch(fs.url(path), {
+    void inst.subtitle.switch(sdk.url(path), {
       name: source?.label || subtitleName(path),
       type: subtitleType(path),
     }).catch(console.error)
@@ -479,7 +481,7 @@ function handleVideoSelect(val: FileSelectResult, item: IEntry) {
     return
   revokeBlobRef(videoObjectUrl)
   videoObjectUrl.value = null
-  const url = fs.url(joinPath(val.basePath, item.name))
+  const url = sdk.url(joinPath(val.basePath, item.name))
   if (url) {
     // 换的是另一个文件，App 那条自动字幕已经对不上号，菜单也不能再列旧字幕
     autoSubtitlesAvailable = false
@@ -497,7 +499,7 @@ function handleFileSelect(val: FileSelectResult) {
     handleVideoSelect(val, item)
     return
   }
-  const url = fs.url(joinPath(val.basePath, item.name))
+  const url = sdk.url(joinPath(val.basePath, item.name))
   if (!url) {
     return
   }

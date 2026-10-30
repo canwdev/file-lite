@@ -15,6 +15,7 @@ import {
 } from '@/utils/is'
 import { appListByOpenWith, getDefaultApp, getFileExt, isBuiltinApp, OpenWithEnum } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
+import { findTarget } from '@/views/Apps/registry'
 import { matchesExtractExtension, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { joinPath, normalizePath } from '../../utils'
 
@@ -40,16 +41,17 @@ function getSpecialOpenApp(openWith: OpenWithEnum): OpenAppMeta | undefined {
   }
 }
 
-function getOpenAppInfo(openWith: OpenWithEnum): OpenAppInfo {
+function getOpenAppInfo(openWith: OpenWithEnum): OpenAppInfo & { openWith: OpenWithEnum } {
   const app: OpenAppMeta = appListByOpenWith[openWith] ?? getSpecialOpenApp(openWith) ?? {
     name: openWith,
     icon: 'mdi mdi-open-in-app',
     openWith,
   }
-  return { ...app, source: 'matched' }
+  return { ...app, openWith, source: 'matched' }
 }
 
-export function matchOpenApp(item: IEntry): OpenAppInfo {
+/** The app a file opens in when nothing else decides; always a built-in viewer. */
+export function matchOpenApp(item: IEntry): OpenAppInfo & { openWith: OpenWithEnum } {
   if (regSupportedImageFormat.test(item.name)) {
     return { ...getOpenAppInfo(OpenWithEnum.EndlessGallery), source: 'matched' }
   }
@@ -104,13 +106,18 @@ function matchPluginOpenApp(item: IEntry): OpenAppInfo | null {
 
 export function getDefaultOpenApp(item: IEntry): OpenAppInfo {
   const customDefault = getDefaultApp(item.name)
-  if (customDefault && isBuiltinApp(customDefault)) {
-    return { ...getOpenAppInfo(customDefault), source: 'custom' }
-  }
   if (customDefault) {
-    const plugin = pluginList.value.find(entry => entry.id === customDefault)
-    if (plugin)
-      return pluginOpenApp(plugin, 'custom')
+    const target = findTarget(customDefault, pluginList.value)
+    if (target?.kind === 'builtin') {
+      return { ...getOpenAppInfo(target.appName as OpenWithEnum), source: 'custom' }
+    }
+    if (target?.kind === 'plugin') {
+      return pluginOpenApp(target.plugin, 'custom')
+    }
+    if (isBuiltinApp(customDefault)) {
+      // Browser / Share are built-in pseudo-targets without a registry entry.
+      return { ...getOpenAppInfo(customDefault), source: 'custom' }
+    }
     return {
       name: customDefault,
       icon: 'mdi mdi-puzzle-outline',
@@ -241,14 +248,34 @@ export function useOpener(basePath: { value: string }) {
       }
 
       let defaultOpenApp = openWith ? null : getDefaultOpenApp(item)
-      let targetApp = openWith ?? defaultOpenApp!.openWith
-      if (!isBuiltinApp(targetApp)) {
-        if (await openPlugin(targetApp))
+      const requestedApp = openWith ?? defaultOpenApp!.openWith
+      const target = findTarget(requestedApp, pluginList.value)
+      let targetApp: OpenWithEnum
+      if (target?.kind === 'plugin') {
+        openPluginWindow(target.plugin, {
+          absPath,
+          item,
+          basePath: basePath.value,
+          list,
+        })
+        return
+      }
+      if (target?.kind === 'builtin' && isBuiltinApp(target.appName)) {
+        targetApp = target.appName
+      }
+      else if (isBuiltinApp(requestedApp)) {
+        // Browser / Share are built-in pseudo-targets without a registry entry.
+        targetApp = requestedApp
+      }
+      else {
+        // The plugin list may not be loaded yet, or the stored id is stale.
+        if (await openPlugin(requestedApp))
           return
         if (openWith)
           return
-        defaultOpenApp = matchOpenApp(item)
-        targetApp = defaultOpenApp.openWith
+        const matched = matchOpenApp(item)
+        defaultOpenApp = matched
+        targetApp = matched.openWith
       }
       // 没有自定义默认、也不是匹配到的查看器：交给下面的「不支持类型」弹窗。
       // 必须排在 openSpecialApp 之前，否则 fallback 的 Browser 会被直接打开。

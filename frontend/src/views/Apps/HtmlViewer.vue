@@ -1,26 +1,18 @@
 <script lang="ts" setup>
-import type { AppParams } from '@/views/Apps/apps.ts'
-import { fs } from '@/utils/fs'
+import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 
-const props = defineProps<{
-  appParams: AppParams
-}>()
-
-const emit = defineEmits(['setTitle'])
+const sdk = useFileLiteSdk()
+const path = ref('')
 
 /** 文件地址 */
-const src = computed(() => {
-  const path = props.appParams?.absPath
-  return path ? fs.url(path) : ''
-})
+const src = computed(() => path.value ? sdk.url(path.value) : '')
 
-watch(() => props.appParams, () => {
-  const { appParams } = props
-  if (!appParams?.absPath) {
+sdk.onOpen((launch) => {
+  if (!launch)
     return
-  }
-  emit('setTitle', appParams.item.name)
-}, { immediate: true })
+  path.value = launch.path
+  sdk.setTitle(launch.filename)
+})
 </script>
 
 <template>
