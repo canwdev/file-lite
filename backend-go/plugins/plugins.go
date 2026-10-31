@@ -18,8 +18,13 @@ import (
 
 var ErrEscape = errors.New("path escapes plugin root")
 
+// manifestFile is the metadata file a plugin folder may contain.
+const manifestFile = "file-lite-plugin.json"
+
 type Manifest struct {
 	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Repo           string   `json:"repo"`
 	Entry          string   `json:"entry"`
 	Icon           string   `json:"icon"`
 	OpenWith       []string `json:"openWith"`
@@ -48,7 +53,7 @@ func Dir() string {
 }
 
 // Scan lists plugins under dir. The result is reused until the directory listing,
-// a plugin directory, or a manifest.json changes. File bodies are not cached.
+// a plugin directory, or a file-lite-plugin.json changes. File bodies are not cached.
 func Scan(dir string) []Plugin {
 	key := filepath.Clean(dir)
 	scanMu.Lock()
@@ -153,7 +158,7 @@ var (
 // directoryStamp is a cheap fingerprint of the inputs Scan turns into plugin
 // metadata. It covers the directory listing, each plugin directory's mtime
 // (add or remove a file inside it), and each manifest's mtime and size
-// (editing manifest.json does not change the directory mtime).
+// (editing file-lite-plugin.json does not change the directory mtime).
 func directoryStamp(dir string) (string, bool) {
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -176,7 +181,7 @@ func directoryStamp(dir string) (string, bool) {
 			continue
 		}
 		if info.IsDir() {
-			fmt.Fprintf(&b, "d %s %d %s\n", name, info.ModTime().UnixNano(), manifestStamp(filepath.Join(dir, name, "manifest.json")))
+			fmt.Fprintf(&b, "d %s %d %s\n", name, info.ModTime().UnixNano(), manifestStamp(filepath.Join(dir, name, manifestFile)))
 			continue
 		}
 		fmt.Fprintf(&b, "f %s\n", name)
@@ -259,7 +264,7 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 	singleInstance := false
 	version := ""
 
-	manifestPath := filepath.Join(root, "manifest.json")
+	manifestPath := filepath.Join(root, manifestFile)
 	body, err := os.ReadFile(manifestPath)
 	if err == nil {
 		var manifest Manifest

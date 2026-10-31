@@ -80,7 +80,7 @@ export function createAppsFixture() {
 export function createPluginFixture() {
   const pluginDir = path.join(dataDir, 'plugins', 'sdk-probe')
   fs.mkdirSync(pluginDir, { recursive: true })
-  fs.writeFileSync(path.join(pluginDir, 'manifest.json'), JSON.stringify({
+  fs.writeFileSync(path.join(pluginDir, 'file-lite-plugin.json'), JSON.stringify({
     name: 'SDK Probe',
     entry: 'index.html',
     icon: '🧪',

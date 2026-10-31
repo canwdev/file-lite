@@ -1,0 +1,81 @@
+{
+  "plugins": [
+    {
+      "id": "boxed-wine",
+      "name": "Boxed Wine",
+      "description": "A plugin that bundles a [Boxedwine](https://github.com/danoon2/Boxedwine) for running Windows applications (32-bit only). Experimental and not yet stable.",
+      "version": "26R1-20261030",
+      "repo": "https://github.com/danoon2/Boxedwine"
+    },
+    {
+      "id": "jspaint",
+      "name": "JS Paint",
+      "description": "Recreation of Microsoft Paint for drawing and editing images. [jspaint](https://github.com/1j01/jspaint)",
+      "version": "20261030",
+      "repo": "https://github.com/1j01/jspaint"
+    },
+    {
+      "id": "kee-note",
+      "name": "KeeNote",
+      "description": "A secure, local-first note & password manager for the browser, built on [KeePass KDBX](https://keepass.info/help/kb/kdbx_4.html) files and [kdbxweb](https://github.com/keeweb/kdbxweb). Everything runs client-side — no server, no telemetry. Your `.kdbx` database never leaves your machine.",
+      "version": "4.4.1",
+      "repo": "https://github.com/canwdev/kee-note"
+    },
+    {
+      "id": "markdown-viewer",
+      "name": "Markdown Viewer",
+      "description": "A plugin for rendering and viewing Markdown documents, built on the [Marked](https://github.com/markedjs/marked) library.",
+      "version": "20261030",
+      "repo": "https://github.com/markedjs/marked"
+    },
+    {
+      "id": "monaco-editor",
+      "name": "Monaco Editor",
+      "description": "A plugin that bundles the [Monaco](https://github.com/microsoft/monaco-editor) code editor used in VS Code.",
+      "version": "20261030",
+      "repo": "https://github.com/microsoft/monaco-editor"
+    },
+    {
+      "id": "OnlyofficePersonal-9.3.0.133",
+      "name": "ONLYOFFICE",
+      "description": "OnlyOffice Personal plugin for viewing and editing office documents. Source: [fernfei/OnlyofficePersonal](https://github.com/fernfei/OnlyofficePersonal)",
+      "version": "9.3.0.133.20261030",
+      "repo": "https://github.com/fernfei/OnlyofficePersonal"
+    },
+    {
+      "id": "patchy",
+      "name": "Patchy",
+      "description": "A fork of [Patchy](https://github.com/SethRobinson/Patchy) image editor. adapt to file-lite plugin",
+      "version": "1.22",
+      "repo": "https://github.com/canwdev/Patchy"
+    },
+    {
+      "id": "toys",
+      "name": "JS Toys",
+      "description": "",
+      "version": "1.0.0",
+      "repo": "https://github.com/canwdev/canwdev.github.io/tree/main/docs/web-apps"
+    },
+    {
+      "id": "unlock-music",
+      "name": "音乐解锁",
+      "description": "",
+      "version": "1.10.8",
+      "repo": "https://github.com/ix64/unlock-music"
+    },
+    {
+      "id": "web-mediadevices-player",
+      "name": "MediaDevices Player",
+      "description": "Web application for playing system video/audio input devices",
+      "version": "1.2.1",
+      "repo": "https://github.com/canwdev/web-mediadevices-player"
+    },
+    {
+      "id": "webamp-player",
+      "name": "Webamp Player",
+      "description": "Re-implementation of [Winamp](https://en.wikipedia.org/wiki/Winamp) in HTML5 and JavaScript, featuring full skin support and playback capabilities.",
+      "version": "2.3.1-20261030",
+      "repo": "https://github.com/captbaritone/webamp"
+    }
+  ]
+}

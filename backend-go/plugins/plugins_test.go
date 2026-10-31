@@ -31,7 +31,7 @@ func byID(list []Plugin) map[string]Plugin {
 func TestScanDirPluginWithManifest(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "jspaint", "index.html"), "<html></html>")
-	writeFile(t, filepath.Join(dir, "jspaint", "manifest.json"), `{
+	writeFile(t, filepath.Join(dir, "jspaint", "file-lite-plugin.json"), `{
 		"name": "JS Paint",
 		"entry": "index.html",
 		"icon": "🎨",
@@ -149,7 +149,7 @@ func TestScanFolderWinsOverSameNameFile(t *testing.T) {
 func TestScanSkipsBadManifest(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "broken", "index.html"), "<html></html>")
-	writeFile(t, filepath.Join(dir, "broken", "manifest.json"), "{")
+	writeFile(t, filepath.Join(dir, "broken", "file-lite-plugin.json"), "{")
 	writeFile(t, filepath.Join(dir, "ok", "index.html"), "<html></html>")
 
 	got := byID(Scan(dir))
@@ -209,7 +209,7 @@ func TestIconRelativePath(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "paint", "index.html"), "<html></html>")
 	writeFile(t, filepath.Join(dir, "paint", "images", "icon.png"), "png")
-	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{
+	writeFile(t, filepath.Join(dir, "paint", "file-lite-plugin.json"), `{
 		"icon": "images/icon.png"
 	}`)
 
@@ -226,7 +226,7 @@ func TestIconFilenameExtension(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "paint", "index.html"), "<html></html>")
 	writeFile(t, filepath.Join(dir, "paint", "icon.svg"), "<svg></svg>")
-	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{"icon": "icon.svg"}`)
+	writeFile(t, filepath.Join(dir, "paint", "file-lite-plugin.json"), `{"icon": "icon.svg"}`)
 
 	plugin := byID(Scan(dir))["paint"]
 	if plugin.IconURL != "/plugins/paint/icon.svg" {
@@ -237,7 +237,7 @@ func TestIconFilenameExtension(t *testing.T) {
 func TestIconEscapeIgnored(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "paint", "index.html"), "<html></html>")
-	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{"icon": "../secret.png"}`)
+	writeFile(t, filepath.Join(dir, "paint", "file-lite-plugin.json"), `{"icon": "../secret.png"}`)
 
 	plugin := byID(Scan(dir))["paint"]
 	if plugin.ID == "" {
@@ -398,7 +398,7 @@ func TestEnsureReadme(t *testing.T) {
 func TestScanCacheFollowsManifestAndListing(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "paint", "index.html"), "<html></html>")
-	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{
+	writeFile(t, filepath.Join(dir, "paint", "file-lite-plugin.json"), `{
 		"name": "Paint",
 		"openWith": [".png"]
 	}`)
@@ -415,7 +415,7 @@ func TestScanCacheFollowsManifestAndListing(t *testing.T) {
 		t.Fatalf("cache aliased caller data: %#v", cached[0])
 	}
 
-	writeFile(t, filepath.Join(dir, "paint", "manifest.json"), `{
+	writeFile(t, filepath.Join(dir, "paint", "file-lite-plugin.json"), `{
 		"name": "Paint 2",
 		"openWith": [".jpg"]
 	}`)
@@ -433,12 +433,12 @@ func TestScanCacheFollowsManifestAndListing(t *testing.T) {
 func TestScanCacheFollowsRepairedManifest(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "broken", "index.html"), "<html></html>")
-	writeFile(t, filepath.Join(dir, "broken", "manifest.json"), "{")
+	writeFile(t, filepath.Join(dir, "broken", "file-lite-plugin.json"), "{")
 
 	if _, ok := byID(Scan(dir))["broken"]; ok {
 		t.Fatal("broken plugin should be skipped")
 	}
-	writeFile(t, filepath.Join(dir, "broken", "manifest.json"), `{"name": "Fixed"}`)
+	writeFile(t, filepath.Join(dir, "broken", "file-lite-plugin.json"), `{"name": "Fixed"}`)
 	plugin := byID(Scan(dir))["broken"]
 	if plugin.Name != "Fixed" {
 		t.Fatalf("repaired plugin = %#v", plugin)
@@ -495,7 +495,7 @@ func TestScanLinkedDirPlugin(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "dist")
 	writeFile(t, filepath.Join(source, "index.html"), "linked")
 	writeFile(t, filepath.Join(source, "assets", "app.js"), "js")
-	writeFile(t, filepath.Join(source, "manifest.json"), `{
+	writeFile(t, filepath.Join(source, "file-lite-plugin.json"), `{
 		"name": "Kee Note",
 		"icon": "🔑",
 		"openWith": [".note"]
@@ -603,7 +603,7 @@ func TestScanCacheFollowsLinkedDirContents(t *testing.T) {
 	if _, ok := byID(Scan(dir))["kee-note"]; !ok {
 		t.Fatal("entry added to the link target should appear")
 	}
-	writeFile(t, filepath.Join(source, "manifest.json"), `{"name": "Kee Note"}`)
+	writeFile(t, filepath.Join(source, "file-lite-plugin.json"), `{"name": "Kee Note"}`)
 	touch()
 	if name := byID(Scan(dir))["kee-note"].Name; name != "Kee Note" {
 		t.Fatalf("manifest added to the link target not picked up: %q", name)

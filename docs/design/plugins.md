@@ -4,9 +4,9 @@ Static pages in the data directory's `plugins/` folder. The host scans that dire
 
 ## Scan and URLs
 
-- Only `{DATA_BASE_DIR}/plugins` is scanned. The result is reused until the plugins directory, a plugin directory, or a `manifest.json` changes. Nothing watches the directory. The page requests `GET /api/plugins` once on load; Refresh in the Plugins menu requests it again.
+- Only `{DATA_BASE_DIR}/plugins` is scanned. The result is reused until the plugins directory, a plugin directory, or a `file-lite-plugin.json` changes. Nothing watches the directory. The page requests `GET /api/plugins` once on load; Refresh in the Plugins menu requests it again.
 - Served files use `Cache-Control: private, max-age=0, must-revalidate` and an ETag from the file's size and modification time. Entry HTML also includes the SDK injection revision. Unchanged files answer 304.
-- A folder (with `index.html` or `manifest.json`) is served at `/plugins/{id}/...`.
+- A folder (with `index.html` or `file-lite-plugin.json`) is served at `/plugins/{id}/...`.
 - A single `.html` file is not wrapped in an id: `/plugins/hello.html`. When a folder and a file share a name, the folder wins.
 - A name can contain any characters. Entries whose names start with `.` are skipped. Only a folder or a single `.html` file becomes a plugin; other files in the plugins root are ignored. The folder or file name is percent-encoded in its URL.
 - A plugin entry can be a link (a symbolic link, or a Windows junction) instead of a real folder or file, so a plugin built somewhere else — a plugin repository's `dist` output, for example — can be dropped in without copying it. The link's own name is the plugin id and its target decides folder versus single file. A link whose target is gone is skipped, and a target directory's modification time is part of the cache fingerprint, so rebuilding the target is picked up like an edit inside `plugins/`.
@@ -25,11 +25,13 @@ A nested page that needs the SDK must reference that script itself. A plugin tal
 The directory defaults to `file-lite/plugins` under the process working directory.
 
 - A single file `plugins/hello.html` has no manifest. Its menu name is `hello`, `openWith` is empty, and `singleInstance` is `false`.
-- A folder `plugins/jspaint/index.html` may include `manifest.json`. Scripts, styles, and images use paths relative to that plugin directory. A single file's relative paths resolve from the `plugins/` root.
+- A folder `plugins/jspaint/index.html` may include `file-lite-plugin.json`. Scripts, styles, and images use paths relative to that plugin directory. A single file's relative paths resolve from the `plugins/` root.
 
 ```json
 {
   "name": "JS Paint",
+  "description": "Recreation of Microsoft Paint for drawing and editing images.",
+  "repo": "https://github.com/1j01/jspaint",
   "entry": "index.html",
   "icon": "🎨",
   "openWith": [".png", ".jpg"],
@@ -39,6 +41,8 @@ The directory defaults to `file-lite/plugins` under the process working director
 ```
 
 - `name`: menu label and window title. Defaults to the folder name.
+- `description`: catalog text used by the plugins repository's generated list. The host does not show it.
+- `repo`: source repository used by the plugins repository's generated list. The host does not show it.
 - `icon`: an emoji, or a path to an image inside the plugin. Defaults to the puzzle icon. Icon-library names are not accepted.
 - `entry`: the entry page, relative to the plugin folder. Defaults to `index.html`.
 - `openWith`: extensions including the dot. When non-empty, the plugin appears in Open With and Set Default App, and `onOpen` receives that file. When empty, it can only be started from the Plugins menu, and the `onOpen` argument is `undefined`.

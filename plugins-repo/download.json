@@ -1,0 +1,8 @@
+{
+  "boxed-wine": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.26/boxed-wine.7z",
+  "jspaint": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-jspaint.7z",
+  "markdown-viewer": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-markdown-viewer.7z",
+  "monaco-editor": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-monaco-editor.7z",
+  "OnlyofficePersonal-9.3.0.133": "https://github.com/canwdev/file-lite/releases/download/v1.5.1/plugin-OnlyofficePersonal-9.3.0.133-20261029.7z",
+  "webamp-player": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-webamp-player.7z"
+}

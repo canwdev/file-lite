@@ -13,6 +13,7 @@
  *   - Prints success / failed / skipped counts at the end
  *   - Can pack only files or only folders (--type file|dir)
  *   - Can add a custom prefix to generated archive names (--prefix)
+ *   - Follows symbolic links and packs the target under the link name
  */
 
 import fs from 'node:fs/promises';
@@ -398,28 +399,35 @@ async function main() {
   const ignored = [];
 
   for (const entry of entries) {
-    if (entry.isSymbolicLink()) {
-      ignored.push(`${entry.name} (symlink, ignored)`);
+    let info;
+    try {
+      // Follow links: a plugin folder may be linked from a build output elsewhere,
+      // and 7z follows a link when the archive name is the link.
+      info = await fs.stat(path.join(targetDir, entry.name));
+    } catch {
+      ignored.push(`${entry.name} (broken link, ignored)`);
       continue;
     }
-    if (!entry.isFile() && !entry.isDirectory()) {
+    if (!info.isFile() && !info.isDirectory()) {
       ignored.push(`${entry.name} (not a regular file/directory, ignored)`);
       continue;
     }
+    const isDir = info.isDirectory();
+    const isFile = info.isFile();
 
     // Type filter
-    if (typeFilter === 'file' && !entry.isFile()) {
+    if (typeFilter === 'file' && !isFile) {
       continue;
     }
-    if (typeFilter === 'dir' && !entry.isDirectory()) {
+    if (typeFilter === 'dir' && !isDir) {
       continue;
     }
 
-    if (!includeArchives && entry.isFile() && isArchiveFile(entry.name)) {
+    if (!includeArchives && isFile && isArchiveFile(entry.name)) {
       ignored.push(`${entry.name} (already an archive, skipped; use --all to pack)`);
       continue;
     }
-    items.push({ name: entry.name, isDir: entry.isDirectory() });
+    items.push({ name: entry.name, isDir });
   }
 
   if (ignored.length > 0) {

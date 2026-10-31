@@ -2,6 +2,6 @@
 
 - Put a web page into the `plugins/` directory in the data directory, Any web page will work. Refresh the page, and you can open it from Plugins in the global menu. To develop plugins, see [Development](https://github.com/canwdev/file-lite/blob/master/docs/design/plugins.md#development).
   - Example: `plugins/hello.html`
-  - Example: `plugins/world/index.html` and `plugins/world/manifest.json`
+  - Example: `plugins/world/index.html` and `plugins/world/file-lite-plugin.json`
   - A plugin can also be a link: `plugins/world` may point at a folder elsewhere (for example a plugin's `dist` output), and `plugins/hello.html` may point at a file. The link's name is the plugin id, and the target can be edited without copying it again.
 - The archives of plugins that have already been adapted are in [plugins-repo](https://github.com/canwdev/file-lite/tree/master/plugins-repo). You can download them by yourself.
