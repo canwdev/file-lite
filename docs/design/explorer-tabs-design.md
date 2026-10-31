@@ -17,7 +17,7 @@
 ## 2. 结构与状态
 
 ```
-FileLite.vue                        页面壳：顶栏（标签栏 + 页面标题 + 传输面板入口 + 全局菜单）
+FileLite.vue                        页面壳：顶栏（标签栏 + 页面标题 + 传输面板入口 + 插件菜单 + 全局菜单）
 └── FileManager.vue                 外壳：.explorer-wrap / #topBar 插槽 / 侧边栏 / 对话框 / 选择器底栏
     └── .explorer-body
         ├── FileSidebar             全局一份，作用于活动标签

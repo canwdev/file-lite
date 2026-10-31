@@ -4,6 +4,10 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ## 1.6.0
 
+### UI
+
+- **Plugins menu**: Installed plugins moved out of the global menu's submenu into their own button next to it, which appears only when at least one plugin is installed (frontend).
+
 ### Features
 
 - **Linked plugins**: A plugin in the data directory's `plugins/` folder can now be a link to a folder or an `.html` file elsewhere, so a plugin's build output can be used without copying it (backend).

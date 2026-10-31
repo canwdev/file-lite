@@ -14,7 +14,7 @@ import TransferQueue from '@/views/FileManager/TransferQueue.vue'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
-const { menuOpen, setMenuTriggerRef, toggleMenu } = useFileLiteMenu()
+const { hasPlugins, menuOpen, pluginMenuOpen, setMenuTriggerRef, setPluginMenuTriggerRef, toggleMenu, togglePluginMenu } = useFileLiteMenu()
 
 onMounted(() => {
   void listPlugins().catch(() => [])
@@ -87,7 +87,7 @@ function toggleTransferPanel() {
 <template>
   <FileManager :sidebar-visible="sidebarVisible" tabs-mode>
     <template #topBar>
-      <!-- 顶栏：左侧是标签栏，右侧是传输面板入口、页面标题与全局菜单 -->
+      <!-- 顶栏：左侧是标签栏，右侧是传输面板入口、页面标题、插件菜单与全局菜单 -->
       <div class="explorer-top-bar vgo-panel vgo-panel--flat">
         <div class="explorer-top-bar__left">
           <button
@@ -120,6 +120,16 @@ function toggleTransferPanel() {
               <template v-if="pageTitle && temporaryRemaining">&nbsp;·&nbsp;</template>
               {{ temporaryRemaining }}</template>
           </span>
+          <button
+            v-if="hasPlugins"
+            :ref="setPluginMenuTriggerRef"
+            class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"
+            :class="{ 'is-active': pluginMenuOpen }"
+            :title="$t('file_lite_i18n.plugins')"
+            @click="togglePluginMenu"
+          >
+            <i-mdi-puzzle-outline />
+          </button>
           <button
             :ref="setMenuTriggerRef"
             class="vgo-button vgo-button--text vgo-button--icon vgo-button--md"

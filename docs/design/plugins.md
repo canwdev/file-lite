@@ -4,7 +4,7 @@ Static pages in the data directory's `plugins/` folder. The host scans that dire
 
 ## Scan and URLs
 
-- Only `{DATA_BASE_DIR}/plugins` is scanned. The result is reused until the plugins directory, a plugin directory, or a `manifest.json` changes. Nothing watches the directory. The page requests `GET /api/plugins` once on load; Refresh in the Plugins submenu requests it again.
+- Only `{DATA_BASE_DIR}/plugins` is scanned. The result is reused until the plugins directory, a plugin directory, or a `manifest.json` changes. Nothing watches the directory. The page requests `GET /api/plugins` once on load; Refresh in the Plugins menu requests it again.
 - Served files use `Cache-Control: private, max-age=0, must-revalidate` and an ETag from the file's size and modification time. Entry HTML also includes the SDK injection revision. Unchanged files answer 304.
 - A folder (with `index.html` or `manifest.json`) is served at `/plugins/{id}/...`.
 - A single `.html` file is not wrapped in an id: `/plugins/hello.html`. When a folder and a file share a name, the folder wins.
