@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - master
+      - dev/nightly
   workflow_dispatch:
 
 permissions:
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Full history and tags: master builds derive their notes from the commits
+          # Full history and tags: dev/nightly builds derive their notes from the commits
           # since the previous version tag.
           fetch-depth: 0
 
@@ -37,7 +37,7 @@ jobs:
         run: |
           # A v* tag (pushed, or the ref a manual run points at) is the official
           # release and takes its notes from the CHANGELOG.
-          # Any branch build, including master pushes, is a pre-release with one
+          # Any branch build, including dev/nightly pushes, is a pre-release with one
           # v<version>-pre.<run_number> tag per run and notes from the commits.
           if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
