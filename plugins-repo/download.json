@@ -1,8 +1,13 @@
 {
-  "boxed-wine": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.26/boxed-wine.7z",
-  "jspaint": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-jspaint.7z",
-  "markdown-viewer": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-markdown-viewer.7z",
-  "monaco-editor": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-monaco-editor.7z",
-  "OnlyofficePersonal-9.3.0.133": "https://github.com/canwdev/file-lite/releases/download/v1.5.1/plugin-OnlyofficePersonal-9.3.0.133-20261029.7z",
-  "webamp-player": "https://github.com/canwdev/file-lite/releases/download/v1.5.0-pre.27/plugin-webamp-player.7z"
+  "boxed-wine": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-boxed-wine.7z",
+  "jspaint": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-jspaint.7z",
+  "kee-note": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-kee-note.7z",
+  "markdown-viewer": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-markdown-viewer.7z",
+  "monaco-editor": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-monaco-editor.7z",
+  "OnlyofficePersonal-9.3.0.133": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-OnlyofficePersonal-9.3.0.133.7z",
+  "patchy": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-patchy.7z",
+  "toys": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-toys.7z",
+  "unlock-music": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-unlock-music.7z",
+  "web-mediadevices-player": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-web-mediadevices-player.7z",
+  "webamp-player": "https://github.com/canwdev/file-lite/releases/download/v1.6.0-pre.48/plugin-webamp-player.7z"
 }
