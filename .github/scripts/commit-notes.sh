@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 从提交记录生成预发布（master 构建）的 Release 正文，写入 RELEASE_NOTES.md。
+# 从提交记录生成预发布（分支构建）的 Release 正文，写入 RELEASE_NOTES.md。
 # 用法：bash .github/scripts/commit-notes.sh v1.4.4-pre.42
 # 需要完整历史与 tags（actions/checkout 使用 fetch-depth: 0）。
 set -euo pipefail
@@ -8,12 +8,13 @@ TAG="${1:?usage: commit-notes.sh <tag>}"
 OUT="RELEASE_NOTES.md"
 REPO="${GITHUB_REPOSITORY:-canwdev/file-lite}"
 SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+BRANCH="${GITHUB_REF_NAME:-master}"
 
 # 最近的一个版本 tag 作为范围起点（排除本次要创建的 tag，忽略 archive/* 等非版本 tag）。
 PREV="$(git tag --merged HEAD --sort=-v:refname | grep -E '^v[0-9]' | grep -Fvx "$TAG" | head -n1 || true)"
 
 {
-  echo "Automated pre-release build from \`master\` (\`${SHA:0:7}\`)."
+  echo "Automated pre-release build from \`${BRANCH}\` (\`${SHA:0:7}\`)."
   echo
   echo "### Commits"
   echo

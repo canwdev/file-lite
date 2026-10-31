@@ -1,12 +1,13 @@
 name: CI
 
-# The release workflow only builds on tags and master pushes, so nothing used to
-# run the test suites: `bun test` sat red without anyone noticing. This workflow
-# is the gate for pull requests and both pushes.
+# The release workflow only builds on tags and dev/nightly pushes, so nothing
+# used to run the test suites: `bun test` sat red without anyone noticing. This
+# workflow is the gate for pull requests and pushes.
 on:
   push:
     branches:
       - master
+      - dev/nightly
   pull_request:
   workflow_dispatch:
 
