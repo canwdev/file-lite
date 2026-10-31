@@ -98,8 +98,14 @@ function reuseWindow(win: AppWindowState, data: AppWindowData, title: string) {
   appWindows.activate(win.id)
 }
 
+/** Phones and narrow windows get a full-screen app window; anything wider stays floating. */
+const AUTO_MAXIMIZE_MAX_WIDTH = 800
+
 function openWindow(data: AppWindowData, title: string) {
-  const maximized = targetChrome(data.target)?.maximized ?? true
+  // Narrow screens get a full-screen window; wider ones keep the floating,
+  // draggable window with its declared size.
+  const maximized = targetChrome(data.target)?.maximized
+    ?? window.innerWidth <= AUTO_MAXIMIZE_MAX_WIDTH
   const win = appWindows.open(data, { title, maximized })
   rememberExplorerFocus(win.id)
 }

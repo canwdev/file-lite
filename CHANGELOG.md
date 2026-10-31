@@ -7,6 +7,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### UI
 
 - **Plugins menu**: Installed plugins moved out of the global menu's submenu into their own button next to it, which appears only when at least one plugin is installed (frontend).
+- **App windows**: An app opens full screen only when the screen is 800px wide or narrower; wider screens open it as a floating, resizable window (frontend).
 
 ### Features
 

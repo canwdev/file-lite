@@ -34,7 +34,10 @@ export interface AppParams {
 
 /** How an app's window opens. Omitted fields keep the shared app-window defaults. */
 export interface AppChrome {
-  /** Start maximised. Defaults to true. */
+  /**
+   * Start maximised. Omitted means "maximised on narrow screens only"
+   * (`window.innerWidth <= 800`); `true` / `false` force it either way.
+   */
   maximized?: boolean
   width?: string
   height?: string
