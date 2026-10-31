@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeFile(t *testing.T, path, body string) {
@@ -473,5 +474,138 @@ func TestResponseETagSplitsInjectedHTML(t *testing.T) {
 	}
 	if ResponseETag(info, false) != plain {
 		t.Fatal("etag changed without a file change")
+	}
+}
+
+// symlinkOrSkip links target at link, skipping the test when the platform
+// refuses to create links (Windows without developer mode or elevation).
+func symlinkOrSkip(t *testing.T, target, link string, dir bool) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+	info, err := os.Stat(link)
+	if err != nil || info.IsDir() != dir {
+		t.Skipf("symlink unusable: %v", err)
+	}
+}
+
+func TestScanLinkedDirPlugin(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(t.TempDir(), "dist")
+	writeFile(t, filepath.Join(source, "index.html"), "linked")
+	writeFile(t, filepath.Join(source, "assets", "app.js"), "js")
+	writeFile(t, filepath.Join(source, "manifest.json"), `{
+		"name": "Kee Note",
+		"icon": "🔑",
+		"openWith": [".note"]
+	}`)
+	symlinkOrSkip(t, source, filepath.Join(dir, "kee-note"), true)
+
+	plugin := byID(Scan(dir))["kee-note"]
+	if plugin.ID == "" {
+		t.Fatal("linked folder should be a plugin")
+	}
+	if plugin.File {
+		t.Fatal("linked folder should not be a file plugin")
+	}
+	if plugin.Name != "Kee Note" || plugin.IconEmoji != "🔑" {
+		t.Fatalf("metadata = %#v", plugin)
+	}
+	if plugin.EntryURL != "/plugins/kee-note/index.html" {
+		t.Fatalf("entryUrl = %q", plugin.EntryURL)
+	}
+	for rel, want := range map[string]string{"": "linked", "assets/app.js": "js"} {
+		abs, err := plugin.Resolve(rel)
+		if err != nil {
+			t.Fatalf("resolve %q: %v", rel, err)
+		}
+		body, err := os.ReadFile(abs)
+		if err != nil {
+			t.Fatalf("read %q: %v", rel, err)
+		}
+		if string(body) != want {
+			t.Fatalf("%q served %q, want %q", rel, body, want)
+		}
+	}
+}
+
+func TestScanLinkedFilePlugin(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(t.TempDir(), "hello.html")
+	writeFile(t, source, "<html></html>")
+	symlinkOrSkip(t, source, filepath.Join(dir, "hello.html"), false)
+
+	plugin := byID(Scan(dir))["hello"]
+	if plugin.ID == "" || !plugin.File {
+		t.Fatalf("linked html file should be a file plugin, got %#v", plugin)
+	}
+	if plugin.EntryURL != "/plugins/hello.html" {
+		t.Fatalf("entryUrl = %q", plugin.EntryURL)
+	}
+}
+
+func TestScanSkipsBrokenLink(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "ok", "index.html"), "<html></html>")
+	symlinkOrSkip(t, filepath.Join(t.TempDir(), "gone"), filepath.Join(dir, "gone"), true)
+
+	got := byID(Scan(dir))
+	if _, exists := got["gone"]; exists {
+		t.Fatal("broken link should be skipped")
+	}
+	if _, exists := got["ok"]; !exists {
+		t.Fatal("ok plugin should remain")
+	}
+}
+
+func TestScanLinkedDirWinsOverSameNameFile(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(t.TempDir(), "dist")
+	writeFile(t, filepath.Join(source, "index.html"), "folder")
+	writeFile(t, filepath.Join(dir, "markdown-editor.html"), "file")
+	symlinkOrSkip(t, source, filepath.Join(dir, "markdown-editor"), true)
+
+	list := Scan(dir)
+	if len(list) != 1 || list[0].File {
+		t.Fatalf("linked folder should win, got %#v", list)
+	}
+}
+
+func TestScanCacheFollowsLinkedDirContents(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(t.TempDir(), "dist")
+	if err := os.MkdirAll(source, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	symlinkOrSkip(t, source, filepath.Join(dir, "kee-note"), true)
+
+	// The stamp of a linked plugin folder is the link target's mtime, so the
+	// target has to be touched: NTFS does not always flush a directory's mtime
+	// right after a file is created inside it.
+	touch := func() {
+		t.Helper()
+		dirInfo, err := os.Stat(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		when := dirInfo.ModTime().Add(time.Second)
+		if err := os.Chtimes(source, when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, ok := byID(Scan(dir))["kee-note"]; ok {
+		t.Fatal("linked folder without an entry should be skipped")
+	}
+	writeFile(t, filepath.Join(source, "index.html"), "<html></html>")
+	touch()
+	if _, ok := byID(Scan(dir))["kee-note"]; !ok {
+		t.Fatal("entry added to the link target should appear")
+	}
+	writeFile(t, filepath.Join(source, "manifest.json"), `{"name": "Kee Note"}`)
+	touch()
+	if name := byID(Scan(dir))["kee-note"].Name; name != "Kee Note" {
+		t.Fatalf("manifest added to the link target not picked up: %q", name)
 	}
 }

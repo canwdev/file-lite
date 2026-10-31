@@ -92,7 +92,13 @@ func scanDir(dir string) []Plugin {
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
-		if entry.IsDir() {
+		info, ok := entryTargetInfo(dir, entry)
+		if !ok {
+			// A link whose target is gone: nothing to serve, so it is not a plugin.
+			utils.LogWarnf("skip plugin %s: broken link", name)
+			continue
+		}
+		if info.IsDir() {
 			dirs[name] = struct{}{}
 			dirEntries = append(dirEntries, entry)
 			continue
@@ -164,17 +170,32 @@ func directoryStamp(dir string) (string, bool) {
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
-		if entry.IsDir() {
-			mt := int64(0)
-			if fi, infoErr := entry.Info(); infoErr == nil {
-				mt = fi.ModTime().UnixNano()
-			}
-			fmt.Fprintf(&b, "d %s %d %s\n", name, mt, manifestStamp(filepath.Join(dir, name, "manifest.json")))
+		info, ok := entryTargetInfo(dir, entry)
+		if !ok {
+			fmt.Fprintf(&b, "? %s\n", name)
+			continue
+		}
+		if info.IsDir() {
+			fmt.Fprintf(&b, "d %s %d %s\n", name, info.ModTime().UnixNano(), manifestStamp(filepath.Join(dir, name, "manifest.json")))
 			continue
 		}
 		fmt.Fprintf(&b, "f %s\n", name)
 	}
 	return b.String(), true
+}
+
+// entryTargetInfo stats an entry, following a symlink. A plugin folder can live
+// anywhere and be linked into the plugins directory (typically a dev build
+// such as plugins/kee-note -> ~/src/kee-note/dist). The listing itself reports
+// a link as neither a directory nor a file, so the target decides what it is,
+// and the target's mtime is what changes when its contents do.
+func entryTargetInfo(dir string, entry os.DirEntry) (os.FileInfo, bool) {
+	if entry.Type()&os.ModeSymlink != 0 {
+		info, err := os.Stat(filepath.Join(dir, entry.Name()))
+		return info, err == nil
+	}
+	info, err := entry.Info()
+	return info, err == nil
 }
 
 func manifestStamp(path string) string {

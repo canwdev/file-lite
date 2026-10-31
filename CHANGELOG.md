@@ -6,6 +6,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Linked plugins**: A plugin in the data directory's `plugins/` folder can now be a link to a folder or an `.html` file elsewhere, so a plugin's build output can be used without copying it (backend).
 - **Plugin SDK**: Built-in apps and plugins now share one API; plugins can read text files in their own encoding, build stream URLs, stream a file in chunks, inspect and update their launch state, select or reveal files in the explorer, and open the file picker (frontend).
 - **File picker**: The file manager's picker is now one dialog shared by everything: single files, several files, a folder, or a save target with a file name, opened through the SDK (`pick`) instead of each caller embedding its own window; saving onto an existing name asks before replacing it (frontend).
 - **Text editor**: The menu bar has one File entry (Refresh stays next to it), Open / Save / Save As choose their file in the file manager instead of a browser dialog, and unsaved changes are marked with a dot in the window title instead of a `*` in the menu (frontend).

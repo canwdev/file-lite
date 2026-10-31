@@ -9,6 +9,7 @@ Static pages in the data directory's `plugins/` folder. The host scans that dire
 - A folder (with `index.html` or `manifest.json`) is served at `/plugins/{id}/...`.
 - A single `.html` file is not wrapped in an id: `/plugins/hello.html`. When a folder and a file share a name, the folder wins.
 - A name can contain any characters. Entries whose names start with `.` are skipped. Only a folder or a single `.html` file becomes a plugin; other files in the plugins root are ignored. The folder or file name is percent-encoded in its URL.
+- A plugin entry can be a link (a symbolic link, or a Windows junction) instead of a real folder or file, so a plugin built somewhere else — a plugin repository's `dist` output, for example — can be dropped in without copying it. The link's own name is the plugin id and its target decides folder versus single file. A link whose target is gone is skipped, and a target directory's modification time is part of the cache fingerprint, so rebuilding the target is picked up like an edit inside `plugins/`.
 
 ## Contract
 
