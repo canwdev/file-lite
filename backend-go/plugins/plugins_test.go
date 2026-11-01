@@ -36,6 +36,7 @@ func TestScanDirPluginWithManifest(t *testing.T) {
 		"entry": "index.html",
 		"icon": "🎨",
 		"openWith": [".png", ".jpg"],
+		"launchTargets": ["files", "folder"],
 		"singleInstance": true,
 		"version": " 1.2.0 "
 	}`)
@@ -59,6 +60,9 @@ func TestScanDirPluginWithManifest(t *testing.T) {
 	}
 	if len(plugin.OpenWith) != 2 {
 		t.Fatalf("openWith = %v", plugin.OpenWith)
+	}
+	if len(plugin.LaunchTargets) != 2 || plugin.LaunchTargets[0] != "files" || plugin.LaunchTargets[1] != "folder" {
+		t.Fatalf("launchTargets = %v", plugin.LaunchTargets)
 	}
 	if !plugin.SingleInstance {
 		t.Fatal("singleInstance = false, want true")
@@ -87,6 +91,9 @@ func TestScanDirPluginDefaults(t *testing.T) {
 	}
 	if plugin.OpenWith == nil || len(plugin.OpenWith) != 0 {
 		t.Fatalf("openWith = %#v", plugin.OpenWith)
+	}
+	if plugin.LaunchTargets == nil || len(plugin.LaunchTargets) != 0 {
+		t.Fatalf("launchTargets = %#v", plugin.LaunchTargets)
 	}
 	if plugin.SingleInstance {
 		t.Fatal("singleInstance = true, want false")

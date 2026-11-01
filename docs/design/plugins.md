@@ -35,6 +35,7 @@ The directory defaults to `file-lite/plugins` under the process working director
   "entry": "index.html",
   "icon": "🎨",
   "openWith": [".png", ".jpg"],
+  "launchTargets": ["files", "folder", "folders"],
   "singleInstance": false,
   "version": "1.0.0"
 }
@@ -46,6 +47,7 @@ The directory defaults to `file-lite/plugins` under the process working director
 - `icon`: an emoji, or a path to an image inside the plugin. Defaults to the puzzle icon. Icon-library names are not accepted.
 - `entry`: the entry page, relative to the plugin folder. Defaults to `index.html`.
 - `openWith`: extensions including the dot. When non-empty, the plugin appears in Open With and Set Default App, and `onOpen` receives that file. When empty, it can only be started from the Plugins menu, and the `onOpen` argument is `undefined`.
+- `launchTargets`: optional explorer selection kinds that also add the plugin to the context menu's **More** submenu. Values are `files` (one or more files), `folder` (exactly one directory) and `folders` (one or more directories). This is independent of `openWith`: it does not add the plugin to Open With.
 - `singleInstance`: defaults to `false`. Each open creates a new window and calls `onOpen` once. `true` reuses the existing window and calls `onOpen` again on the next open.
 - `version`: shown on the right of that Plugins menu item only. It is not used for loading or compatibility. Omitted versions are not shown.
 
@@ -59,10 +61,14 @@ The whole surface is one object. Nothing is optional: a method that exists alway
 interface FileLiteSdk {
   readonly version: 2
 
-  list(path: string): Promise<SdkEntry[]>
+  list(path: string, options?: SdkListOptions): Promise<SdkEntry[]>
   readFile(path: string): Promise<ArrayBuffer>
   readText(path: string): Promise<{ text: string, charset: string }>
   writeFile(path: string, data: BlobPart, options?: SdkWriteOptions): Promise<SdkWriteResult>
+  rename(path: string, newName: string): Promise<SdkRenameResult>
+  exists(paths: string[]): Promise<string[]>
+  stat(path: string): Promise<SdkEntry>
+  mkdir(path: string, options?: SdkMkdirOptions): Promise<void>
   pick(options?: SdkPickOptions): Promise<SdkPickResult | null>
   url(path: string): string
   stream(path: string, options?: { signal?: AbortSignal }): Promise<Response>
@@ -101,12 +107,18 @@ interface SdkLaunch {
   directory: string
   /** The directory listing captured when the window opened. */
   entries: SdkEntry[]
+  /** How the window was launched. `null` for an empty window. */
+  kind: 'file' | 'files' | 'folder' | 'folders' | null
+  /** Entries selected in the explorer; empty for a single-file or empty launch. */
+  selection: SdkEntry[]
 }
 
 interface SdkOpenEvent {
   path: string
   filename: string
   directory: string
+  kind: 'file' | 'files' | 'folder' | 'folders' | null
+  selection: SdkEntry[]
 }
 
 interface SdkWriteOptions {
@@ -120,6 +132,23 @@ interface SdkWriteResult {
   /** Where the bytes landed; `keep-both` may rename the file. */
   path: string
   name: string
+}
+
+interface SdkRenameResult {
+  /** Canonical path after the rename. */
+  path: string
+  /** New basename. */
+  name: string
+}
+
+interface SdkListOptions {
+  /** Flatten every file below the directory. */
+  recursive?: boolean
+}
+
+interface SdkMkdirOptions {
+  /** Create missing parents. */
+  recursive?: boolean
 }
 
 interface SdkPickOptions {
@@ -147,9 +176,9 @@ interface SdkPickResult {
 }
 ```
 
-### list(path)
+### list(path, options?)
 
-Lists one level of `path`, not recursively. Each item is an `SdkEntry` whose `path` is already the full path, so a caller never joins names by hand.
+Lists `path`. By default only one level is returned; `options.recursive` flattens every file below the directory. Each item is an `SdkEntry` whose `path` is already the full path, so a caller never joins names by hand.
 
 ### readFile(path)
 
@@ -162,6 +191,22 @@ Reads a text file. The returned `text` is always UTF-8, and `charset` is the enc
 ### writeFile(path, data, options?)
 
 Writes `data` — an `ArrayBuffer`, a typed array or a `Blob`; a plain string is rejected, because a string has no encoding — to `path` and resolves with where it landed. A missing path is rejected before anything is written. `options.conflict` decides what happens when the file already exists; the default `overwrite` is what a save means. Without `options.charset` the bytes are stored as UTF-8.
+
+### rename(path, newName)
+
+Renames an entry inside its current directory. `newName` may not contain `/` or `\`. If the target already exists, the call rejects with the server's conflict reason. It resolves with the canonical path and basename after the rename.
+
+### exists(paths)
+
+Answers which of the given absolute paths currently exist. Use it to preflight a batch before renaming; the rename call still enforces the final conflict check.
+
+### stat(path)
+
+Returns one `SdkEntry` for the current path. It is useful after a rename when only one row needs refreshing.
+
+### mkdir(path, options?)
+
+Creates a directory. `options.recursive` creates missing parents. Creating an existing directory is idempotent.
 
 ### pick(options?)
 
@@ -199,11 +244,11 @@ It runs in the page (a `ReadableStream` cannot be sent through `postMessage`), s
 
 ### getLaunch()
 
-Returns the current launch, or `null` when the window was opened without a file. `entries` is the directory listing the file manager had when the window opened; ask for it only when the listing is needed, because it can be large.
+Returns the current launch, or `null` when the window was opened without a file. `entries` is the directory listing the file manager had when the window opened. `kind` and `selection` describe an explorer selection launch; ask for `entries` only when the full listing is needed, because it can be large.
 
 ### onOpen(callback)
 
-Called when the window starts, and again every time a `singleInstance: true` window is reused for another file. The argument is an `SdkOpenEvent`, or `undefined` when the window has no file. Register it synchronously in the page script: the host pushes the launch right after the iframe `load` event, and a callback registered later does not receive that first push. The push carries the target only; call `getLaunch()` for the listing.
+Called when the window starts, and again every time a `singleInstance: true` window is reused for another file or selection. The argument is an `SdkOpenEvent`, or `undefined` when the window has no file. Register it synchronously in the page script: the host pushes the launch right after the iframe `load` event, and a callback registered later does not receive that first push. The push carries the target, `kind` and `selection`; call `getLaunch()` for the full listing.
 
 ### updateLaunch(launch)
 
@@ -223,7 +268,7 @@ Closes the current window. `window.close` is the same call: the host overrides i
 
 `path` is always the file's full path, and read, write and explorer actions use the same scope as the file manager. Do not destructure a possibly `undefined` callback argument.
 
-There is no API to create a directory, rename or delete, or talk to another plugin; `pick` only returns paths.
+There is no API to delete, copy or move across directories, or talk to another plugin; `pick` only returns paths. Cross-directory moves belong to the host task queue.
 
 ### Example
 

@@ -89,8 +89,8 @@ describe('plugin SDK client behaviour', () => {
     sdk.onOpen((first: unknown, second: unknown) => calls.push([first, second]))
     dispatch({ source: SDK_SOURCE_HOST, event: 'open', path: '/a/b.txt', filename: 'b.txt', directory: '/a' })
     expect(calls).toEqual([
-      [{ path: '/a/b.txt', filename: 'b.txt', directory: '/a' }],
-      [{ path: '/a/b.txt', filename: 'b.txt', directory: '/a' }, undefined],
+      [{ path: '/a/b.txt', filename: 'b.txt', directory: '/a', kind: null, selection: [] }],
+      [{ path: '/a/b.txt', filename: 'b.txt', directory: '/a', kind: null, selection: [] }, undefined],
     ])
   })
 

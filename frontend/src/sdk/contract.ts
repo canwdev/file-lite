@@ -20,6 +20,10 @@ export const SDK_METHODS = [
   'readFile',
   'readText',
   'writeFile',
+  'rename',
+  'exists',
+  'stat',
+  'mkdir',
   'pick',
   'url',
   'stream',
@@ -36,6 +40,10 @@ export type SdkMethod
     | 'readFile'
     | 'readText'
     | 'writeFile'
+    | 'rename'
+    | 'exists'
+    | 'stat'
+    | 'mkdir'
     | 'pick'
     | 'url'
     | 'stream'
@@ -65,6 +73,9 @@ export interface SdkEntry {
   birthtime?: number
 }
 
+/** How a window was launched: a single file (Open With) or a selection from the explorer. */
+export type SdkLaunchKind = 'file' | 'files' | 'folder' | 'folders' | null
+
 export interface SdkLaunch {
   /** Full path of the opened target, `''` when there is none. */
   path: string
@@ -74,6 +85,10 @@ export interface SdkLaunch {
   directory: string
   /** Listing of `directory` captured when the window opened. */
   entries: SdkEntry[]
+  /** What the window was launched with. `null` for an empty window. */
+  kind: SdkLaunchKind
+  /** The selected entries for a selection launch (`[]` otherwise). */
+  selection: SdkEntry[]
 }
 
 /** Push payload for `onOpen`. `undefined` when the window has no file. */
@@ -81,6 +96,8 @@ export interface SdkOpenEvent {
   path: string
   filename: string
   directory: string
+  kind: SdkLaunchKind
+  selection: SdkEntry[]
 }
 
 export interface SdkWriteOptions {
@@ -96,6 +113,23 @@ export interface SdkWriteResult {
   /** Real path (a `keep-both` write may rename). */
   path: string
   /** Real file name. */
+  name: string
+}
+
+export interface SdkListOptions {
+  /** Flatten every file below the directory. */
+  recursive?: boolean
+}
+
+export interface SdkMkdirOptions {
+  /** Create missing parents. */
+  recursive?: boolean
+}
+
+export interface SdkRenameResult {
+  /** Canonical path after the rename. */
+  path: string
+  /** New basename. */
   name: string
 }
 
@@ -156,10 +190,14 @@ export interface SdkHostContext {
 export interface FileLiteSdk {
   readonly version: typeof SDK_VERSION
 
-  list: (path: string) => Promise<SdkEntry[]>
+  list: (path: string, options?: SdkListOptions) => Promise<SdkEntry[]>
   readFile: (path: string) => Promise<ArrayBuffer>
   readText: (path: string) => Promise<SdkTextFile>
   writeFile: (path: string, data: SdkBinary, options?: SdkWriteOptions) => Promise<SdkWriteResult>
+  rename: (path: string, newName: string) => Promise<SdkRenameResult>
+  exists: (paths: string[]) => Promise<string[]>
+  stat: (path: string) => Promise<SdkEntry>
+  mkdir: (path: string, options?: SdkMkdirOptions) => Promise<void>
   url: (path: string) => string
   stream: (path: string, options?: SdkStreamOptions) => Promise<Response>
 
@@ -179,8 +217,9 @@ export interface SdkRequest {
   id: number
   method: string
   path?: string
+  paths?: string[]
   data?: ArrayBuffer
-  options?: SdkWriteOptions
+  options?: SdkWriteOptions | SdkListOptions | SdkMkdirOptions
   launch?: Partial<SdkLaunch>
   title?: string
   names?: string[]
@@ -204,4 +243,6 @@ export interface SdkOpenMessage {
   filename?: string
   /** Parent directory of `path`. */
   directory?: string
+  kind?: SdkLaunchKind
+  selection?: SdkEntry[]
 }

@@ -118,13 +118,15 @@ describe('iframe bridge', () => {
       invoke: async () => undefined,
     })
 
-    bridge.pushOpen({ path: '/a/b.txt', filename: 'b.txt', directory: '/a' })
+    bridge.pushOpen({ path: '/a/b.txt', filename: 'b.txt', directory: '/a', kind: 'file', selection: [] })
     expect(win.sent[0]?.message).toEqual({
       source: SDK_SOURCE_HOST,
       event: 'open',
       path: '/a/b.txt',
       filename: 'b.txt',
       directory: '/a',
+      kind: 'file',
+      selection: [],
     })
   })
 
@@ -144,6 +146,6 @@ describe('iframe bridge', () => {
       getWindow: () => null,
       invoke: async () => undefined,
     })
-    bridge.pushOpen({ path: '/a', filename: 'a', directory: '/' })
+    bridge.pushOpen({ path: '/a', filename: 'a', directory: '/', kind: 'file', selection: [] })
   })
 })

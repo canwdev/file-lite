@@ -28,6 +28,7 @@ type Manifest struct {
 	Entry          string   `json:"entry"`
 	Icon           string   `json:"icon"`
 	OpenWith       []string `json:"openWith"`
+	LaunchTargets  []string `json:"launchTargets"`
 	SingleInstance bool     `json:"singleInstance"`
 	Version        string   `json:"version"`
 }
@@ -39,6 +40,7 @@ type Plugin struct {
 	IconEmoji      string   `json:"iconEmoji"`
 	IconURL        string   `json:"iconUrl"`
 	OpenWith       []string `json:"openWith"`
+	LaunchTargets  []string `json:"launchTargets"`
 	SingleInstance bool     `json:"singleInstance"`
 	Version        string   `json:"version"`
 
@@ -223,6 +225,11 @@ func clonePlugins(in []Plugin) []Plugin {
 			copy(copied, p.OpenWith)
 			out[i].OpenWith = copied
 		}
+		if p.LaunchTargets != nil {
+			copied := make([]string, len(p.LaunchTargets))
+			copy(copied, p.LaunchTargets)
+			out[i].LaunchTargets = copied
+		}
 	}
 	return out
 }
@@ -261,6 +268,7 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 	entry := "index.html"
 	icon := ""
 	openWith := []string{}
+	launchTargets := []string{}
 	singleInstance := false
 	version := ""
 
@@ -281,6 +289,9 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 		icon = strings.TrimSpace(manifest.Icon)
 		if manifest.OpenWith != nil {
 			openWith = manifest.OpenWith
+		}
+		if manifest.LaunchTargets != nil {
+			launchTargets = manifest.LaunchTargets
 		}
 		singleInstance = manifest.SingleInstance
 		version = strings.TrimSpace(manifest.Version)
@@ -306,6 +317,7 @@ func loadDirPlugin(root, id string) (Plugin, bool) {
 		Name:           name,
 		EntryURL:       pluginPath(id, entry),
 		OpenWith:       openWith,
+		LaunchTargets:  launchTargets,
 		SingleInstance: singleInstance,
 		Version:        version,
 		Root:           root,
@@ -321,6 +333,7 @@ func loadFilePlugin(filePath, id, filename string) Plugin {
 		Name:           id,
 		EntryURL:       pluginPath(filename),
 		OpenWith:       []string{},
+		LaunchTargets:  []string{},
 		SingleInstance: false,
 		Version:        "",
 		Root:           filepath.Dir(filePath),

@@ -72,6 +72,8 @@ export function createIframeBridge(options: IframeBridgeOptions): IframeBridge {
       path: open.path,
       filename: open.filename,
       directory: open.directory,
+      kind: open.kind,
+      selection: open.selection,
     })
   }
 

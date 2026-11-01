@@ -1,5 +1,5 @@
 import type { ManagedWindow } from '@canwdev/vgo-ui'
-import type { AppName, AppParams } from './apps'
+import type { AppLaunchTarget, AppName, AppParams } from './apps'
 import type { AppTarget } from './registry'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
@@ -128,6 +128,23 @@ export function openTarget(target: AppTarget, appParams: AppParams) {
  */
 export function openAppWindow(appName: AppName, appParams: AppParams) {
   openTarget(builtinTarget(appName), appParams)
+}
+
+/** Build the launch state for an app started from the explorer selection. */
+export function selectionAppParams(
+  selection: IEntry[],
+  basePath: string,
+  launchKind: AppLaunchTarget,
+): AppParams {
+  const first = selection[0] ?? emptyInternalEntry
+  return {
+    absPath: first.path,
+    item: first,
+    basePath,
+    list: [],
+    selection,
+    launchKind,
+  }
 }
 
 export function openPluginWindow(plugin: PluginInfo, appParams?: AppParams) {

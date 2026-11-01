@@ -295,6 +295,7 @@ each allowed root appears as its own location.
     "iconEmoji": "",
     "iconUrl": "",
     "openWith": ["txt"],
+    "launchTargets": ["files", "folder", "folders"],
     "singleInstance": true,
     "version": "1.0.0"
   }

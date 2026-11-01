@@ -21,6 +21,17 @@ plugin iframe ──postMessage──────┘
 | Registry | `frontend/src/views/Apps/registry.ts` | One descriptor for a built-in app or plugin: id, name, icon, single-instance, chrome, component. Open With, Set Default App and window reuse read it. |
 | Picker | `frontend/src/views/FileManager/file-picker.ts`, `FilePickerHost.vue` | The one file/folder/save dialog, mounted once by `FileLite.vue`. `pick()` in the broker calls `openFilePicker`; built-in apps and plugin iframes both end up here. |
 
+## Methods
+
+File and window capabilities are shared by both transports:
+
+- `list(path, { recursive? })`, `readFile`, `readText`, `writeFile`
+- `rename(path, newName)`, `exists(paths)`, `stat(path)`, `mkdir(path, { recursive? })`
+- `pick`, `url`, `stream`
+- `getLaunch`, `onOpen`, `updateLaunch`, `setTitle`, `selectItems`, `revealItem`, `exit`
+
+An explorer selection launch is described by `SdkLaunch.kind` (`files`, `folder`, `folders`) and `SdkLaunch.selection`. A single-file Open With launch uses `kind: 'file'`. Internal apps can register `launchTargets` to appear in the explorer's **More** menu without becoming Open With targets.
+
 ## Rules
 
 - A capability is implemented once, in the broker. Never add a method to only one transport.

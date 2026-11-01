@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import type { MediaLinkTTL } from '@/api/filesystem'
 import type { PluginInfo } from '@/api/plugins'
 import type { IEntry } from '@/types/server'
+import type { AppLaunchTarget } from '@/views/Apps/apps'
 import type { PropertiesTarget } from '@/views/Apps/properties'
 import { ContextMenu } from '@canwdev/vgo-ui'
 import dayjs from 'dayjs'
@@ -18,9 +19,10 @@ import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { regImageFormat } from '@/utils/is'
 import { defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
+import { openAppWindow, openPluginWindow, selectionAppParams } from '@/views/Apps/apps-store'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showProperties } from '@/views/Apps/properties'
-import { builtinOpenWithTargets, pluginOpenWithTargets, targetIcon, targetName } from '@/views/Apps/registry'
+import { builtinOpenWithTargets, pluginOpenWithTargets, targetIcon, targetName, targetsForSelection } from '@/views/Apps/registry'
 import { defaultArchiveStem, matchesExtractExtension, separateArchiveName, showCompressDialog, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
 import { showInputPrompt } from '@/views/FileManager/ExplorerUI/input-prompt.ts'
 import { getLastDirName, joinPath, normalizePath, toWindowsPath } from '../../utils'
@@ -384,6 +386,41 @@ export function useFileActions({
 
   const openWithPlugins = ref<PluginInfo[]>([])
 
+  /** What the current selection can be launched as from the context menu. */
+  const selectionKind = computed<AppLaunchTarget | null>(() => {
+    const items = selectedItems.value
+    if (!items.length)
+      return null
+    const directories = items.filter(item => item.isDirectory).length
+    if (directories === 0)
+      return 'files'
+    if (directories !== items.length)
+      return null
+    return items.length === 1 ? 'folder' : 'folders'
+  })
+
+  /** App rows shown at the top of More, above the existing actions. */
+  function selectionAppMenuItems(): MenuItem[] {
+    const kind = selectionKind.value
+    if (!kind)
+      return []
+    return targetsForSelection(kind, openWithPlugins.value).map((target) => {
+      const params = selectionAppParams(selectedItems.value, basePath.value, kind)
+      if (target.kind === 'plugin') {
+        return {
+          label: targetName(target),
+          icon: h(PluginIcon, { plugin: target.plugin }),
+          onClick: () => openPluginWindow(target.plugin, params),
+        }
+      }
+      return {
+        label: targetName(target),
+        icon: targetIcon(target),
+        onClick: () => openAppWindow(target.appName, params),
+      }
+    })
+  }
+
   function pluginsSubMenu(onPick: (pluginId: string) => void, currentId?: string | null): MenuItem | null {
     const targets = pluginOpenWithTargets(openWithPlugins.value)
     if (!targets.length)
@@ -540,6 +577,7 @@ export function useFileActions({
     const isFile = isSingle && !selectedItem.isDirectory
     const isDirectory = isSingle && selectedItem.isDirectory
     const openActionMeta = getOpenActionMeta(selectedItem)
+    const moreAppItems = selectionAppMenuItems()
     const branchOpenContaining = isBranchView?.value && selectedItem
       ? {
           label: $t('file_lite_i18n.open_containing_folder'),
@@ -628,7 +666,7 @@ export function useFileActions({
       { label: $t('file_lite_i18n.cut'), icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
       { label: $t('file_lite_i18n.copy'), icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
-
+        ...moreAppItems,
         {
           label: $t('file_lite_i18n.open_containing_folder'),
           icon: 'mdi mdi-folder-outline',

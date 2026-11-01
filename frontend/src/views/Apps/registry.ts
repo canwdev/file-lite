@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
-import type { AppChrome, AppListItem, AppName, InternalAppListItem } from './apps'
+import type { AppChrome, AppLaunchTarget, AppListItem, AppName, InternalAppListItem } from './apps'
 import type { PluginInfo } from '@/api/plugins'
-import { AppList, appMetaByName } from './apps'
+import { AppList, appMetaByName, InternalAppList, isBuiltinApp } from './apps'
 
 /**
  * One thing that can own an app window, whether its implementation is a Vue
@@ -75,6 +75,28 @@ export function builtinOpenWithTargets(): BuiltinAppTarget[] {
   return AppList.map(app => builtinTarget(app.openWith))
 }
 
+/** The selection kinds an app accepts from the explorer's context menu. */
+export function targetLaunchTargets(target: AppTarget): AppLaunchTarget[] {
+  if (target.kind === 'plugin') {
+    return (target.plugin.launchTargets ?? []) as AppLaunchTarget[]
+  }
+  return appMetaByName[target.appName]?.launchTargets ?? []
+}
+
+/** Built-in and plugin apps that accept the given explorer selection. */
+export function targetsForSelection(
+  kind: AppLaunchTarget,
+  plugins: readonly PluginInfo[],
+): AppTarget[] {
+  const builtins: AppTarget[] = [...AppList, ...InternalAppList]
+    .filter(item => (item.launchTargets ?? []).includes(kind))
+    .map(item => builtinTarget('openWith' in item ? item.openWith : item.appName))
+  const pluginApps: AppTarget[] = plugins
+    .filter(plugin => (plugin.launchTargets ?? []).includes(kind))
+    .map(pluginTarget)
+  return [...builtins, ...pluginApps]
+}
+
 /** Every plugin from the current scan, including ones without `openWith`. */
 export function pluginTargets(plugins: readonly PluginInfo[]): PluginAppTarget[] {
   return plugins.map(pluginTarget)
@@ -87,8 +109,9 @@ export function pluginOpenWithTargets(plugins: readonly PluginInfo[]): PluginApp
 
 /** Resolve a stored app id (built-in open-with name or plugin id) to its target. */
 export function findTarget(id: string, plugins: readonly PluginInfo[]): AppTarget | undefined {
-  if (appMetaByName[id as AppName]) {
-    return builtinTarget(id as AppName)
+  // Internal apps are menu-launched only: they never become Open With targets.
+  if (isBuiltinApp(id)) {
+    return builtinTarget(id)
   }
   const plugin = plugins.find(entry => entry.id === id)
   return plugin ? pluginTarget(plugin) : undefined

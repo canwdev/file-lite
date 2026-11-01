@@ -24,11 +24,25 @@ const files: SdkFileApi = {
   readBlob: async () => new Blob([]),
   readTextFile: async () => ({ text: '', charset: '' }),
   writeFile: async (dir, name) => ({ ok: true, path: `${dir}/${name}`, name }),
+  rename: async (_from, to) => ({ path: to, name: to.slice(to.lastIndexOf('/') + 1) }),
+  existingPaths: async () => [],
+  stat: async path => ({
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    ext: '',
+    isDirectory: false,
+    hidden: false,
+    birthtime: 0,
+    size: 0,
+    lastModified: 0,
+    error: null,
+  }),
+  mkdir: async () => {},
   url: path => path,
 }
 
-const OPEN_A: SdkOpenEvent = { path: '/a/one.txt', filename: 'one.txt', directory: '/a' }
-const OPEN_B: SdkOpenEvent = { path: '/a/two.txt', filename: 'two.txt', directory: '/a' }
+const OPEN_A: SdkOpenEvent = { path: '/a/one.txt', filename: 'one.txt', directory: '/a', kind: 'file', selection: [] }
+const OPEN_B: SdkOpenEvent = { path: '/a/two.txt', filename: 'two.txt', directory: '/a', kind: 'file', selection: [] }
 
 function tick() {
   return new Promise(resolve => setTimeout(resolve, 0))

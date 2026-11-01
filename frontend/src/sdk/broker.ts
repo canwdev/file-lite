@@ -3,23 +3,27 @@ import type {
   SdkEntry,
   SdkHostContext,
   SdkLaunch,
+  SdkListOptions,
   SdkMethod,
+  SdkMkdirOptions,
   SdkPickMode,
   SdkPickOptions,
+  SdkRenameResult,
   SdkTextFile,
   SdkWriteOptions,
   SdkWriteResult,
 } from './contract'
 import type { IEntry } from '@/types/server'
-import type { FsTextFile, FsWriteOptions, FsWriteResult } from '@/utils/fs'
+import type { FsRenameResult, FsTextFile, FsWriteOptions, FsWriteResult } from '@/utils/fs'
 import { joinPath, normalizePath } from '../utils/path/form'
 
 /** A flat request payload, shared by both transports. */
 export interface SdkInvokePayload {
   path?: string
+  paths?: string[]
   /** `ArrayBuffer` over the wire, any binary `BlobPart` in process. */
   data?: BlobPart
-  options?: SdkWriteOptions
+  options?: SdkWriteOptions | SdkListOptions | SdkMkdirOptions
   launch?: Partial<SdkLaunch>
   title?: string
   names?: string[]
@@ -39,10 +43,14 @@ function isBinaryData(data: unknown): data is SdkBinary {
 
 /** The slice of the file facade the SDK needs; tests pass a fake. */
 export interface SdkFileApi {
-  list: (path: string) => Promise<IEntry[]>
+  list: (path: string, options?: SdkListOptions) => Promise<IEntry[]>
   readBlob: (path: string) => Promise<Blob>
   readTextFile: (path: string) => Promise<FsTextFile>
   writeFile: (dirPath: string, name: string, data: BlobPart, options?: FsWriteOptions) => Promise<FsWriteResult>
+  rename: (fromPath: string, toPath: string) => Promise<FsRenameResult>
+  existingPaths: (paths: string[]) => Promise<string[]>
+  stat: (path: string) => Promise<IEntry>
+  mkdir: (path: string, options?: SdkMkdirOptions) => Promise<void>
   url: (path: string) => string
 }
 
@@ -57,6 +65,15 @@ export function dirOf(path: string) {
 
 export function baseOf(path: string) {
   return path.slice(path.lastIndexOf('/') + 1)
+}
+
+/** Parent directory, including `/` for a file at the filesystem root. */
+function parentOf(path: string) {
+  const normalized = path.replace(/\/+$/, '')
+  const cut = normalized.lastIndexOf('/')
+  if (cut > 0)
+    return normalized.slice(0, cut)
+  return cut === 0 ? '/' : normalized || path
 }
 
 /**
@@ -81,7 +98,7 @@ export function toSdkEntry(directory: string, entry: IEntry): SdkEntry {
 }
 
 function emptyLaunch(): SdkLaunch {
-  return { path: '', filename: '', directory: '', entries: [] }
+  return { path: '', filename: '', directory: '', entries: [], kind: null, selection: [] }
 }
 
 function mergeLaunch(current: SdkLaunch | null, patch: Partial<SdkLaunch> | undefined): SdkLaunch {
@@ -91,6 +108,8 @@ function mergeLaunch(current: SdkLaunch | null, patch: Partial<SdkLaunch> | unde
     filename: patch?.filename ?? base.filename,
     directory: patch?.directory ?? base.directory,
     entries: patch?.entries ?? base.entries,
+    kind: patch?.kind ?? base.kind,
+    selection: patch?.selection ?? base.selection,
   }
   if (patch?.path != null && patch.filename == null) {
     next.filename = baseOf(next.path)
@@ -106,8 +125,8 @@ function mergeLaunch(current: SdkLaunch | null, patch: Partial<SdkLaunch> | unde
  * transports call this; no transport-specific behaviour lives here.
  */
 export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBroker {
-  async function list(path: string): Promise<SdkEntry[]> {
-    const entries = await files.list(path)
+  async function list(path: string, options: SdkListOptions = {}): Promise<SdkEntry[]> {
+    const entries = await files.list(path, options)
     return entries.map(entry => toSdkEntry(path, entry))
   }
 
@@ -150,6 +169,38 @@ export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBro
     }
   }
 
+  function rename(path: string, newName: string): Promise<SdkRenameResult> {
+    if (!path) {
+      throw new TypeError('rename needs a path')
+    }
+    const name = newName.trim()
+    if (!name || name === '.' || name === '..' || /[\\/]/.test(name)) {
+      throw new TypeError('rename needs a valid name')
+    }
+    const target = normalizePath(joinPath(parentOf(path), name))
+    return files.rename(path, target).then((result) => {
+      return { path: result.path, name: result.name }
+    })
+  }
+
+  async function stat(path: string): Promise<SdkEntry> {
+    if (!path) {
+      throw new TypeError('stat needs a path')
+    }
+    return toSdkEntry(dirOf(path), await files.stat(path))
+  }
+
+  async function mkdir(path: string, options: SdkMkdirOptions = {}): Promise<void> {
+    if (!path) {
+      throw new TypeError('mkdir needs a path')
+    }
+    await files.mkdir(path, options)
+  }
+
+  async function exists(paths: string[]): Promise<string[]> {
+    return await files.existingPaths(paths)
+  }
+
   const PICK_MODES: readonly SdkPickMode[] = ['file', 'files', 'folder', 'save']
 
   async function pick(options: SdkPickOptions | undefined) {
@@ -173,13 +224,21 @@ export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBro
       const path = String(payload.path ?? '')
       switch (method) {
         case 'list':
-          return await list(path)
+          return await list(path, payload.options as SdkListOptions | undefined)
         case 'readFile':
           return await readFile(path)
         case 'readText':
           return await readText(path)
         case 'writeFile':
-          return await writeFile(path, payload.data, payload.options)
+          return await writeFile(path, payload.data, payload.options as SdkWriteOptions | undefined)
+        case 'rename':
+          return await rename(path, String(payload.name ?? ''))
+        case 'exists':
+          return await exists(Array.isArray(payload.paths) ? payload.paths.map(String) : [])
+        case 'stat':
+          return await stat(path)
+        case 'mkdir':
+          return await mkdir(path, payload.options as SdkMkdirOptions | undefined)
         case 'pick':
           return await pick(payload.pick)
         case 'url':

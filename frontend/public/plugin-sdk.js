@@ -39,7 +39,13 @@
 
   function dispatchOpen(data) {
     var file = data.path
-      ? { path: data.path, filename: data.filename || '', directory: data.directory || '' }
+      ? {
+          path: data.path,
+          filename: data.filename || '',
+          directory: data.directory || '',
+          kind: data.kind === undefined ? null : data.kind,
+          selection: data.selection || [],
+        }
       : undefined
     openHandlers.forEach(function (cb) {
       cb(file)
@@ -68,14 +74,26 @@
 
   window.fileLiteSDK = {
     version: VERSION,
-    list: function (path) {
-      return call('list', { path: path })
+    list: function (path, options) {
+      return call('list', options ? { path: path, options: options } : { path: path })
     },
     readFile: function (path) {
       return call('readFile', { path: path })
     },
     readText: function (path) {
       return call('readText', { path: path })
+    },
+    rename: function (path, newName) {
+      return call('rename', { path: path, name: newName })
+    },
+    exists: function (paths) {
+      return call('exists', { paths: paths })
+    },
+    stat: function (path) {
+      return call('stat', { path: path })
+    },
+    mkdir: function (path, options) {
+      return call('mkdir', { path: path, options: options })
     },
     writeFile: function (path, data, options) {
       // Only clone-safe fields travel over postMessage; callbacks stay host-side.

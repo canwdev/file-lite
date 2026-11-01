@@ -7,6 +7,8 @@ export interface PluginInfo {
   iconEmoji: string
   iconUrl: string
   openWith: string[]
+  /** Explorer selection kinds this plugin accepts from the context menu. */
+  launchTargets?: string[]
   singleInstance: boolean
   version: string
 }

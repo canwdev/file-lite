@@ -16,6 +16,7 @@ export enum OpenWithEnum {
 }
 
 export enum InternalAppEnum {
+  BatchRename = 'BatchRename',
   SpeedTest = 'SpeedTest',
   TextSync = 'TextSync',
   KeyboardShortcuts = 'KeyboardShortcuts',
@@ -25,11 +26,18 @@ export enum InternalAppEnum {
 
 export type AppName = OpenWithEnum | InternalAppEnum
 
+/** Selection kinds an app can accept from the explorer's context menu. */
+export type AppLaunchTarget = 'files' | 'folder' | 'folders'
+
 export interface AppParams {
   absPath: string
   item: IEntry
   basePath: string
   list: IEntry[]
+  /** Entries selected when the app was launched from the explorer. */
+  selection?: IEntry[]
+  /** `files`, `folder`, `folders`, or `null` for an empty launch. */
+  launchKind?: AppLaunchTarget | 'file' | null
 }
 
 /** How an app's window opens. Omitted fields keep the shared app-window defaults. */
@@ -51,6 +59,7 @@ export interface AppListItem {
   icon: string
   component: Component
   singleInstance?: boolean
+  launchTargets?: AppLaunchTarget[]
   chrome?: AppChrome
 }
 
@@ -60,6 +69,7 @@ export interface InternalAppListItem {
   icon: string
   component: Component
   singleInstance?: boolean
+  launchTargets?: AppLaunchTarget[]
   chrome?: AppChrome
 }
 
@@ -125,6 +135,19 @@ export const AppList: AppListItem[] = [
 ]
 
 export const InternalAppList: InternalAppListItem[] = [
+  {
+    get name() {
+      return $t('file_lite_i18n.batch_rename_title')
+    },
+    appName: InternalAppEnum.BatchRename,
+    icon: 'mdi mdi-rename',
+    component: defineAsyncComponent(() => import('./BatchRename/BatchRename.vue')),
+    singleInstance: true,
+    launchTargets: ['files', 'folder', 'folders'],
+    chrome: {
+      maximized: true,
+    },
+  },
   {
     get name() {
       return $t('file_lite_i18n.text_sync')

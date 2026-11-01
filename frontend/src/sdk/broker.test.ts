@@ -36,6 +36,10 @@ function fakeFiles(): SdkFileApi & { written: { dir: string, name: string, optio
       }
       return { ok: true, path: `${dir}/${name}`, name }
     },
+    rename: async (from, to) => ({ path: to, name: to.slice(to.lastIndexOf('/') + 1) }),
+    existingPaths: async () => [],
+    stat: async path => entry(path.slice(path.lastIndexOf('/') + 1), { path }),
+    mkdir: async () => {},
     url: path => `/api/fs/content/${encodeURIComponent(path)}`,
   }
 }
@@ -136,6 +140,53 @@ describe('broker', () => {
       .toBe('read only')
   })
 
+  test('list forwards recursive options', async () => {
+    const calls: unknown[] = []
+    const files = fakeFiles()
+    files.list = async (path, options) => {
+      calls.push([path, options])
+      return []
+    }
+    const { context } = host()
+    const broker = createSdkBroker(context, files)
+    await broker.invoke('list', { path: '/music', options: { recursive: true } })
+    expect(calls).toEqual([['/music', { recursive: true }]])
+  })
+
+  test('rename validates the name and returns the server path', async () => {
+    const files = fakeFiles()
+    const { context } = host()
+    const broker = createSdkBroker(context, files)
+    expect(await broker.invoke('rename', { path: '/music/a.mp3', name: 'b.mp3' }))
+      .toEqual({ path: '/music/b.mp3', name: 'b.mp3' })
+    expect(await rejectionReason(broker.invoke('rename', { path: '/music/a.mp3', name: '../b' })))
+      .toBe('rename needs a valid name')
+  })
+
+  test('exists, stat and mkdir use the file facade', async () => {
+    const calls: unknown[] = []
+    const files = fakeFiles()
+    files.existingPaths = async (paths) => {
+      calls.push(['exists', paths])
+      return ['/music/a.mp3']
+    }
+    files.stat = async path => entry('a.mp3', { path })
+    files.mkdir = async (path, options) => {
+      calls.push(['mkdir', path, options])
+    }
+    const { context } = host()
+    const broker = createSdkBroker(context, files)
+    expect(await broker.invoke('exists', { paths: ['/music/a.mp3'] })).toEqual(['/music/a.mp3'])
+    const stat = await broker.invoke('stat', { path: '/music/a.mp3' }) as { path: string, name: string }
+    expect(stat.path).toBe('/music/a.mp3')
+    expect(stat.name).toBe('a.mp3')
+    await broker.invoke('mkdir', { path: '/music/new', options: { recursive: true } })
+    expect(calls).toEqual([
+      ['exists', ['/music/a.mp3']],
+      ['mkdir', '/music/new', { recursive: true }],
+    ])
+  })
+
   test('url is the stream URL', async () => {
     const { context } = host()
     const broker = createSdkBroker(context, fakeFiles())
@@ -164,10 +215,12 @@ describe('broker', () => {
       filename: 'b.txt',
       directory: '/a',
       entries: [],
+      kind: null,
+      selection: [],
     })
     const broker = createSdkBroker(context, fakeFiles())
     await broker.invoke('updateLaunch', { launch: { path: '/a/sub/c.mp3' } })
-    expect(launch()).toEqual({ path: '/a/sub/c.mp3', filename: 'c.mp3', directory: '/a/sub', entries: [] })
+    expect(launch()).toEqual({ path: '/a/sub/c.mp3', filename: 'c.mp3', directory: '/a/sub', entries: [], kind: null, selection: [] })
     await broker.invoke('updateLaunch', { launch: { filename: 'renamed.mp3' } })
     expect(launch()?.filename).toBe('renamed.mp3')
   })

@@ -5,9 +5,12 @@ import type {
   SdkEntry,
   SdkHostContext,
   SdkLaunch,
+  SdkListOptions,
+  SdkMkdirOptions,
   SdkOpenEvent,
   SdkPickOptions,
   SdkPickResult,
+  SdkRenameResult,
   SdkStreamOptions,
   SdkTextFile,
   SdkWriteOptions,
@@ -49,11 +52,17 @@ export function createAppSdk(host: SdkHostContext, files: SdkFileApi): AppSdkTra
   const sdk: FileLiteSdk = {
     version: SDK_VERSION,
 
-    list: path => call<SdkEntry[]>('list', { path }),
+    list: (path: string, options?: SdkListOptions) => call<SdkEntry[]>('list', { path, options }),
     readFile: path => call<ArrayBuffer>('readFile', { path }),
     readText: path => call<SdkTextFile>('readText', { path }),
     writeFile: (path: string, data: SdkBinary, options?: SdkWriteOptions) =>
       call<SdkWriteResult>('writeFile', { path, data, options }),
+    rename: (path: string, newName: string) =>
+      call<SdkRenameResult>('rename', { path, name: newName }),
+    exists: (paths: string[]) => call<string[]>('exists', { paths }),
+    stat: (path: string) => call<SdkEntry>('stat', { path }),
+    mkdir: (path: string, options?: SdkMkdirOptions) =>
+      call<void>('mkdir', { path, options }),
     url: path => files.url(path),
     // Client side on purpose: a `ReadableStream` cannot be posted to a page, so
     // both transports fetch the stream URL themselves (same origin, Range works).

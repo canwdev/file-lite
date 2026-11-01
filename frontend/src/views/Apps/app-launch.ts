@@ -13,6 +13,8 @@ export function launchFromParams(params: AppParams | undefined): SdkLaunch {
     filename: path ? (params?.item?.name || baseOf(path)) : '',
     directory,
     entries: (params?.list ?? []).map(entry => toSdkEntry(directory, entry)),
+    kind: params?.launchKind ?? (path ? 'file' : null),
+    selection: (params?.selection ?? []).map(entry => toSdkEntry(directory, entry)),
   }
 }
 
@@ -21,10 +23,13 @@ export function openEventFromParams(params: AppParams | undefined): SdkOpenEvent
   if (!path) {
     return undefined
   }
+  const directory = params?.basePath || dirOf(path)
   return {
     path,
     filename: params?.item?.name || baseOf(path),
-    directory: params?.basePath || dirOf(path),
+    directory,
+    kind: params?.launchKind ?? 'file',
+    selection: (params?.selection ?? []).map(entry => toSdkEntry(directory, entry)),
   }
 }
 
@@ -73,5 +78,7 @@ export function paramsFromLaunch(launch: SdkLaunch, previous: AppParams): AppPar
     item,
     basePath: launch.directory,
     list,
+    selection: launch.selection.map(sdkEntryToIEntry),
+    launchKind: launch.kind,
   }
 }

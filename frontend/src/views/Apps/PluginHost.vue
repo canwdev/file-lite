@@ -84,11 +84,14 @@ function postOpen() {
     return
   }
   const filename = props.appParams.item?.name || ''
+  const launch = launchFromParams(props.appParams)
   emit('setTitle', filename)
   bridge.pushOpen({
     path,
     filename,
     directory: props.appParams.basePath || dirOf(path),
+    kind: launch.kind,
+    selection: launch.selection,
   })
 }
 

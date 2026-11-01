@@ -156,13 +156,27 @@ export async function mkdir(path: string, options: { recursive?: boolean } = {})
   await fsWebApi.createDir({ path })
 }
 
-/** 重命名 / 移动（服务端）。 */
-export async function rename(fromPath: string, toPath: string): Promise<void> {
-  await fsWebApi.renameEntry({ fromPath, toPath })
+/** 重命名 / 移动（服务端）。返回实际的落点，供 SDK 与调用方使用。 */
+export interface FsRenameResult {
+  path: string
+  name: string
+}
+
+export async function rename(fromPath: string, toPath: string): Promise<FsRenameResult> {
+  const result = await fsWebApi.renameEntry({ fromPath, toPath }) as unknown as {
+    path?: string
+    entry?: { name?: string }
+  }
   // The path changed, so the thumbnail cache follows it: a same-filesystem rename keeps
   // mtime, so the fingerprint still matches and the whole subtree (including the child
   // entries a folder preview uses) keeps its old images instead of generating them again.
   void moveImageThumbCache(fromPath, toPath)
+  const path = result?.path ?? toPath
+  const slash = path.lastIndexOf('/')
+  return {
+    path,
+    name: result?.entry?.name ?? (slash === -1 ? path : path.slice(slash + 1)),
+  }
 }
 
 /**
@@ -183,6 +197,15 @@ export async function existingPaths(paths: string[]): Promise<string[]> {
     // 预检失败不该阻断操作：交给真正的写入去报错
     return []
   }
+}
+
+/** 读取单个条目的最新元数据（改名后刷新一行时用）。 */
+export async function stat(path: string): Promise<IEntry> {
+  const result = await fsWebApi.getEntry(path) as unknown as { entry?: IEntry }
+  if (!result?.entry) {
+    throw new Error('Path not found')
+  }
+  return result.entry
 }
 
 /** 下载地址（多路径会打包成 zip，由后端决定）。 */
@@ -275,6 +298,7 @@ export const fs = {
   readBlob,
   mkdir,
   rename,
+  stat,
   existingPaths,
   drives,
   upload,
