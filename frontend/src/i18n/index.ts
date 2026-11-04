@@ -14,12 +14,27 @@ export const DEFAULT_LOCALE = 'en-US'
 export const localeOptions = [
   { value: 'en-US', label: 'English' },
   { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
   { value: 'ja-JP', label: '日本語' },
+  { value: 'ko-KR', label: '한국어' },
+  { value: 'ru-RU', label: 'Русский' },
+  { value: 'de-DE', label: 'Deutsch' },
+  { value: 'es-ES', label: 'Español' },
+  { value: 'fr-FR', label: 'Français' },
+  { value: 'it-IT', label: 'Italiano' },
+  { value: 'ar-SA', label: 'العربية' },
 ] as const
 
 export type AppLocale = typeof localeOptions[number]['value']
 
 const supportedLocales: AppLocale[] = localeOptions.map(option => option.value)
+
+/** 从右往左书写的语言，切换时同步 `<html dir>`。 */
+const RTL_LOCALES: readonly AppLocale[] = ['ar-SA']
+
+export function isRtlLocale(locale: AppLocale): boolean {
+  return RTL_LOCALES.includes(locale)
+}
 
 export function isAppLocale(value: unknown): value is AppLocale {
   return typeof value === 'string' && (supportedLocales as string[]).includes(value)
@@ -28,17 +43,35 @@ export function isAppLocale(value: unknown): value is AppLocale {
 /**
  * 挑一个最接近浏览器偏好的支持语言。
  *
- * 只按主语言匹配（`zh-Hans-CN`、`zh-TW` 都算 `zh-CN`），匹配不到回退英语。
+ * 只按主语言匹配：繁体地区/脚本（`zh-TW`、`zh-HK`、`zh-Hant`）算 `zh-TW`，
+ * 其余中文（`zh-CN`、`zh-Hans-CN`）算 `zh-CN`，匹配不到回退英语。
  */
 export function detectBrowserLocale(): AppLocale {
   const candidates = (navigator.languages?.length ? navigator.languages : [navigator.language])
     .filter(candidate => typeof candidate === 'string' && candidate)
   for (const candidate of candidates) {
     const tag = candidate.toLowerCase()
-    if (tag.startsWith('zh'))
+    if (tag.startsWith('zh')) {
+      if (tag.startsWith('zh-tw') || tag.startsWith('zh-hk') || tag.startsWith('zh-mo') || tag.startsWith('zh-hant'))
+        return 'zh-TW'
       return 'zh-CN'
+    }
     if (tag.startsWith('ja'))
       return 'ja-JP'
+    if (tag.startsWith('ko'))
+      return 'ko-KR'
+    if (tag.startsWith('ru'))
+      return 'ru-RU'
+    if (tag.startsWith('de'))
+      return 'de-DE'
+    if (tag.startsWith('es'))
+      return 'es-ES'
+    if (tag.startsWith('fr'))
+      return 'fr-FR'
+    if (tag.startsWith('it'))
+      return 'it-IT'
+    if (tag.startsWith('ar'))
+      return 'ar-SA'
     if (tag.startsWith('en'))
       return 'en-US'
   }
@@ -77,8 +110,16 @@ export const ELLIPSIS = '…'
 /** 语言包按需引入：用到哪个语言才下载哪个，也不进主包。 */
 const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
   'en-US': () => import('./locales/en-US/index.json'),
-  'ja-JP': () => import('./locales/ja-JP/index.json'),
   'zh-CN': () => import('./locales/zh-CN/index.json'),
+  'zh-TW': () => import('./locales/zh-TW/index.json'),
+  'ja-JP': () => import('./locales/ja-JP/index.json'),
+  'ko-KR': () => import('./locales/ko-KR/index.json'),
+  'ru-RU': () => import('./locales/ru-RU/index.json'),
+  'de-DE': () => import('./locales/de-DE/index.json'),
+  'es-ES': () => import('./locales/es-ES/index.json'),
+  'fr-FR': () => import('./locales/fr-FR/index.json'),
+  'it-IT': () => import('./locales/it-IT/index.json'),
+  'ar-SA': () => import('./locales/ar-SA/index.json'),
 }
 const loadingLocales = new Map<AppLocale, Promise<void>>()
 
@@ -109,16 +150,24 @@ export async function loadLocaleMessages(locale: AppLocale): Promise<void> {
     : Promise.all([loadLocaleBundle(DEFAULT_LOCALE), loadLocaleBundle(locale)]))
 }
 
-/** Load the active locale and its en-US fallback before mount, so the first paint never shows keys. */
-export function initLocaleMessages(): Promise<void> {
-  return loadLocaleMessages(detectBrowserLocale())
+/** 同步 `<html lang>` 与书写方向；单测（bun test）里没有 document。 */
+function applyDocumentLocale(locale: AppLocale) {
+  if (typeof document === 'undefined')
+    return
+  document.documentElement.lang = locale
+  document.documentElement.dir = isRtlLocale(locale) ? 'rtl' : 'ltr'
 }
 
-/** 切换界面语言；语言包没下载过会先下载，同时同步 `<html lang>`。 */
+/** Load the active locale and its en-US fallback before mount, so the first paint never shows keys. */
+export function initLocaleMessages(): Promise<void> {
+  const locale = detectBrowserLocale()
+  applyDocumentLocale(locale)
+  return loadLocaleMessages(locale)
+}
+
+/** 切换界面语言；语言包没下载过会先下载，同时同步 `<html lang>` 和书写方向。 */
 export async function setAppLocale(locale: AppLocale) {
   await loadLocaleMessages(locale)
   composer.locale.value = locale
-  // 单测（bun test）里没有 document
-  if (typeof document !== 'undefined')
-    document.documentElement.lang = locale
+  applyDocumentLocale(locale)
 }

@@ -694,7 +694,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
     flex-shrink: 0;
     width: 130px;
     overflow: auto;
-    border-right: 1px solid var(--vgo-border);
+    border-inline-end: 1px solid var(--vgo-border);
   }
 
   .star-list {

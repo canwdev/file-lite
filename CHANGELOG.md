@@ -15,6 +15,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Features
 
+- **Languages**: The interface can now be set to Korean, Russian, German, Spanish, French, Italian and Arabic, and Arabic is laid out right-to-left (frontend).
 - **Batch Rename**: Selected files or folders can be launched from the explorer's More menu into a new Batch Rename app with rule chains, preview, conflict checks, rename, undo/redo and CSV/JSON/shell export (frontend).
 - **Batch Rename**: Files and folders can be imported in one selection, including a mixed explorer selection; a folder is renamed as a single entry instead of being expanded, so the separate Import Folder action is gone (frontend).
 - **SDK**: Built-in apps and plugins can rename entries, query existing paths, read one entry, create directories and list recursively; selection-based apps can register for `files`, `folder` and `folders` without becoming Open With targets (frontend, backend).

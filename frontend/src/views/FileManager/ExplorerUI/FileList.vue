@@ -2085,7 +2085,7 @@ defineExpose({
       flex-wrap: wrap;
 
       .split-line {
-        border-right: 1px solid var(--vgo-border);
+        border-inline-end: 1px solid var(--vgo-border);
         margin-inline: 2px;
       }
     }
