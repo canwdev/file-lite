@@ -99,7 +99,7 @@ function reuseWindow(win: AppWindowState, data: AppWindowData, title: string) {
 }
 
 /** Phones and narrow windows get a full-screen app window; anything wider stays floating. */
-const AUTO_MAXIMIZE_MAX_WIDTH = 800
+const AUTO_MAXIMIZE_MAX_WIDTH = 1920
 
 function openWindow(data: AppWindowData, title: string) {
   // Narrow screens get a full-screen window; wider ones keep the floating,
