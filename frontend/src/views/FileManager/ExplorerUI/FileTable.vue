@@ -367,8 +367,18 @@ onBeforeUnmount(() => {
     position: relative;
     overflow: visible;
     &.clickable {
+      // Isolate so the hover tint (:before, negative z-index) paints above the
+      // cell's own surface instead of behind it.
+      isolation: isolate;
       cursor: pointer;
-      &:hover {
+      &:hover::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        // --vgo-hover is translucent; layering it over the surface keeps the
+        // sticky header opaque so rows scrolling underneath do not show
+        // through on hover or in the translucent theme.
         background-color: var(--vgo-hover);
       }
     }
