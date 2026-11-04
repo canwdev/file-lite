@@ -27,8 +27,8 @@ const props = withDefaults(
   defineProps<{
     // 当前目录，由外壳持有
     path: string
-    // 是否文件(夹)选择器；save 只看当前目录，不挑条目
-    selectFileMode?: 'file' | 'folder' | 'save'
+    // 是否文件(夹)选择器；entries 表示文件和文件夹一起选；save 只看当前目录，不挑条目
+    selectFileMode?: 'file' | 'folder' | 'entries' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
     // 只展示内容
@@ -409,9 +409,11 @@ function handleFileListOpen({ item, openWith }: { item: IEntry, openWith?: strin
   if (selectFileMode.value === 'save' && !item.isDirectory) {
     return
   }
-  if (selectFileMode.value === 'file' && !item.isDirectory) {
-    // 多选时双击其中一项应返回全部已选文件，而不是只返回被双击的那个
-    const picked = multiple.value ? selectedFilesForPick() : []
+  if ((selectFileMode.value === 'file' || selectFileMode.value === 'entries') && !item.isDirectory) {
+    // 多选时双击其中一项应返回全部已选条目，而不是只返回被双击的那个
+    const picked = multiple.value
+      ? (selectFileMode.value === 'entries' ? selectedEntriesForPick() : selectedFilesForPick())
+      : []
     const items = picked.length > 1 ? picked : [item]
     emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
     return
@@ -429,6 +431,11 @@ function selectedFilesForPick(): IEntry[] {
   return (fileListRef.value?.selectedItems ?? []).filter((i: IEntry) => !i.isDirectory)
 }
 
+/** `entries` 模式：已选条目原样返回，包含文件夹。 */
+function selectedEntriesForPick(): IEntry[] {
+  return [...(fileListRef.value?.selectedItems ?? [])]
+}
+
 /**
  * 选择器右键菜单的 Select：文件模式返回已选文件，文件夹模式返回选中的文件夹
  * （没有选中条目时就是当前目录，与底部 Select Folder 一致）。
@@ -438,6 +445,14 @@ function handleSelectFromMenu() {
     return
   }
   const basePath = fileListRef.value.basePath
+  if (selectFileMode.value === 'entries') {
+    const items = selectedEntriesForPick()
+    if (!items.length) {
+      return
+    }
+    emit('handleSelect', { items, item: items[0], basePath })
+    return
+  }
   if (selectFileMode.value === 'folder') {
     const folder = (fileListRef.value.selectedItems ?? []).find((i: IEntry) => i.isDirectory)
     if (folder) {
@@ -455,8 +470,11 @@ function handleSelectFromMenu() {
   emit('handleSelect', { items: files, item: files[0], basePath })
 }
 
-// 是否选中了一个文件夹
+// 是否选中了一个文件夹（entries 模式下文件夹是选择结果，不是要进入的目录）
 const isSelectAFolder = computed(() => {
+  if (selectFileMode.value === 'entries') {
+    return false
+  }
   const items = fileListRef.value.selectedItems
   if (items.length !== 1) {
     return false
@@ -466,6 +484,14 @@ const isSelectAFolder = computed(() => {
 // 处理选择操作
 function handleSelect() {
   let items = fileListRef.value.selectedItems
+  // entries 模式：文件和文件夹一起返回，选中文件夹也不进入
+  if (selectFileMode.value === 'entries') {
+    if (!items.length) {
+      return
+    }
+    emit('handleSelect', { items, item: items[0], basePath: fileListRef.value.basePath })
+    return
+  }
   // 打开文件夹
   if (isSelectAFolder.value) {
     handleOpen({ item: items[0], list: fileListRef.value.files })

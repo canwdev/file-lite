@@ -73,8 +73,8 @@ export interface SdkEntry {
   birthtime?: number
 }
 
-/** How a window was launched: a single file (Open With) or a selection from the explorer. */
-export type SdkLaunchKind = 'file' | 'files' | 'folder' | 'folders' | null
+/** How a window was launched: a single file (Open With), or a selection (folders may be mixed with files). */
+export type SdkLaunchKind = 'file' | 'files' | 'folder' | 'folders' | 'entries' | null
 
 export interface SdkLaunch {
   /** Full path of the opened target, `''` when there is none. */
@@ -138,6 +138,7 @@ export type SdkPickMode
   = | 'file' // one existing file
     | 'files' // one or more existing files
     | 'folder' // one folder
+    | 'entries' // one or more existing files and/or folders
     | 'save' // a folder plus a file name to write to
 
 export interface SdkStreamOptions {

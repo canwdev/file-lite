@@ -6,7 +6,7 @@ import type {
   RuleConfig,
   RuleType,
 } from './engine/types'
-import type { SdkEntry, SdkLaunchKind } from '@/sdk/contract'
+import type { SdkEntry, SdkRenameResult } from '@/sdk/contract'
 import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { autoFixConflicts, computePreview } from './engine/rules'
 import { getDefaultConfig } from './engine/types'
@@ -55,19 +55,30 @@ function joinPath(dir: string, name: string) {
   return parent ? `${parent}/${child}` : `/${child}`
 }
 
-function fromSdkEntry(entry: SdkEntry, relativePath?: string): FileEntry {
+function fromSdkEntry(entry: SdkEntry): FileEntry {
   const name = entry.path.slice(entry.path.lastIndexOf('/') + 1) || entry.name
+  // A folder has no extension: a dot in its name is part of the name.
+  const baseName = entry.isDirectory ? name : baseNameOf(name)
   return {
     id: String(nextFileId++),
     path: entry.path,
     name,
-    baseName: baseNameOf(name),
-    extension: extensionOf(name),
+    baseName,
+    extension: entry.isDirectory ? '' : extensionOf(name),
+    isDirectory: entry.isDirectory,
     selected: true,
-    relativePath: relativePath ?? name,
+    relativePath: name,
     size: entry.size,
     modified: entry.lastModified,
   }
+}
+
+function applyRename(file: FileEntry, result: SdkRenameResult) {
+  file.path = result.path
+  file.name = result.name
+  file.baseName = file.isDirectory ? result.name : baseNameOf(result.name)
+  file.extension = file.isDirectory ? '' : extensionOf(result.name)
+  file.relativePath = result.name
 }
 
 export function useBatchRename() {
@@ -101,51 +112,17 @@ export function useBatchRename() {
     redoStack.value = []
   }
 
-  async function addSelection(selection: SdkEntry[], kind: SdkLaunchKind) {
-    if (!selection.length)
-      return
-    const collected: FileEntry[] = []
-    for (const entry of selection) {
-      if (!entry.isDirectory) {
-        collected.push(fromSdkEntry(entry))
-        continue
-      }
-      const listed = await sdk.list(entry.path, { recursive: true })
-      const prefix = entry.path.replace(/\/+$/, '')
-      for (const child of listed) {
-        if (!child.isDirectory)
-          collected.push(fromSdkEntry(child, child.path.startsWith(`${prefix}/`) ? child.path.slice(prefix.length + 1) : child.name))
-      }
-    }
-    // A multi-file launch from Open With has no selection array; kind 'file' is
-    // handled by the remote launch path below. Keep the argument for clarity.
-    void kind
-    resetFiles(collected)
-    notice.value = collected.length ? '' : $t('file_lite_i18n.batch_rename_no_files')
+  function addSelection(selection: SdkEntry[]) {
+    // Folders are renamed as entries of their own; never recurse into them.
+    resetFiles(selection.map(fromSdkEntry))
   }
 
-  async function importFiles() {
+  async function importEntries() {
     try {
-      const result = await sdk.pick({ mode: 'files' })
+      const result = await sdk.pick({ mode: 'entries' })
       if (!result)
         return
-      resetFiles(result.items.filter(item => !item.isDirectory).map(item => fromSdkEntry(item)))
-    }
-    catch (error) {
-      notice.value = $t('file_lite_i18n.batch_rename_failed', [error instanceof Error ? error.message : String(error)])
-    }
-  }
-
-  async function importFolder() {
-    try {
-      const result = await sdk.pick({ mode: 'folder' })
-      if (!result)
-        return
-      const listed = await sdk.list(result.path, { recursive: true })
-      const base = result.path.replace(/\/+$/, '')
-      resetFiles(listed
-        .filter(item => !item.isDirectory)
-        .map(item => fromSdkEntry(item, item.path.startsWith(base) ? item.path.slice(base.length + 1) : item.name)))
+      resetFiles(result.items.map(fromSdkEntry))
     }
     catch (error) {
       notice.value = $t('file_lite_i18n.batch_rename_failed', [error instanceof Error ? error.message : String(error)])
@@ -264,11 +241,7 @@ export function useBatchRename() {
       const toPath = joinPath(dirnameOf(fromPath), row.newName)
       try {
         const result = await sdk.rename(fromPath, row.newName)
-        file.path = result.path
-        file.name = result.name
-        file.baseName = baseNameOf(result.name)
-        file.extension = extensionOf(result.name)
-        file.relativePath = result.name
+        applyRename(file, result)
         batch.push({
           fileId: file.id,
           fromPath,
@@ -313,11 +286,7 @@ export function useBatchRename() {
         const result = await sdk.rename(change.toPath, change.fromName)
         const file = files.value.find(item => item.id === change.fileId)
         if (file) {
-          file.path = result.path
-          file.name = result.name
-          file.baseName = baseNameOf(result.name)
-          file.extension = extensionOf(result.name)
-          file.relativePath = result.name
+          applyRename(file, result)
         }
         redo.push({ ...change, fromPath: result.path, toPath: change.toPath, status: 'success' })
       }
@@ -343,11 +312,7 @@ export function useBatchRename() {
         const result = await sdk.rename(change.fromPath, change.toName)
         const file = files.value.find(item => item.id === change.fileId)
         if (file) {
-          file.path = result.path
-          file.name = result.name
-          file.baseName = baseNameOf(result.name)
-          file.extension = extensionOf(result.name)
-          file.relativePath = result.name
+          applyRename(file, result)
         }
         undoBatch.push({ ...change, toPath: result.path, status: 'success' })
       }
@@ -410,9 +375,7 @@ export function useBatchRename() {
     await sdk.setTitle($t('file_lite_i18n.batch_rename_title')).catch(() => {})
     sdk.onOpen((event) => {
       if (event?.selection?.length) {
-        void addSelection(event.selection, event.kind).catch((error) => {
-          notice.value = $t('file_lite_i18n.batch_rename_failed', [error instanceof Error ? error.message : String(error)])
-        })
+        addSelection(event.selection)
       }
     })
   })
@@ -436,8 +399,7 @@ export function useBatchRename() {
     conflicts,
     selectedCount,
     RULE_TYPES,
-    importFiles,
-    importFolder,
+    importEntries,
     clearFiles,
     toggleFile,
     toggleAll,

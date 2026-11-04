@@ -249,10 +249,12 @@ describe('broker', () => {
     const broker = createSdkBroker(context, fakeFiles())
 
     await broker.invoke('pick', {})
+    await broker.invoke('pick', { pick: { mode: 'entries' } })
     await broker.invoke('pick', { pick: { mode: 'save', defaultName: 'x.txt', extensions: ['.txt'] } })
 
     expect(picked).toEqual([
       { mode: 'file' },
+      { mode: 'entries' },
       { mode: 'save', defaultName: 'x.txt', extensions: ['.txt'] },
     ])
   })

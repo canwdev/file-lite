@@ -201,7 +201,7 @@ export function createSdkBroker(host: SdkHostContext, files: SdkFileApi): SdkBro
     return await files.existingPaths(paths)
   }
 
-  const PICK_MODES: readonly SdkPickMode[] = ['file', 'files', 'folder', 'save']
+  const PICK_MODES: readonly SdkPickMode[] = ['file', 'files', 'folder', 'entries', 'save']
 
   async function pick(options: SdkPickOptions | undefined) {
     const mode = options?.mode ?? 'file'

@@ -57,4 +57,21 @@ describe('toPickResult', () => {
     expect(result.path).toBe('')
     expect(result.name).toBe('')
   })
+
+  test('entries keeps files and folders in one list', () => {
+    const result = toPickResult(
+      {
+        basePath: '/docs/',
+        items: [entry('a.txt'), entry('sub', { isDirectory: true, size: null })],
+      },
+      'entries',
+      '/docs/',
+    )
+    expect(result.items.map(item => [item.name, item.isDirectory])).toEqual([
+      ['a.txt', false],
+      ['sub', true],
+    ])
+    expect(result.path).toBe('')
+    expect(result.name).toBe('')
+  })
 })

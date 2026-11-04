@@ -44,8 +44,8 @@ const props = withDefaults(
     isLoading: boolean
     basePath: string
     filter?: FileFilterState
-    // 是否文件(夹)选择器；save 只看当前目录，不挑条目
-    selectFileMode?: 'file' | 'folder' | 'save'
+    // 是否文件(夹)选择器；entries 表示文件和文件夹一起选；save 只看当前目录，不挑条目
+    selectFileMode?: 'file' | 'folder' | 'entries' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
     // 是否让筛选条件同样作用于文件夹
@@ -329,7 +329,7 @@ const allowMultipleSelection = computed(() => {
   if (selectFileMode.value === 'folder' || selectFileMode.value === 'save') {
     return false
   }
-  else if (selectFileMode.value === 'file') {
+  else if (selectFileMode.value === 'file' || selectFileMode.value === 'entries') {
     return multiple.value
   }
   return true
@@ -1160,12 +1160,14 @@ function getMenuOptions() {
     if (!selected.length) {
       return []
     }
-    const files = selected.filter(item => !item.isDirectory)
-    if (selectFileMode.value === 'file' && !files.length) {
+    const entries = selectFileMode.value === 'file'
+      ? selected.filter(item => !item.isDirectory)
+      : selected
+    if (!entries.length) {
       return []
     }
-    const label = selectFileMode.value === 'file' && multiple.value && files.length > 1
-      ? $t('file_lite_i18n.select', [files.length])
+    const label = multiple.value && entries.length > 1
+      ? $t('file_lite_i18n.select', [entries.length])
       : $t('file_lite_i18n.select')
     return [
       {

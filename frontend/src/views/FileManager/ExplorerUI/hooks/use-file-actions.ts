@@ -395,7 +395,7 @@ export function useFileActions({
     if (directories === 0)
       return 'files'
     if (directories !== items.length)
-      return null
+      return 'entries'
     return items.length === 1 ? 'folder' : 'folders'
   })
 

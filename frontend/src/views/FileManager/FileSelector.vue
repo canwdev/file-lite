@@ -14,7 +14,7 @@ import FileManager from '@/views/FileManager/FileManager.vue'
 const props = withDefaults(
   defineProps<{
     visible: boolean
-    /** `file` / `files` / `folder` / `save`; see `SdkPickMode`. */
+    /** `file` / `files` / `folder` / `entries` / `save`; see `SdkPickMode`. */
     mode?: SdkPickMode
     /** Extensions including the dot, e.g. `['.txt', '.md']`. File modes only. */
     extensions?: string[]
@@ -48,14 +48,14 @@ const emit = defineEmits<{
 
 const { visible, mode, extensions, defaultName, startPath, title, width, height, wid } = toRefs(props)
 
-/** The picker speaks `file` / `folder` / `save`; multi-select is its own flag. */
-const selectFileMode = computed<'file' | 'folder' | 'save'>(() => {
-  if (mode.value === 'folder') {
-    return 'folder'
+/** The picker speaks `file` / `folder` / `entries` / `save`; multi-select is its own flag. */
+const selectFileMode = computed<'file' | 'folder' | 'entries' | 'save'>(() => {
+  if (mode.value === 'folder' || mode.value === 'entries' || mode.value === 'save') {
+    return mode.value
   }
-  return mode.value === 'save' ? 'save' : 'file'
+  return 'file'
 })
-const multiple = computed(() => mode.value === 'files')
+const multiple = computed(() => mode.value === 'files' || mode.value === 'entries')
 
 function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -68,7 +68,7 @@ const fileFilterPattern = computed(() => {
 })
 
 const actionLabel = computed(() => {
-  if (mode.value === 'folder') {
+  if (mode.value === 'folder' || mode.value === 'entries') {
     return $t('file_lite_i18n.select') + ELLIPSIS
   }
   if (mode.value === 'save') {

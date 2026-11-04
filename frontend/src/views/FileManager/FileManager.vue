@@ -24,8 +24,8 @@ import { getLastDirName, joinPath, normalizeListingPath } from './utils'
 
 const props = withDefaults(
   defineProps<{
-    // 是否文件(夹)选择器；save 表示「选目录 + 输入文件名」
-    selectFileMode?: 'file' | 'folder' | 'save'
+    // 是否文件(夹)选择器；entries 表示文件和文件夹一起选；save 表示「选目录 + 输入文件名」
+    selectFileMode?: 'file' | 'folder' | 'entries' | 'save'
     // 文件选择器允许多选
     multiple?: boolean
     // save 模式下文件名输入框的初始值
@@ -610,7 +610,7 @@ function showStarredPathMenu(path: string, event: MouseEvent) {
         class="vgo-button vgo-button--primary"
         @click="selectorPaneRef?.handleSelect()"
       >
-        {{ selectFileMode === 'file' || selectorPaneRef?.isSelectAFolder
+        {{ selectFileMode === 'file' || (selectFileMode === 'folder' && selectorPaneRef?.isSelectAFolder)
           ? $t('file_lite_i18n.open')
           : $t('file_lite_i18n.select') }}
       </button>

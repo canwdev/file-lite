@@ -27,7 +27,7 @@ export enum InternalAppEnum {
 export type AppName = OpenWithEnum | InternalAppEnum
 
 /** Selection kinds an app can accept from the explorer's context menu. */
-export type AppLaunchTarget = 'files' | 'folder' | 'folders'
+export type AppLaunchTarget = 'files' | 'folder' | 'folders' | 'entries'
 
 export interface AppParams {
   absPath: string
@@ -36,7 +36,7 @@ export interface AppParams {
   list: IEntry[]
   /** Entries selected when the app was launched from the explorer. */
   selection?: IEntry[]
-  /** `files`, `folder`, `folders`, or `null` for an empty launch. */
+  /** `files`, `folder`, `folders`, `entries`, or `null` for an empty launch. */
   launchKind?: AppLaunchTarget | 'file' | null
 }
 
@@ -143,7 +143,7 @@ export const InternalAppList: InternalAppListItem[] = [
     icon: 'mdi mdi-rename',
     component: defineAsyncComponent(() => import('./BatchRename/BatchRename.vue')),
     singleInstance: true,
-    launchTargets: ['files', 'folder', 'folders'],
+    launchTargets: ['files', 'folder', 'folders', 'entries'],
     chrome: {
       maximized: true,
     },

@@ -60,8 +60,7 @@ const {
   displayChanged,
   displayConflicts,
   selectedCount,
-  importFiles,
-  importFolder,
+  importEntries,
   clearFiles,
   toggleFile,
   toggleAll,
@@ -144,11 +143,8 @@ function isAllSelected() {
         <h1>{{ $t('file_lite_i18n.batch_rename_title') }}</h1>
       </div>
       <div class="batch-rename__header-actions">
-        <button class="vgo-button" :disabled="isBusy" @click="importFiles">
+        <button class="vgo-button" :disabled="isBusy" @click="importEntries">
           {{ $t('file_lite_i18n.batch_rename_import_files') }}
-        </button>
-        <button class="vgo-button" :disabled="isBusy" @click="importFolder">
-          {{ $t('file_lite_i18n.batch_rename_import_folder') }}
         </button>
         <button class="vgo-button" :disabled="isBusy || !files.length" @click="clearFiles">
           {{ $t('file_lite_i18n.batch_rename_clear') }}
@@ -176,6 +172,7 @@ function isAllSelected() {
           <li v-for="file in files" :key="file.id">
             <label>
               <input type="checkbox" :checked="file.selected" @change="toggleFile(file.id)">
+              <i-mdi-folder v-if="file.isDirectory" class="vgo-u-icon-sm batch-rename__file-icon" />
               <span class="batch-rename__file-name" :title="file.path">{{ file.name }}</span>
             </label>
           </li>
@@ -501,6 +498,11 @@ function isAllSelected() {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.batch-rename__file-icon {
+  flex: none;
+  color: var(--vgo-text-secondary);
 }
 
 .batch-rename__file-name {

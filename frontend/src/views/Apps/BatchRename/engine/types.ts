@@ -5,8 +5,9 @@ export interface FileEntry {
   name: string // full name with extension
   baseName: string // name without extension
   extension: string // extension with dot, e.g. ".jpg"
+  isDirectory: boolean
   selected: boolean
-  relativePath?: string // relative path from imported folder root, e.g. "sub/dir/file.jpg"
+  relativePath?: string // name within its directory, used to group conflicts
   size?: number | null // file size in bytes
   modified?: number // last modified timestamp
 }

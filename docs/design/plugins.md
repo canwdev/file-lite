@@ -35,7 +35,7 @@ The directory defaults to `file-lite/plugins` under the process working director
   "entry": "index.html",
   "icon": "🎨",
   "openWith": [".png", ".jpg"],
-  "launchTargets": ["files", "folder", "folders"],
+  "launchTargets": ["files", "folder", "folders", "entries"],
   "singleInstance": false,
   "version": "1.0.0"
 }
@@ -47,7 +47,7 @@ The directory defaults to `file-lite/plugins` under the process working director
 - `icon`: an emoji, or a path to an image inside the plugin. Defaults to the puzzle icon. Icon-library names are not accepted.
 - `entry`: the entry page, relative to the plugin folder. Defaults to `index.html`.
 - `openWith`: extensions including the dot. When non-empty, the plugin appears in Open With and Set Default App, and `onOpen` receives that file. When empty, it can only be started from the Plugins menu, and the `onOpen` argument is `undefined`.
-- `launchTargets`: optional explorer selection kinds that also add the plugin to the context menu's **More** submenu. Values are `files` (one or more files), `folder` (exactly one directory) and `folders` (one or more directories). This is independent of `openWith`: it does not add the plugin to Open With.
+- `launchTargets`: optional explorer selection kinds that also add the plugin to the context menu's **More** submenu. Values are `files` (one or more files), `folder` (exactly one directory), `folders` (one or more directories) and `entries` (a mix of files and directories). This is independent of `openWith`: it does not add the plugin to Open With.
 - `singleInstance`: defaults to `false`. Each open creates a new window and calls `onOpen` once. `true` reuses the existing window and calls `onOpen` again on the next open.
 - `version`: shown on the right of that Plugins menu item only. It is not used for loading or compatibility. Omitted versions are not shown.
 
@@ -107,8 +107,8 @@ interface SdkLaunch {
   directory: string
   /** The directory listing captured when the window opened. */
   entries: SdkEntry[]
-  /** How the window was launched. `null` for an empty window. */
-  kind: 'file' | 'files' | 'folder' | 'folders' | null
+  /** How the window was launched. `entries` is a mix of files and folders. */
+  kind: 'file' | 'files' | 'folder' | 'folders' | 'entries' | null
   /** Entries selected in the explorer; empty for a single-file or empty launch. */
   selection: SdkEntry[]
 }
@@ -117,7 +117,7 @@ interface SdkOpenEvent {
   path: string
   filename: string
   directory: string
-  kind: 'file' | 'files' | 'folder' | 'folders' | null
+  kind: 'file' | 'files' | 'folder' | 'folders' | 'entries' | null
   selection: SdkEntry[]
 }
 
@@ -153,7 +153,7 @@ interface SdkMkdirOptions {
 
 interface SdkPickOptions {
   /** Default `file`. */
-  mode?: 'file' | 'files' | 'folder' | 'save'
+  mode?: 'file' | 'files' | 'folder' | 'entries' | 'save'
   /** Dialog title; the host picks a sensible default. */
   title?: string
   /** Extensions including the dot, e.g. `['.txt', '.md']`. File modes only. */
@@ -215,6 +215,7 @@ Opens the file manager's own picker dialog and resolves with what the user chose
 - `file` — one existing file; `items` has it, and `path`/`name` point at it.
 - `files` — one or more files; read `items`.
 - `folder` — one folder; `path` is the folder.
+- `entries` — one or more files and/or folders in one selection; read `items` and check `isDirectory`.
 - `save` — a folder plus a typed file name; `path` is the file to write.
 
 `extensions` filters what can be picked (dots included). Each request is independent: omitting `extensions` or passing an empty list leaves the picker unfiltered, without reusing the extension filter of an earlier `pick`. `startPath` sets the folder the dialog opens at, `defaultName` pre-fills the name in `save` mode. Nothing is written by `pick` itself: a `save` result is a path, and the plugin still calls `writeFile`.

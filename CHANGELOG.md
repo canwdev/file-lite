@@ -16,11 +16,12 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### Features
 
 - **Batch Rename**: Selected files or folders can be launched from the explorer's More menu into a new Batch Rename app with rule chains, preview, conflict checks, rename, undo/redo and CSV/JSON/shell export (frontend).
+- **Batch Rename**: Files and folders can be imported in one selection, including a mixed explorer selection; a folder is renamed as a single entry instead of being expanded, so the separate Import Folder action is gone (frontend).
 - **SDK**: Built-in apps and plugins can rename entries, query existing paths, read one entry, create directories and list recursively; selection-based apps can register for `files`, `folder` and `folders` without becoming Open With targets (frontend, backend).
 - **Linked plugins**: A plugin in the data directory's `plugins/` folder can now be a link to a folder or an `.html` file elsewhere, so a plugin's build output can be used without copying it (backend).
 - **Plugin SDK**: Built-in apps and plugins now share one API; plugins can read text files in their own encoding, build stream URLs, stream a file in chunks, inspect and update their launch state, select or reveal files in the explorer, and open the file picker (frontend).
 - **Plugin manifest**: The manifest accepts `description` and `repo` metadata used by the prebuilt plugin catalog (backend).
-- **File picker**: The file manager's picker is now one dialog shared by everything: single files, several files, a folder, or a save target with a file name, opened through the SDK (`pick`) instead of each caller embedding its own window; saving onto an existing name asks before replacing it (frontend).
+- **File picker**: The file manager's picker is now one dialog shared by everything: single files, several files, a folder, a mixed selection of files and folders, or a save target with a file name, opened through the SDK (`pick`) instead of each caller embedding its own window; saving onto an existing name asks before replacing it (frontend).
 - **Text editor**: The menu bar has one File entry (Refresh stays next to it), Open / Save / Save As choose their file in the file manager instead of a browser dialog, and unsaved changes are marked with a dot in the window title instead of a `*` in the menu (frontend).
 - **Player picker**: Opening a server video or subtitle from the player's settings uses the shared picker (frontend).
 - **Plugin menus**: Open, Save and Save As default to the file manager; opening and saving on this computer are a separate group below them, and `Ctrl+O` / `Ctrl+Shift+S` follow the same default (frontend).

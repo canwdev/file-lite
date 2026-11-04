@@ -19,7 +19,7 @@ plugin iframe ──postMessage──────┘
 | In-process transport | `frontend/src/sdk/use-app-sdk.ts` | Creates the same SDK object for a window, pushes `onOpen`, and replays the last push to a late subscriber. |
 | App provider | `frontend/src/views/Apps/AppSdkProvider.vue` | Per-window `provide()` of the SDK; translates launch state to/from the window manager. |
 | Registry | `frontend/src/views/Apps/registry.ts` | One descriptor for a built-in app or plugin: id, name, icon, single-instance, chrome, component. Open With, Set Default App and window reuse read it. |
-| Picker | `frontend/src/views/FileManager/file-picker.ts`, `FilePickerHost.vue` | The one file/folder/save dialog, mounted once by `FileLite.vue`. `pick()` in the broker calls `openFilePicker`; built-in apps and plugin iframes both end up here. |
+| Picker | `frontend/src/views/FileManager/file-picker.ts`, `FilePickerHost.vue` | The one file/folder/mixed/save dialog, mounted once by `FileLite.vue`. `pick()` in the broker calls `openFilePicker`; built-in apps and plugin iframes both end up here. |
 
 ## Methods
 
@@ -30,7 +30,7 @@ File and window capabilities are shared by both transports:
 - `pick`, `url`, `stream`
 - `getLaunch`, `onOpen`, `updateLaunch`, `setTitle`, `selectItems`, `revealItem`, `exit`
 
-An explorer selection launch is described by `SdkLaunch.kind` (`files`, `folder`, `folders`) and `SdkLaunch.selection`. A single-file Open With launch uses `kind: 'file'`. Internal apps can register `launchTargets` to appear in the explorer's **More** menu without becoming Open With targets.
+An explorer selection launch is described by `SdkLaunch.kind` (`files`, `folder`, `folders`, or `entries` for a mix of files and folders) and `SdkLaunch.selection`. A single-file Open With launch uses `kind: 'file'`. Internal apps can register `launchTargets` to appear in the explorer's **More** menu without becoming Open With targets.
 
 ## Rules
 
