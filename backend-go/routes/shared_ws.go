@@ -169,6 +169,7 @@ func handleSharedWebSocket(c echo.Context) error {
 
 	go syncSharedWSSettingsToClient(client)
 	go sendSharedWSTasksSnapshot(client)
+	go sendSharedWSUpdateSnapshot(client)
 
 	for {
 		_, raw, err := conn.ReadMessage()

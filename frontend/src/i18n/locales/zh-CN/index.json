@@ -392,6 +392,18 @@
     "batch_rename_rule_template": "模板",
     "batch_rename_presets": "预设",
     "batch_rename_select_preset": "选择预设",
-    "batch_rename_date_format_hint": "自定义日期格式：YYYY、MM、DD、HH、mm、ss"
+    "batch_rename_date_format_hint": "自定义日期格式：YYYY、MM、DD、HH、mm、ss",
+    "update_channel": "更新渠道",
+    "update_channel_stable": "正式版",
+    "update_channel_preview": "预览版",
+    "release_notes": "更新说明",
+    "check_for_updates": "检查更新",
+    "checking": "正在检查",
+    "updating": "正在更新",
+    "update_to_0": "更新到 {0}",
+    "on_latest_version": "当前已是最新版本",
+    "installing": "正在安装",
+    "updated_restarting": "更新完成，正在重启",
+    "update_failed_0": "更新失败：{0}"
   }
 }

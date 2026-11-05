@@ -14,6 +14,8 @@ function createDefaultSettingsStore() {
     pageTitle: '',
     /** 界面语言；空 = 还没设置过，运行期用浏览器检测到的语言 */
     language: '' as AppLocale | '',
+    /** GitHub 更新渠道：stable = 正式版，preview = 最新预发布版 */
+    updateChannel: 'stable' as 'stable' | 'preview',
   }
 }
 
@@ -31,6 +33,7 @@ function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
     rememberLastMedia: Boolean(raw.rememberLastMedia ?? defaults.rememberLastMedia),
     pageTitle: typeof raw.pageTitle === 'string' ? raw.pageTitle : defaults.pageTitle,
     language: isAppLocale(raw.language) ? raw.language : defaults.language,
+    updateChannel: raw.updateChannel === 'preview' ? 'preview' : defaults.updateChannel,
   }
 }
 

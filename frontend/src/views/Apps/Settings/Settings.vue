@@ -29,6 +29,7 @@ import { appWindows } from '@/views/Apps/apps-store'
 import { useCollection } from '@/views/Apps/EndlessGallery/use-collection'
 import { builtinAppOf } from '@/views/Apps/registry'
 import ThemeSwatches from '@/views/Apps/Settings/ThemeSwatches.vue'
+import UpdateChecker from '@/views/Apps/Settings/UpdateChecker.vue'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
 import 'element-plus/es/components/input/style/css'
@@ -234,6 +235,19 @@ function present(items: Array<VgoOptionItem | false>): VgoOptionItem[] {
 
 const local = computed(() => localSettingsStore.value)
 
+/** 发布构建带 -pre 后缀；源码构建只有基础版本号。 */
+const displayVersion = computed(() => {
+  const tag = serverCapabilities.value.buildTag
+  if (!tag)
+    return `v${VERSION}`
+  return tag.startsWith('v') ? tag : `v${tag}`
+})
+
+const versionSubtitle = computed(() => {
+  const platform = serverCapabilities.value.platform ? ` (${serverCapabilities.value.platform})` : ''
+  return `<a href="https://github.com/canwdev/file-lite" target="_blank" rel="noopener noreferrer">${PKG_NAME}</a> ${displayVersion.value}${platform}`
+})
+
 const options = computed<VgoOptionItem[]>(() => [
   {
     label: $t('file_lite_i18n.appearance'),
@@ -425,13 +439,23 @@ const options = computed<VgoOptionItem[]>(() => [
   {
     label: $t('file_lite_i18n.about'),
     key: 'about',
-    children: [
+    children: present([
+      serverCapabilities.value.selfUpdate && {
+        label: $t('file_lite_i18n.update_channel'),
+        key: 'updateChannel',
+        type: VgoOptionType.SELECT,
+        options: [
+          { label: $t('file_lite_i18n.update_channel_stable'), value: 'stable' },
+          { label: $t('file_lite_i18n.update_channel_preview'), value: 'preview' },
+        ],
+      },
       {
         label: $t('file_lite_i18n.version'),
         key: 'version',
-        subtitle: `<a href="https://github.com/canwdev/file-lite" target="_blank" rel="noopener noreferrer">${PKG_NAME}</a> v${VERSION}`,
+        subtitle: versionSubtitle.value,
+        actionRender: serverCapabilities.value.selfUpdate ? () => h(UpdateChecker) : undefined,
       },
-    ],
+    ]),
   },
 ])
 </script>

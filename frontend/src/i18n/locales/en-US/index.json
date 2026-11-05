@@ -392,6 +392,18 @@
     "batch_rename_rule_template": "Template",
     "batch_rename_presets": "Presets",
     "batch_rename_select_preset": "Select Preset",
-    "batch_rename_date_format_hint": "Custom date format: YYYY, MM, DD, HH, mm, ss"
+    "batch_rename_date_format_hint": "Custom date format: YYYY, MM, DD, HH, mm, ss",
+    "update_channel": "Update channel",
+    "update_channel_stable": "Stable",
+    "update_channel_preview": "Preview",
+    "release_notes": "Release notes",
+    "check_for_updates": "Check for updates",
+    "checking": "Checking",
+    "updating": "Updating",
+    "update_to_0": "Update to {0}",
+    "on_latest_version": "You're on the latest version",
+    "installing": "Installing",
+    "updated_restarting": "Updated, restarting",
+    "update_failed_0": "Update failed: {0}"
   }
 }

@@ -2,8 +2,8 @@
 //
 // This is the Go replacement for the removed Node.js `backend/build.ts`. It detects the
 // current platform automatically, or builds every release target with `--all`, and writes
-// `file-lite-<os>_<arch>-v<version>.zip` to the repository root (the release asset name
-// and layout are unchanged: the platform folder is the single top-level entry).
+// `file-lite-<os>_<arch>-v<version>.zip` to the repository root. The archive puts
+// the binary at its root; the platform is already part of the asset name.
 //
 // Usage:
 //   bun run scripts/build.ts --current [options]   # build the current platform
@@ -132,7 +132,12 @@ async function buildGo(target: Target): Promise<void> {
   const outFile = path.join(outDir, `file-lite-go${target.ext}`)
 
   console.log(`\n--- building Go binary: ${target.goos}/${target.goarch} ---`)
-  await run('go', ['build', '-ldflags=-s -w', '-trimpath', '-o', outFile, '.'], backendGoDir, {
+  // Release builds know their exact tag; it is what the updater compares.
+  const buildTag = process.env.FILE_LITE_BUILD_TAG?.trim()
+  const ldflags = buildTag
+    ? `-s -w -X file-lite-go/config.BuildTag=${buildTag}`
+    : '-s -w'
+  await run('go', ['build', `-ldflags=${ldflags}`, '-trimpath', '-o', outFile, '.'], backendGoDir, {
     GOOS: target.goos,
     GOARCH: target.goarch,
     CGO_ENABLED: '0',
@@ -286,8 +291,7 @@ function collectFiles(root: string, prefix = ''): { name: string, fullPath: stri
 function packTarget(target: Target, version: string): void {
   const dir = path.join(binDir, target.dir)
   const entries: ZipEntry[] = collectFiles(dir).map(file => ({
-    // The platform folder is the single top-level entry, matching previous releases.
-    name: `${target.dir}/${file.name}`,
+    name: file.name,
     data: fs.readFileSync(file.fullPath),
     mode: 0o100755,
   }))

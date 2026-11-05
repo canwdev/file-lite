@@ -10,6 +10,10 @@ export interface ServerCapabilities {
   videoThumbnail: boolean
   /** 后端允许替换自身二进制 / 重启 / 退出进程（config 里的 allowSelfUpdate） */
   selfUpdate: boolean
+  /** Exact release tag of this build, for example `v1.6.0-pre.50`; a local build only reports the base version. */
+  buildTag: string
+  /** Server platform as `goos/goarch`, for example `windows/amd64`. */
+  platform: string
   /** 本机能调用 7-Zip 做压缩和解压 */
   archive: boolean
   /** Extensions 7-Zip can open, with the dot, for example `.zip` or `.xlsx` */
@@ -27,7 +31,15 @@ export interface ArchiveCompressFormat {
 
 function createDefaultCapabilities(): ServerCapabilities {
   // 保守默认：没拿到上报之前一律当作「不支持」，避免白发请求
-  return { videoThumbnail: false, selfUpdate: false, archive: false, archiveExtractExtensions: [], archiveCompressFormats: [] }
+  return {
+    videoThumbnail: false,
+    selfUpdate: false,
+    buildTag: '',
+    platform: '',
+    archive: false,
+    archiveExtractExtensions: [],
+    archiveCompressFormats: [],
+  }
 }
 
 export const serverCapabilities = ref<ServerCapabilities>(createDefaultCapabilities())
@@ -51,6 +63,12 @@ export function setServerCapabilities(value?: Partial<ServerCapabilities> | null
   }
   if (value && typeof value.selfUpdate === 'boolean') {
     next.selfUpdate = value.selfUpdate
+  }
+  if (value && typeof value.buildTag === 'string') {
+    next.buildTag = value.buildTag
+  }
+  if (value && typeof value.platform === 'string') {
+    next.platform = value.platform
   }
   if (value && typeof value.archive === 'boolean') {
     next.archive = value.archive

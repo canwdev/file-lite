@@ -51,7 +51,7 @@ export enum SortType {
 export const TEXT_SYNC_CHANNELS = ['CH1', 'CH2', 'CH3'] as const
 export type TextSyncChannel = (typeof TEXT_SYNC_CHANNELS)[number]
 
-export type WsScope = 'settings' | 'text-sync' | 'tasks' | 'fs' | 'properties' | 'ws'
+export type WsScope = 'settings' | 'text-sync' | 'tasks' | 'fs' | 'properties' | 'ws' | 'update'
 
 export interface TextSyncJoinMessage {
   scope: 'text-sync'
@@ -268,6 +268,31 @@ export interface FsChangedMessage {
 
 export type FsServerMessage = FsChangedMessage | WsErrorMessage
 
+/* ------------------------------------------------------------------ *
+ * GitHub 自更新（scope: "update"）
+ * ------------------------------------------------------------------ */
+
+/** Fields mirror the backend's `updateStateSnapshot`; progress events drop unknown fields. */
+export interface UpdateStatus {
+  active: boolean
+  /** `download` / `verify` / `extract` / `install` / `done` */
+  phase?: string
+  received?: number
+  total?: number
+  percent?: number
+  from?: string
+  to?: string
+  error?: string
+}
+
+export interface UpdateWsMessage extends UpdateStatus {
+  scope: 'update'
+  /** `snapshot` is sent on connect; the rest are live events. */
+  type: 'snapshot' | 'progress' | 'done' | 'error'
+}
+
+export type UpdateServerMessage = UpdateWsMessage | WsErrorMessage
+
 /**
  * 目录大小测量（scope: "measurements"）。
  *
@@ -302,3 +327,4 @@ export type SharedWsServerMessage
     | TasksServerMessage
     | FsServerMessage
     | MeasurementsServerMessage
+    | UpdateServerMessage

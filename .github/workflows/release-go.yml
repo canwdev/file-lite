@@ -86,6 +86,11 @@ jobs:
       - name: Build Go binaries and pack release assets
         working-directory: backend-go
         # Also fails the release when frontend/src/enum/version.ts and backend-go/config/config.go disagree.
+        env:
+          # The updater compares the running build against release tags. A
+          # pre-release tag carries the -pre.N suffix that the source version
+          # does not, so it has to be stamped into the binary.
+          FILE_LITE_BUILD_TAG: ${{ steps.rel.outputs.tag_name }}
         run: bun run ./scripts/build.ts --all --skip-frontend --upx
 
       - name: Extract release notes from CHANGELOG

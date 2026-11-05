@@ -18,7 +18,7 @@ import (
 // 否则用户看到的是连接被重置，而不是「更新成功，正在重启」。
 const restartDelay = 500 * time.Millisecond
 
-// registerServerRoutes 注册自更新、重启与退出这三条高危端点，见 docs/design/api.md §10。
+// registerServerRoutes 注册自更新（上传二进制 / GitHub 更新）、重启与退出等高危端点，见 docs/design/api.md §10。
 // enabled 为 false 时一条都不注册：调用方拿到 404，而不是 401/403 —— 端点不存在本身就是答案。
 func registerServerRoutes(api *echo.Group, enabled bool) {
 	if !enabled {
@@ -28,6 +28,10 @@ func registerServerRoutes(api *echo.Group, enabled bool) {
 	// 上传新二进制是一次创建（POST /server/updates）；重启用 POST（一次重启请求），
 	// 停止进程用 DELETE /server —— 服务端资源本身被删掉。
 	server.POST("/updates", applyUpdate)
+	// GitHub 更新：先查最新版本，再由后端下载、校验并安装。
+	server.GET("/update", checkReleaseUpdate)
+	server.GET("/update/status", updateStatus)
+	server.POST("/updates/github", installGitHubUpdate)
 	server.POST("/restarts", restartBackend)
 	server.DELETE("", exitBackend)
 }
@@ -95,5 +99,71 @@ func applyUpdate(c echo.Context) error {
 		"message": "Updated, restarting",
 		"from":    config.Version,
 		"to":      version,
+	})
+}
+
+// checkReleaseUpdate resolves the newest GitHub release for the requested
+// channel and reports whether it is newer than the running build.
+func checkReleaseUpdate(c echo.Context) error {
+	channel, err := updater.ParseChannel(c.QueryParam("channel"))
+	if err != nil {
+		return apierr.BadRequest(apierr.CodeBadRequest, err.Error())
+	}
+
+	info, err := updater.Check(c.Request().Context(), channel)
+	if err != nil {
+		return apierr.New(http.StatusBadGateway, apierr.CodeNetworkAccessFailed, err.Error())
+	}
+	return c.JSON(http.StatusOK, info)
+}
+
+// updateStatus lets a client that just opened the settings window pick up an
+// update that is already downloading.
+func updateStatus(c echo.Context) error {
+	return c.JSON(http.StatusOK, currentUpdateState())
+}
+
+// installGitHubUpdate downloads and installs the release with the given tag,
+// broadcasting progress over the shared WebSocket. The process restarts after
+// the response, exactly like a manually uploaded binary.
+func installGitHubUpdate(c echo.Context) error {
+	var body struct {
+		Tag string `json:"tag"`
+	}
+	if err := c.Bind(&body); err != nil || body.Tag == "" {
+		return apierr.BadRequest(apierr.CodeBadRequest, "A release tag is required")
+	}
+
+	from := config.BuildTag
+	if from == "" {
+		from = "v" + config.Version
+	}
+	if !beginUpdate(from) {
+		return apierr.Conflict(apierr.CodeConflict, "An update is already running")
+	}
+
+	if err := updater.DownloadAndInstall(c.Request().Context(), body.Tag, broadcastUpdateProgress); err != nil {
+		phase := currentUpdateState().Phase
+		broadcastUpdateError(phase, err.Error())
+		utils.LogErrorf("github update %s failed: %v", body.Tag, err)
+		return apierr.BadRequest(apierr.CodeBadRequest, err.Error())
+	}
+
+	broadcastUpdateDone(from, body.Tag)
+	utils.LogWarnf("self-update: %s -> %s, restarting", from, body.Tag)
+
+	go func() {
+		time.Sleep(restartDelay)
+		if err := updater.Restart(); err != nil {
+			utils.LogErrorf("self-update: restart failed: %v", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Updated, restarting",
+		"from":    from,
+		"to":      body.Tag,
 	})
 }

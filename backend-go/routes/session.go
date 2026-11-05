@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -85,6 +86,10 @@ func sessionPayload() map[string]any {
 			// config 里没开 allowSelfUpdate 时，/api/server/* 根本没注册；
 			// 前端据此决定要不要显示那几个菜单项。
 			"selfUpdate": config.Config().AllowSelfUpdate,
+			// The exact release tag (including a -pre suffix) and the server
+			// platform power the update checker and the version line.
+			"buildTag": config.BuildTag,
+			"platform": runtime.GOOS + "/" + runtime.GOARCH,
 			// archive is false until 7-Zip is found. The extension list is what
 			// Extract Here may offer; compress is always zip when archive is true.
 			"archive":                  sevenzip.Available(),

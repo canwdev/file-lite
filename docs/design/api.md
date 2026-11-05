@@ -748,6 +748,45 @@ Body is the raw new backend binary. The server verifies and installs it, then an
 `200` with `{ "from": "1.5.0", "to": "1.5.0", "message": "Updated, restarting" }` and
 restarts after the response has been flushed. `400` carries the verification failure.
 
+### `GET /api/server/update?channel=stable|preview`
+
+Resolves the newest release on the channel (`stable` uses `/releases/latest`, `preview`
+the newest pre-release) and compares its tag with the running build tag. The server picks
+the asset for its own platform, so the client never has to know it:
+
+```json
+{
+  "current": "v1.6.0",
+  "latest": "v1.7.0",
+  "available": true,
+  "tag": "v1.7.0",
+  "notesUrl": "https://github.com/canwdev/file-lite/releases/tag/v1.7.0",
+  "publishedAt": "2026-11-05T00:00:00Z",
+  "prerelease": false,
+  "asset": { "name": "file-lite-windows_amd64-v1.7.0.zip", "size": 12345678, "digest": "sha256:…" }
+}
+```
+
+Successful checks are cached for a minute. `502` with `network_access_failed` when
+GitHub cannot be reached.
+
+### `GET /api/server/update/status`
+
+Returns the in-memory state of the update that is downloading, so a settings window
+opened mid-update can show it:
+
+```json
+{ "active": true, "phase": "download", "received": 1048576, "total": 12345678, "percent": 8, "from": "v1.6.0", "to": "v1.7.0" }
+```
+
+### `POST /api/server/updates/github`
+
+Body `{ "tag": "v1.7.0" }`. Downloads the release asset for this platform, verifies its
+`sha256` digest, extracts the binary and installs it, broadcasting progress on the
+WebSocket (`scope: update`). Then it answers `200` and restarts like a binary upload.
+`409` when another update is already running; `400` with the reason (bad tag, no asset
+for this platform, digest mismatch, …).
+
 ### `POST /api/server/restarts`
 
 Restarts the process with its original arguments and environment (used to reload the
@@ -799,12 +838,16 @@ client in the channel on an `update`.
 | `settings` | `sync` | One key changed (`key`, `value`); a full snapshot is sent on connect |
 | `measurements` | `progress` | A measurement's partial size/counts |
 | `measurements` | `result` | A measurement finished (`complete: true`) or was interrupted |
+| `update` | `snapshot` | Current update state, sent right after connect |
+| `update` | `progress` | Download / extract / install progress (`active`, `phase`, `received`, `total`, `percent`); droppable |
+| `update` | `done` | The binary was replaced; the process restarts after the HTTP response (`active: false`, `to`) |
+| `update` | `error` | The update failed (`active: false`, `phase`, `error`) |
 | `text-sync` | `sync` | A channel's text: the reply to a `join`, and the broadcast of an `update` to everyone in that channel |
 | any | `error` | The message could not be parsed, or a text-sync channel was rejected |
 
 Reconnect contract: on connect the server replays the task snapshot, the pending
-conflict of every paused task, and the full settings snapshot, so a client that was
-disconnected does not miss state that only exists in push form.
+conflict of every paused task, the full settings snapshot and the current update state,
+so a client that was disconnected does not miss state that only exists in push form.
 
 ## 12. Errors
 
