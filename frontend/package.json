@@ -10,7 +10,7 @@
     "dev": "vite --host",
     "build": "node scripts/check-node.mjs && vite build && node scripts/pack-frontend.mjs",
     "preview": "vite preview",
-    "type-check": "vue-tsc --build",
+    "type-check": "node scripts/gen-components-dts.mjs && vue-tsc --build",
     "test": "bun test",
     "lint": "eslint . && bun run lint:styles",
     "lint:fix": "eslint . --fix",

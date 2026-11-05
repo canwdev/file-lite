@@ -28,4 +28,7 @@ coverage
 
 *.tsbuildinfo
 
+# Written by unplugin-vue-components during dev/build; `type-check` regenerates it.
+components.d.ts
+
 visualizer.html

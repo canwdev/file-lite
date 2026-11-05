@@ -16,25 +16,12 @@ export const localeOptions = [
   { value: 'zh-CN', label: '简体中文' },
   { value: 'zh-TW', label: '繁體中文' },
   { value: 'ja-JP', label: '日本語' },
-  { value: 'ko-KR', label: '한국어' },
   { value: 'ru-RU', label: 'Русский' },
-  { value: 'de-DE', label: 'Deutsch' },
-  { value: 'es-ES', label: 'Español' },
-  { value: 'fr-FR', label: 'Français' },
-  { value: 'it-IT', label: 'Italiano' },
-  { value: 'ar-SA', label: 'العربية' },
 ] as const
 
 export type AppLocale = typeof localeOptions[number]['value']
 
 const supportedLocales: AppLocale[] = localeOptions.map(option => option.value)
-
-/** 从右往左书写的语言，切换时同步 `<html dir>`。 */
-const RTL_LOCALES: readonly AppLocale[] = ['ar-SA']
-
-export function isRtlLocale(locale: AppLocale): boolean {
-  return RTL_LOCALES.includes(locale)
-}
 
 export function isAppLocale(value: unknown): value is AppLocale {
   return typeof value === 'string' && (supportedLocales as string[]).includes(value)
@@ -58,20 +45,8 @@ export function detectBrowserLocale(): AppLocale {
     }
     if (tag.startsWith('ja'))
       return 'ja-JP'
-    if (tag.startsWith('ko'))
-      return 'ko-KR'
     if (tag.startsWith('ru'))
       return 'ru-RU'
-    if (tag.startsWith('de'))
-      return 'de-DE'
-    if (tag.startsWith('es'))
-      return 'es-ES'
-    if (tag.startsWith('fr'))
-      return 'fr-FR'
-    if (tag.startsWith('it'))
-      return 'it-IT'
-    if (tag.startsWith('ar'))
-      return 'ar-SA'
     if (tag.startsWith('en'))
       return 'en-US'
   }
@@ -113,13 +88,7 @@ const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, u
   'zh-CN': () => import('./locales/zh-CN/index.json'),
   'zh-TW': () => import('./locales/zh-TW/index.json'),
   'ja-JP': () => import('./locales/ja-JP/index.json'),
-  'ko-KR': () => import('./locales/ko-KR/index.json'),
   'ru-RU': () => import('./locales/ru-RU/index.json'),
-  'de-DE': () => import('./locales/de-DE/index.json'),
-  'es-ES': () => import('./locales/es-ES/index.json'),
-  'fr-FR': () => import('./locales/fr-FR/index.json'),
-  'it-IT': () => import('./locales/it-IT/index.json'),
-  'ar-SA': () => import('./locales/ar-SA/index.json'),
 }
 const loadingLocales = new Map<AppLocale, Promise<void>>()
 
@@ -150,12 +119,11 @@ export async function loadLocaleMessages(locale: AppLocale): Promise<void> {
     : Promise.all([loadLocaleBundle(DEFAULT_LOCALE), loadLocaleBundle(locale)]))
 }
 
-/** 同步 `<html lang>` 与书写方向；单测（bun test）里没有 document。 */
+/** 同步 `<html lang>`；单测（bun test）里没有 document。 */
 function applyDocumentLocale(locale: AppLocale) {
   if (typeof document === 'undefined')
     return
   document.documentElement.lang = locale
-  document.documentElement.dir = isRtlLocale(locale) ? 'rtl' : 'ltr'
 }
 
 /** Load the active locale and its en-US fallback before mount, so the first paint never shows keys. */
