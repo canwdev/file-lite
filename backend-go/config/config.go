@@ -143,9 +143,10 @@ type Cfg struct {
 const PkgName = "file-lite-go"
 const Version = "1.6.0"
 
-// BuildTag is the exact release tag, for example v1.6.0-pre.50. Release builds
-// inject it with -ldflags; a local build only knows the base version.
-var BuildTag = "v" + Version
+// BuildTag is the exact release tag, for example v1.6.0-pre.51. Release builds
+// inject it with -ldflags; an empty value means the build was made locally and
+// only knows the base version.
+var BuildTag = ""
 
 var cfg Cfg
 var dataBaseDir string

@@ -2,6 +2,8 @@ package updater
 
 import (
 	"archive/zip"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,6 +40,42 @@ func TestCompareSemver(t *testing.T) {
 		if _, err := compareSemver(raw, "v1.6.0"); err == nil {
 			t.Errorf("compareSemver(%q) should fail", raw)
 		}
+	}
+}
+
+func TestUpdateAvailable(t *testing.T) {
+	cases := []struct {
+		name       string
+		latest     string
+		current    string
+		localBuild bool
+		want       bool
+	}{
+		{"newer release", "v1.6.1", "v1.6.0", false, true},
+		{"newer pre-release", "v1.6.1-pre.1", "v1.6.0", false, true},
+		{"same tag", "v1.6.0", "v1.6.0", false, false},
+		{"older release", "v1.5.1", "v1.6.0", false, false},
+		// A released 1.6.0 is newer than any 1.6.0 pre-release.
+		{"release build ignores same-base pre-release", "v1.6.0-pre.51", "v1.6.0", false, false},
+		// A local build claims the base version only; it should still see the
+		// pre-release it was cut from.
+		{"local build accepts same-base pre-release", "v1.6.0-pre.51", "v1.6.0", true, true},
+		{"local build ignores an older base", "v1.5.9-pre.40", "v1.6.0", true, false},
+	}
+	for _, tc := range cases {
+		got, err := updateAvailable(tc.latest, tc.current, tc.localBuild)
+		if err != nil {
+			t.Errorf("%s: updateAvailable(%q, %q): %v", tc.name, tc.latest, tc.current, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%s: updateAvailable(%q, %q, %v) = %v, want %v",
+				tc.name, tc.latest, tc.current, tc.localBuild, got, tc.want)
+		}
+	}
+
+	if _, err := updateAvailable("v1.6.0", "banana", true); err == nil {
+		t.Error("updateAvailable should reject an unparsable current version")
 	}
 }
 
@@ -107,14 +145,20 @@ func TestVerifyAssetDigest(t *testing.T) {
 	}
 	const digest = "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 
-	if err := verifyAssetDigest(path, digest); err != nil {
+	if err := verifyAssetDigest(context.Background(), path, digest); err != nil {
 		t.Fatalf("matching digest rejected: %v", err)
 	}
-	if err := verifyAssetDigest(path, "sha256:"+"0"+digest[len("sha256:")+1:]); err == nil {
+	if err := verifyAssetDigest(context.Background(), path, "sha256:"+"0"+digest[len("sha256:")+1:]); err == nil {
 		t.Fatal("a different digest should fail")
 	}
-	if err := verifyAssetDigest(path, "md5:deadbeef"); err == nil {
+	if err := verifyAssetDigest(context.Background(), path, "md5:deadbeef"); err == nil {
 		t.Fatal("a non-sha256 digest should fail")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := verifyAssetDigest(ctx, path, digest); !errors.Is(err, context.Canceled) {
+		t.Fatalf("a canceled verify = %v, want context.Canceled", err)
 	}
 }
 
@@ -157,7 +201,7 @@ func TestExtractReleaseBinary(t *testing.T) {
 			writeTestZip(t, archive, tc.entries)
 			dest := filepath.Join(dir, "candidate.exe")
 
-			err := extractReleaseBinary(archive, dest)
+			err := extractReleaseBinary(context.Background(), archive, dest)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected an error")
@@ -175,6 +219,15 @@ func TestExtractReleaseBinary(t *testing.T) {
 				t.Fatalf("extracted %q, want %q", got, tc.want)
 			}
 		})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "release.zip")
+	writeTestZip(t, archive, map[string]string{"file-lite-go.exe": "flat"})
+	if err := extractReleaseBinary(ctx, archive, filepath.Join(dir, "candidate.exe")); !errors.Is(err, context.Canceled) {
+		t.Fatalf("a canceled extraction = %v, want context.Canceled", err)
 	}
 }
 

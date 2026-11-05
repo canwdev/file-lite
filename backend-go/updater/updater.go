@@ -67,16 +67,26 @@ func Cleanup() {
 	}
 }
 
-// Install 把上传内容暂存到 exe 同目录、确认它能在本机运行，然后替换当前可执行文件。
-// 返回新二进制自报的版本号。任何一步失败都不会碰正在运行的进程，调用方随后调用 Restart。
-func Install(r io.Reader) (string, error) {
+// Install stages the uploaded content next to the executable, confirms that it
+// runs on this machine and then replaces the running executable. Every step
+// stops when ctx is canceled, so a client that disconnects mid-install (a page
+// refresh) aborts the update and leaves the running binary alone. Returns the
+// version the new binary reports about itself.
+func Install(ctx context.Context, r io.Reader) (string, error) {
 	if exePath == "" {
 		return "", fmt.Errorf("executable path is unknown")
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	// 多读 1 字节用来发现「超限」，同时把内存缓冲封顶。
-	if err := miniselfupdate.PrepareAndCheckBinary(io.LimitReader(r, maxBinarySize+1), options()); err != nil {
+	if err := miniselfupdate.PrepareAndCheckBinary(io.LimitReader(&ctxReader{ctx: ctx, r: r}, maxBinarySize+1), options()); err != nil {
 		discard()
 		return "", fmt.Errorf("write binary: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		discard()
+		return "", err
 	}
 	st, err := os.Stat(stagedPath())
 	if err != nil {
@@ -88,8 +98,12 @@ func Install(r io.Reader) (string, error) {
 		return "", fmt.Errorf("binary is larger than %d MB", maxBinarySize>>20)
 	}
 
-	version, err := runVersion(stagedPath())
+	version, err := runVersion(ctx, stagedPath())
 	if err != nil {
+		discard()
+		return "", err
+	}
+	if err := ctx.Err(); err != nil {
 		discard()
 		return "", err
 	}
@@ -148,8 +162,8 @@ var versionPattern = regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(config.Pkg
 
 // runVersion 直接执行上传的文件。--version 在 main 里先于加载配置处理，
 // 所以这次执行没有副作用，同时又是「它能在这台机器上跑」的最强证据。
-func runVersion(path string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func runVersion(ctx context.Context, path string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, path, "--version")
@@ -173,4 +187,17 @@ func parseVersion(out string) (string, bool) {
 		return "", false
 	}
 	return m[1], true
+}
+
+// ctxReader stops a copy as soon as the context that started it is canceled.
+type ctxReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r *ctxReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.r.Read(p)
 }

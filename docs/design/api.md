@@ -770,6 +770,11 @@ the asset for its own platform, so the client never has to know it:
 Successful checks are cached for a minute. `502` with `network_access_failed` when
 GitHub cannot be reached.
 
+The running build carries its exact tag only when the release build injected it; a
+local build knows just the base version, so a pre-release of that same base version
+(for example `v1.6.0-pre.51` against a local `v1.6.0`) also counts as an update.
+Strict semver order otherwise.
+
 ### `GET /api/server/update/status`
 
 Returns the in-memory state of the update that is downloading, so a settings window
@@ -786,6 +791,10 @@ Body `{ "tag": "v1.7.0" }`. Downloads the release asset for this platform, verif
 WebSocket (`scope: update`). Then it answers `200` and restarts like a binary upload.
 `409` when another update is already running; `400` with the reason (bad tag, no asset
 for this platform, digest mismatch, …).
+
+Every stage runs inside the request: if the client disconnects (a page refresh, a closed
+window), the download and the remaining steps are canceled before the binary is
+replaced, and the state is cleared with an `error` event.
 
 ### `POST /api/server/restarts`
 

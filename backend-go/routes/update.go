@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"os"
 	"time"
@@ -77,7 +79,7 @@ func exitBackend(c echo.Context) error {
 //
 // 不走 multipart：请求体直接喂给 updater.Install，省掉「先落一份临时文件再读一遍」。
 func applyUpdate(c echo.Context) error {
-	version, err := updater.Install(c.Request().Body)
+	version, err := updater.Install(c.Request().Context(), c.Request().Body)
 	if err != nil {
 		return apierr.BadRequest(apierr.CodeBadRequest, err.Error())
 	}
@@ -144,6 +146,14 @@ func installGitHubUpdate(c echo.Context) error {
 
 	if err := updater.DownloadAndInstall(c.Request().Context(), body.Tag, broadcastUpdateProgress); err != nil {
 		phase := currentUpdateState().Phase
+		if errors.Is(err, context.Canceled) {
+			// The page was refreshed or closed mid-update. Every stage up to the
+			// final replace honors the request context, so the running binary is
+			// intact; clear the state so other clients stop showing progress.
+			broadcastUpdateError(phase, "Canceled")
+			utils.LogWarnf("github update %s canceled: the client went away", body.Tag)
+			return nil
+		}
 		broadcastUpdateError(phase, err.Error())
 		utils.LogErrorf("github update %s failed: %v", body.Tag, err)
 		return apierr.BadRequest(apierr.CodeBadRequest, err.Error())

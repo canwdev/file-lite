@@ -136,7 +136,7 @@ func Check(ctx context.Context, channel Channel) (UpdateInfo, error) {
 	}
 
 	current := currentBuildTag()
-	comparison, err := compareSemver(release.TagName, current)
+	available, err := updateAvailable(release.TagName, current, config.BuildTag == "")
 	if err != nil {
 		return UpdateInfo{}, err
 	}
@@ -144,7 +144,7 @@ func Check(ctx context.Context, channel Channel) (UpdateInfo, error) {
 	info := UpdateInfo{
 		Current:    current,
 		Latest:     release.TagName,
-		Available:  comparison > 0,
+		Available:  available,
 		Tag:        release.TagName,
 		NotesURL:   release.HTMLURL,
 		Prerelease: release.Prerelease,
@@ -167,7 +167,9 @@ func Check(ctx context.Context, channel Channel) (UpdateInfo, error) {
 
 // DownloadAndInstall downloads the release asset for this platform, verifies
 // its digest, extracts the binary and replaces the running executable. The
-// caller is responsible for restarting after the response is sent.
+// caller is responsible for restarting after the response is sent. A canceled
+// ctx stops every stage up to the final replace, so a page refresh mid-update
+// leaves the running binary untouched.
 func DownloadAndInstall(ctx context.Context, tag string, emit ProgressFunc) error {
 	if !releaseTagPattern.MatchString(tag) {
 		return fmt.Errorf("invalid release tag %q", tag)
@@ -197,7 +199,7 @@ func DownloadAndInstall(ctx context.Context, tag string, emit ProgressFunc) erro
 	if emit != nil {
 		emit(Progress{Phase: "verify"})
 	}
-	if err := verifyAssetDigest(archivePath, asset.Digest); err != nil {
+	if err := verifyAssetDigest(ctx, archivePath, asset.Digest); err != nil {
 		return err
 	}
 
@@ -208,7 +210,7 @@ func DownloadAndInstall(ctx context.Context, tag string, emit ProgressFunc) erro
 	if runtime.GOOS == "windows" {
 		binaryPath += ".exe"
 	}
-	if err := extractReleaseBinary(archivePath, binaryPath); err != nil {
+	if err := extractReleaseBinary(ctx, archivePath, binaryPath); err != nil {
 		return err
 	}
 
@@ -221,7 +223,7 @@ func DownloadAndInstall(ctx context.Context, tag string, emit ProgressFunc) erro
 	}
 	defer binary.Close()
 
-	if _, err := Install(binary); err != nil {
+	if _, err := Install(ctx, binary); err != nil {
 		return err
 	}
 	return nil
@@ -232,6 +234,35 @@ func currentBuildTag() string {
 		return config.BuildTag
 	}
 	return "v" + config.Version
+}
+
+// updateAvailable decides whether the release replaces the running build.
+//
+// A local build only knows its base version, so it looks like a stable release
+// that was never published: strict semver then ranks a pre-release of that same
+// base version as older, and the developer would never see the preview build
+// they are working toward. Treat that one case as an update; release builds
+// (with an injected tag) keep strict semver order.
+func updateAvailable(latest, current string, localBuild bool) (bool, error) {
+	comparison, err := compareSemver(latest, current)
+	if err != nil {
+		return false, err
+	}
+	if comparison > 0 {
+		return true, nil
+	}
+	if comparison == 0 || !localBuild {
+		return false, nil
+	}
+	left, err := parseSemver(latest)
+	if err != nil {
+		return false, err
+	}
+	right, err := parseSemver(current)
+	if err != nil {
+		return false, err
+	}
+	return left.nums == right.nums, nil
 }
 
 func fetchRelease(ctx context.Context, channel Channel) (githubRelease, error) {
@@ -424,7 +455,7 @@ func (w *progressWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func verifyAssetDigest(filePath, digest string) error {
+func verifyAssetDigest(ctx context.Context, filePath, digest string) error {
 	const prefix = "sha256:"
 	if !strings.HasPrefix(strings.ToLower(digest), prefix) {
 		return errors.New("release asset has no sha256 digest")
@@ -438,7 +469,7 @@ func verifyAssetDigest(filePath, digest string) error {
 	defer f.Close()
 
 	hash := sha256.New()
-	if _, err := io.Copy(hash, f); err != nil {
+	if _, err := io.Copy(hash, &ctxReader{ctx: ctx, r: f}); err != nil {
 		return err
 	}
 	got := hex.EncodeToString(hash.Sum(nil))
@@ -451,7 +482,7 @@ func verifyAssetDigest(filePath, digest string) error {
 // extractReleaseBinary accepts both the current nested layout
 // (<platform>/file-lite-go) and the flat layout (file-lite-go at the root), so
 // releases published before the zip layout changed remain installable.
-func extractReleaseBinary(archivePath, destPath string) error {
+func extractReleaseBinary(ctx context.Context, archivePath, destPath string) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return fmt.Errorf("open release archive: %w", err)
@@ -495,7 +526,7 @@ func extractReleaseBinary(archivePath, destPath string) error {
 	}
 	defer dst.Close()
 
-	written, err := io.Copy(dst, io.LimitReader(src, maxBinarySize+1))
+	written, err := io.Copy(dst, io.LimitReader(&ctxReader{ctx: ctx, r: src}, maxBinarySize+1))
 	if err != nil {
 		return err
 	}

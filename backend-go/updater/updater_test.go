@@ -1,6 +1,8 @@
 package updater
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +44,7 @@ func TestParseVersion(t *testing.T) {
 
 func TestInstallNeedsKnownExecutable(t *testing.T) {
 	useExe(t, "")
-	if _, err := Install(strings.NewReader("candidate")); err == nil {
+	if _, err := Install(context.Background(), strings.NewReader("candidate")); err == nil {
 		t.Fatal("Install without a known executable path should fail")
 	}
 }
@@ -56,7 +58,7 @@ func TestInstallRejectsNonRunnableFile(t *testing.T) {
 	}
 	useExe(t, target)
 
-	if _, err := Install(strings.NewReader("definitely not an executable")); err == nil {
+	if _, err := Install(context.Background(), strings.NewReader("definitely not an executable")); err == nil {
 		t.Fatal("Install should reject a file that cannot run")
 	}
 	got, err := os.ReadFile(target)
@@ -68,6 +70,28 @@ func TestInstallRejectsNonRunnableFile(t *testing.T) {
 	}
 	if _, err := os.Stat(stagedPath()); !os.IsNotExist(err) {
 		t.Fatalf("a rejected candidate must not be left behind (err=%v)", err)
+	}
+}
+
+func TestInstallStopsWhenCanceled(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "file-lite-go")
+	if err := os.WriteFile(target, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	useExe(t, target)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := Install(ctx, strings.NewReader("candidate")); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Install = %v, want context.Canceled", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "old-binary" {
+		t.Fatalf("a canceled install touched the running binary: %q", got)
 	}
 }
 
