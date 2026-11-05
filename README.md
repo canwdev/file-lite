@@ -6,7 +6,7 @@
 
 **A lightweight, multi-purpose web file manager** · Vue 3 + TypeScript + Go
 
-> This is a Vibe Coding open-source project. (Early versions were hand-written.) You’re welcome to use it and provide feedback, but stability is not promised, and the author reserves the right to rewrite it at any time.
+> Free and open-source software, provided without warranty of any kind.
 
 ---
 

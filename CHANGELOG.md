@@ -10,8 +10,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 - **Plugin API**: complete refactor plugin V2 API.
 ### UI
 
+- **Language setting**: The language option in Settings appends the fixed suffix ` / Language` to its label (frontend).
 - **Title**: The browser tab title no longer includes the version number (frontend).
-- **About**: The GitHub link moved from the global menu into a new About section in Settings, which also shows the current version (frontend).
+- **About**: Settings has an About section showing the version, and the `file-lite` name links to the GitHub repository (frontend).
 - **Plugins menu**: Installed plugins moved out of the global menu's submenu into their own button next to it, which appears only when at least one plugin is installed (frontend).
 - **App windows**: An app opens full screen only when the screen is 800px wide or narrower; wider screens open it as a floating, resizable window (frontend).
 

@@ -2,6 +2,7 @@
   "file_lite_i18n": {
     "a_conflicting_item_appeared_at_t": "目标位置出现了冲突项",
     "a_long_time_ago": "很久以前",
+    "about": "关于",
     "an_upload_or_download_is_still_r": "上传或下载仍在进行中。请停留在此页面，直到操作完成",
     "appearance": "外观",
     "apply_to_all": "应用于全部",
@@ -311,6 +312,7 @@
     "use_regular_expression": "使用正则表达式",
     "used": "已使用",
     "uses_the_html5_video_player_inst": "使用 HTML5 视频播放器而非 ArtPlayer",
+    "version": "版本",
     "video_player": "视频播放器",
     "view": "视图",
     "volume": "音量",

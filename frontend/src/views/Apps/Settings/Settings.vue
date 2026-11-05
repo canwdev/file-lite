@@ -15,6 +15,7 @@ import {
 } from 'element-plus'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/server'
 import { isDev } from '@/enum'
+import { PKG_NAME, VERSION } from '@/enum/version'
 import { ThemeMode } from '@/hooks/use-global-theme'
 import { clearLastOpenedMediaMap } from '@/hooks/use-last-opened-media'
 import { localeOptions } from '@/i18n'
@@ -273,7 +274,7 @@ const options = computed<VgoOptionItem[]>(() => [
         render: () => h(ThemeSwatches),
       },
       {
-        label: $t('file_lite_i18n.language'),
+        label: `${$t('file_lite_i18n.language')} / Language`,
         key: 'language',
         type: VgoOptionType.SELECT,
         options: localeOptions.map(option => ({ label: option.label, value: option.value })),
@@ -420,6 +421,17 @@ const options = computed<VgoOptionItem[]>(() => [
         },
       },
     ]),
+  },
+  {
+    label: $t('file_lite_i18n.about'),
+    key: 'about',
+    children: [
+      {
+        label: $t('file_lite_i18n.version'),
+        key: 'version',
+        subtitle: `<a href="https://github.com/canwdev/file-lite" target="_blank" rel="noopener noreferrer">${PKG_NAME}</a> v${VERSION}`,
+      },
+    ],
   },
 ])
 </script>

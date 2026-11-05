@@ -2,6 +2,7 @@
   "file_lite_i18n": {
     "a_conflicting_item_appeared_at_t": "A conflicting item appeared at the destination",
     "a_long_time_ago": "A long time ago",
+    "about": "About",
     "an_upload_or_download_is_still_r": "An upload or download is still running. Stay on this page until it finishes.",
     "appearance": "Appearance",
     "apply_to_all": "Apply to all",
@@ -313,6 +314,7 @@
     "use_regular_expression": "Use regular expression",
     "used": "Used",
     "uses_the_html5_video_player_inst": "Uses the HTML5 video player instead of ArtPlayer.",
+    "version": "Version",
     "video_player": "Video Player",
     "view": "View",
     "volume": "Volume",
