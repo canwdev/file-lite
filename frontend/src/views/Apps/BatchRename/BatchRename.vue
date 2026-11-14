@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { DiffSegment } from './engine/diff'
 import type { PreviewResult, RenameRule, RuleType } from './engine/types'
+import { downloadUrl } from '@/utils'
 import { charDiff } from './engine/diff'
 import { useBatchRename } from './use-batch-rename'
 
@@ -13,6 +14,7 @@ const TEMPLATE_TOKENS = [
   '{n}',
   '{name}',
   '{ext}',
+  '{folder}',
   '{date}',
   '{date:HHmmss}',
   '{timestamp}',
@@ -28,6 +30,10 @@ const TEMPLATE_PRESETS: TemplatePreset[] = [
   { id: 'date', template: '{date}_{name}' },
   { id: 'datetime-prefix', template: '{date:YYYYMMDD_HHmmss}_{name}' },
   { id: 'datetime-suffix', template: '{name}_{date:YYYYMMDD_HHmmss}' },
+  {
+    id: 'parent-folder',
+    template: '{folder}_{name}',
+  },
 ]
 
 const ADDABLE_RULE_TYPES: RuleLabel[] = [
@@ -72,7 +78,57 @@ const {
   undo,
   redo,
   exportPlan,
+  rulesJson,
+  replaceRulesFromJson,
 } = useBatchRename()
+
+const rulesFileInput = ref<HTMLInputElement | null>(null)
+
+function pickRulesFile() {
+  rulesFileInput.value?.click()
+}
+
+function exportRules() {
+  if (!rules.value.length)
+    return
+  const url = URL.createObjectURL(new Blob([rulesJson()], { type: 'application/json' }))
+  downloadUrl(url, 'batch-rename-rules.json')
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+async function onRulesFileChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  // Allow choosing the same file again after a failed / repeated import.
+  input.value = ''
+  if (!file)
+    return
+
+  try {
+    const text = await file.text()
+    if (rules.value.length) {
+      try {
+        await window.$dialog.confirm(
+          $t('file_lite_i18n.batch_rename_import_rules_confirm'),
+          $t('file_lite_i18n.batch_rename_import_rules'),
+          {
+            confirmButtonText: $t('file_lite_i18n.batch_rename_import_rules'),
+            cancelButtonText: $t('file_lite_i18n.cancel'),
+          },
+        )
+      }
+      catch {
+        return
+      }
+    }
+    const count = replaceRulesFromJson(text)
+    notice.value = $t('file_lite_i18n.batch_rename_rules_imported', [String(count)])
+  }
+  catch (error) {
+    console.error(error)
+    window.$message?.error($t('file_lite_i18n.batch_rename_rules_import_failed'))
+  }
+}
 
 const templatePresetValues = reactive<Record<string, string>>({})
 
@@ -86,6 +142,14 @@ function applyTemplatePreset(rule: RenameRule, event: Event) {
   if (preset)
     configOf(rule).template = preset.template
   templatePresetValues[rule.id] = ''
+}
+
+function templateTokenTitle(token: string) {
+  if (token === '{date:HHmmss}')
+    return $t('file_lite_i18n.batch_rename_date_format_hint')
+  if (token === '{folder}')
+    return $t('file_lite_i18n.batch_rename_token_folder')
+  return token
 }
 
 function diffSegments(row: PreviewResult): DiffSegment[] {
@@ -137,7 +201,7 @@ function isAllSelected() {
 </script>
 
 <template>
-  <div class="batch-rename">
+  <div class="batch-rename vgo-u-font-code">
     <header class="batch-rename__header">
       <div>
         <h1>{{ $t('file_lite_i18n.batch_rename_title') }}</h1>
@@ -182,7 +246,21 @@ function isAllSelected() {
       <section class="batch-rename__panel batch-rename__rules">
         <div class="batch-rename__panel-head">
           <strong>{{ $t('file_lite_i18n.batch_rename_rules') }}</strong>
+          <div class="batch-rename__panel-actions">
+            <button type="button" class="vgo-button vgo-button--text vgo-button--sm" @click="pickRulesFile">
+              {{ $t('file_lite_i18n.batch_rename_import_rules') }}
+            </button>
+            <button
+              type="button"
+              class="vgo-button vgo-button--text vgo-button--sm"
+              :disabled="!rules.length"
+              @click="exportRules"
+            >
+              {{ $t('file_lite_i18n.batch_rename_export_rules') }}
+            </button>
+          </div>
         </div>
+        <input ref="rulesFileInput" type="file" accept=".json,application/json" hidden @change="onRulesFileChosen">
         <div class="batch-rename__rule-add">
           <span class="batch-rename__rule-add-plus" aria-hidden="true">+</span>
           <select v-model="newRuleType" class="vgo-input" @change="addRule">
@@ -258,7 +336,7 @@ function isAllSelected() {
                   :key="token"
                   type="button"
                   class="vgo-button vgo-button--text batch-rename__template-token"
-                  :title="token === '{date:HHmmss}' ? $t('file_lite_i18n.batch_rename_date_format_hint') : token"
+                  :title="templateTokenTitle(token)"
                   @mousedown.prevent
                   @click="insertTemplate(token, `batch-rename-template-${rule.id}`)"
                 >
@@ -478,6 +556,12 @@ function isAllSelected() {
   font-weight: normal;
 }
 
+.batch-rename__panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--vgo-space-1);
+}
+
 .batch-rename__list,
 .batch-rename__rule-list,
 .batch-rename__preview-list {
@@ -659,7 +743,6 @@ function isAllSelected() {
   background-color: var(--vgo-hover);
   border: 1px solid var(--vgo-border);
   border-radius: var(--vgo-radius);
-  font-family: var(--vgo-font-mono);
   font-size: 11px;
   line-height: 1.4;
 }

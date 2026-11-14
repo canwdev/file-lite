@@ -8,8 +8,14 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 - **Branch view**: The address bar shows a closable badge while Ctrl+B is on, and a selected file or folder can toggle branch view from the context menu's More submenu (frontend).
 
+### Features
+
+- **Batch Rename**: A template can include the parent folder name with `{folder}`, and a preset names files as `{folder}_{name}` (frontend).
+- **Batch Rename**: Rules can be imported from and exported to a JSON file from the Rules header, and the picker button now says Select Files & Folders (frontend).
+
 ### Fixes
 
+- **File picker**: Cancelling the Save As dialog keeps the file-type filter while it closes, so the folder is not re-rendered behind the animation (frontend).
 - **Branch view**: Dragging a file from a subfolder onto the current folder now moves it there instead of being rejected (frontend).
 - **Branch view**: A cut file that lives in a subfolder is now dimmed in the list and is actually moved from its real path (frontend).
 - **Sidebar**: The capacity bar of each location keeps its full height instead of being clipped by the row content (frontend).

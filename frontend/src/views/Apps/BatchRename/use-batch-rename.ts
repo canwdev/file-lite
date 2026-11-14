@@ -9,6 +9,7 @@ import type {
 import type { SdkEntry, SdkRenameResult } from '@/sdk/contract'
 import { useFileLiteSdk } from '@/sdk/use-app-sdk'
 import { autoFixConflicts, computePreview } from './engine/rules'
+import { parseRulesJson, serializeRules } from './engine/rules-io'
 import { getDefaultConfig } from './engine/types'
 
 export interface RenameChange {
@@ -371,6 +372,17 @@ export function useBatchRename() {
     }), { conflict: 'overwrite' })
   }
 
+  function rulesJson() {
+    return serializeRules(rules.value)
+  }
+
+  /** Replace the rule list with a parsed JSON file; returns how many rules were loaded. */
+  function replaceRulesFromJson(text: string) {
+    const imported = parseRulesJson(text)
+    rules.value = imported.map(rule => ({ ...rule, id: String(nextRuleId++) }))
+    return imported.length
+  }
+
   onMounted(async () => {
     await sdk.setTitle($t('file_lite_i18n.batch_rename_title')).catch(() => {})
     sdk.onOpen((event) => {
@@ -412,6 +424,8 @@ export function useBatchRename() {
     undo,
     redo,
     exportPlan,
+    rulesJson,
+    replaceRulesFromJson,
   }
 }
 

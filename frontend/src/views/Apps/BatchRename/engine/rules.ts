@@ -48,6 +48,20 @@ function resolveVariables(text: string, context: RuleContext): string {
     .replace(/\{n\}/g, String(context.index + 1))
     .replace(/\{name\}/g, filenameSafe(context.currentName ?? context.originalName))
     .replace(/\{ext\}/g, filenameSafe(context.ext.replace(/^\./, '')))
+    .replace(/\{folder\}/g, filenameSafe(context.folderName ?? ''))
+}
+
+/** Immediate parent folder name; empty for a filesystem root. */
+export function parentFolderName(path: string): string {
+  const normalized = path.replace(/\/+$/, '')
+  const cut = normalized.lastIndexOf('/')
+  if (cut <= 0)
+    return ''
+  const parent = normalized.slice(0, cut)
+  // A drive root has no folder name of its own ("D:" is not a valid segment).
+  if (/^[a-z]:$/i.test(parent))
+    return ''
+  return parent.slice(parent.lastIndexOf('/') + 1)
 }
 
 function toAlpha(n: number): string {
@@ -585,7 +599,7 @@ export function computePreview(
     let name: string
     let ext: string
 
-    const folderName = file.relativePath ? file.relativePath.split('/').slice(-2, -1)[0] || '' : ''
+    const folderName = parentFolderName(file.path)
 
     const context: RuleContext = {
       index: i,
