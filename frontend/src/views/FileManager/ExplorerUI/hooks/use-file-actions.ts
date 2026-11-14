@@ -75,20 +75,20 @@ export function useFileActions({
   handleDownload: () => Promise<void>
   downloadToFolder: () => Promise<void>
   emit: any
-  onEntryCreated?: (name: string) => void
+  onEntryCreated?: (path: string) => void
   isBranchView?: Ref<boolean>
   onOpenContainingFolder?: (path: string) => void
 }) {
   function containingFolderOf(item: IEntry): string {
-    const { dirPrefix } = splitEntryName(item.name)
+    const { dirPrefix } = splitEntryName(normalizePath(item.path))
     if (!dirPrefix)
       return normalizePath(basePath.value)
-    return normalizePath(joinPath(basePath.value, dirPrefix.replace(/\/$/, '')))
+    return normalizePath(dirPrefix)
   }
 
   function propertyTargetOf(item: IEntry): PropertiesTarget {
     return {
-      absPath: normalizePath(joinPath(basePath.value, item.name)),
+      absPath: normalizePath(item.path),
       name: item.name,
       isDirectory: item.isDirectory,
       ext: item.ext,
@@ -122,13 +122,13 @@ export function useFileActions({
             selectOnFocus: 'all',
           }))
       isLoading.value = true
-      // 列表由服务端的 fs changed 补上，这里只负责等写入结束再选中新名字
+      // 列表由服务端的 fs changed 补上，这里只负责等写入结束再选中新文件
       const written = await fs.writeText(basePath.value, name, content, { conflict: 'overwrite' })
       if (!written.ok) {
         window.$message?.warning(written.reason ?? $t('file_lite_i18n.this_location_is_read_only'))
         return
       }
-      onEntryCreated?.(written.name ?? name)
+      onEntryCreated?.(normalizePath(written.path ?? joinPath(basePath.value, written.name ?? name)))
     }
     finally {
       isLoading.value = false
@@ -149,7 +149,7 @@ export function useFileActions({
         return
       }
       await fs.mkdir(target)
-      onEntryCreated?.(name)
+      onEntryCreated?.(target)
     }
     finally {
       isLoading.value = false
@@ -162,7 +162,8 @@ export function useFileActions({
     }
 
     const item = selectedItems.value[0]
-    const { dirPrefix, baseName } = splitEntryName(item.name)
+    const fromPath = normalizePath(item.path)
+    const { dirPrefix, baseName } = splitEntryName(fromPath)
     let name: string
     try {
       name = (await showInputPrompt({
@@ -185,11 +186,9 @@ export function useFileActions({
 
     try {
       isLoading.value = true
-      const nextName = `${dirPrefix}${name}`
-      const fromPath = normalizePath(joinPath(basePath.value, item.name))
-      const toPath = normalizePath(joinPath(basePath.value, nextName))
+      const toPath = normalizePath(`${dirPrefix}${name}`)
       await fs.rename(fromPath, toPath)
-      onEntryCreated?.(nextName)
+      onEntryCreated?.(toPath)
     }
     catch (error) {
       // 重命名可能被服务端拒绝（只读、目标被占用…）：如实提示，别静默失败
@@ -269,7 +268,7 @@ export function useFileActions({
     return selectedItems.value
       .filter(item => !item.isDirectory)
       .map(item => ({
-        path: normalizePath(joinPath(basePath.value, item.name)),
+        path: normalizePath(item.path),
         name: item.name,
       }))
   }
@@ -600,7 +599,7 @@ export function useFileActions({
         label: $t('file_lite_i18n.open_in_new_tab'),
         icon: 'mdi mdi-open-in-new',
         onClick: () => {
-          emit('openPathInNewTab', normalizePath(joinPath(basePath.value, selectedItem.name)))
+          emit('openPathInNewTab', normalizePath(selectedItem.path))
         },
       },
       isSingle
@@ -660,13 +659,24 @@ export function useFileActions({
       isDirectory && {
         label: $t('file_lite_i18n.paste'),
         icon: 'mdi mdi-content-paste',
-        onClick: () => handlePaste(normalizePath(joinPath(basePath.value, selectedItem.name))),
+        onClick: () => handlePaste(normalizePath(selectedItem.path)),
         disabled: !enablePaste.value,
       },
       { label: $t('file_lite_i18n.cut'), icon: 'mdi mdi-content-cut', shortcut: 'Ctrl+X', onClick: handleCut },
       { label: $t('file_lite_i18n.copy'), icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
         ...moreAppItems,
+        // Branch view is a listing mode, not an action on the selection: offer the
+        // same toggle for single and multiple selected entries.
+        isBranchView && {
+          label: $t('file_lite_i18n.branch_view'),
+          icon: 'mdi mdi-file-tree',
+          divided: true,
+          onClick: () => {
+            if (isBranchView)
+              isBranchView.value = !isBranchView.value
+          },
+        },
         {
           label: $t('file_lite_i18n.open_containing_folder'),
           icon: 'mdi mdi-folder-outline',
@@ -688,7 +698,7 @@ export function useFileActions({
           label: 'Set as wallpaper',
           icon: 'mdi mdi-image',
           onClick: () => {
-            const absPath = normalizePath(joinPath(basePath.value, selectedItem.name))
+            const absPath = normalizePath(selectedItem.path)
             localSettingsStore.value.wallpaperUrl = fs.url(absPath)
             localSettingsStore.value.themeStyle = 'translucent'
           },

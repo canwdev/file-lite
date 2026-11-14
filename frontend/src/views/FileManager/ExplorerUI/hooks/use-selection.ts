@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import type { IEntry } from '@/types/server'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useSelectionArea } from '@/hooks/use-selection-area'
-import { joinPath, normalizePath, toggleArrayElement } from '../../utils'
+import { normalizePath, toggleArrayElement } from '../../utils'
 
 export interface SelectionRect {
   left: number
@@ -29,31 +29,31 @@ export function useSelection({
   getItemsInSelectionRect?: (rect: SelectionRect) => IEntry[]
 }) {
   const selectedItemsSet = ref(new Set<IEntry>())
-  const selectedItemNames = ref(new Set<string>())
+  const selectedItemPaths = ref(new Set<string>())
   let reconcilingSelection = false
 
   const clearSelection = () => {
     selectedItemsSet.value = new Set()
-    selectedItemNames.value = new Set()
+    selectedItemPaths.value = new Set()
   }
 
-  function syncSelectedNames() {
-    selectedItemNames.value = new Set([...selectedItemsSet.value].map(item => item.name))
+  function syncSelectedPaths() {
+    selectedItemPaths.value = new Set([...selectedItemsSet.value].map(item => item.path))
   }
 
   function setSelection(items: Iterable<IEntry>) {
     selectedItemsSet.value = new Set(items)
-    syncSelectedNames()
+    syncSelectedPaths()
   }
 
   watch(selectedItemsSet, () => {
     if (!reconcilingSelection) {
-      syncSelectedNames()
+      syncSelectedPaths()
     }
   }, { deep: true, flush: 'sync' })
 
   function reconcileSelection(nextFiles: IEntry[]) {
-    if (!selectedItemNames.value.size) {
+    if (!selectedItemPaths.value.size) {
       return
     }
 
@@ -63,19 +63,21 @@ export function useSelection({
       reconcilingSelection = false
 
       if (!isLoading?.value) {
-        selectedItemNames.value = new Set()
+        selectedItemPaths.value = new Set()
       }
       return
     }
 
-    const nextSelection = nextFiles.filter(item => selectedItemNames.value.has(item.name))
+    // Identity is the canonical path: a branch listing can hold several files
+    // with the same basename in different subfolders.
+    const nextSelection = nextFiles.filter(item => selectedItemPaths.value.has(item.path))
     reconcilingSelection = true
     selectedItemsSet.value = new Set(nextSelection)
     reconcilingSelection = false
     if (isLoading?.value && !nextSelection.length) {
       return
     }
-    syncSelectedNames()
+    syncSelectedPaths()
   }
 
   watch(files, (nextFiles) => {
@@ -102,18 +104,13 @@ export function useSelection({
           clearSelection()
         },
         onStop: (stored) => {
-          const map: Record<string, IEntry> = {}
-          files.value.forEach((i) => {
-            map[i.name] = i
-          })
+          const byPath = new Map(files.value.map(entry => [entry.path, entry]))
           const list: IEntry[] = []
           stored.forEach((el) => {
-            const name = el.getAttribute('data-name')
-            if (!name) {
-              return
-            }
-            if (map[name]) {
-              list.push(map[name])
+            const path = el.getAttribute('data-path')
+            const item = path ? byPath.get(path) : undefined
+            if (item) {
+              list.push(item)
             }
           })
 
@@ -334,9 +331,9 @@ export function useSelection({
       let idx = 0
       const first = selectedItems.value[0]
       if (first) {
-        idx = files.value.findIndex(i => i.name === first.name)
+        idx = files.value.findIndex(i => i.path === first.path)
       }
-      let itemIdx = files.value.findIndex(i => i.name === item.name)
+      let itemIdx = files.value.findIndex(i => i.path === item.path)
       if (idx > itemIdx) {
         // 使最小的index在最前
         ;[itemIdx, idx] = [idx, itemIdx]
@@ -381,14 +378,26 @@ export function useSelection({
     setSelection(items)
   }
 
+  const selectByPaths = (paths: string[]) => {
+    const map = new Map(files.value.map(i => [i.path, i]))
+    const items: IEntry[] = []
+    for (const path of paths) {
+      const item = map.get(path)
+      if (item) {
+        items.push(item)
+      }
+    }
+    setSelection(items)
+  }
+
   const selectedItems = computed(() => {
     return [...selectedItemsSet.value]
   })
 
   const selectedPaths = computed(() => {
-    return selectedItems.value.map((item) => {
-      return normalizePath(joinPath(basePath.value, item.name))
-    })
+    // In a recursive (branch) listing `name` is only the basename, so the
+    // canonical full path must come from the entry itself.
+    return selectedItems.value.map(item => normalizePath(item.path))
   })
 
   const selectedItemsSize = computed(() => {
@@ -414,6 +423,7 @@ export function useSelection({
     toggleSelect,
     isAllSelected,
     selectByNames,
+    selectByPaths,
     toggleSelectAll,
     selectedPaths,
   }

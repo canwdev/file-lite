@@ -104,7 +104,12 @@ export function endEntryDrag(): void {
  */
 export function canDropEntries(destDir: string, session: EntryDragSession, options: { allowSameDir?: boolean } = {}): boolean {
   const target = normalizeListingPath(destDir)
-  if (target === session.sourceBasePath) {
+  // Identity is the item's real parent, not sourceBasePath: a branch listing
+  // flattens several folders, so "dragging back to the listed folder" is only
+  // a no-op when every item already lives directly in the target.
+  const inTarget = (path: string) => normalizeListingPath(getParentPath(path)) === target
+  const allInTarget = session.paths.length > 0 && session.paths.every(inTarget)
+  if (allInTarget) {
     return Boolean(options.allowSameDir)
   }
   return session.items.every((item, index) => {
@@ -122,13 +127,17 @@ export function isCopyModifier(event: DragEvent): boolean {
 }
 
 function volumeMode(destDir: string, session: EntryDragSession): 'move' | 'copy' {
-  const sourceVolume = resolveVolumeRoot(session.sourceBasePath)
   const targetVolume = resolveVolumeRoot(destDir)
   // 卷未知（驱动器还没加载出来）时按同卷处理：默认移动
-  if (sourceVolume && targetVolume && sourceVolume !== targetVolume) {
-    return 'copy'
+  if (!targetVolume) {
+    return 'move'
   }
-  return 'move'
+  // 平铺列表可能跨挂载点；按每个源自己的卷判断，任一不同就按复制处理
+  const crossesVolume = session.paths.some((path) => {
+    const sourceVolume = resolveVolumeRoot(path)
+    return sourceVolume !== null && sourceVolume !== targetVolume
+  })
+  return crossesVolume ? 'copy' : 'move'
 }
 
 /** dragover 阶段的光标提示，必须同步，所以只用已缓存的卷信息。 */
@@ -156,19 +165,15 @@ async function resolveDropMode(destDir: string, session: EntryDragSession, event
 
 async function performEntryDrop(destDir: string, event: DragEvent, session: EntryDragSession): Promise<void> {
   const target = normalizeListingPath(destDir)
-  // 拖回源目录只有一个合法含义：Ctrl 复制（duplicate）。此时不做「父目录已是目标」过滤，
-  // 否则所有项都会被滤掉，什么也不会发生。
-  const sameDir = target === session.sourceBasePath
-  const fromPaths = sameDir
-    ? [...session.paths]
-    : session.paths.filter(path => normalizeListingPath(getParentPath(path)) !== target)
-  if (!fromPaths.length) {
-    return
-  }
+  // Only treat the drop as "back into the source folder" when every item already
+  // sits there. In a branch listing the listed root can be the target while the
+  // dragged files live deeper, and those should still move / copy to the root.
+  const inTarget = (path: string) => normalizeListingPath(getParentPath(path)) === target
+  const allInTarget = session.paths.length > 0 && session.paths.every(inTarget)
 
-  if (sameDir) {
+  if (allInTarget) {
     try {
-      await createTask({ kind: 'duplicate', fromPaths, toPath: target })
+      await createTask({ kind: 'duplicate', fromPaths: [...session.paths], toPath: target })
     }
     catch (error: any) {
       window.$message?.error(error?.message || $t('file_lite_i18n.failed_to_start_the_task'))
@@ -177,6 +182,15 @@ async function performEntryDrop(destDir: string, event: DragEvent, session: Entr
   }
 
   const kind = (await resolveDropMode(target, session, event)) === 'copy' ? 'copy' : 'move'
+  // A move skips items that are already in the target; a copy keeps them so the
+  // backend creates a copy beside the original, matching Explorer.
+  const fromPaths = kind === 'move'
+    ? session.paths.filter(path => !inTarget(path))
+    : [...session.paths]
+  if (!fromPaths.length) {
+    return
+  }
+
   try {
     const taskId = await createTask({ kind, fromPaths, toPath: target, onConflict: 'ask' })
     if (kind === 'move') {

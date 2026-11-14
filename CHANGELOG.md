@@ -2,6 +2,18 @@
 
 The version number is defined in `frontend/src/enum/version.ts` and must stay in sync with `const Version` in `backend-go/config/config.go`.
 
+## 1.6.1
+
+### UI
+
+- **Branch view**: The address bar shows a closable badge while Ctrl+B is on, and a selected file or folder can toggle branch view from the context menu's More submenu (frontend).
+
+### Fixes
+
+- **Branch view**: Dragging a file from a subfolder onto the current folder now moves it there instead of being rejected (frontend).
+- **Branch view**: A cut file that lives in a subfolder is now dimmed in the list and is actually moved from its real path (frontend).
+- **Sidebar**: The capacity bar of each location keeps its full height instead of being clipped by the row content (frontend).
+
 ## 1.6.0
 
 ### Breaking

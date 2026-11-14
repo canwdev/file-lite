@@ -57,6 +57,9 @@ func TestDirChangesCopyAddsDestinationEntry(t *testing.T) {
 	if len(c.Added) != 1 || c.Added[0].Name != "a.txt" || c.Added[0].IsDirectory {
 		t.Fatalf("expected a.txt added to %s, got %+v", dst, c)
 	}
+	if c.Added[0].Path != canonical(filepath.Join(dst, "a.txt")) {
+		t.Fatalf("expected canonical path on the added entry, got %+v", c.Added[0])
+	}
 	if len(c.Removed) != 0 || len(c.Updated) != 0 {
 		t.Fatalf("copy should not remove or update, got %+v", c)
 	}

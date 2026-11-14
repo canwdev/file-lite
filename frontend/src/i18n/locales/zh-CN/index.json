@@ -19,7 +19,7 @@
     "auto": "自动",
     "available": "可用",
     "back": "后退",
-    "branch_view": "分支视图",
+    "branch_view": "平铺视图",
     "browser": "浏览器",
     "browser_wake_lock_0": "浏览器唤醒锁：{0}",
     "browser_wake_lock_unsupported": "浏览器唤醒锁(不支持)",

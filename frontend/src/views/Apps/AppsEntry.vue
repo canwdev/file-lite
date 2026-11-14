@@ -86,6 +86,12 @@ function restoreOrMinimizeWindow(win: AppWindowState) {
   }
 }
 
+/** Parent listing path of a canonical file path: "/a/b.txt" -> "/a/". */
+function parentListingPath(path: string) {
+  const slash = path.lastIndexOf('/')
+  return slash >= 0 ? path.slice(0, slash + 1) : ''
+}
+
 function handleSelectItems(win: AppWindowState, names: string[]) {
   explorerBus.emit(ExplorerEvents.SELECT_COLLECTED, {
     basePath: win.data.appParams.basePath,
@@ -95,9 +101,15 @@ function handleSelectItems(win: AppWindowState, names: string[]) {
 }
 
 function handleLocateItem(win: AppWindowState, name: string) {
+  const params = win.data.appParams
+  const match = params.selection?.find(item => item.name === name)
+    ?? (params.item?.name === name ? params.item : undefined)
+  const targetPath = match?.path
+  // In a branch listing basePath is the flatten root and `name` is the file's
+  // relative path; reveal it in its real parent with its basename.
   explorerBus.emit(ExplorerEvents.REVEAL_ITEM, {
-    basePath: win.data.appParams.basePath,
-    name,
+    basePath: targetPath ? parentListingPath(targetPath) : params.basePath,
+    name: targetPath ? targetPath.slice(targetPath.lastIndexOf('/') + 1) : name,
   })
   restoreOrMinimizeWindow(win)
 }

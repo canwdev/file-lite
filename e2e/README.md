@@ -56,6 +56,7 @@ files/
 ├── empty/            （空目录，用来制造「不可写」的失败场景）
 ├── drag/             inbox/（move-me.txt、copy-me.txt、ctrl-me.txt、sub/back.txt）+ archive/
 ├── apps/             hello.txt note.md gbk.txt(GB18030) page.html picture.png picture2.png
+├── branch/           a.txt + sub1/(same.txt、only-one.txt、deeper/deep.txt) + sub2/(same.txt)
 └── （根目录还会临时出现拖拽用例落在磁盘根 / 面包屑上的文件，复位时清掉）
 upload/               a.txt（与服务端同名）、fresh.txt
 data/plugins/         sdk-probe/（探针插件，见「插件 e2e」）
@@ -140,9 +141,10 @@ E2E_PLUGINS=1 node scripts/run-tests.mjs tests/plugin-sdk.spec.ts
 | `16-ticket-tiers.spec.ts` | 记住登录默认不勾选；IP Chooser 选择票档、不连接 WebSocket；已登录时忽略 ticket 且不消费；临时会话隐藏分享入口、到期自动登出 | — |
 | `17-apps.spec.ts` | 内置 App 走 SDK 之后的行为：文本编辑器**首次打开**就有内容、保存落盘；GB18030 文件读成文本并以原编码写回；HTML 查看器经 `sdk.url()` 加载；Open With / Set Default App 来自同一份注册表；画廊单例复用并 `revealItem` 选中文件；Properties、Settings、MediaPlayer 窗口 | — |
 | `18-picker.spec.ts` | 共用的文件选择器（SDK `pick`）：文本编辑器 Open / Save As 从里面选文件、选保存名；保存名已存在时先确认覆盖；播放器的「打开服务器视频」用的是同一个对话框；取消不改变状态 | — |
+| `19-branch-view.spec.ts` | 平铺视图（Ctrl+B）：展平子目录、地址栏 badge 退出、More 单选 / 多选切换；同名文件的剪切高亮与粘贴、拖回当前目录、选中范围与刷新、删除确认相对路径、打开嵌套文件的真实路径 | — |
 | `plugin-sdk.spec.ts` | （默认不跑，`E2E_PLUGINS=1`）插件宿主：探针插件拿到打开的文件并回写磁盘、`setTitle` / `getLaunch` / `exit` 生效、`pick` 打开共用选择器、经选择器另存副本 | — |
 
-合计 81 个用例，单次运行约 2.8 分钟（另有 4 个插件用例，默认不跑，见「插件 e2e」）。
+合计 88 个用例，单次运行约 3 分钟（另有 4 个插件用例，默认不跑，见「插件 e2e」）。
 
 ## 测试发现的真实缺陷
 

@@ -2,7 +2,7 @@ import type { Ref, WritableComputedRef } from 'vue'
 import type { FsDirChange, IEntry } from '@/types/server'
 import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
-import { canGoUp, getLastDirName, getParentPath, joinPath, normalizeListingPath, normalizePath } from '../../utils'
+import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath } from '../../utils'
 import { seedFolderListing } from '../folder-listing'
 import { useFavourites } from './use-favourites'
 import { useOpener } from './use-opener'
@@ -129,7 +129,7 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
       const normalized = normalizeListingPath(path)
       return normalized === current || normalized.startsWith(`${current}/`)
     }
-    // 平铺视图的名字是相对路径，条目级补丁对不上；子目录里的改动也要反映进来。
+    // 平铺列表把子目录里的条目摊到了同一层，条目级补丁对不上；子目录里的改动也要反映进来。
     if (flatListing?.value) {
       if (paths.some(listingUnderCurrent) || changes.some(item => listingUnderCurrent(item.dir)))
         void handleRefresh(false)
@@ -151,7 +151,7 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
   /**
    * 用条目级变化原地改当前列表。
    * 排序与隐藏过滤都在展示层的 computed 里做，所以这里只改原始列表；
-   * 选区由 use-selection 按名字自动 reconcile。
+   * 选区由 use-selection 按完整路径自动 reconcile。
    */
   function applyEntryChange(change: Pick<FsDirChange, 'added' | 'updated' | 'removed'>) {
     const removed = change.removed ?? []
@@ -234,7 +234,7 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
     if (item.isDirectory && isLoading.value) {
       return
     }
-    const path = normalizePath(joinPath(basePath.value, item.name))
+    const path = normalizePath(item.path)
     if (item.isDirectory) {
       await handleOpenPath(path, true)
     }
@@ -284,9 +284,10 @@ function sameListing(a: IEntry[], b: IEntry[]): boolean {
   if (a.length !== b.length) {
     return false
   }
-  const map = new Map(a.map(entry => [entry.name, entry]))
+  // 平铺列表里可能有多个同名文件，身份必须按完整路径比较
+  const map = new Map(a.map(entry => [entry.path, entry]))
   for (const entry of b) {
-    const prev = map.get(entry.name)
+    const prev = map.get(entry.path)
     if (!prev || !sameEntry(prev, entry)) {
       return false
     }

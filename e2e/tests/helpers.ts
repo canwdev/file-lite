@@ -3,7 +3,7 @@ import { expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createDragFixture, PASSWORD, PORT, filesDir, uploadDir } from '../scripts/fixture.mjs'
+import { createBranchFixture, createDragFixture, PASSWORD, PORT, filesDir, uploadDir } from '../scripts/fixture.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const screenshotsDir = path.resolve(here, '..', 'screenshots')
@@ -22,6 +22,9 @@ export const dragArchiveDir = path.join(dragDir, 'archive')
 
 /** 内置 App 用例专用夹具（见 fixture.mjs 的 createAppsFixture）。 */
 export const appsDir = path.join(filesDir, 'apps')
+
+/** 平铺视图用例专用夹具（见 fixture.mjs 的 createBranchFixture）。 */
+export const branchDir = path.join(filesDir, 'branch')
 
 export { filesDir, uploadDir, PASSWORD }
 
@@ -121,6 +124,9 @@ export async function login(page: Page) {
   await stubFixtureMounts(page)
   await page.goto('/')
   if (!sharedAuthCookies) {
+    // The login page opens on the Ticket tab; this suite signs in with the
+    // password tab (the first one).
+    await page.getByRole('tab').first().click()
     const password = page.locator('input[placeholder="Input password"]')
     await password.waitFor()
     await password.fill(PASSWORD)
@@ -172,6 +178,11 @@ export function resetDragDirs() {
     fs.rmSync(path.join(filesDir, name), { recursive: true, force: true })
   }
   createDragFixture()
+}
+
+/** 复位平铺视图夹具（用例会移动 / 重命名里面的文件）。 */
+export function resetBranchDirs() {
+  createBranchFixture()
 }
 
 /**

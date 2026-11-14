@@ -20,7 +20,7 @@ import { getFileIconClass } from '@/views/FileManager/ExplorerUI/file-icons.ts'
 import FileTable from '@/views/FileManager/ExplorerUI/FileTable.vue'
 import { getTooltip } from '@/views/FileManager/ExplorerUI/hooks/use-file-item.ts'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
-import { joinPath, normalizeListingPath, normalizePath } from '../utils'
+import { normalizeListingPath, normalizePath } from '../utils'
 import { ExplorerEvents, useExplorerBusOn } from '../utils/bus'
 import { GROUP_HEADER_HEIGHT, groupEntries } from '../utils/group'
 import { composeSortMode, parseSortMode } from '../utils/sort'
@@ -244,7 +244,7 @@ const tableColumns = computed(() => {
           h(ThemedIcon, {
             iconClass: `mdi ${getFileIconClass(item)}`,
             item,
-            absPath: joinPath(basePath.value, item.name),
+            absPath: item.path,
             iconSize: iconSizeList.value,
           }),
           h(
@@ -347,6 +347,7 @@ const {
   toggleSelect,
   toggleSelectAll,
   selectByNames,
+  selectByPaths,
   selectedPaths,
 } = useSelection({
   files: filteredFiles,
@@ -419,7 +420,7 @@ const listGroupBlocks = computed(() => {
       continue
     group.items.forEach((item, index) => {
       blocks.push({
-        key: `f:${item.name}`,
+        key: `f:${item.path}`,
         height: rowH,
         data: { kind: 'file', item, index },
       })
@@ -589,18 +590,18 @@ function selectGroup(id: string) {
   if (!group?.items.length)
     return
   if (!allowMultipleSelection.value) {
-    selectByNames([group.items[0].name])
+    selectByPaths([group.items[0].path])
     return
   }
   const allSelected = group.items.every(item => selectedItemsSet.value.has(item))
-  selectByNames(allSelected ? [] : group.items.map(item => item.name))
+  selectByPaths(allSelected ? [] : group.items.map(item => item.path))
 }
 
-function expandGroupForName(name: string) {
+function expandGroupForPath(path: string) {
   const groups = groupedFiles.value
   if (!groups)
     return
-  const group = groups.find(g => g.items.some(item => item.name === name))
+  const group = groups.find(g => g.items.some(item => item.path === path))
   if (group && collapsedGroupSet.value.has(group.id))
     toggleGroup(group.id)
 }
@@ -737,7 +738,7 @@ function rectsIntersect(
 }
 
 // 复制粘贴功能
-const { enablePaste, handleCut, handleCopy, handlePaste, currentCutNames } = useCopyPaste({
+const { enablePaste, handleCut, handleCopy, handlePaste, currentCutPaths } = useCopyPaste({
   selectedPaths,
   basePath,
   isLoading,
@@ -758,25 +759,25 @@ const { handlePasteFromClipboard } = useSystemClipboardPaste({
 const dragEnabled = useDragEnabled()
 const dropTargetName = ref<string | null>(null)
 
-function findEntry(name: string | undefined) {
-  if (!name) {
+function findEntry(path: string | undefined) {
+  if (!path) {
     return null
   }
-  return filteredFiles.value.find(item => item.name === name) ?? null
+  return filteredFiles.value.find(item => item.path === path) ?? null
 }
 
 /** 指针下的文件夹行（只有目录才是合法落点） */
 function hoveredDropRow(event: DragEvent) {
-  const el = (event.target as HTMLElement | null)?.closest<HTMLElement>('.selectable[data-name]')
-  const name = el?.dataset.name
-  if (!name) {
+  const el = (event.target as HTMLElement | null)?.closest<HTMLElement>('.selectable[data-path]')
+  const path = el?.dataset.path
+  if (!path) {
     return null
   }
-  const item = findEntry(name)
+  const item = findEntry(path)
   if (!item?.isDirectory) {
     return null
   }
-  return { name, dir: normalizePath(joinPath(basePath.value, name)) }
+  return { name: item.name, dir: normalizePath(item.path) }
 }
 
 function onRowDragStart(event: DragEvent) {
@@ -789,14 +790,14 @@ function onRowDragStart(event: DragEvent) {
     event.preventDefault()
     return
   }
-  const item = findEntry(target.closest<HTMLElement>('.selectable[data-name]')?.dataset.name)
+  const item = findEntry(target.closest<HTMLElement>('.selectable[data-path]')?.dataset.path)
   if (!item) {
     return
   }
 
   // 资源管理器语义：拖动未选中的项 = 先把它变成唯一选择，再拖这个选择
   if (!selectedItemsSet.value.has(item)) {
-    selectByNames([item.name])
+    selectByPaths([item.path])
   }
   beginEntryDrag(event, {
     sourceBasePath: normalizeListingPath(basePath.value),
@@ -978,15 +979,15 @@ async function focusFileList() {
   dropZoneRef.value?.focus()
 }
 
-// 新建 / 重命名后待选中的名字。列表更新来自服务端推送，可能早于或晚于操作返回。
-const pendingRevealName = ref<string | null>(null)
+// 新建 / 重命名后待选中的完整路径。列表更新来自服务端推送，可能早于或晚于操作返回。
+const pendingRevealPath = ref<string | null>(null)
 
-function revealWhenListed(name: string) {
-  pendingRevealName.value = name
-  if (!files.value.some(item => item.name === name))
+function revealWhenListed(path: string) {
+  pendingRevealPath.value = path
+  if (!files.value.some(item => item.path === path))
     return
-  pendingRevealName.value = null
-  nextTick(() => selectAndReveal(name))
+  pendingRevealPath.value = null
+  nextTick(() => selectAndRevealPath(path))
 }
 
 // 文件操作功能
@@ -1023,11 +1024,11 @@ const {
 })
 
 watch(files, () => {
-  const name = pendingRevealName.value
-  if (!name || !files.value.some(item => item.name === name))
+  const path = pendingRevealPath.value
+  if (!path || !files.value.some(item => item.path === path))
     return
-  pendingRevealName.value = null
-  nextTick(() => selectAndReveal(name))
+  pendingRevealPath.value = null
+  nextTick(() => selectAndRevealPath(path))
 })
 
 const openActionMeta = computed(() => {
@@ -1124,7 +1125,7 @@ function viewMenuItems(): MenuItem[] {
     },
     {
       label: $t('file_lite_i18n.branch_view'),
-      icon: isBranchView.value ? 'mdi mdi-check' : '',
+      icon: 'mdi mdi-file-tree',
       shortcut: 'Ctrl+B',
       divided: isGrouping.value,
       onClick: () => {
@@ -1279,12 +1280,12 @@ function selectKeyboardItem(index: number) {
     return
   }
 
-  selectByNames([nextItem.name])
-  nextTick(() => scrollToFile(nextItem.name))
+  selectByPaths([nextItem.path])
+  nextTick(() => scrollToPath(nextItem.path))
 }
 
-function selectKeyboardItemByName(name: string) {
-  const index = keyboardFiles.value.findIndex(item => item.name === name)
+function selectKeyboardItemByPath(path: string) {
+  const index = keyboardFiles.value.findIndex(item => item.path === path)
   if (index >= 0)
     selectKeyboardItem(index)
 }
@@ -1295,9 +1296,9 @@ function moveKeyboardSelection(offset: number) {
     return
   }
 
-  const currentName = selectedItems.value[0]?.name
-  const currentIndex = currentName
-    ? items.findIndex(item => item.name === currentName)
+  const currentPath = selectedItems.value[0]?.path
+  const currentIndex = currentPath
+    ? items.findIndex(item => item.path === currentPath)
     : -1
   const fallbackIndex = offset > 0 ? -1 : items.length
   selectKeyboardItem((currentIndex === -1 ? fallbackIndex : currentIndex) + offset)
@@ -1320,19 +1321,19 @@ function moveKeyboardSelectionGrid(dx: number, dy: number) {
   if (!segments.length)
     return
 
-  const currentName = selectedItems.value[0]?.name
-  if (!currentName) {
+  const currentPath = selectedItems.value[0]?.path
+  if (!currentPath) {
     const first = segments[0][0]
     const lastSeg = segments[segments.length - 1]
     const last = lastSeg[lastSeg.length - 1]
-    selectKeyboardItemByName((dx > 0 || dy > 0) ? first.name : last.name)
+    selectKeyboardItemByPath((dx > 0 || dy > 0) ? first.path : last.path)
     return
   }
 
   let segIdx = -1
   let localIdx = -1
   for (let i = 0; i < segments.length; i++) {
-    const found = segments[i].findIndex(item => item.name === currentName)
+    const found = segments[i].findIndex(item => item.path === currentPath)
     if (found !== -1) {
       segIdx = i
       localIdx = found
@@ -1340,7 +1341,7 @@ function moveKeyboardSelectionGrid(dx: number, dy: number) {
     }
   }
   if (segIdx === -1) {
-    selectKeyboardItemByName(segments[0][0].name)
+    selectKeyboardItemByPath(segments[0][0].path)
     return
   }
 
@@ -1349,16 +1350,16 @@ function moveKeyboardSelectionGrid(dx: number, dy: number) {
   if (dx !== 0) {
     const next = localIdx + dx
     if (next >= 0 && next < items.length) {
-      selectKeyboardItemByName(items[next].name)
+      selectKeyboardItemByPath(items[next].path)
       return
     }
     if (dx < 0 && segIdx > 0) {
       const prev = segments[segIdx - 1]
-      selectKeyboardItemByName(prev[prev.length - 1].name)
+      selectKeyboardItemByPath(prev[prev.length - 1].path)
       return
     }
     if (dx > 0 && segIdx < segments.length - 1) {
-      selectKeyboardItemByName(segments[segIdx + 1][0].name)
+      selectKeyboardItemByPath(segments[segIdx + 1][0].path)
     }
     return
   }
@@ -1366,20 +1367,20 @@ function moveKeyboardSelectionGrid(dx: number, dy: number) {
   const col = localIdx % cols
   const nextLocal = localIdx + dy * cols
   if (nextLocal >= 0 && nextLocal < items.length) {
-    selectKeyboardItemByName(items[nextLocal].name)
+    selectKeyboardItemByPath(items[nextLocal].path)
     return
   }
 
   if (dy < 0) {
     if (segIdx <= 0) {
-      selectKeyboardItemByName(items[col].name)
+      selectKeyboardItemByPath(items[col].path)
       return
     }
     const prev = segments[segIdx - 1]
     let target = Math.min(col, prev.length - 1)
     for (let i = col; i < prev.length; i += cols)
       target = i
-    selectKeyboardItemByName(prev[target].name)
+    selectKeyboardItemByPath(prev[target].path)
     return
   }
 
@@ -1388,11 +1389,11 @@ function moveKeyboardSelectionGrid(dx: number, dy: number) {
       let target = col
       for (let i = col; i < items.length; i += cols)
         target = i
-      selectKeyboardItemByName(items[target].name)
+      selectKeyboardItemByPath(items[target].path)
       return
     }
     const nextSeg = segments[segIdx + 1]
-    selectKeyboardItemByName(nextSeg[Math.min(col, nextSeg.length - 1)].name)
+    selectKeyboardItemByPath(nextSeg[Math.min(col, nextSeg.length - 1)].path)
   }
 }
 
@@ -1605,13 +1606,13 @@ function getSetScrollPosition(action: 'get' | 'set', value = 0): number {
   return value
 }
 
-function scrollToFile(name: string) {
+function scrollToPath(path: string) {
   const el = explorerContentRef.value
   if (!el) {
     return
   }
 
-  expandGroupForName(name)
+  expandGroupForPath(path)
 
   nextTick(() => {
     let targetTop = 0
@@ -1619,7 +1620,7 @@ function scrollToFile(name: string) {
 
     if (isGrouping.value && isGridMode.value) {
       const block = groupedGridVirtual.positioned.value.find(b =>
-        b.data.kind === 'row' && b.data.items.some(item => item.name === name),
+        b.data.kind === 'row' && b.data.items.some(item => item.path === path),
       )
       if (!block)
         return
@@ -1628,7 +1629,7 @@ function scrollToFile(name: string) {
     }
     else if (isGrouping.value) {
       const block = groupedListVirtual.positioned.value.find(b =>
-        b.data.kind === 'file' && b.data.item.name === name,
+        b.data.kind === 'file' && b.data.item.path === path,
       )
       if (!block)
         return
@@ -1637,14 +1638,14 @@ function scrollToFile(name: string) {
       itemHeight = block.height
     }
     else if (isGridMode.value) {
-      const index = filteredFiles.value.findIndex(item => item.name === name)
+      const index = filteredFiles.value.findIndex(item => item.path === path)
       if (index < 0)
         return
       targetTop = 10 + Math.floor(index / virtualGrid.columns.value) * virtualGrid.rowHeight.value
       itemHeight = virtualGrid.rowHeight.value
     }
     else {
-      const index = filteredFiles.value.findIndex(item => item.name === name)
+      const index = filteredFiles.value.findIndex(item => item.path === path)
       if (index < 0)
         return
       targetTop = index * virtualList.itemHeight.value
@@ -1658,14 +1659,25 @@ function scrollToFile(name: string) {
   })
 }
 
-function selectAndReveal(name: string) {
-  const index = filteredFiles.value.findIndex(item => item.name === name)
+function selectAndRevealPath(path: string) {
+  const index = filteredFiles.value.findIndex(item => item.path === path)
   if (index === -1) {
     return
   }
 
-  selectByNames([name])
-  nextTick(() => scrollToFile(name))
+  selectByPaths([path])
+  nextTick(() => scrollToPath(path))
+}
+
+/** Reveal by basename for callers that only know the name (apps, e2e). */
+function selectAndReveal(name: string) {
+  const item = filteredFiles.value.find(entry => entry.name === name)
+  if (!item) {
+    return
+  }
+
+  selectByPaths([item.path])
+  nextTick(() => scrollToPath(item.path))
 }
 
 /**
@@ -1942,7 +1954,7 @@ defineExpose({
             :virtual-after-height="tableAfterHeight"
             :virtual-row-height="virtualList.itemHeight.value"
             :get-tooltip="(row) => getTooltip(row)"
-            :cut-names="currentCutNames"
+            :cut-paths="currentCutPaths"
             :draggable="dragEnabled"
             :drop-target-name="dropTargetName"
             :custom-toggle="toggleSelect"
@@ -1979,13 +1991,13 @@ defineExpose({
             >
               <FileGridItem
                 v-for="item in block.data.items"
-                :key="item.name"
+                :key="item.path"
                 class="selectable"
                 :item="item"
-                :base-path="basePath"
                 :data-name="item.name"
+                :data-path="item.path"
                 :active="selectedItemsSet.has(item)"
-                :is-cut="currentCutNames.has(item.name)"
+                :is-cut="currentCutPaths.has(item.path)"
                 :draggable="dragEnabled"
                 :is-drop-target="dropTargetName === item.name"
                 :show-checkbox="allowMultipleSelection"
@@ -2002,13 +2014,13 @@ defineExpose({
           <div class="explorer-grid-items" :style="virtualGridItemsStyle">
             <FileGridItem
               v-for="{ item } in virtualGrid.visibleItems.value"
-              :key="item.name"
+              :key="item.path"
               class="selectable"
               :item="item"
-              :base-path="basePath"
               :data-name="item.name"
+              :data-path="item.path"
               :active="selectedItemsSet.has(item)"
-              :is-cut="currentCutNames.has(item.name)"
+              :is-cut="currentCutPaths.has(item.path)"
               :draggable="dragEnabled"
               :is-drop-target="dropTargetName === item.name"
               :show-checkbox="allowMultipleSelection"

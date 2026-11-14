@@ -10,7 +10,7 @@ const route = useRoute()
 
 type LoginTab = 'password' | 'ticket'
 
-const activeTabStored = useStorage<LoginTab>(LsKeys.LOGIN_ACTIVE_TAB, 'password', localStorage, {
+const activeTabStored = useStorage<LoginTab>(LsKeys.LOGIN_ACTIVE_TAB, 'ticket', localStorage, {
   listenToStorageChanges: false,
 })
 

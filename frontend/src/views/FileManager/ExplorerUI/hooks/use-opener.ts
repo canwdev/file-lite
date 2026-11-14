@@ -17,7 +17,7 @@ import { appListByOpenWith, getDefaultApp, getFileExt, isBuiltinApp, OpenWithEnu
 import { openAppWindow, openPluginWindow } from '@/views/Apps/apps-store'
 import { findTarget } from '@/views/Apps/registry'
 import { matchesExtractExtension, startArchiveExtract } from '@/views/FileManager/ExplorerUI/archive-dialog.ts'
-import { joinPath, normalizePath } from '../../utils'
+import { normalizePath } from '../../utils'
 
 interface OpenAppInfo {
   name: string
@@ -172,7 +172,7 @@ export function useOpener(basePath: { value: string }) {
    * 取不到地址时直接放弃，而不是 `await` 掉手势。
    */
   const getStreamUrl = (item: IEntry) => {
-    return fs.url(normalizePath(joinPath(basePath.value, item.name)))
+    return fs.url(normalizePath(item.path))
   }
 
   const openFile = async (
@@ -186,7 +186,7 @@ export function useOpener(basePath: { value: string }) {
     list: IEntry[],
   ) => {
     try {
-      const absPath = normalizePath(joinPath(basePath.value, item.name))
+      const absPath = normalizePath(item.path)
       const openApp = (appName: OpenWithEnum) => {
         openAppWindow(appName, {
           absPath,

@@ -18,8 +18,11 @@ const props = withDefaults(defineProps<{
   modelValue: string
   /** 所在标签是否可见；切走时为 false，避免在 display:none 下按 0 宽折叠 */
   active?: boolean
+  /** Whether this pane is currently flattening subdirectories (Ctrl+B). */
+  branchView?: boolean
 }>(), {
   active: true,
+  branchView: false,
 })
 
 const emit = defineEmits<{
@@ -27,6 +30,7 @@ const emit = defineEmits<{
   'navigate': [string, string | null]
   'openPathInNewTab': [string]
   'refresh': []
+  'exitBranch': []
 }>()
 
 const editing = ref(false)
@@ -599,6 +603,17 @@ defineExpose({
         {{ $t('file_lite_i18n.path') }}
       </button>
     </div>
+    <button
+      v-if="branchView && !editing"
+      type="button"
+      class="vgo-u-button-reset vgo-badge vgo-badge--primary address-bar__branch"
+      :title="`${$t('file_lite_i18n.branch_view')} (Ctrl+B)`"
+      :aria-label="`${$t('file_lite_i18n.branch_view')} (Ctrl+B)`"
+      @click.stop="emit('exitBranch')"
+    >
+      <i-mdi-close />
+      <span class="address-bar__branch-label">{{ $t('file_lite_i18n.branch_view') }}</span>
+    </button>
   </div>
 </template>
 
@@ -729,6 +744,25 @@ defineExpose({
     background-color: var(--vgo-primary-opacity);
     outline: 2px dashed var(--vgo-primary);
     outline-offset: -2px;
+  }
+}
+
+.address-bar__branch {
+  align-self: center;
+  flex-shrink: 0;
+  gap: var(--vgo-space-1);
+  margin-inline-end: var(--vgo-space-1);
+  padding: var(--vgo-space-1) var(--vgo-space-2);
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  @include when-panel-narrow {
+    .address-bar__branch-label {
+      display: none;
+    }
   }
 }
 

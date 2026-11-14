@@ -229,7 +229,7 @@ export function useTransfer({
       else {
         for (const itemsKey in selectedItems.value) {
           const item = selectedItems.value[itemsKey]
-          paths.push(normalizePath(joinPath(basePath.value, item.name)))
+          paths.push(normalizePath(item.path))
         }
       }
 
@@ -284,14 +284,12 @@ export function useTransfer({
         initialStack = children.map(item => ({
           entry: item,
           parentHandle: dirHandle,
-          basePathStr: basePath.value,
         }))
       }
       else {
         initialStack = selectedItems.value.map(item => ({
           entry: item,
           parentHandle: handle,
-          basePathStr: basePath.value,
         }))
       }
 
@@ -307,8 +305,8 @@ export function useTransfer({
       }
 
       while (stack.length) {
-        const { entry, parentHandle, basePathStr } = stack.pop()!
-        const itemPath = normalizePath(joinPath(basePathStr, entry.name))
+        const { entry, parentHandle } = stack.pop()!
+        const itemPath = normalizePath(entry.path)
 
         if (entry.isDirectory) {
           const dirHandle = await parentHandle.getDirectoryHandle(entry.name, { create: true })
@@ -317,7 +315,6 @@ export function useTransfer({
             stack.push({
               entry: children[i],
               parentHandle: dirHandle,
-              basePathStr: itemPath,
             })
           }
         }

@@ -1,7 +1,7 @@
 import type { TaskItemResult, TaskSnapshot } from '@/types/server'
 import { useSharedRef } from '@/hooks/use-shared-ref'
 import { createTask, onTaskDone } from '@/store/tasks'
-import { joinPath, normalizeListingPath, normalizePath } from '../../utils'
+import { normalizeListingPath, normalizePath } from '../../utils'
 
 const explorerStore = useSharedRef<{
   cutPaths: string[]
@@ -28,16 +28,13 @@ export function useCopyPaste({
     return explorerStore.value.cutPaths.length > 0 || explorerStore.value.copyPaths.length > 0
   })
 
-  /** 当前目录下被剪切的文件名集合（用于半透明样式） */
-  const currentCutNames = computed(() => {
-    const names = new Set<string>()
+  /** Full canonical paths of the cut entries (used for the dimmed style). */
+  const currentCutPaths = computed(() => {
+    const paths = new Set<string>()
     for (const p of explorerStore.value.cutPaths) {
-      const normalized = normalizePath(p)
-      const name = normalized.split('/').pop()
-      if (name && normalizePath(joinPath(basePath.value, name)) === normalized)
-        names.add(name)
+      paths.add(normalizePath(p))
     }
-    return names
+    return paths
   })
 
   const handleCut = () => {
@@ -133,7 +130,7 @@ export function useCopyPaste({
     handleCut,
     handleCopy,
     handlePaste,
-    currentCutNames,
+    currentCutPaths,
   }
 }
 

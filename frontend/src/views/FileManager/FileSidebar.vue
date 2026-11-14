@@ -230,7 +230,14 @@ defineExpose({
 
     &__content {
       flex: 1;
-      overflow: hidden;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+
+      .vgo-progress {
+        flex-shrink: 0;
+      }
     }
 
     &__title {

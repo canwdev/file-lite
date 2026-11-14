@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { IEntry } from '@/types/server'
-import { joinPath } from '@/utils/path/form'
 import ThemedIcon from '@/views/FileManager/ExplorerUI/ThemedIcon.vue'
 import { useFileItem } from './hooks/use-file-item'
 
 const props = withDefaults(defineProps<{
   item: IEntry
-  basePath: string
   active: boolean
   isCut?: boolean
   showCheckbox?: boolean
@@ -53,7 +51,7 @@ function openFromName(event: MouseEvent) {
       @dblclick.stop
     />
 
-    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="joinPath(basePath, item.name)" :icon-size="iconSize" show-open-app-badge />
+    <ThemedIcon class="desktop-icon-image" :icon-class="iconClass" :item="item" :abs-path="item.path" :icon-size="iconSize" show-open-app-badge />
     <span
       class="desktop-icon-name"
       :class="{

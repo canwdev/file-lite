@@ -111,6 +111,17 @@ function disableBranchListing() {
   return true
 }
 
+/**
+ * Leaving branch view from the address-bar badge: only flip the pane view and let the
+ * prop watcher reload the normal listing. Toggling `branchListing` here would make that
+ * watcher see no change and skip the refresh.
+ */
+function exitBranchView() {
+  if (!branchListing.value)
+    return
+  syncBranchViewProp(false)
+}
+
 const {
   isLoading,
   loadError,
@@ -635,6 +646,8 @@ defineExpose({
               ref="addressBarRef"
               v-model="addressBarPath"
               :active="active"
+              :branch-view="branchListing"
+              @exit-branch="exitBranchView"
               @navigate="(path: string, highlightName: string | null) => { highlightFolderName = highlightName; handleOpenPath(path) }"
               @open-path-in-new-tab="$emit('openPathInNewTab', $event)"
               @refresh="debounceHandleRefresh"

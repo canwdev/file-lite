@@ -34,6 +34,26 @@ export function createDragFixture() {
 }
 
 /**
+ * Branch view 用例的夹具树。
+ *
+ * 同名文件分别放在不同子目录，用来验证平铺后选中、剪切、拖拽与删除确认
+ * 都作用在正确的文件上；`deeper/deep.txt` 用来验证多层平铺与打开文件时
+ * 使用真实路径。
+ */
+export function createBranchFixture() {
+  const branch = path.join(filesDir, 'branch')
+  fs.rmSync(branch, { recursive: true, force: true })
+  fs.mkdirSync(path.join(branch, 'sub1', 'deeper'), { recursive: true })
+  fs.mkdirSync(path.join(branch, 'sub2'), { recursive: true })
+  fs.writeFileSync(path.join(branch, 'a.txt'), 'root-a')
+  fs.writeFileSync(path.join(branch, 'sub1', 'same.txt'), 'sub1-same')
+  fs.writeFileSync(path.join(branch, 'sub1', 'only-one.txt'), 'only-one')
+  fs.writeFileSync(path.join(branch, 'sub1', 'deeper', 'deep.txt'), 'deep')
+  fs.writeFileSync(path.join(branch, 'sub2', 'same.txt'), 'sub2-same')
+  return branch
+}
+
+/**
  * 内置 App 用例的夹具树。
  *
  * 单独一个目录，避免往 source/ 里加文件影响其它用例的行数与排序：
@@ -239,6 +259,7 @@ export function resetFixture() {
 
   createDragFixture()
   createAppsFixture()
+  createBranchFixture()
 
   fs.mkdirSync(dataDir, { recursive: true })
   createPluginFixture()

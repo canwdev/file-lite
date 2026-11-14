@@ -71,6 +71,7 @@ import MdiFileOutline from '~icons/mdi/file-outline'
 import MdiFilePdfOutline from '~icons/mdi/file-pdf-outline'
 import MdiFilePowerpointOutline from '~icons/mdi/file-powerpoint-outline'
 import MdiFileQuestionOutline from '~icons/mdi/file-question-outline'
+import MdiFileTree from '~icons/mdi/file-tree'
 import MdiFileUploadOutline from '~icons/mdi/file-upload-outline'
 import MdiFileVideoOutline from '~icons/mdi/file-video-outline'
 import MdiFileWordOutline from '~icons/mdi/file-word-outline'
@@ -183,6 +184,7 @@ import MdiZipBox from '~icons/mdi/zip-box'
 
 export const mdiIconRegistry: Record<string, Component> = {
   'file-question-outline': MdiFileQuestionOutline,
+  'file-tree': MdiFileTree,
   'folder': MdiFolder,
   'zip-box': MdiZipBox,
   'archive-arrow-up-outline': MdiArchiveArrowUpOutline,

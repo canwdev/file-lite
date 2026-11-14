@@ -30,7 +30,7 @@ const props = withDefaults(
     virtualAfterHeight?: number
     virtualRowHeight?: number
     getTooltip?: (row: any) => string
-    cutNames?: Set<string>
+    cutPaths?: Set<string>
     selectedRows: Set<any>
     /** 行是否可拖拽（选择器模式下由 FileList 传 false） */
     draggable?: boolean
@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
         <tr v-if="virtualBeforeHeight" class="virtual-spacer" aria-hidden="true">
           <td :colspan="columnSpan" :style="{ height: `${virtualBeforeHeight}px` }" />
         </tr>
-        <template v-for="(row, index) in renderedRows" :key="isGroupHeader(row) ? row.id : (fileOf(row).name || index)">
+        <template v-for="(row, index) in renderedRows" :key="isGroupHeader(row) ? row.id : (fileOf(row).path || fileOf(row).name || index)">
           <tr
             v-if="isGroupHeader(row)"
             class="group-header-row"
@@ -282,13 +282,14 @@ onBeforeUnmount(() => {
             class="vgo-list-item table-row selectable"
             :class="{
               'is-active': mSelectedRows.has(fileOf(row)),
-              'is-cut': cutNames?.has(fileOf(row).name),
+              'is-cut': cutPaths?.has(fileOf(row).path),
               'is-drop-target': dropTargetName === fileOf(row).name,
             }"
             :draggable="draggable"
             :style="(rowFileHeight(row) ?? virtualRowHeight) ? { height: `${rowFileHeight(row) ?? virtualRowHeight}px` } : undefined"
             :title="getTooltip ? getTooltip(fileOf(row)) : ''"
             :data-name="fileOf(row).name"
+            :data-path="fileOf(row).path"
             @click.stop="toggleRowSelection(fileOf(row), $event)"
             @dblclick.stop="$emit('open', fileOf(row))"
             @contextmenu.prevent.stop="

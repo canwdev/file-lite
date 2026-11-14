@@ -125,7 +125,12 @@ func statEntry(path string) (types.Entry, bool) {
 	if err != nil {
 		return types.Entry{}, false
 	}
-	return entryFromStat(fileops.BaseName(path), st, osPath, li.Mode()&os.ModeSymlink != 0), true
+	entry := entryFromStat(fileops.BaseName(path), st, osPath, li.Mode()&os.ModeSymlink != 0)
+	// Incremental entry patches are consumed like listing rows: they must carry
+	// the same canonical path, otherwise actions on a just-created entry (for
+	// example extracting the ZIP a task just wrote) would send an empty source.
+	entry.Path = path
+	return entry, true
 }
 
 func dedupeEntries(entries []types.Entry) []types.Entry {

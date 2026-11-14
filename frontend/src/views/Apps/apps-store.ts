@@ -37,10 +37,14 @@ function rememberExplorerFocus(id: string) {
 
 /** Refocus the file the app was showing, falling back to the element that opened it. */
 function focusReturnedFile(win: AppWindowState, fallback: HTMLElement) {
+  const path = win.data.appParams.item?.path
   const name = win.data.appParams.item?.name
   const list = fallback.closest('.explorer-list-wrap')
-  if (name && list) {
-    const item = list.querySelector(`[data-name="${CSS.escape(name)}"]`)
+  const selector = path
+    ? `[data-path="${CSS.escape(path)}"]`
+    : (name ? `[data-name="${CSS.escape(name)}"]` : '')
+  if (selector && list) {
+    const item = list.querySelector(selector)
     if (item instanceof HTMLElement) {
       if (!item.matches('button, a, input, textarea, select, [tabindex]'))
         item.tabIndex = -1
