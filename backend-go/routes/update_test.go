@@ -19,12 +19,28 @@ func newUpdateServer() *echo.Echo {
 	return e
 }
 
-// 默认（config 里没打开 allowSelfUpdate）时三条高危端点根本不注册。
+// allowSelfUpdate 关闭时，GitHub 更新检查/安装仍然存在；上传二进制、重启和退出不注册。
 func TestServerRoutesAreOffByDefault(t *testing.T) {
 	e := withAPIErrorHandler(echo.New())
 	registerServerRoutes(e.Group("/api"), false)
 
-	cases := []struct {
+	updateCases := []struct {
+		method string
+		target string
+	}{
+		{http.MethodGet, "/api/server/update"},
+		{http.MethodGet, "/api/server/update/status"},
+		{http.MethodPost, "/api/server/updates/github"},
+	}
+	for _, c := range updateCases {
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(c.method, c.target, nil))
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("%s %s is not registered", c.method, c.target)
+		}
+	}
+
+	adminCases := []struct {
 		method string
 		target string
 	}{
@@ -32,7 +48,7 @@ func TestServerRoutesAreOffByDefault(t *testing.T) {
 		{http.MethodPost, "/api/server/restarts"},
 		{http.MethodDelete, "/api/server"},
 	}
-	for _, c := range cases {
+	for _, c := range adminCases {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequest(c.method, c.target, nil))
 		if rec.Code != http.StatusNotFound {

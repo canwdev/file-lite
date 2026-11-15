@@ -20,22 +20,27 @@ import (
 // 否则用户看到的是连接被重置，而不是「更新成功，正在重启」。
 const restartDelay = 500 * time.Millisecond
 
-// registerServerRoutes 注册自更新（上传二进制 / GitHub 更新）、重启与退出等高危端点，见 docs/design/api.md §10。
-// enabled 为 false 时一条都不注册：调用方拿到 404，而不是 401/403 —— 端点不存在本身就是答案。
-func registerServerRoutes(api *echo.Group, enabled bool) {
-	if !enabled {
+// registerServerRoutes registers the update and process-control endpoints, see
+// docs/design/api.md §10. The GitHub update check, its status and the install
+// request are part of the frontend update flow and are always registered.
+// Uploading a binary, restarting and exiting remain opt-in through
+// allowSelfUpdate; an absent endpoint answers 404, not 401/403.
+func registerServerRoutes(api *echo.Group, allowSelfUpdate bool) {
+	server := api.Group("/server")
+	// The middleware is per route: a group with middleware also registers catch-all
+	// 404 routes, which would turn the gated endpoints below into 401 for
+	// unauthenticated callers instead of the intended 404.
+	server.GET("/update", checkReleaseUpdate, middlewares.AuthMiddleware)
+	server.GET("/update/status", updateStatus, middlewares.AuthMiddleware)
+	server.POST("/updates/github", installGitHubUpdate, middlewares.AuthMiddleware)
+	if !allowSelfUpdate {
 		return
 	}
-	server := api.Group("/server", middlewares.AuthMiddleware)
 	// 上传新二进制是一次创建（POST /server/updates）；重启用 POST（一次重启请求），
 	// 停止进程用 DELETE /server —— 服务端资源本身被删掉。
-	server.POST("/updates", applyUpdate)
-	// GitHub 更新：先查最新版本，再由后端下载、校验并安装。
-	server.GET("/update", checkReleaseUpdate)
-	server.GET("/update/status", updateStatus)
-	server.POST("/updates/github", installGitHubUpdate)
-	server.POST("/restarts", restartBackend)
-	server.DELETE("", exitBackend)
+	server.POST("/updates", applyUpdate, middlewares.AuthMiddleware)
+	server.POST("/restarts", restartBackend, middlewares.AuthMiddleware)
+	server.DELETE("", exitBackend, middlewares.AuthMiddleware)
 }
 
 // restartBackend 用原来的 argv / 环境变量把进程重新拉起来，用来重载配置。

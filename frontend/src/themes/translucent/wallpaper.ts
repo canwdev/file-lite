@@ -15,38 +15,11 @@ export function applyWallpaperCssVariable(url: string) {
   root.style.setProperty(CSS_VARIABLE, `url(${JSON.stringify(url)})`)
 }
 
-/** Best-effort check: let the browser fetch and decode the URL as an image. */
-export function canLoadImage(url: string, timeoutMs = 10000): Promise<boolean> {
-  return new Promise((resolve) => {
-    const image = new Image()
-    const timer = window.setTimeout(finish, timeoutMs, false)
-
-    function finish(ok: boolean) {
-      window.clearTimeout(timer)
-      image.onload = null
-      image.onerror = null
-      resolve(ok)
-    }
-
-    image.onload = () => finish(true)
-    image.onerror = () => finish(false)
-    image.src = url
-  })
-}
-
 export function dataUrlToBytes(dataUrl: string): number {
   const comma = dataUrl.indexOf(',')
   if (comma < 0)
     return 0
   return Math.ceil(((dataUrl.length - comma - 1) * 3) / 4)
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024)
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  if (bytes >= 1024)
-    return `${Math.round(bytes / 1024)} KB`
-  return `${bytes} B`
 }
 
 type LoadedImage = ImageBitmap | HTMLImageElement

@@ -52,31 +52,33 @@ function applyGlobalTheme(rgb: string) {
   syncPrimaryColor(rgb, changeElementPlusTheme!)
 }
 
-export function useGlobalTheme() {
-  const { changeTheme } = useElementPlusTheme()
-  changeElementPlusTheme = changeTheme
-  const isSystemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
-  const handleSystemThemeChange = (event: any) => {
+/**
+ * Whether the page is rendered dark: the theme mode decides, and Auto follows the system.
+ *
+ * Extracted so colour swatches can pick the shade that matches the current page without
+ * re-running the element-plus theming hook, which must run once at the app root.
+ */
+export function useAppDarkMode() {
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  const isSystemDarkMode = ref(media.matches)
+
+  function onSystemThemeChange(event: MediaQueryListEvent) {
     isSystemDarkMode.value = Boolean(event.matches)
   }
 
-  onBeforeUnmount(() => {
-    window
-      .matchMedia('(prefers-color-scheme: dark)')
-      .removeEventListener('change', handleSystemThemeChange)
-  })
-  onMounted(() => {
-    window
-      .matchMedia('(prefers-color-scheme: dark)')
-      .addEventListener('change', handleSystemThemeChange)
-  })
+  onMounted(() => media.addEventListener('change', onSystemThemeChange))
+  onBeforeUnmount(() => media.removeEventListener('change', onSystemThemeChange))
 
-  const isAppDarkMode = computed(() => {
-    if (localSettingsStore.value.themeMode === ThemeMode.Auto) {
-      return isSystemDarkMode.value
-    }
-    return localSettingsStore.value.themeMode === ThemeMode.Dark
+  return computed(() => {
+    const mode = localSettingsStore.value.themeMode
+    return mode === ThemeMode.Dark || (mode === ThemeMode.Auto && isSystemDarkMode.value)
   })
+}
+
+export function useGlobalTheme() {
+  const { changeTheme } = useElementPlusTheme()
+  changeElementPlusTheme = changeTheme
+  const isAppDarkMode = useAppDarkMode()
   useTranslucentTheme()
   watch(
     [() => settingsStore.value.colorTheme, isAppDarkMode],

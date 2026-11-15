@@ -6,13 +6,22 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### UI
 
+- **Updates**: The update rows in Settings have icons (frontend).
+- **Settings icons**: The Development rows, Show folders first and Reduce motion no longer show a row icon, and Reduce motion drops its description (frontend).
+- **Color theme**: The colour row in Settings is a dropdown with a palette icon, every entry shows the colour it applies, and it can go back to Default (frontend).
+- **Background**: The wallpaper row is a mode dropdown — None, URL, Local image — that reveals the rows it needs: a preset list with a custom-URL entry, or Upload and Clear. It starts at None (frontend).
+- **Group by**: The grouping menu's (None) entry is translated like every other label instead of a hardcoded "(None)" (frontend).
 - **Branch view**: The address bar shows a closable badge while Ctrl+B is on, and a selected file or folder can toggle branch view from the context menu's More submenu (frontend).
 - **Batch Rename**: With more than one item selected, F2 opens Batch Rename, and the More menu shows F2 on its Batch Rename entry (frontend).
 
 ### Features
 
+- **Updates**: While file-lite is open, Settings checks GitHub once a day by default, and an available update offers Install, Remind me later and Skip this version (frontend).
+- **Updates**: The GitHub update check and install keep working when `allowSelfUpdate` is off; uploading a binary, restarting and exiting still require it (frontend, backend).
 - **Batch Rename**: A template can include the parent folder name with `{folder}`, and a preset names files as `{folder}_{name}` (frontend).
 - **Batch Rename**: Rules can be imported from and exported to a JSON file from the Rules header, and the picker button now says Select Files & Folders (frontend).
+- **Languages**: The update UI speaks Traditional Chinese, Japanese and Russian (frontend).
+- **Languages**: The Background row, the theme options and the batch rename rule import and export messages are translated too (frontend).
 
 ### Fixes
 

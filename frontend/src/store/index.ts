@@ -16,6 +16,12 @@ function createDefaultSettingsStore() {
     language: '' as AppLocale | '',
     /** GitHub 更新渠道：stable = 正式版，preview = 最新预发布版 */
     updateChannel: 'stable' as 'stable' | 'preview',
+    /** 打开 file-lite 时每天自动检查一次更新 */
+    updateAutoCheck: true,
+    /** 用户选择跳过的版本 tag */
+    updateSkippedVersion: '',
+    /** 上次成功检查更新的毫秒时间戳，0 表示还没检查过 */
+    updateLastCheckAt: 0,
   }
 }
 
@@ -34,6 +40,11 @@ function normalizeSettingsStoreValue(value: unknown): SettingsStoreState {
     pageTitle: typeof raw.pageTitle === 'string' ? raw.pageTitle : defaults.pageTitle,
     language: isAppLocale(raw.language) ? raw.language : defaults.language,
     updateChannel: raw.updateChannel === 'preview' ? 'preview' : defaults.updateChannel,
+    updateAutoCheck: Boolean(raw.updateAutoCheck ?? defaults.updateAutoCheck),
+    updateSkippedVersion: typeof raw.updateSkippedVersion === 'string' ? raw.updateSkippedVersion : defaults.updateSkippedVersion,
+    updateLastCheckAt: typeof raw.updateLastCheckAt === 'number' && Number.isFinite(raw.updateLastCheckAt) && raw.updateLastCheckAt >= 0
+      ? raw.updateLastCheckAt
+      : defaults.updateLastCheckAt,
   }
 }
 
@@ -60,9 +71,9 @@ function createDefaultLocalSettingsStore() {
     themeMode: 'auto' as 'auto' | 'light' | 'dark',
     /** 背景主题：default = 不透明；translucent = 半透明 + 壁纸 */
     themeStyle: 'default' as 'default' | 'translucent',
-    /** 半透明主题的预设壁纸 id；wallpaperUrl 非空时优先使用自定义地址 */
+    /** 半透明主题的预设壁纸 id；`none`（默认）表示不显示壁纸 */
     wallpaperPreset: DEFAULT_WALLPAPER_PRESET,
-    /** 手动输入的 URL 或上传图片转成的 data URL */
+    /** 上传图片转成的 data URL，非空时优先于预设 */
     wallpaperUrl: '',
     isNativePlayer: false,
     openAppWithFilteredList: false,

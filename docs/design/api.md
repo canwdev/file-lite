@@ -755,8 +755,10 @@ switching to another target cancels the previous measurement.
 
 ## 10. Server operations
 
-Registered only when `allowSelfUpdate` is set in the config; otherwise these routes do
-not exist and the response is `404` (the endpoint's absence is the answer, not 401/403).
+`GET /api/server/update`, `GET /api/server/update/status` and
+`POST /api/server/updates/github` are always registered. The remaining routes are
+registered only when `allowSelfUpdate` is set in the config; otherwise they do not exist
+and the response is `404` (the endpoint's absence is the answer, not 401/403).
 
 ### `POST /api/server/updates`
 

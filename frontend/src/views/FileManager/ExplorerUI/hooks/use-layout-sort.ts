@@ -83,7 +83,7 @@ export function useLayoutGroup(
     return [
       ...fieldItems,
       {
-        label: '(None)',
+        label: $t('file_lite_i18n.none'),
         icon: checkIcon(field === 'none'),
         divided: true,
         onClick: () => {

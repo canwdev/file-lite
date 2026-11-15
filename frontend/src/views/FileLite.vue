@@ -5,12 +5,14 @@ import { closeSharedWs, ensureSharedWsConnected } from '@/api/shared-ws'
 import { SHELL_SHORTCUT_SCOPE, useShortcut } from '@/hooks/use-shortcut'
 import { localSettingsStore, settingsStore } from '@/store'
 import { authSession, authSessionRemainingSeconds, authSessionRenewable } from '@/store/auth'
+import { disposeUpdateCenter, initializeUpdateCenter } from '@/store/update'
 import { useFileLiteMenu } from '@/views/Apps/use-file-lite-menu.ts'
 import ExplorerTabBar from '@/views/FileManager/ExplorerTabBar.vue'
 import { transferQueue } from '@/views/FileManager/ExplorerUI/transfer-queue-registry'
 import FileManager from '@/views/FileManager/FileManager.vue'
 import FilePickerHost from '@/views/FileManager/FilePickerHost.vue'
 import TransferQueue from '@/views/FileManager/TransferQueue.vue'
+import UpdateDialog from '@/views/UpdateDialog.vue'
 import WsStatusDisplay from '@/views/WsStatusDisplay.vue'
 import AppsEntry from './Apps/AppsEntry.vue'
 
@@ -18,6 +20,7 @@ const { hasPlugins, menuOpen, pluginMenuOpen, setMenuTriggerRef, setPluginMenuTr
 
 onMounted(() => {
   void listPlugins().catch(() => [])
+  void initializeUpdateCenter()
 })
 
 // The shared WebSocket belongs to the file-manager shell: the IP sharing page
@@ -33,6 +36,7 @@ watch(authSession, (session) => {
 
 onBeforeUnmount(() => {
   closeSharedWs()
+  disposeUpdateCenter()
 })
 
 const pageTitle = computed(() => settingsStore.value.pageTitle.trim())
@@ -147,6 +151,7 @@ function toggleTransferPanel() {
   <TransferQueue auto-close />
   <AppsEntry />
   <FilePickerHost />
+  <UpdateDialog />
   <WsStatusDisplay />
 </template>
 

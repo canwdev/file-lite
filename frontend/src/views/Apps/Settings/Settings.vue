@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VgoOptionItem } from '@canwdev/vgo-ui'
 import { OptionUI, VgoOptionType } from '@canwdev/vgo-ui'
+import dayjs from 'dayjs'
 import {
   ElCheckbox,
   ElColorPicker,
@@ -13,6 +14,22 @@ import {
   ElSwitch,
   ElTooltip,
 } from 'element-plus'
+import MdiCalendarSync from '~icons/mdi/calendar-sync'
+import MdiDatabaseOutline from '~icons/mdi/database-outline'
+import MdiEyeOutline from '~icons/mdi/eye-outline'
+import MdiFilterVariant from '~icons/mdi/filter-variant'
+import MdiFormatTitle from '~icons/mdi/format-title'
+import MdiHistory from '~icons/mdi/history'
+import MdiImageOffOutline from '~icons/mdi/image-off-outline'
+import MdiLayersOutline from '~icons/mdi/layers-outline'
+import MdiPaletteOutline from '~icons/mdi/palette-outline'
+import MdiPlayBoxOutline from '~icons/mdi/play-box-outline'
+import MdiSourceBranch from '~icons/mdi/source-branch'
+import MdiTagOutline from '~icons/mdi/tag-outline'
+import MdiThemeLightDark from '~icons/mdi/theme-light-dark'
+import MdiTranslate from '~icons/mdi/translate'
+import MdiUpdate from '~icons/mdi/update'
+import MdiWallpaper from '~icons/mdi/wallpaper'
 import { applyUpdate, exitBackend, restartBackend } from '@/api/server'
 import { isDev } from '@/enum'
 import { PKG_NAME, VERSION } from '@/enum/version'
@@ -21,14 +38,16 @@ import { clearLastOpenedMediaMap } from '@/hooks/use-last-opened-media'
 import { localeOptions } from '@/i18n'
 import { localSettingsStore, settingsStore } from '@/store'
 import { serverCapabilities } from '@/store/capabilities'
-import TranslucentBackgroundSettings from '@/themes/translucent/TranslucentBackgroundSettings.vue'
+import { updateBusy, updateChecking, updateInfo } from '@/store/update'
+import { WALLPAPER_PRESETS } from '@/themes/translucent/presets'
+import { CUSTOM_URL_CHOICE, useWallpaperSettings } from '@/themes/translucent/use-wallpaper-settings'
 import { enableDebug } from '@/utils/debug'
 import { clearImageThumbCache, getImageThumbCacheStats } from '@/utils/image-thumb-cache'
 import { InternalAppEnum } from '@/views/Apps/apps'
 import { appWindows } from '@/views/Apps/apps-store'
 import { useCollection } from '@/views/Apps/EndlessGallery/use-collection'
 import { builtinAppOf } from '@/views/Apps/registry'
-import ThemeSwatches from '@/views/Apps/Settings/ThemeSwatches.vue'
+import ColorThemeSelect from '@/views/Apps/Settings/ColorThemeSelect.vue'
 import UpdateChecker from '@/views/Apps/Settings/UpdateChecker.vue'
 import { explorerStateMap } from '@/views/FileManager/ExplorerUI/explorer-state'
 import explorerBus, { ExplorerEvents } from '@/views/FileManager/utils/bus'
@@ -59,6 +78,14 @@ if (app) {
 }
 
 const { clearCollection } = useCollection()
+
+/** Background rows: the mode select plus the rows it reveals (see the hook). */
+const wallpaper = useWallpaperSettings()
+
+// A row without an icon still needs its icon box: OptionUI only renders the
+// fixed-width slot when `iconRender` is set, and without it the label slides to
+// the left edge instead of lining up with the rows above and below.
+const noRowIcon = () => h('span')
 
 type CacheStats = Awaited<ReturnType<typeof getImageThumbCacheStats>>
 const cacheStats = ref<CacheStats | null>(null)
@@ -248,6 +275,25 @@ const versionSubtitle = computed(() => {
   return `<a href="https://github.com/canwdev/file-lite" target="_blank" rel="noopener noreferrer">${PKG_NAME}</a> ${displayVersion.value}${platform}`
 })
 
+const updateStatusText = computed(() => {
+  if (updateBusy.value)
+    return `${$t('file_lite_i18n.updating')}${ELLIPSIS}`
+  if (updateChecking.value)
+    return `${$t('file_lite_i18n.checking')}${ELLIPSIS}`
+  const info = updateInfo.value
+  if (info?.available) {
+    return info.tag === settingsStore.value.updateSkippedVersion
+      ? $t('file_lite_i18n.skipped_version_0', [info.latest])
+      : $t('file_lite_i18n.update_available_0', [info.latest])
+  }
+  if (info)
+    return $t('file_lite_i18n.on_latest_version')
+  const last = settingsStore.value.updateLastCheckAt
+  if (last > 0)
+    return $t('file_lite_i18n.last_checked_0', [dayjs(last).format('YYYY-MM-DD HH:mm')])
+  return $t('file_lite_i18n.not_checked_yet')
+})
+
 const options = computed<VgoOptionItem[]>(() => [
   {
     label: $t('file_lite_i18n.appearance'),
@@ -256,6 +302,7 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.appearance'),
         key: 'themeMode',
+        iconRender: () => h(MdiThemeLightDark),
         store: local.value,
         type: VgoOptionType.MULTIPLE_SWITCH,
         options: [
@@ -267,42 +314,90 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.theme'),
         key: 'themeStyle',
+        iconRender: () => h(MdiLayersOutline),
         store: local.value,
         type: VgoOptionType.SELECT,
         options: [
-          { label: 'Default', value: 'default' },
-          { label: 'Translucent', value: 'translucent' },
+          { label: $t('file_lite_i18n.default'), value: 'default' },
+          { label: $t('file_lite_i18n.translucent'), value: 'translucent' },
         ],
       },
       local.value.themeStyle === 'translucent' && {
-        label: 'Background',
-        key: 'wallpaper',
-        store: local.value,
-        cls: 'settings-color-row',
-        render: () => h(TranslucentBackgroundSettings),
+        label: $t('file_lite_i18n.background'),
+        key: 'mode',
+        iconRender: () => h(MdiWallpaper),
+        subtitle: wallpaper.sourceText.value,
+        store: wallpaper.modeStore,
+        type: VgoOptionType.SELECT,
+        options: [
+          { label: $t('file_lite_i18n.none'), value: 'none' },
+          { label: $t('file_lite_i18n.url'), value: 'url' },
+          { label: $t('file_lite_i18n.local_image'), value: 'local' },
+        ],
+      },
+      local.value.themeStyle === 'translucent' && wallpaper.showPresetRow.value && {
+        label: $t('file_lite_i18n.preset'),
+        key: 'choice',
+        iconRender: noRowIcon,
+        store: wallpaper.urlChoiceStore,
+        type: VgoOptionType.SELECT,
+        options: [
+          ...WALLPAPER_PRESETS.map(preset => ({ label: preset.label, value: preset.id })),
+          { label: $t('file_lite_i18n.custom'), value: CUSTOM_URL_CHOICE },
+        ],
+      },
+      local.value.themeStyle === 'translucent' && wallpaper.showUrlRow.value && {
+        label: $t('file_lite_i18n.image_url'),
+        key: 'url',
+        iconRender: noRowIcon,
+        store: wallpaper.urlDraft,
+        type: VgoOptionType.INPUT,
+        props: { placeholder: 'https://…' },
+        actionRender: () => h('button', {
+          class: 'vgo-button',
+          onClick: () => wallpaper.applyUrl(),
+        }, $t('file_lite_i18n.apply')),
+      },
+      local.value.themeStyle === 'translucent' && wallpaper.showLocalRow.value && {
+        label: $t('file_lite_i18n.local_image'),
+        key: 'localImage',
+        iconRender: noRowIcon,
+        actionRender: () => h('div', { class: 'settings-row-actions' }, [
+          h('button', {
+            class: 'vgo-button',
+            disabled: wallpaper.busy.value,
+            onClick: () => void wallpaper.upload(),
+          }, wallpaper.uploadLabel.value),
+          h('button', {
+            class: 'vgo-button',
+            onClick: () => wallpaper.clear(),
+          }, $t('file_lite_i18n.clear')),
+        ]),
       },
       {
         label: $t('file_lite_i18n.color'),
         key: 'colorTheme',
-        cls: 'settings-color-row',
-        render: () => h(ThemeSwatches),
+        iconRender: () => h(MdiPaletteOutline),
+        actionRender: () => h(ColorThemeSelect),
       },
       {
         label: `${$t('file_lite_i18n.language')} / Language`,
         key: 'language',
+        iconRender: () => h(MdiTranslate),
         type: VgoOptionType.SELECT,
         options: localeOptions.map(option => ({ label: option.label, value: option.value })),
       },
       {
         label: $t('file_lite_i18n.reduce_motion'),
         key: 'reduceMotion',
+        iconRender: noRowIcon,
         type: VgoOptionType.SWITCH,
         store: local.value,
-        subtitle: $t('file_lite_i18n.shortens_animations_and_drops_bl'),
       },
       {
         label: $t('file_lite_i18n.custom_title'),
         key: 'pageTitle',
+        iconRender: () => h(MdiFormatTitle),
         type: VgoOptionType.INPUT,
         subtitle: $t('file_lite_i18n.shown_in_the_top_bar_and_the_bro'),
         props: {
@@ -319,6 +414,7 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.native_video_player'),
         key: 'isNativePlayer',
+        iconRender: () => h(MdiPlayBoxOutline),
         type: VgoOptionType.SWITCH,
         store: local.value,
         subtitle: $t('file_lite_i18n.uses_the_html5_video_player_inst'),
@@ -326,12 +422,14 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.remember_last_opened_media'),
         key: 'rememberLastMedia',
+        iconRender: () => h(MdiHistory),
         type: VgoOptionType.SWITCH,
         subtitle: $t('file_lite_i18n.media_player_shows_a_resume_butt', [$t('file_lite_i18n.media_player')]),
       },
       {
         label: $t('file_lite_i18n.open_apps_with_the_filtered_list'),
         key: 'openAppWithFilteredList',
+        iconRender: () => h(MdiFilterVariant),
         type: VgoOptionType.SWITCH,
         store: local.value,
         subtitle: $t('file_lite_i18n.apps_will_use_filtered_list_item'),
@@ -345,18 +443,21 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.show_hidden'),
         key: 'showHidden',
+        iconRender: () => h(MdiEyeOutline),
         type: VgoOptionType.SWITCH,
         store: local.value,
       },
       {
         label: $t('file_lite_i18n.show_folders_first'),
         key: 'sortFoldersFirst',
+        iconRender: noRowIcon,
         type: VgoOptionType.SWITCH,
         store: local.value,
       },
       {
         label: $t('file_lite_i18n.disable_preview'),
         key: 'disablePreview',
+        iconRender: () => h(MdiImageOffOutline),
         type: VgoOptionType.SWITCH,
         store: local.value,
         subtitle: $t('file_lite_i18n.hides_thumbnails_and_covers'),
@@ -364,6 +465,7 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: $t('file_lite_i18n.local_data'),
         key: 'localData',
+        iconRender: () => h(MdiDatabaseOutline),
         subtitle: $t('file_lite_i18n.last_opened_media_gallery_collec'),
         type: VgoOptionType.BUTTON,
         value: $t('file_lite_i18n.clear') + ELLIPSIS,
@@ -383,12 +485,14 @@ const options = computed<VgoOptionItem[]>(() => [
       {
         label: 'Debug console',
         key: 'enabled',
+        iconRender: noRowIcon,
         type: VgoOptionType.SWITCH,
         store: debugSettings,
       },
       isDev && {
         label: 'Demo transfer window',
         key: 'demoTransfer',
+        iconRender: noRowIcon,
         type: VgoOptionType.BUTTON,
         value: 'Open',
         props: {
@@ -401,6 +505,7 @@ const options = computed<VgoOptionItem[]>(() => [
       serverCapabilities.value.selfUpdate && {
         label: 'Backend binary',
         key: 'updateBackend',
+        iconRender: noRowIcon,
         subtitle: 'Replace the running server binary and restart.',
         type: VgoOptionType.BUTTON,
         value: 'Upload…',
@@ -412,6 +517,7 @@ const options = computed<VgoOptionItem[]>(() => [
       serverCapabilities.value.selfUpdate && {
         label: 'Restart backend',
         key: 'restartBackend',
+        iconRender: noRowIcon,
         subtitle: 'Reloads config. Transfers in progress are interrupted.',
         type: VgoOptionType.BUTTON,
         value: 'Restart…',
@@ -425,6 +531,7 @@ const options = computed<VgoOptionItem[]>(() => [
       serverCapabilities.value.selfUpdate && {
         label: 'Exit backend',
         key: 'exitBackend',
+        iconRender: noRowIcon,
         type: VgoOptionType.BUTTON,
         value: 'Exit…',
         props: {
@@ -439,10 +546,18 @@ const options = computed<VgoOptionItem[]>(() => [
   {
     label: $t('file_lite_i18n.about'),
     key: 'about',
-    children: present([
-      serverCapabilities.value.selfUpdate && {
+    children: [
+      {
+        label: $t('file_lite_i18n.updates'),
+        key: 'updates',
+        iconRender: () => h(MdiUpdate),
+        subtitle: updateStatusText.value,
+        actionRender: () => h(UpdateChecker),
+      },
+      {
         label: $t('file_lite_i18n.update_channel'),
         key: 'updateChannel',
+        iconRender: () => h(MdiSourceBranch),
         type: VgoOptionType.SELECT,
         options: [
           { label: $t('file_lite_i18n.update_channel_stable'), value: 'stable' },
@@ -450,12 +565,19 @@ const options = computed<VgoOptionItem[]>(() => [
         ],
       },
       {
+        label: $t('file_lite_i18n.check_automatically'),
+        key: 'updateAutoCheck',
+        iconRender: () => h(MdiCalendarSync),
+        type: VgoOptionType.SWITCH,
+        subtitle: $t('file_lite_i18n.check_automatically_hint'),
+      },
+      {
         label: $t('file_lite_i18n.version'),
         key: 'version',
+        iconRender: () => h(MdiTagOutline),
         subtitle: versionSubtitle.value,
-        actionRender: serverCapabilities.value.selfUpdate ? () => h(UpdateChecker) : undefined,
       },
-    ]),
+    ],
   },
 ])
 </script>
@@ -476,8 +598,9 @@ const options = computed<VgoOptionItem[]>(() => [
   overflow: auto;
 }
 
-.settings :deep(.settings-color-row) {
-  align-items: flex-start;
+.settings :deep(.settings-row-actions) {
+  display: flex;
+  gap: var(--vgo-space-1);
 }
 
 .settings :deep(.vgo-option-item__child) {

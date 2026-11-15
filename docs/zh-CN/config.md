@@ -46,7 +46,7 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 | `logLevel` | string | `"warn"` | 事件日志阈值：`verbose` / `warn` / `error` / `none`，未知值回落到 `warn`。启动提示不受它影响 |
 | `sslKey` / `sslCert` | string | `""` | 两个都非空才以 HTTPS 启动，路径相对数据目录，见 [ssl.md](./ssl.md) |
 | `allowedCIDRs` | string[] | `null` | 允许访问的客户端 IP 段（CIDR）。`null`（缺省）表示不限制，`[]` 表示全部拒绝，见 [ip-allowlist.md](./ip-allowlist.md) |
-| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/server/updates`（校验并替换自身二进制、重启）、`POST /api/server/restarts`（原地重启进程）和 `DELETE /api/server`（退出进程）。关闭时这三条路由**根本不注册**，请求得到 404 |
+| `allowSelfUpdate` | bool | `false` | 是否注册 `POST /api/server/updates`（校验并替换自身二进制、重启）、`POST /api/server/restarts`（原地重启进程）和 `DELETE /api/server`（退出进程）。GitHub 更新检查、状态和安装路由始终注册。关闭时这三条路由**根本不注册**，请求得到 404 |
 | `allowedRoots` | string[] | `[]` | 允许访问的根路径，**范围限制**；空表示不限制。见下 |
 
 超过上表的字段都会当作未配置。曾经可配的 `ffmpegPath`、`taskConcurrency`、`copyFileConcurrency`、`copyFsync` 已删除：ffmpeg 固定在 `PATH` 中查找，任务并发固定 2、单任务内文件并发固定 4，**本机卷上**临时文件在改名之前一定 fsync。网络位置（SMB / NFS / 对象存储挂载）上不做这次 fsync，也不对齐权限与时间——那三处各是一次网络往返，而挂载层本身已经保证数据已提交。
@@ -81,6 +81,6 @@ File Lite（Go 后端）的配置来自数据目录下的 `config.json`。本文
 - access token 15 分钟后过期，应用开着或仍在请求时会自动续期；续期窗口 30 天，使用中向后滑动。30 天完全没有使用的会话需要重新输入密码。改 `jwtToken` 会让所有 access 与续期 token 立刻失效。
 - `Authorization: Bearer` 客户端不能续期（refresh 接口要求浏览器的 cookie 对和 CSRF header），所以用 bearer token 的脚本 15 分钟后需要重新认证。
 - **默认情况下，服务进程有权访问的每一个路径，登录后都能读写**（`allowedRoots` 为空时）。只在你信任的网络里运行；必要时配合 `allowedCIDRs` 限制来源，或用 `allowedRoots` 把范围收窄。
-- `allowSelfUpdate` 打开后，**任何已登录用户**都能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里打开，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
+- GitHub 更新检查与安装路由始终注册，因此**任何已登录用户**都能安装已发布的版本并重启服务。`allowSelfUpdate` 打开后，他们还能上传并运行任意二进制，或重启、停掉服务。只在你信任的网络里暴露服务，必要时配合 `allowedCIDRs` 一起用；详见 [ip-allowlist.md](./ip-allowlist.md)。
 - 改 `password` / `jwtToken` / `port` / `host` / `sslKey` / `sslCert` 之后需要重启进程。
 - 环境变量只在配置文件没有写该字段时生效：命令行 > 配置文件 > 环境变量。

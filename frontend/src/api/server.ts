@@ -1,7 +1,7 @@
 import type { UpdateStatus } from '@/types/server'
 import service from '@/utils/service'
 
-/** 自更新、重启与退出（docs/design/api.md §10）。只有服务端开了 allowSelfUpdate 才存在。 */
+/** 更新、重启与退出（docs/design/api.md §10）。重启和退出只在服务端开了 allowSelfUpdate 时存在。 */
 
 export interface UpdateResult {
   message: string
@@ -60,13 +60,13 @@ export function exitBackend() {
  * The backend resolves the release for its own platform, so the browser never
  * needs to know which asset to pick. A failed GitHub request becomes a 502.
  */
-export async function checkUpdate(channel: UpdateChannel): Promise<UpdateInfo> {
-  return (await service.get(`/api/server/update`, { params: { channel } })) as unknown as UpdateInfo
+export async function checkUpdate(channel: UpdateChannel, options?: { isToast?: boolean }): Promise<UpdateInfo> {
+  return (await service.get(`/api/server/update`, { params: { channel }, isToast: options?.isToast })) as unknown as UpdateInfo
 }
 
-/** Snapshot of an update that is already downloading, fetched when the settings window opens. */
+/** Snapshot of an update that is already downloading, fetched when the app opens. */
 export async function getUpdateStatus(): Promise<UpdateStatus> {
-  return (await service.get(`/api/server/update/status`)) as unknown as UpdateStatus
+  return (await service.get(`/api/server/update/status`, { isToast: false })) as unknown as UpdateStatus
 }
 
 /**
@@ -75,6 +75,6 @@ export async function getUpdateStatus(): Promise<UpdateStatus> {
  * Progress arrives over the shared WebSocket (`scope: 'update'`). The backend
  * answers only after the binary has been replaced, then restarts itself.
  */
-export async function installGitHubUpdate(tag: string): Promise<UpdateResult> {
-  return (await service.post(`/api/server/updates/github`, { tag })) as unknown as UpdateResult
+export async function installGitHubUpdate(tag: string, options?: { isToast?: boolean }): Promise<UpdateResult> {
+  return (await service.post(`/api/server/updates/github`, { tag }, { isToast: options?.isToast })) as unknown as UpdateResult
 }
