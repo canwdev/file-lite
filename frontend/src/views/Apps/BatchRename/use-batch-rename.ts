@@ -6,8 +6,10 @@ import type {
   RuleConfig,
   RuleType,
 } from './engine/types'
+import type { BatchRenameItemResult } from '@/api/filesystem'
 import type { SdkEntry, SdkRenameResult } from '@/sdk/contract'
 import { useFileLiteSdk } from '@/sdk/use-app-sdk'
+import { fs } from '@/utils/fs'
 import { autoFixConflicts, computePreview } from './engine/rules'
 import { parseRulesJson, serializeRules } from './engine/rules-io'
 import { getDefaultConfig } from './engine/types'
@@ -31,6 +33,17 @@ const RULE_TYPES: RuleType[] = [
 
 let nextFileId = 1
 let nextRuleId = 1
+
+/** Chunk size for the bulk rename request. */
+const RENAME_BATCH_SIZE = 25
+
+interface RenameJob {
+  file: FileEntry
+  fromPath: string
+  toPath: string
+  fromName: string
+  toName: string
+}
 
 function baseNameOf(name: string) {
   const dot = name.lastIndexOf('.')
@@ -84,10 +97,13 @@ function applyRename(file: FileEntry, result: SdkRenameResult) {
 
 export function useBatchRename() {
   const sdk = useFileLiteSdk()
-  const files = ref<FileEntry[]>([])
+  // Shallow: file fields are mutated in batches and committed with triggerRef
+  // once, so renaming 800 files does not recompute the preview 800 times.
+  const files = shallowRef<FileEntry[]>([])
   const rules = ref<RenameRule[]>([])
   const extensionScope = ref<ExtensionScope>('name')
   const isBusy = ref(false)
+  const renameProgress = ref({ done: 0, total: 0 })
   const notice = ref('')
   const executionLog = ref<RenameChange[]>([])
   const undoStack = ref<RenameChange[][]>([])
@@ -140,13 +156,16 @@ export function useBatchRename() {
 
   function toggleFile(id: string) {
     const file = files.value.find(item => item.id === id)
-    if (file)
+    if (file) {
       file.selected = !file.selected
+      triggerRef(files)
+    }
   }
 
   function toggleAll(selected: boolean) {
     for (const file of files.value)
       file.selected = selected
+    triggerRef(files)
   }
 
   function addRule() {
@@ -203,6 +222,72 @@ export function useBatchRename() {
     previewOverride.value = null
   }, { deep: true })
 
+  function failedRename(job: RenameJob, reason: string): RenameChange {
+    return {
+      fileId: job.file.id,
+      fromPath: job.fromPath,
+      toPath: job.toPath,
+      fromName: job.fromName,
+      toName: job.toName,
+      status: 'failed',
+      reason,
+    }
+  }
+
+  /**
+   * Run renames in bounded chunks.
+   *
+   * One request returns the whole chunk, so 800 files cost ~32 HTTP round trips
+   * instead of 800, and the server broadcasts once per chunk. Local file fields
+   * are applied after each chunk but only committed to the reactive view once
+   * at the end; the preview and the two file lists therefore re-render a
+   * handful of times instead of once per file.
+   */
+  async function runRenameBatch(jobs: RenameJob[]): Promise<RenameChange[]> {
+    const changes: RenameChange[] = []
+    renameProgress.value = { done: 0, total: jobs.length }
+
+    for (let start = 0; start < jobs.length; start += RENAME_BATCH_SIZE) {
+      const chunk = jobs.slice(start, start + RENAME_BATCH_SIZE)
+      let results: BatchRenameItemResult[] = []
+      let requestError = ''
+      try {
+        const response = await fs.batchRenameEntries(
+          chunk.map(job => ({ path: job.fromPath, name: job.toName })),
+        )
+        results = response.results ?? []
+      }
+      catch (error) {
+        requestError = error instanceof Error ? error.message : String(error)
+      }
+
+      for (let index = 0; index < chunk.length; index++) {
+        const job = chunk[index]
+        const item = results[index]
+        if (requestError || !item || item.error || !item.newPath) {
+          changes.push(failedRename(job, requestError || item?.error || 'rename failed'))
+          continue
+        }
+        const actualName = item.entry?.name || baseNameOf(item.newPath)
+        applyRename(job.file, { path: item.newPath, name: actualName })
+        changes.push({
+          fileId: job.file.id,
+          fromPath: job.fromPath,
+          toPath: item.newPath,
+          fromName: job.fromName,
+          toName: actualName,
+          status: 'success',
+        })
+      }
+
+      renameProgress.value = { done: start + chunk.length, total: jobs.length }
+    }
+
+    triggerRef(files)
+    previewOverride.value = null
+    return changes
+  }
+
   async function execute() {
     if (isBusy.value || !displayChanged.value.length)
       return
@@ -210,122 +295,140 @@ export function useBatchRename() {
       notice.value = $t('file_lite_i18n.batch_rename_resolve_conflicts')
       return
     }
-    isBusy.value = true
-    notice.value = ''
+
     const affected = displayChanged.value
     const byId = new Map(files.value.map(file => [file.id, file]))
-    const targets = affected.map((row) => {
-      const file = byId.get(row.fileId)
-      return file ? joinPath(dirnameOf(file.path), row.newName) : ''
-    }).filter(Boolean)
-    let existing: string[] = []
-    try {
-      existing = await sdk.exists(targets)
-    }
-    catch (error) {
-      notice.value = $t('file_lite_i18n.batch_rename_failed', [error instanceof Error ? error.message : String(error)])
-      isBusy.value = false
-      return
-    }
-    if (existing.length) {
-      notice.value = $t('file_lite_i18n.batch_rename_destination_exists', [existing.slice(0, 3).join(', ') + (existing.length > 3 ? '…' : '')])
-      isBusy.value = false
-      return
-    }
-
-    const batch: RenameChange[] = []
+    const jobs: RenameJob[] = []
+    const targets: string[] = []
     for (const row of affected) {
       const file = byId.get(row.fileId)
       if (!file)
         continue
-      const fromPath = file.path
-      const toPath = joinPath(dirnameOf(fromPath), row.newName)
+      const toPath = joinPath(dirnameOf(file.path), row.newName)
+      jobs.push({
+        file,
+        fromPath: file.path,
+        toPath,
+        fromName: row.original,
+        toName: row.newName,
+      })
+      targets.push(toPath)
+    }
+    if (!jobs.length)
+      return
+
+    isBusy.value = true
+    notice.value = ''
+    renameProgress.value = { done: 0, total: jobs.length }
+    try {
+      let existing: string[] = []
       try {
-        const result = await sdk.rename(fromPath, row.newName)
-        applyRename(file, result)
-        batch.push({
-          fileId: file.id,
-          fromPath,
-          toPath: result.path,
-          fromName: row.original,
-          toName: row.newName,
-          status: 'success',
-        })
+        existing = await sdk.exists(targets)
       }
       catch (error) {
-        batch.push({
-          fileId: file.id,
-          fromPath,
-          toPath,
-          fromName: row.original,
-          toName: row.newName,
-          status: 'failed',
-          reason: error instanceof Error ? error.message : String(error),
-        })
+        notice.value = $t('file_lite_i18n.batch_rename_failed', [error instanceof Error ? error.message : String(error)])
+        return
       }
+      if (existing.length) {
+        notice.value = $t('file_lite_i18n.batch_rename_destination_exists', [existing.slice(0, 3).join(', ') + (existing.length > 3 ? '…' : '')])
+        return
+      }
+
+      const batch = await runRenameBatch(jobs)
+      executionLog.value = batch
+      const successes = batch.filter(item => item.status === 'success')
+      if (successes.length) {
+        undoStack.value = [...undoStack.value, successes]
+        redoStack.value = []
+      }
+      const failures = batch.length - successes.length
+      if (failures)
+        notice.value = $t('file_lite_i18n.batch_rename_failed_count', [failures])
     }
-    executionLog.value = batch
-    const successes = batch.filter(item => item.status === 'success')
-    if (successes.length) {
-      undoStack.value = [...undoStack.value, successes]
-      redoStack.value = []
+    finally {
+      isBusy.value = false
     }
-    const failures = batch.length - successes.length
-    if (failures)
-      notice.value = $t('file_lite_i18n.batch_rename_failed_count', [failures])
-    isBusy.value = false
   }
 
   async function undo() {
     if (isBusy.value || !undoStack.value.length)
       return
     const batch = undoStack.value[undoStack.value.length - 1]
-    isBusy.value = true
-    const redo: RenameChange[] = []
+    const jobs: RenameJob[] = []
     for (const change of [...batch].reverse()) {
-      try {
-        const result = await sdk.rename(change.toPath, change.fromName)
-        const file = files.value.find(item => item.id === change.fileId)
-        if (file) {
-          applyRename(file, result)
-        }
-        redo.push({ ...change, fromPath: result.path, toPath: change.toPath, status: 'success' })
-      }
-      catch {
-        // Keep the batch in the undo stack so a retry can finish it.
+      const file = files.value.find(item => item.id === change.fileId)
+      if (!file)
+        continue
+      jobs.push({
+        file,
+        fromPath: change.toPath,
+        toPath: joinPath(dirnameOf(change.toPath), change.fromName),
+        fromName: change.toName,
+        toName: change.fromName,
+      })
+    }
+    if (!jobs.length)
+      return
+
+    isBusy.value = true
+    try {
+      const results = await runRenameBatch(jobs)
+      const done = new Set(results.filter(item => item.status === 'success').map(item => item.fileId))
+      const redo = batch.filter(change => done.has(change.fileId)).map(change => ({
+        ...change,
+        status: 'success' as const,
+      }))
+      if (redo.length) {
+        undoStack.value = undoStack.value.slice(0, -1)
+        redoStack.value = [...redoStack.value, redo]
       }
     }
-    if (redo.length) {
-      undoStack.value = undoStack.value.slice(0, -1)
-      redoStack.value = [...redoStack.value, redo]
+    finally {
+      isBusy.value = false
     }
-    isBusy.value = false
   }
 
   async function redo() {
     if (isBusy.value || !redoStack.value.length)
       return
     const batch = redoStack.value[redoStack.value.length - 1]
-    isBusy.value = true
-    const undoBatch: RenameChange[] = []
+    const jobs: RenameJob[] = []
     for (const change of batch) {
-      try {
-        const result = await sdk.rename(change.fromPath, change.toName)
-        const file = files.value.find(item => item.id === change.fileId)
-        if (file) {
-          applyRename(file, result)
-        }
-        undoBatch.push({ ...change, toPath: result.path, status: 'success' })
-      }
-      catch {
-        // Leave the batch available for a retry.
+      const file = files.value.find(item => item.id === change.fileId)
+      if (!file)
+        continue
+      jobs.push({
+        file,
+        fromPath: change.fromPath,
+        toPath: joinPath(dirnameOf(change.fromPath), change.toName),
+        fromName: change.fromName,
+        toName: change.toName,
+      })
+    }
+    if (!jobs.length)
+      return
+
+    isBusy.value = true
+    try {
+      const results = await runRenameBatch(jobs)
+      const byId = new Map(
+        results.filter(item => item.status === 'success').map(item => [item.fileId, item]),
+      )
+      const undoBatch = batch
+        .filter(change => byId.has(change.fileId))
+        .map(change => ({
+          ...change,
+          toPath: byId.get(change.fileId)!.toPath,
+          status: 'success' as const,
+        }))
+      if (undoBatch.length) {
+        redoStack.value = redoStack.value.slice(0, -1)
+        undoStack.value = [...undoStack.value, undoBatch]
       }
     }
-    if (undoBatch.length) {
-      redoStack.value = redoStack.value.slice(0, -1)
-      undoStack.value = [...undoStack.value, undoBatch]
+    finally {
+      isBusy.value = false
     }
-    isBusy.value = false
   }
 
   function exportText() {
@@ -397,6 +500,7 @@ export function useBatchRename() {
     rules,
     extensionScope,
     isBusy,
+    renameProgress,
     notice,
     executionLog,
     undoStack,

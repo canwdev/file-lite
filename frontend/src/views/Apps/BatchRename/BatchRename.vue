@@ -56,6 +56,7 @@ const {
   rules,
   extensionScope,
   isBusy,
+  renameProgress,
   notice,
   executionLog,
   undoStack,
@@ -468,7 +469,9 @@ function isAllSelected() {
           {{ $t('file_lite_i18n.batch_rename_redo') }}
         </button>
         <button class="vgo-button vgo-button--primary" :disabled="isBusy || !displayChanged.length || !!displayConflicts.length" @click="execute">
-          {{ isBusy ? $t('file_lite_i18n.batch_rename_renaming') : $t('file_lite_i18n.rename') }}
+          {{ isBusy
+            ? `${$t('file_lite_i18n.batch_rename_renaming')} ${renameProgress.done} / ${renameProgress.total}`
+            : $t('file_lite_i18n.rename') }}
         </button>
       </div>
     </footer>

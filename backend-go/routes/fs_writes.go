@@ -14,6 +14,7 @@ import (
 
 	"file-lite-go/apierr"
 	"file-lite-go/fileops"
+	"file-lite-go/types"
 	"file-lite-go/utils"
 )
 
@@ -164,6 +165,91 @@ func renameEntry(res fileops.Resolved, name string) (string, *apierr.Error) {
 		return "", fsError(err, res.Network() || to.Network())
 	}
 	return to.Path, nil
+}
+
+// ---- POST /api/fs/entries/rename ----
+
+// maxBatchRenameItems bounds one bulk request. The client chunks larger runs;
+// this only stops a single request from growing without limit.
+const maxBatchRenameItems = 10000
+
+type batchRenameItem struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+}
+
+type batchRenameItemResult struct {
+	Path    string       `json:"path"`
+	Name    string       `json:"name"`
+	NewPath string       `json:"newPath,omitempty"`
+	Entry   *types.Entry `json:"entry,omitempty"`
+	Error   string       `json:"error,omitempty"`
+}
+
+// batchRenameEntries renames many entries in one request.
+//
+// Unlike a task it is synchronous and not atomic: every item gets its own
+// result, and one failure does not roll back the others. All successful
+// changes of the batch are broadcast once, which is what keeps a bulk rename
+// from flooding every client's file list.
+func batchRenameEntries(c echo.Context) error {
+	var body struct {
+		Items []batchRenameItem `json:"items"`
+	}
+	if err := c.Bind(&body); err != nil {
+		return apierr.BadRequest(apierr.CodeBadRequest, "Bad Request")
+	}
+	if len(body.Items) == 0 {
+		return apierr.BadRequest(apierr.CodeBadRequest, "items is required")
+	}
+	if len(body.Items) > maxBatchRenameItems {
+		return apierr.BadRequest(apierr.CodeTooManyPaths, "too many items")
+	}
+
+	changes := &listingChangeSet{}
+	fallbackDirs := map[string]struct{}{}
+	results := make([]batchRenameItemResult, 0, len(body.Items))
+	for _, item := range body.Items {
+		result := batchRenameItemResult{Path: item.Path, Name: item.Name}
+		res, apiErr := resolvePath(item.Path)
+		if apiErr != nil {
+			result.Error = apiErr.Message
+			results = append(results, result)
+			continue
+		}
+		toPath, apiErr := renameEntry(res, item.Name)
+		if apiErr != nil {
+			result.Error = apiErr.Message
+			results = append(results, result)
+			continue
+		}
+		result.NewPath = toPath
+		if toPath == res.Path {
+			// Idempotent rename: succeed without touching the listing.
+			if entry, ok := statEntry(toPath); ok {
+				result.Entry = &entry
+			}
+		} else if entry, ok := statEntry(toPath); ok {
+			result.Entry = &entry
+			changes.remove(fileops.DirName(res.Path), fileops.BaseName(res.Path))
+			changes.add(toPath)
+		} else {
+			// The rename succeeded but the new entry cannot be read: fall back to
+			// a directory-only broadcast for clients that cannot apply a patch.
+			fallbackDirs[fileops.DirName(res.Path)] = struct{}{}
+		}
+		results = append(results, result)
+	}
+
+	changes.broadcast()
+	if len(fallbackDirs) > 0 {
+		paths := make([]string, 0, len(fallbackDirs))
+		for dir := range fallbackDirs {
+			paths = append(paths, dir)
+		}
+		broadcastFSChanged(paths, nil)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"results": results})
 }
 
 // ---- PUT /api/fs/content/{path} ----

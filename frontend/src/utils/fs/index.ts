@@ -8,7 +8,7 @@
  * 为什么要有它：文件 API 曾经散布在各个 app 里，收口之后「写之前问一次能不能写」
  * 这类规则只在一处。
  */
-import type { MediaLink, MediaLinkTTL } from '@/api/filesystem'
+import type { BatchRenameResponse, MediaLink, MediaLinkTTL } from '@/api/filesystem'
 import type { IEntry } from '@/types/server'
 import { fsWebApi, TEXT_CHARSET_HEADER } from '@/api/filesystem'
 import { moveImageThumbCache } from '@/utils/image-thumb-cache'
@@ -180,6 +180,19 @@ export async function rename(fromPath: string, toPath: string): Promise<FsRename
 }
 
 /**
+ * 批量改名。结果顺序与入参一致；失败项带 error，不影响其它项。
+ * 成功的项和单条 rename 一样，把缩略图缓存跟着路径搬走。
+ */
+export async function batchRenameEntries(items: { path: string, name: string }[]): Promise<BatchRenameResponse> {
+  const response = await fsWebApi.batchRenameEntries(items)
+  for (const result of response.results ?? []) {
+    if (result.newPath)
+      void moveImageThumbCache(result.path, result.newPath)
+  }
+  return response
+}
+
+/**
  * 批量判断路径是否存在（上传 / 复制前的冲突预检）。
  *
  * 一次请求问完一批：服务端自己并发 stat，比每个文件问一次省掉 N-1 次往返。
@@ -298,6 +311,7 @@ export const fs = {
   readBlob,
   mkdir,
   rename,
+  batchRenameEntries,
   stat,
   existingPaths,
   drives,

@@ -18,7 +18,7 @@ import { confirmDeleteDialog } from '@/utils/delete-confirm'
 import { fs } from '@/utils/fs'
 import { resolveMenuIcons } from '@/utils/icons'
 import { regImageFormat } from '@/utils/is'
-import { defaultAppMap, getFileExt, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
+import { defaultAppMap, getFileExt, InternalAppEnum, OpenWithEnum, setDefaultApp } from '@/views/Apps/apps'
 import { openAppWindow, openPluginWindow, selectionAppParams } from '@/views/Apps/apps-store'
 import PluginIcon from '@/views/Apps/PluginIcon.vue'
 import { showProperties } from '@/views/Apps/properties'
@@ -60,6 +60,7 @@ export function useFileActions({
   emit,
   onEntryCreated,
   isBranchView,
+  onFlattenSelection,
   onOpenContainingFolder,
 }: {
   isLoading: Ref<boolean>
@@ -77,6 +78,8 @@ export function useFileActions({
   emit: any
   onEntryCreated?: (path: string) => void
   isBranchView?: Ref<boolean>
+  /** Enter branch view scoped to the selected files / folders. */
+  onFlattenSelection?: () => void
   onOpenContainingFolder?: (path: string) => void
 }) {
   function containingFolderOf(item: IEntry): string {
@@ -412,12 +415,23 @@ export function useFileActions({
           onClick: () => openPluginWindow(target.plugin, params),
         }
       }
+      const isBatchRename = target.appName === InternalAppEnum.BatchRename
       return {
         label: targetName(target),
         icon: targetIcon(target),
+        // With more than one entry, F2 opens this app instead of inline rename.
+        ...(isBatchRename && selectedItems.value.length > 1 ? { shortcut: 'F2' } : {}),
         onClick: () => openAppWindow(target.appName, params),
       }
     })
+  }
+
+  /** Open Batch Rename for the current selection (F2 with more than one item). */
+  function openBatchRename() {
+    const kind = selectionKind.value
+    if (!kind)
+      return
+    openAppWindow(InternalAppEnum.BatchRename, selectionAppParams(selectedItems.value, basePath.value, kind))
   }
 
   function pluginsSubMenu(onPick: (pluginId: string) => void, currentId?: string | null): MenuItem | null {
@@ -666,16 +680,14 @@ export function useFileActions({
       { label: $t('file_lite_i18n.copy'), icon: 'mdi mdi-content-copy', shortcut: 'Ctrl+C', onClick: handleCopy },
       { label: $t('file_lite_i18n.more'), icon: '', divided: true, children: [
         ...moreAppItems,
-        // Branch view is a listing mode, not an action on the selection: offer the
-        // same toggle for single and multiple selected entries.
+        // Flatten exactly the selected entries: selected files plus everything
+        // under each selected folder, rather than the whole current folder.
         isBranchView && {
           label: $t('file_lite_i18n.branch_view'),
           icon: 'mdi mdi-file-tree',
+          shortcut: 'Ctrl+B',
           divided: true,
-          onClick: () => {
-            if (isBranchView)
-              isBranchView.value = !isBranchView.value
-          },
+          onClick: () => onFlattenSelection?.(),
         },
         {
           label: $t('file_lite_i18n.open_containing_folder'),
@@ -779,6 +791,7 @@ export function useFileActions({
     handleCreateFile,
     handleCreateFolder,
     handleRename,
+    openBatchRename,
     doDeleteSelected,
     confirmDelete,
     ctxMenuOptions,

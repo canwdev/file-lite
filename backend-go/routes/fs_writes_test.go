@@ -272,3 +272,67 @@ func TestQueryEntries(t *testing.T) {
 		t.Fatalf("existing = %v，期望只有 %q", parsed.Existing, present)
 	}
 }
+
+func TestBatchRenameEntries(t *testing.T) {
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.txt")
+	b := filepath.Join(dir, "b.txt")
+	if err := os.WriteFile(a, []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(b, []byte("b"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"items": []map[string]string{
+			{"path": filepath.ToSlash(a), "name": "a2.txt"},
+			{"path": filepath.ToSlash(filepath.Join(dir, "missing.txt")), "name": "x.txt"},
+			{"path": filepath.ToSlash(b), "name": "../bad.txt"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := newRESTTestServer()
+	rec := restRequest(t, e, http.MethodPost, "/api/fs/entries/rename", string(body), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results []struct {
+			Path    string `json:"path"`
+			NewPath string `json:"newPath"`
+			Entry   *struct {
+				Name string `json:"name"`
+			} `json:"entry"`
+			Error string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("response is not JSON: %v: %s", err, rec.Body.String())
+	}
+	if len(response.Results) != 3 {
+		t.Fatalf("results = %d, want 3: %s", len(response.Results), rec.Body.String())
+	}
+	if response.Results[0].Error != "" || response.Results[0].Entry == nil || response.Results[0].Entry.Name != "a2.txt" {
+		t.Fatalf("first item should be renamed: %+v", response.Results[0])
+	}
+	if response.Results[1].Error == "" {
+		t.Fatalf("missing source should fail: %+v", response.Results[1])
+	}
+	if response.Results[2].Error == "" {
+		t.Fatalf("invalid name should fail: %+v", response.Results[2])
+	}
+	if _, err := os.Stat(filepath.Join(dir, "a2.txt")); err != nil {
+		t.Fatalf("a2.txt was not written: %v", err)
+	}
+	if _, err := os.Stat(a); !os.IsNotExist(err) {
+		t.Fatalf("a.txt still exists")
+	}
+	if _, err := os.Stat(b); err != nil {
+		t.Fatalf("b.txt should stay untouched: %v", err)
+	}
+}

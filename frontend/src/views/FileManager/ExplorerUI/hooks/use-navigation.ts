@@ -4,6 +4,7 @@ import { subscribeFsChanged } from '@/store/tasks'
 import { NavigationHistory } from '@/views/FileManager/utils/navigation-history.ts'
 import { canGoUp, getLastDirName, getParentPath, normalizeListingPath, normalizePath } from '../../utils'
 import { seedFolderListing } from '../folder-listing'
+import { mergeFsDirChanges } from '../fs-change-buffer'
 import { useFavourites } from './use-favourites'
 import { useOpener } from './use-opener'
 
@@ -120,7 +121,16 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
 
   // 服务端在目录变化后广播 fs changed：带上条目级 changes 就原地打补丁，
   // 只有拿不到 changes 时才退回整目录刷新。上传、建目录、重命名与任务结束都走这条。
-  const unsubscribeFsChanged = subscribeFsChanged((paths, changes) => {
+  //
+  // A bulk operation can emit hundreds of these in a row. Buffer them briefly and
+  // merge per directory so the list is patched once per burst instead of once per
+  // file; single operations just see a ~200ms delay.
+  const FS_CHANGE_FLUSH_MS = 200
+  let pendingFsPaths = new Set<string>()
+  let pendingFsChanges: FsDirChange[] = []
+  let fsFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+  function handleFsChanges(paths: string[], changes: FsDirChange[]) {
     if (!paths.length && !changes.length) {
       return
     }
@@ -145,8 +155,36 @@ export function useNavigation({ basePath, getListFn, flatListing, beforeOpenPath
     if (paths.some(path => normalizeListingPath(path) === current)) {
       void handleRefresh(false)
     }
+  }
+
+  const unsubscribeFsChanged = subscribeFsChanged((paths, changes) => {
+    if (!paths.length && !changes.length) {
+      return
+    }
+    for (const path of paths)
+      pendingFsPaths.add(path)
+    if (changes.length)
+      pendingFsChanges.push(...changes)
+
+    if (fsFlushTimer) {
+      return
+    }
+    fsFlushTimer = setTimeout(() => {
+      fsFlushTimer = null
+      const mergedPaths = [...pendingFsPaths]
+      const mergedChanges = mergeFsDirChanges(pendingFsChanges)
+      pendingFsPaths = new Set()
+      pendingFsChanges = []
+      handleFsChanges(mergedPaths, mergedChanges)
+    }, FS_CHANGE_FLUSH_MS)
   })
-  onBeforeUnmount(unsubscribeFsChanged)
+  onBeforeUnmount(() => {
+    if (fsFlushTimer) {
+      clearTimeout(fsFlushTimer)
+      fsFlushTimer = null
+    }
+    unsubscribeFsChanged()
+  })
 
   /**
    * 用条目级变化原地改当前列表。

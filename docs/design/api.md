@@ -98,7 +98,7 @@ Rules the server relies on:
 | Volumes | `GET /api/volumes` |
 | Plugins | `GET /api/plugins` |
 | Directories | `GET PUT /api/fs/directories/{path}` |
-| Entries | `GET PATCH /api/fs/entries/{path}` |
+| Entries | `GET PATCH /api/fs/entries/{path}`, `POST /api/fs/entries/rename` |
 | Content | `GET HEAD PUT /api/fs/content/{path}` |
 | Media links | `POST /api/fs/media-links` |
 | Public media | `GET HEAD /api/media/{path}?exp=…&sig=…` |
@@ -386,6 +386,22 @@ Renames an entry **within its current directory**. Moving across directories is 
 - `200 OK` with `{ "path": "…", "entry": { … } }`.
 - `400` `invalid_name` for a malformed or reserved name.
 - `404` when the source does not exist, `409` when the target already exists.
+
+### `POST /api/fs/entries/rename`
+
+Renames many entries in one request. Each item follows the same rules as the
+single-entry PATCH; one failure does not roll back the others.
+
+```json
+{ "items": [ { "path": "…", "name": "renamed.txt" } ] }
+```
+
+- `200 OK` with `results` in request order:
+  `{ "path", "name", "newPath", "entry", "error" }`. `newPath` and `entry` are omitted on
+  failure; `error` carries the message the single PATCH would have returned.
+- At most 10000 items per request.
+- Successful changes are broadcast once at the end (one `fs changed` per batch), not per
+  item.
 
 ### `GET` / `HEAD` / `PUT /api/fs/content/{path}`
 

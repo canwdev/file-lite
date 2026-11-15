@@ -69,6 +69,7 @@ func registerREST(api *echo.Group) {
 	fs.PUT("/directories/*", putDirectory)
 	fs.GET("/entries/*", getEntry)
 	fs.PATCH("/entries/*", patchEntry)
+	fs.POST("/entries/rename", batchRenameEntries)
 	fs.POST("/entry-queries", queryEntries)
 	fs.PUT("/content/*", putContent)
 	// Minting a public link is a write: it stays behind the session and CSRF.

@@ -25,6 +25,7 @@ func newRESTTestServer() *echo.Echo {
 	fs.PUT("/directories/*", putDirectory)
 	fs.GET("/entries/*", getEntry)
 	fs.PATCH("/entries/*", patchEntry)
+	fs.POST("/entries/rename", batchRenameEntries)
 	fs.POST("/entry-queries", queryEntries)
 	fs.GET("/content/*", getContent)
 	fs.HEAD("/content/*", getContent)

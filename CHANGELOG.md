@@ -7,6 +7,7 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 ### UI
 
 - **Branch view**: The address bar shows a closable badge while Ctrl+B is on, and a selected file or folder can toggle branch view from the context menu's More submenu (frontend).
+- **Batch Rename**: With more than one item selected, F2 opens Batch Rename, and the More menu shows F2 on its Batch Rename entry (frontend).
 
 ### Features
 
@@ -15,6 +16,9 @@ The version number is defined in `frontend/src/enum/version.ts` and must stay in
 
 ### Fixes
 
+- **Batch Rename**: Renaming hundreds of files uses chunked bulk rename requests, one list commit and a progress counter instead of recomputing the preview for every file; undo and redo use the same path (frontend, backend).
+- **Explorer**: Filesystem-change notifications from a burst are merged for a short window and applied once, instead of patching or refreshing the list per file (frontend).
+- **Branch view**: Ctrl+B and the context menu's Branch view now flatten only the selected files and folders when there is a selection, instead of the whole current folder (frontend).
 - **File picker**: Cancelling the Save As dialog keeps the file-type filter while it closes, so the folder is not re-rendered behind the animation (frontend).
 - **Branch view**: Dragging a file from a subfolder onto the current folder now moves it there instead of being rejected (frontend).
 - **Branch view**: A cut file that lives in a subfolder is now dimmed in the list and is actually moved from its real path (frontend).

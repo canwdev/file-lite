@@ -24,6 +24,23 @@ function entryUrl(representation: string, path: string): string {
  */
 export const TEXT_CHARSET_HEADER = 'X-Text-Charset'
 
+/** One item of a batch rename response; order follows the request items. */
+export interface BatchRenameItemResult {
+  /** Source path as sent by the caller. */
+  path: string
+  /** Requested new basename. */
+  name: string
+  /** Path after the rename; absent on failure. */
+  newPath?: string
+  /** Fresh listing entry for the renamed item, when readable. */
+  entry?: IEntry
+  error?: string
+}
+
+export interface BatchRenameResponse {
+  results: BatchRenameItemResult[]
+}
+
 /** 列目录的响应（docs/design/api.md §6）。 */
 export interface ListResult {
   path: string
@@ -146,6 +163,13 @@ export const fsWebApi = {
     const index = normalized.lastIndexOf('/')
     const name = index === -1 ? normalized : normalized.slice(index + 1)
     return service.patch(entryUrl('entries', params.fromPath), { name })
+  },
+  /**
+   * 批量改名。服务端逐项返回结果，并把整批成功的变更合成一次目录广播。
+   * 失败项不会影响其它项；调用方按返回顺序对应请求项。
+   */
+  batchRenameEntries(items: { path: string, name: string }[]) {
+    return service.post('/api/fs/entries/rename', { items }, { isToast: false }) as unknown as Promise<BatchRenameResponse>
   },
   /** 在宿主机的文件管理器里打开若干路径。 */
   openInHostExplorer(params: { paths: string[] }) {

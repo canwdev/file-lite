@@ -88,34 +88,61 @@ test.describe('branch view', () => {
     await expect(rowAt(page, '/branch/sub1/same.txt')).toHaveCount(0)
   })
 
-  test('More toggles branch view for single and multiple selections', async ({ page }) => {
+  test('More and Ctrl+B flatten only the selected files and folders', async ({ page }) => {
     await login(page)
     await openFolder(page, 'branch')
 
-    // Single selection: Branch view sits directly below Batch Rename and no
-    // longer advertises Ctrl+B (the shortcut is already handled by the panel).
-    let items = await openSelectionMore(page, row(page, 'a.txt'))
-    await expect(items.filter({ hasText: /^Branch view$/ }).last()).toBeVisible()
+    // Single file: Branch view sits directly below Batch Rename and shows the
+    // panel shortcut.
+    const items = await openSelectionMore(page, row(page, 'a.txt'))
+    await expect(items.filter({ hasText: /^Branch view/ }).last()).toBeVisible()
     const labels = (await items.allInnerTexts()).map(text => text.trim())
     const batchIndex = labels.indexOf('Batch Rename')
     expect(batchIndex).toBeGreaterThanOrEqual(0)
-    expect(labels.indexOf('Branch view')).toBe(batchIndex + 1)
-    const branchItem = items.filter({ hasText: /^Branch view$/ }).last()
-    await expect(branchItem).not.toContainText('Ctrl+B')
+    expect(labels.findIndex(text => text.startsWith('Branch view'))).toBe(batchIndex + 1)
+    const branchItem = items.filter({ hasText: /^Branch view/ }).last()
+    await expect(branchItem).toContainText('Ctrl+B')
     await branchItem.click()
+
     await expect(branchBadge(page)).toBeVisible()
-    await expect(rowAt(page, '/branch/sub1/deeper/deep.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/a.txt')).toBeVisible()
+    // The rest of the current folder is filtered out.
+    await expect(rowAt(page, '/branch/sub1/same.txt')).toHaveCount(0)
+    await expect(rowAt(page, '/branch/sub2/same.txt')).toHaveCount(0)
 
-    // Multiple selection: the same More item still toggles the mode off.
-    await rowAt(page, '/branch/a.txt').click()
-    await rowAt(page, '/branch/sub1/deeper/deep.txt').click({ modifiers: ['Control'] })
-    await expect(page.locator('.explorer-main:visible tr.is-active')).toHaveCount(2)
-    items = await openSelectionMore(page, rowAt(page, '/branch/a.txt'))
-    await items.filter({ hasText: /^Branch view$/ }).last().click()
-
-    await expect(branchBadge(page)).toBeHidden()
+    // The badge leaves the selection-scoped view and restores the folder.
+    await branchBadge(page).click()
     await expect(row(page, 'sub1')).toBeVisible()
-    await expect(rowAt(page, '/branch/sub1/deeper/deep.txt')).toHaveCount(0)
+
+    // Folder selection through Ctrl+B: only that folder's subtree is shown.
+    await row(page, 'sub1').click()
+    await focusList(page)
+    await page.keyboard.press('Control+b')
+    await expect(branchBadge(page)).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/same.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/only-one.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/deeper/deep.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/a.txt')).toHaveCount(0)
+    await expect(rowAt(page, '/branch/sub2/same.txt')).toHaveCount(0)
+
+    await branchBadge(page).click()
+    await expect(row(page, 'a.txt')).toBeVisible()
+
+    // File + folder selection: the union of the file and the folder subtree.
+    await row(page, 'sub1').click()
+    await row(page, 'a.txt').click({ modifiers: ['Control'] })
+    await expect(page.locator('.explorer-main:visible tr.is-active')).toHaveCount(2)
+    await focusList(page)
+    await page.keyboard.press('Control+b')
+    await expect(branchBadge(page)).toBeVisible()
+    await expect(rowAt(page, '/branch/a.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/same.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/only-one.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub1/deeper/deep.txt')).toBeVisible()
+    await expect(rowAt(page, '/branch/sub2/same.txt')).toHaveCount(0)
+
+    await branchBadge(page).click()
+    await expect(row(page, 'sub2')).toBeVisible()
   })
 
   test('cut dims only the nested file and paste moves that file', async ({ page }) => {

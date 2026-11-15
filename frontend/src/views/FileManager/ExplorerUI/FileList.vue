@@ -128,6 +128,12 @@ const isBranchView = computed({
     updatePaneView({ branch: val })
   },
 })
+/**
+ * Branch view roots chosen from the selection. Non-null means the flat listing
+ * is narrowed to the selected files and the contents of the selected folders.
+ * Runtime only: it is a snapshot of one action, not a persisted view mode.
+ */
+const selectionRoots = ref<string[] | null>(null)
 const iconSizeList = computed({
   get: () => paneView.value.iconSizeList,
   set: (val: number) => updatePaneView({ iconSizeList: val }),
@@ -145,15 +151,26 @@ const isGridMode = computed(() => isGridView.value || props.gridView)
 const { sortOptions, sortedFiles } = useLayoutSort(files, sortMode, showHidden)
 const { groupOptions } = useLayoutGroup(groupField, groupDesc, clearCollapsedGroups)
 
+const scopedSortedFiles = computed(() => {
+  const roots = selectionRoots.value
+  if (!roots?.length)
+    return sortedFiles.value
+  // Only files belong in the flat result: a selected folder contributes its
+  // descendants, never the folder row itself.
+  return sortedFiles.value.filter(item =>
+    !item.isDirectory && roots.some(root => item.path === root || item.path.startsWith(`${root}/`)),
+  )
+})
+
 const filteredFiles = computed(() => {
   const filterValue = filter.value
   const search = filterValue.text.trim()
   if (!search)
-    return sortedFiles.value
+    return scopedSortedFiles.value
 
   if (!filterValue.regex) {
     const needle = filterValue.caseSensitive ? search : search.toLowerCase()
-    return sortedFiles.value.filter((item) => {
+    return scopedSortedFiles.value.filter((item) => {
       if (item.isDirectory && !filterDirectories.value)
         return true
       const name = filterValue.caseSensitive ? item.name : item.name.toLowerCase()
@@ -163,7 +180,7 @@ const filteredFiles = computed(() => {
 
   try {
     const reg = new RegExp(search, filterValue.caseSensitive ? '' : 'i')
-    return sortedFiles.value.filter(item =>
+    return scopedSortedFiles.value.filter(item =>
       (item.isDirectory && !filterDirectories.value) || reg.test(item.name),
     )
   }
@@ -187,9 +204,12 @@ const keyboardFiles = computed(() => {
 })
 
 const isFilterActive = computed(() => isFileFilterActive(filter.value))
-const isDirectoryEmpty = computed(() => !isLoading.value && sortedFiles.value.length === 0)
+const isDirectoryEmpty = computed(() => !isLoading.value && !selectionRoots.value && sortedFiles.value.length === 0)
+const isSelectionEmpty = computed(() =>
+  Boolean(selectionRoots.value) && !isLoading.value && scopedSortedFiles.value.length === 0,
+)
 const isFilterEmpty = computed(() =>
-  !isLoading.value && isFilterActive.value && filteredFiles.value.length === 0 && sortedFiles.value.length > 0,
+  !isLoading.value && isFilterActive.value && filteredFiles.value.length === 0 && scopedSortedFiles.value.length > 0,
 )
 const emptyState = computed(() => {
   // 加载失败优先于「空目录」：列失败时 files 会被清空，不特判就会显示
@@ -202,6 +222,15 @@ const emptyState = computed(() => {
       icon: 'alert-circle-outline',
       title: isBranchView.value ? $t('file_lite_i18n.can_t_flatten_this_folder') : $t('file_lite_i18n.can_t_open_this_folder'),
       description: props.loadError,
+      showClear: false,
+    }
+  }
+
+  if (isSelectionEmpty.value) {
+    return {
+      icon: 'folder-open-outline',
+      title: $t('file_lite_i18n.no_files'),
+      description: $t('file_lite_i18n.no_files'),
       showClear: false,
     }
   }
@@ -356,6 +385,27 @@ const {
   allowMultipleSelection,
   selectables: props.selectables,
   getItemsInSelectionRect,
+})
+
+/**
+ * Flatten the current selection: selected files stay as entries and each
+ * selected folder contributes its recursive contents. The actual flat rows
+ * come from the regular branch listing, then `selectionRoots` narrows them.
+ */
+function applySelectionFlatten() {
+  const roots = selectedItems.value.map(item => normalizePath(item.path))
+  if (!roots.length)
+    return
+  selectionRoots.value = roots
+  if (!isBranchView.value)
+    isBranchView.value = true
+}
+
+watch(isBranchView, (enabled) => {
+  // Leaving branch view also leaves the selection-scoped variant; the roots
+  // only make sense while the flat listing is active.
+  if (!enabled)
+    selectionRoots.value = null
 })
 
 const listRowHeight = computed(() => Math.max(iconSizeList.value + 18, 37))
@@ -996,6 +1046,7 @@ const {
   handleCreateFile,
   handleCreateFolder,
   handleRename: renameSelected,
+  openBatchRename,
   confirmDelete,
   ctxMenuOptions,
   handleShowCtxMenu,
@@ -1017,6 +1068,7 @@ const {
   downloadToFolder,
   emit,
   isBranchView,
+  onFlattenSelection: applySelectionFlatten,
   onOpenContainingFolder: (path) => {
     emit('openPath', path)
   },
@@ -1036,6 +1088,10 @@ const openActionMeta = computed(() => {
 })
 
 async function handleRename() {
+  if (selectedItems.value.length > 1) {
+    openBatchRename()
+    return
+  }
   await renameSelected()
   focusFileList()
 }
@@ -1129,6 +1185,9 @@ function viewMenuItems(): MenuItem[] {
       shortcut: 'Ctrl+B',
       divided: isGrouping.value,
       onClick: () => {
+        // The no-selection View menu always means the plain current-directory
+        // branch view; a leftover selection filter would be invisible here.
+        selectionRoots.value = null
         isBranchView.value = !isBranchView.value
       },
     },
@@ -1421,6 +1480,13 @@ useShortcut({
   combo: ['ctrl+b', 'meta+b'],
   description: 'Toggle branch view',
   handler: () => {
+    // With a selection, Ctrl+B means "flatten these entries"; without one it
+    // keeps the pane-level current-directory branch toggle.
+    if (selectedItems.value.length) {
+      applySelectionFlatten()
+      return
+    }
+    selectionRoots.value = null
     isBranchView.value = !isBranchView.value
   },
 })
